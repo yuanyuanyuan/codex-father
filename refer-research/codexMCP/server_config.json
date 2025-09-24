@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "CodexMCP": {
+      "command": "python",
+      "args": [
+        "-m",
+        "codexmcp.server"
+      ]
+    }
+  }
+} 
