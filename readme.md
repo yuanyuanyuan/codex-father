@@ -145,10 +145,10 @@ cat brief.md | ./codex-command/start.sh -F - --task "根据上述简报生成实
 
 ### MCP（JSON-RPC/stdio）
 
-- Bash 入口：`mcp/server.sh`
-- 依赖：`bash` + `jq`（解析请求所需）
+- 入口：`mcp/server.sh`（TypeScript 实现，基于 @modelcontextprotocol/sdk）
+- 依赖：Node.js >= 18
 - 工具（tools）：`codex.start`、`codex.status`、`codex.logs`、`codex.stop`、`codex.list`
-- 使用：参考 `codex-command/mcp/README.md` 示例（通过 `tools/list` 和 `tools/call` 调用）。
+- 使用：参考 `mcp/README.md` 示例（通过 `tools/list` 和 `tools/call` 调用）。
 
 #### TypeScript 版 MCP 服务器（基于 @modelcontextprotocol/sdk）
 
