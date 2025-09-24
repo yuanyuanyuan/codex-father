@@ -1,0 +1,6 @@
+=== [20250924_230053] Codex Run  ===
+Log: /home/stark/codex-father/runs/cdx-20250924_230053-mcp-smoke/job.log
+Instructions: /home/stark/codex-father/runs/cdx-20250924_230053-mcp-smoke/job.instructions.md
+Title: <user-instructions>
+Exit: 0
+
