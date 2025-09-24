@@ -1,0 +1,29 @@
+{
+  "name": "codex-father-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for Codex Father, implemented with @modelcontextprotocol/sdk. Exposes codex.start/status/logs/stop/list tools by delegating to job.sh.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "codex-mcp-server": "dist/index.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.3"
+  }
+}
+

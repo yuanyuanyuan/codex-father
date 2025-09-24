@@ -1,0 +1,52 @@
+codex-father-mcp-server
+
+TypeScript MCP server for this repo using @modelcontextprotocol/sdk. It exposes tools to start and manage Codex jobs by delegating to the local `job.sh`.
+
+Usage
+- Dev run (requires deps installed):
+  - `npm install`
+  - `npm run dev`
+
+- Build + run:
+  - `npm run build`
+  - `node dist/index.js`
+
+- As CLI after publish:
+  - `npx codex-father-mcp-server` (or `codex-mcp-server` if globally installed)
+
+Tools
+- `codex.start`: Start a non-blocking run. Args:
+  - `args`: string[] — forwarded to `start.sh`
+  - `tag`: string — job tag
+  - `cwd`: string — working directory for job
+
+- `codex.status`: Get job status. Args: `{ jobId: string }`
+- `codex.logs`: Read job log. Args:
+  - `jobId` (string) and either byte pagination (`offset`, `limit`) or line mode (`mode: "lines"`, with `offsetLines`/`limitLines` or `tailLines`, optional `grep`)
+- `codex.stop`: Stop a job. Args: `{ jobId: string, force?: boolean }`
+- `codex.list`: List known jobs.
+
+Configuration (VS Code-style)
+```
+{
+  "servers": {
+    "codex-father": {
+      "command": "node",
+      "args": ["/path/to/dist/index.js"],
+      "type": "stdio"
+    },
+    "deepwiki": {
+      "url": "https://mcp.deepwiki.com/sse",
+      "type": "http"
+    }
+  }
+}
+```
+
+Deepwiki note
+- With `deepwiki` configured, you can query `https://github.com/modelcontextprotocol/typescript-sdk` content at any time in your MCP-enabled client.
+- This server focuses on Codex job orchestration. You can also build a bridge tool to proxy deepwiki via the MCP client API if desired.
+
+Environment
+- `CODEX_JOB_SH`: optional absolute path to `job.sh`. Defaults to `./job.sh` from current working dir.
+

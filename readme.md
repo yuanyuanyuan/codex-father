@@ -145,10 +145,27 @@ cat brief.md | ./codex-command/start.sh -F - --task "根据上述简报生成实
 
 ### MCP（JSON-RPC/stdio）
 
-- 入口：`codex-command/mcp/server.sh`
+- Bash 入口：`mcp/server.sh`
 - 依赖：`bash` + `jq`（解析请求所需）
 - 工具（tools）：`codex.start`、`codex.status`、`codex.logs`、`codex.stop`、`codex.list`
 - 使用：参考 `codex-command/mcp/README.md` 示例（通过 `tools/list` 和 `tools/call` 调用）。
+
+#### TypeScript 版 MCP 服务器（基于 @modelcontextprotocol/sdk）
+
+- 路径：`mcp/codex-mcp-server`
+- 用法：
+  - 开发运行：在该目录执行 `npm install && npm run dev`
+  - 构建运行：`npm run build && node dist/index.js`
+  - 发布后：`npx codex-father-mcp-server`
+- VS Code 配置示例（与 deepwiki 联用，便于随时查询 typescript-sdk 文档）：
+  ```json
+  {
+    "servers": {
+      "codex-father": { "command": "node", "args": ["/path/to/dist/index.js"], "type": "stdio" },
+      "deepwiki": { "url": "https://mcp.deepwiki.com/sse", "type": "http" }
+    }
+  }
+  ```
 
 ## E2E 测试
 
