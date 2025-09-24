@@ -1,0 +1,14 @@
+{
+  "id": "codex-20250924_222904-test-basic",
+  "timestamp": "20250924_222904",
+  "tag": "test-basic",
+  "classification": "normal",
+  "control_flag": "",
+  "reason": "Run completed normally",
+  "tokens_used": "4063",
+  "cwd": "/home/stark/react-arch-wizard-mcp",
+  "log_file": "/home/stark/codex/codex-command/logs/20250924/test-basic/codex-20250924_222904-test-basic.log",
+  "instructions_file": "/home/stark/codex/codex-command/logs/20250924/test-basic/codex-20250924_222904-test-basic.instructions.md",
+  "exit_code": 0,
+  "title": "<user-instructions>"
+}

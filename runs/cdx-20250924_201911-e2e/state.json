@@ -1,0 +1,16 @@
+{
+  "id": "cdx-20250924_201911-e2e",
+  "pid": 24610,
+  "state": "completed",
+  "exit_code": 0,
+  "classification": "normal",
+  "tokens_used": null,
+  "cwd": "/home/stark/codex",
+  "created_at": "2025-09-24T12:19:11Z",
+  "updated_at": "2025-09-24T12:19:12Z",
+  "tag": "e2e",
+  "log_file": "/home/stark/codex/codex-command/runs/cdx-20250924_201911-e2e/job.log",
+  "meta_glob": "/home/stark/codex/codex-command/runs/cdx-20250924_201911-e2e/*.meta.json",
+  "last_message_glob": "/home/stark/codex/codex-command/runs/cdx-20250924_201911-e2e/*.last.txt",
+  "title": "<user-instructions>"
+}

@@ -1,0 +1,6 @@
+=== [20250924_201915] Codex Run  ===
+Log: /home/stark/codex/codex-command/runs/cdx-20250924_201915-mcp-e2e-logs/job.log
+Instructions: /home/stark/codex/codex-command/runs/cdx-20250924_201915-mcp-e2e-logs/job.instructions.md
+Title: <user-instructions>
+Exit: 0
+

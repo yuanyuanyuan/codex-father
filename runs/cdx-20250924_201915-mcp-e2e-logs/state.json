@@ -1,0 +1,17 @@
+{
+  "id": "cdx-20250924_201915-mcp-e2e-logs",
+  "pid": 25240,
+  "state": "running",
+  "exit_code": null,
+  "classification": null,
+  "tokens_used": null,
+  "cwd": "/home/stark/codex",
+  "created_at": "2025-09-24T12:19:15Z",
+  "updated_at": "2025-09-24T12:19:15Z",
+  "tag": "mcp-e2e-logs",
+  "log_file": "/home/stark/codex/codex-command/runs/cdx-20250924_201915-mcp-e2e-logs/job.log",
+  "meta_glob": "/home/stark/codex/codex-command/runs/cdx-20250924_201915-mcp-e2e-logs/*.meta.json",
+  "last_message_glob": "/home/stark/codex/codex-command/runs/cdx-20250924_201915-mcp-e2e-logs/*.last.txt",
+  "args": ["--task","E2E logs filters","--dry-run"],
+  "title": null
+}

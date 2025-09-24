@@ -1,0 +1,18 @@
+[Unit]
+Description=Codex MCP Server (stdio)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=<REPO_DIR>
+ExecStart=/usr/bin/env bash -lc './codex-command/mcp/server.sh'
+Restart=always
+RestartSec=2
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+Environment=RUST_LOG=info
+
+[Install]
+WantedBy=multi-user.target
+

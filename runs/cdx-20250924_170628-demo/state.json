@@ -1,0 +1,16 @@
+{
+  "id": "cdx-20250924_170628-demo",
+  "pid": 14287,
+  "state": "completed",
+  "exit_code": 0,
+  "classification": "normal",
+  "tokens_used": null,
+  "cwd": "/home/stark/codex",
+  "created_at": "2025-09-24T09:06:28Z",
+  "updated_at": "2025-09-24T09:09:38Z",
+  "tag": "demo",
+  "log_file": "/home/stark/codex/codex-command/runs/cdx-20250924_170628-demo/job.log",
+  "meta_glob": "/home/stark/codex/codex-command/runs/cdx-20250924_170628-demo/*.meta.json",
+  "last_message_glob": "/home/stark/codex/codex-command/runs/cdx-20250924_170628-demo/*.last.txt",
+  "title": "<user-instructions>"
+}
