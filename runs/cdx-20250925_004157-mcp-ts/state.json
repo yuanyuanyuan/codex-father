@@ -1,0 +1,16 @@
+{
+  "id": "cdx-20250925_004157-mcp-ts",
+  "pid": 16133,
+  "state": "completed",
+  "exit_code": 0,
+  "classification": "normal",
+  "tokens_used": null,
+  "cwd": "/home/stark/codex-father/mcp/codex-mcp-server",
+  "created_at": "2025-09-24T16:41:57Z",
+  "updated_at": "2025-09-24T16:42:04Z",
+  "tag": "mcp-ts",
+  "log_file": "/home/stark/codex-father/runs/cdx-20250925_004157-mcp-ts/job.log",
+  "meta_glob": "/home/stark/codex-father/runs/cdx-20250925_004157-mcp-ts/*.meta.json",
+  "last_message_glob": "/home/stark/codex-father/runs/cdx-20250925_004157-mcp-ts/*.last.txt",
+  "title": "<user-instructions>"
+}

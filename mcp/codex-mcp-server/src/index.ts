@@ -30,15 +30,14 @@ function resolveJobSh(): string {
 
 const JOB_SH = resolveJobSh();
 
-function run(cmd: string, args: string[], input?: string): Promise<{ code: number; stdout: string; stderr: string }>
-{
+function run(cmd: string, args: string[], input?: string): Promise<{ code: number; stdout: string; stderr: string }>{
   return new Promise((resolve) => {
     const child = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
-    child.stdout.on('data', (d) => (out += d.toString()));
-    child.stderr.on('data', (d) => (err += d.toString()));
-    child.on('close', (code) => resolve({ code: code ?? -1, stdout: out, stderr: err }));
+    child.stdout.on('data', (d: Buffer) => (out += d.toString()));
+    child.stderr.on('data', (d: Buffer) => (err += d.toString()));
+    child.on('close', (code: number | null) => resolve({ code: code ?? -1, stdout: out, stderr: err }));
     if (input) child.stdin.end(input);
     else child.stdin.end();
   });
@@ -50,7 +49,7 @@ function toolsSpec(): ListToolsResult {
       {
         name: 'codex.start',
         description: 'Start a non-blocking codex run; returns jobId immediately.',
-        input_schema: {
+        inputSchema: {
           type: 'object',
           properties: {
             args: { type: 'array', items: { type: 'string' } },
@@ -63,7 +62,7 @@ function toolsSpec(): ListToolsResult {
       {
         name: 'codex.status',
         description: 'Get job status (from runs/<jobId>/state.json).',
-        input_schema: {
+        inputSchema: {
           type: 'object',
           properties: { jobId: { type: 'string' } },
           required: ['jobId'],
@@ -73,7 +72,7 @@ function toolsSpec(): ListToolsResult {
       {
         name: 'codex.stop',
         description: 'Stop a running job by id.',
-        input_schema: {
+        inputSchema: {
           type: 'object',
           properties: { jobId: { type: 'string' }, force: { type: 'boolean' } },
           required: ['jobId'],
@@ -83,12 +82,12 @@ function toolsSpec(): ListToolsResult {
       {
         name: 'codex.list',
         description: 'List known jobs (runs/*).',
-        input_schema: { type: 'object', properties: {}, additionalProperties: false }
+        inputSchema: { type: 'object', properties: {}, additionalProperties: false }
       },
       {
         name: 'codex.logs',
         description: 'Read job log (bytes or lines mode).',
-        input_schema: {
+        inputSchema: {
           type: 'object',
           properties: {
             jobId: { type: 'string' },
@@ -117,9 +116,10 @@ async function handleCall(req: CallToolRequest) {
     switch (name) {
       case 'codex.start': {
         const args: string[] = Array.isArray(p.args) ? p.args.map(String) : [];
-        const pass: string[] = ['start', '--json', ...args];
-        if (p.tag) pass.unshift(p.tag), pass.unshift('--tag');
-        if (p.cwd) pass.unshift(p.cwd), pass.unshift('--cwd');
+        const pass: string[] = ['start', '--json'];
+        if (p.tag) pass.push('--tag', String(p.tag));
+        if (p.cwd) pass.push('--cwd', String(p.cwd));
+        pass.push(...args);
         const { code, stdout, stderr } = await run(JOB_SH, pass);
         if (code !== 0) throw new Error(`start failed rc=${code} ${stderr}`);
         return { content: [{ type: 'text', text: stdout.trim() }] };
@@ -159,7 +159,7 @@ async function handleCall(req: CallToolRequest) {
           if (grepRe) {
             let re: RegExp;
             try { re = new RegExp(grepRe); } catch { re = /.*/; }
-            lines = lines.filter((l) => re.test(l));
+            lines = lines.filter((l: string) => re.test(l));
           }
           const total = lines.length;
           if (typeof p.tailLines === 'number' && p.tailLines > 0) {
@@ -219,4 +219,3 @@ main().catch((err) => {
   process.stderr.write(`[codex-mcp] fatal: ${err?.stack || err}\n`);
   process.exit(1);
 });
-

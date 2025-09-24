@@ -157,12 +157,11 @@ cat brief.md | ./codex-command/start.sh -F - --task "根据上述简报生成实
   - 开发运行：在该目录执行 `npm install && npm run dev`
   - 构建运行：`npm run build && node dist/index.js`
   - 发布后：`npx codex-father-mcp-server`
-- VS Code 配置示例（与 deepwiki 联用，便于随时查询 typescript-sdk 文档）：
+- VS Code 配置示例：
   ```json
   {
     "servers": {
-      "codex-father": { "command": "node", "args": ["/path/to/dist/index.js"], "type": "stdio" },
-      "deepwiki": { "url": "https://mcp.deepwiki.com/sse", "type": "http" }
+      "codex-father": { "command": "node", "args": ["/path/to/dist/index.js"], "type": "stdio" }
     }
   }
   ```

@@ -1,15 +1,9 @@
 MCP servers in this repo
 
-- Bash server: `mcp/server.sh`
-  - Minimal JSON-RPC stdio bridge to `job.sh`
-  - Good for zero-deps environments
-
-- TypeScript server: `mcp/codex-mcp-server` (recommended)
+- TypeScript server: `mcp/codex-mcp-server` (default via `mcp/server.sh` wrapper)
   - Built with `@modelcontextprotocol/sdk`
-  - Richer typing and easier extension
-  - Publishable to npm (`codex-father-mcp-server`)
+  - Exposes standard MCP Tools endpoints (tools/list, tools/call)
+  - Tools: `codex.start`, `codex.status`, `codex.logs`, `codex.stop`, `codex.list`
+  - Publishable to npm as `codex-father-mcp-server`
 
-Deepwiki integration
-- Add the `deepwiki` SSE server to your MCP client config to query `https://github.com/modelcontextprotocol/typescript-sdk` contents at any time.
-- Example config: see `mcp/example.mcp.json`.
-
+- Bash server (fallback): legacy implementation embedded in `mcp/server.sh` and used only if Node/TS build is unavailable.

@@ -2,6 +2,14 @@
 
 set -euo pipefail
 
+# Prefer the TypeScript SDK-based server if available, fallback to Bash implementation below.
+# You can override the path via MCP_TS_SERVER env var.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TS_ENTRY="${MCP_TS_SERVER:-${SCRIPT_DIR}/codex-mcp-server/dist/index.js}"
+if command -v node >/dev/null 2>&1 && [[ -f "$TS_ENTRY" ]]; then
+  exec node "$TS_ENTRY"
+fi
+
 # Minimal MCP JSON-RPC (stdio) server for codex-command
 # - Lists tools and accepts tool calls mapping to job.sh
 # - Non-blocking: codex.start returns immediately with jobId
