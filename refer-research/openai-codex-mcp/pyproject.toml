@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openai-codex-mcp"
+version = "0.1.0"
+description = "An MCP server to wrap the OpenAI Codex CLI for use with Claude Code"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.1"
+]
+
+[project.scripts]
+codex_server = "codex_server:main"
+
+[tool.uvicorn]
+app = "codex_server:app"
+host = "0.0.0.0"
+port = 8000
+log-level = "info"
