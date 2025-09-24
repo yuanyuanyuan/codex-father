@@ -4,6 +4,24 @@
   "description": "MCP server for Codex Father, implemented with @modelcontextprotocol/sdk. Exposes codex.start/status/logs/stop/list tools by delegating to job.sh.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/codex-father.git",
+    "directory": "mcp/codex-mcp-server"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "codex",
+    "cli"
+  ],
+  "author": "",
   "bin": {
     "codex-mcp-server": "dist/index.js"
   },
@@ -26,4 +44,3 @@
     "typescript": "^5.6.3"
   }
 }
-

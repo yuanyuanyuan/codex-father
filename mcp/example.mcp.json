@@ -1,0 +1,15 @@
+{
+  "servers": {
+    "codex-father": {
+      "command": "node",
+      "args": ["./mcp/codex-mcp-server/dist/index.js"],
+      "type": "stdio"
+    },
+    "deepwiki": {
+      "url": "https://mcp.deepwiki.com/sse",
+      "type": "http"
+    }
+  },
+  "inputs": []
+}
+
