@@ -82,6 +82,7 @@ usage() {
       --append <txt>   在指令后追加文本
       --prepend-file <p> 从文件读入前置文本
       --append-file <p>  从文件读入后置文本
+      --patch-mode      启用“补丁模式”：自动追加 policy-note，要求模型仅输出补丁（patch/diff）而不直接写仓库
       --dry-run        仅生成文件与日志头，不实际执行 codex
   -h, --help          显示帮助并退出
 
@@ -115,6 +116,10 @@ APPEND_CONTENT=""
 PREPEND_FILE=""
 APPEND_FILE=""
 DRY_RUN=0
+PATCH_MODE=0
+
+# 补丁模式提示文案（仅输出可应用补丁，不执行写入）
+PATCH_POLICY_NOTE=$'请仅输出可应用的补丁（patch/diff），不要执行任何写文件、运行命令或直接修改仓库。\n优先使用统一 diff（git apply）或 Codex CLI apply_patch 片段，逐文件展示新增/修改/删除。\n如需迁移脚本或测试，请以新增文件形式包含于补丁中。完成后输出 “CONTROL: DONE”。'
 
 # 动态收集自定义脱敏正则
 REDACT_PATTERNS=()
@@ -325,6 +330,8 @@ while [[ $# -gt 0 ]]; do
     --append-file)
       [[ $# -ge 2 ]] || { echo "错误: --append-file 需要路径参数" >&2; exit 2; }
       APPEND_FILE="${2}"; shift 2 ;;
+    --patch-mode)
+      PATCH_MODE=1; shift 1 ;;
     --dry-run)
       DRY_RUN=1; shift 1 ;;
     -h|--help)
@@ -656,6 +663,13 @@ fi
 # 重新组合一次（带标准分隔标签）
 compose_instructions
 
+# 如启用补丁模式，在初始轮指令中追加 policy-note
+if (( PATCH_MODE == 1 )); then
+  INSTRUCTIONS+=$'\n\n<instructions-section type="policy-note">\n'
+  INSTRUCTIONS+="${PATCH_POLICY_NOTE}"
+  INSTRUCTIONS+=$'\n</instructions-section>\n'
+fi
+
 # 写入指令内容到独立文件（便于复盘），可选脱敏
 umask 077
 if [[ "${REDACT_ENABLE}" == "1" ]]; then
@@ -671,6 +685,7 @@ fi
   echo "Log: ${CODEX_LOG_FILE}"
   echo "Instructions: ${INSTR_FILE}"
   echo "Meta: ${META_FILE}"
+  echo "Patch Mode: $([[ ${PATCH_MODE} -eq 1 ]] && echo on || echo off)"
 } >> "${CODEX_LOG_FILE}"
 
 # 可选回显最终合成的指令及其来源
@@ -834,6 +849,10 @@ PREV_HEAD_BEFORE="${GIT_HEAD_BEFORE}"
 PREV_HEAD_AFTER="${GIT_HEAD_AFTER}"
 RUN=2
 while (( RUN <= MAX_RUNS )); do
+  # 每轮注入补丁模式 policy-note（如启用）
+  if (( PATCH_MODE == 1 )); then
+    POLICY_NOTE="${PATCH_POLICY_NOTE}"
+  fi
   # 如果设置了 repeat-until 且上一轮已满足，则停止
   if [[ -n "${REPEAT_UNTIL}" ]] && [[ -f "${PREV_LAST_MSG_FILE}" ]]; then
     if grep -Eq "${REPEAT_UNTIL}" "${PREV_LAST_MSG_FILE}"; then

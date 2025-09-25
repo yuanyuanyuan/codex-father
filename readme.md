@@ -61,6 +61,10 @@
   - `printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","Sync via MCP","--dry-run"],"tag":"mcp-sync"}}}\n' | ./mcp/server.sh`
 - 异步执行：
   - `printf '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"codex.start","arguments":{"args":["--task","Async via MCP","--dry-run"],"tag":"mcp-async"}}}\n' | ./mcp/server.sh`
+
+补丁模式（只输出改动，不改盘）
+- 加参：`--patch-mode`（自动注入 policy-note，提示模型仅输出补丁）
+- 常配：`--sandbox read-only --approvals never`
 - 最小交互（stdio）：
   - `printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"demo","version":"0.0.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | ./mcp/server.sh`
 

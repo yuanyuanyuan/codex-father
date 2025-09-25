@@ -26,6 +26,13 @@
 - 可复盘边界：
   - 所有来源均被包裹为 `<instructions-section type=...>`（base|file|text|prepend-*|append-* 等），快照保存在 `*.instructions.md`。
 
+补丁模式（只输出改动，不改盘）
+- 启用方式：`--patch-mode`（自动注入 policy-note，要求模型“仅输出补丁（patch/diff），不执行写命令/不直接改仓库”）。
+- 常配合只读与免审批：`--sandbox read-only --approvals never`。
+- 示例：
+  - `./start.sh --task "修复 lint 错误" --patch-mode --sandbox read-only --approvals never`
+  - MCP：在 `codex.exec` 的 `arguments.args` 中加入 `"--patch-mode"`（必要时同时传 `"--sandbox","read-only","--approvals","never"`）。
+
 示例（CLI）
 - 用 STDIN 覆盖基底并叠加多文件与尾部模板：
   - `cat prompt.md | ./start.sh -F - --docs 'docs/**/*.md' -f refer-research/openai-codex/README.md --append '\n请最终输出 CONTROL: DONE'`
