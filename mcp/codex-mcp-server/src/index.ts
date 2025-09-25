@@ -30,6 +30,19 @@ function resolveJobSh(): string {
 
 const JOB_SH = resolveJobSh();
 
+// Resolve start.sh path
+function resolveStartSh(): string {
+  const fromEnv = process.env.CODEX_START_SH;
+  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+  const candidate = path.resolve(process.cwd(), 'start.sh');
+  if (fs.existsSync(candidate)) return candidate;
+  const rel = path.resolve(__dirname, '../../..', 'start.sh');
+  if (fs.existsSync(rel)) return rel;
+  return candidate;
+}
+
+const START_SH = resolveStartSh();
+
 function run(cmd: string, args: string[], input?: string): Promise<{ code: number; stdout: string; stderr: string }>{
   return new Promise((resolve) => {
     const child = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
@@ -46,6 +59,19 @@ function run(cmd: string, args: string[], input?: string): Promise<{ code: numbe
 function toolsSpec(): ListToolsResult {
   return {
     tools: [
+      {
+        name: 'codex.exec',
+        description: 'Run a synchronous codex execution; returns when finished.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            args: { type: 'array', items: { type: 'string' } },
+            tag: { type: 'string' },
+            cwd: { type: 'string' }
+          },
+          additionalProperties: false
+        }
+      },
       {
         name: 'codex.start',
         description: 'Start a non-blocking codex run; returns jobId immediately.',
@@ -114,6 +140,86 @@ async function handleCall(req: CallToolRequest) {
   const p = (req.params.arguments ?? {}) as any;
   try {
     switch (name) {
+      case 'codex.exec': {
+        const args: string[] = Array.isArray(p.args) ? p.args.map(String) : [];
+        const tag = p.tag ? String(p.tag) : '';
+        const cwd = p.cwd ? String(p.cwd) : '';
+        const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
+        const safeTag = tag ? tag.replace(/[^A-Za-z0-9_.-]/g, '-').replace(/^-+|-+$/g, '') : 'untagged';
+        const runsDir = path.resolve(path.dirname(JOB_SH), 'runs');
+        const runId = `exec-${ts}-${safeTag}`;
+        const runDir = path.join(runsDir, runId);
+        fs.mkdirSync(runDir, { recursive: true });
+        const logFile = path.join(runDir, 'job.log');
+        const aggTxt = path.join(runDir, 'aggregate.txt');
+        const aggJsonl = path.join(runDir, 'aggregate.jsonl');
+
+        const pass = ['--log-file', logFile, '--flat-logs', ...args];
+        const env = {
+          ...process.env,
+          CODEX_LOG_DIR: runDir,
+          CODEX_LOG_FILE: logFile,
+          CODEX_LOG_AGGREGATE: '1',
+          CODEX_LOG_AGGREGATE_FILE: aggTxt,
+          CODEX_LOG_AGGREGATE_JSONL_FILE: aggJsonl,
+          CODEX_LOG_SUBDIRS: '0'
+        } as NodeJS.ProcessEnv;
+
+        let code = 0; let stdout = ''; let stderr = '';
+        await new Promise<void>((resolve) => {
+          const child = spawn(START_SH, pass, {
+            stdio: ['ignore', 'pipe', 'pipe'],
+            env,
+            cwd: cwd || undefined
+          });
+          child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
+          child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
+          child.on('close', (c: number | null) => { code = c ?? -1; resolve(); });
+        });
+
+        // Derive instruction/meta/last files
+        const instrFile = logFile.replace(/\.log$/, '.instructions.md');
+        const metaFile = logFile.replace(/\.log$/, '.meta.json');
+        // Find the most recent *.last.txt if any
+        let lastMessageFile = '';
+        try {
+          const entries = fs.readdirSync(runDir).filter((f) => /\.last\.txt$/.test(f));
+          entries.sort((a, b) => fs.statSync(path.join(runDir, b)).mtimeMs - fs.statSync(path.join(runDir, a)).mtimeMs);
+          if (entries.length) lastMessageFile = path.join(runDir, entries[0]);
+        } catch {}
+
+        // Prefer exit code parsed from log (aligns with job.sh derive)
+        let exitCode = code;
+        try {
+          if (fs.existsSync(logFile)) {
+            const text = fs.readFileSync(logFile, 'utf8');
+            // Match the last occurrence of "Exit Code: <num>"
+            const matches = text.match(/Exit Code:\s*(-?\d+)/g);
+            if (matches && matches.length > 0) {
+              const last = matches[matches.length - 1];
+              const m = last.match(/Exit Code:\s*(-?\d+)/);
+              if (m) exitCode = Number(m[1]);
+            }
+          }
+        } catch {}
+
+        const payload = {
+          runId,
+          exitCode,
+          cwd: cwd || process.cwd(),
+          logFile,
+          instructionsFile: instrFile,
+          metaFile,
+          lastMessageFile,
+          tag: safeTag
+        };
+        // Always return a JSON payload; rely on exitCode for status
+        if (code !== 0 && !fs.existsSync(logFile)) {
+          // Hard failure before log creation
+          return { content: [{ type: 'text', text: JSON.stringify({ ...payload, processExit: code, error: stderr.trim() }) }], isError: true };
+        }
+        return { content: [{ type: 'text', text: JSON.stringify({ ...payload, processExit: code }) }] };
+      }
       case 'codex.start': {
         const args: string[] = Array.isArray(p.args) ? p.args.map(String) : [];
         const pass: string[] = ['start', '--json'];

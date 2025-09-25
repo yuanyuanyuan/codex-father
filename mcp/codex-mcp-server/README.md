@@ -1,6 +1,6 @@
 codex-father-mcp-server
 
-TypeScript MCP server for this repo using @modelcontextprotocol/sdk. It exposes tools to start and manage Codex jobs by delegating to the local `job.sh`.
+TypeScript MCP server for this repo using @modelcontextprotocol/sdk. It exposes tools to execute/start and manage Codex runs by delegating to the local `start.sh`/`job.sh`.
 
 Usage
 - Dev run (requires deps installed):
@@ -15,6 +15,12 @@ Usage
   - `npx codex-father-mcp-server` (or `codex-mcp-server` if globally installed)
 
 Tools
+- `codex.exec`: Synchronous execution (blocks until finish). Args:
+  - `args`: string[] — forwarded to `start.sh`
+  - `tag`: string — label for the run (used in directory name)
+  - `cwd`: string — working directory for execution
+  - Returns JSON: `{ runId, exitCode, cwd, logFile, instructionsFile, metaFile, lastMessageFile, tag }`
+
 - `codex.start`: Start a non-blocking run. Args:
   - `args`: string[] — forwarded to `start.sh`
   - `tag`: string — job tag
@@ -49,4 +55,4 @@ Deepwiki note
 
 Environment
 - `CODEX_JOB_SH`: optional absolute path to `job.sh`. Defaults to `./job.sh` from current working dir.
-
+- `CODEX_START_SH`: optional absolute path to `start.sh`. Defaults to `./start.sh` from current working dir.

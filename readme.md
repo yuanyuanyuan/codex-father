@@ -50,7 +50,7 @@
 ## MCP 服务器（标准 SDK 实现）
 
 - 入口：`mcp/server.sh`（将启动 `mcp/codex-mcp-server/dist/index.js`）
-- 工具（tools）：`codex.start`、`codex.status`、`codex.logs`、`codex.stop`、`codex.list`
+- 工具（tools）：`codex.exec`（同步）、`codex.start`、`codex.status`、`codex.logs`、`codex.stop`、`codex.list`
 - 最小交互（stdio）：
   - `printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"demo","version":"0.0.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | ./mcp/server.sh`
 
@@ -91,4 +91,3 @@
 
 - 贡献前请阅读根部 `AGENTS.md`；遵循最小变更、默认安全与可复盘原则
 - PR 请附带：代码 + 文档 + 最小可复现步骤
-

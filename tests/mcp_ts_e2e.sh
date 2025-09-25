@@ -63,14 +63,27 @@ test_start_status_logs() {
   echo "$logs" | grep -q 'Exit Code' || fatal "logs missing 'Exit Code'"
 }
 
+test_exec_sync() {
+  info "codex.exec (sync, dry-run)"
+  local exec_req='{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","E2E MCP exec","--dry-run"],"tag":"mcp-ts-e2e"}}}'
+  local res; res=$(mcp_call "$exec_req")
+  local text; text=$(echo "$res" | jq -r '.result.content[0].text // empty')
+  [[ -n "$text" ]] || fatal "empty exec text"
+  echo "$text" | jq -e . >/dev/null 2>&1 || fatal "exec result not JSON"
+  local exitCode; exitCode=$(printf '%s' "$text" | jq -r '.exitCode // empty')
+  [[ "$exitCode" == "0" ]] || fatal "exec exitCode != 0: $exitCode"
+  local logFile; logFile=$(printf '%s' "$text" | jq -r '.logFile // empty')
+  [[ -f "$logFile" ]] || fatal "exec logFile not found: $logFile"
+}
+
 main() {
   require_cmd jq
   build_server
   require_exec "$MCP_SH"
   test_initialize_and_list
+  test_exec_sync
   test_start_status_logs
   info "E2E PASSED"
 }
 
 main "$@"
-
