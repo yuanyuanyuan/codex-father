@@ -519,140 +519,111 @@ if [[ -z "${CODEX_LOG_AGGREGATE_JSONL_FILE}" ]]; then
   CODEX_LOG_AGGREGATE_JSONL_FILE="$(dirname "${CODEX_LOG_FILE}")/aggregate.jsonl"
 fi
 
-# 构建脱敏 sed 参数
-build_redact_sed_args() {
-  local -n _arr=$1
-  shift || true
-  local patterns=("$@")
-  _arr=()
-  for re in "${patterns[@]}"; do
-    _arr+=("-e" "s/${re}/${REDACT_REPLACEMENT}/g")
-  done
-}
+# 构建脱敏 sed 参数（如 lib 已提供则不覆盖）
+if ! declare -F build_redact_sed_args >/dev/null 2>&1; then
+  build_redact_sed_args() {
+    local -n _arr=$1
+    shift || true
+    local patterns=("$@")
+    _arr=()
+    for re in "${patterns[@]}"; do
+      _arr+=("-e" "s/${re}/${REDACT_REPLACEMENT}/g")
+    done
+  }
+fi
 
-# 上下文压缩函数：提取首部与关键行
-compress_context_file() {
-  local in_file=$1
-  local out_file=$2
-  local head_n=${3:-$CONTEXT_HEAD}
-  shift || true
-  shift || true
-  shift || true
-  local patterns=("$@")
-  {
-    if [[ ! -s "$in_file" ]]; then
-      echo "[no previous context]"
-    else
-      echo "=== Head (first ${head_n} lines) ==="
-      head -n "$head_n" "$in_file" || true
-      if (( ${#patterns[@]} > 0 )); then
-        local joined
-        joined=$(printf '%s|' "${patterns[@]}")
-        joined=${joined%|}
-        echo
-        echo "=== Key Lines (pattern match) ==="
-        grep -E "$joined" -n "$in_file" 2>/dev/null | cut -d: -f2- | awk 'BEGIN{c=0} {if(seen[$0]++) next; print; c++; if(c>200) exit}' || true
+# 上下文压缩（如 lib 已提供则不覆盖）
+if ! declare -F compress_context_file >/dev/null 2>&1; then
+  compress_context_file() {
+    local in_file=$1
+    local out_file=$2
+    local head_n=${3:-$CONTEXT_HEAD}
+    shift || true; shift || true; shift || true
+    local patterns=("$@")
+    {
+      if [[ ! -s "$in_file" ]]; then
+        echo "[no previous context]"
+      else
+        echo "=== Head (first ${head_n} lines) ==="
+        head -n "$head_n" "$in_file" || true
+        if (( ${#patterns[@]} > 0 )); then
+          local joined; joined=$(printf '%s|' "${patterns[@]}"); joined=${joined%|}
+          echo; echo "=== Key Lines (pattern match) ==="
+          grep -E "$joined" -n "$in_file" 2>/dev/null | cut -d: -f2- | awk 'BEGIN{c=0} {if(seen[$0]++) next; print; c++; if(c>200) exit}' || true
+        fi
       fi
-    fi
-  } > "$out_file"
-}
+    } > "$out_file"
+  }
+fi
 
-# 重新组合指令（每轮可调用），为所有来源加标准边界标签
-compose_instructions() {
-  local ts_iso
-  ts_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  SOURCE_LINES=()
-  local sections=""
-
-  # 构造前置模板（如果有）
-  if [[ -n "${PREPEND_FILE}" ]]; then
-    if [[ -f "${PREPEND_FILE}" ]]; then
+## 重新组合指令（如 lib 已提供则不覆盖）
+if ! declare -F compose_instructions >/dev/null 2>&1; then
+  compose_instructions() {
+    local ts_iso; ts_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    SOURCE_LINES=()
+    local sections=""
+    if [[ -n "${PREPEND_FILE}" && -f "${PREPEND_FILE}" ]]; then
       sections+=$'\n'"<instructions-section type=\"prepend-file\" path=\"${PREPEND_FILE}\">"$'\n'
       sections+="$(cat "${PREPEND_FILE}")"$'\n''</instructions-section>'$'\n'
       SOURCE_LINES+=("Prepend file: ${PREPEND_FILE}")
     fi
-  fi
-  if [[ -n "${PREPEND_CONTENT}" ]]; then
-    sections+=$'\n'"<instructions-section type=\"prepend-text\">"$'\n'
-    sections+="${PREPEND_CONTENT}"$'\n''</instructions-section>'$'\n'
-    local _pv
-    _pv=$(printf '%s' "${PREPEND_CONTENT}" | tr '\n' ' ' | cut -c1-80)
-    SOURCE_LINES+=("Prepend text: ${_pv}...")
-  fi
-
-  # 基底来源内容
-  local base_content=""
-  local base_desc="${BASE_SOURCE_DESC}"
-  case "${BASE_SOURCE_KIND}" in
-    override-file)
-      base_content="$(cat "${OVERRIDE_FILE}")" ;;
-    override-stdin)
-      base_content="${STDIN_CONTENT}" ;;
-    default-file)
-      if [[ -f "${DEFAULT_INSTRUCTIONS_FILE}" ]]; then
-        base_content="$(cat "${DEFAULT_INSTRUCTIONS_FILE}")"
-      else
-        base_content="${DEFAULT_INSTRUCTIONS}"
-      fi ;;
-    env)
-      base_content="${INSTRUCTIONS}" ;;
-    stdin)
-      base_content="${STDIN_CONTENT}" ;;
-    default-builtin|*)
-      base_content="${DEFAULT_INSTRUCTIONS}" ;;
-  esac
-
-  sections+=$'\n'"<instructions-section type=\"base\" source=\"${BASE_SOURCE_KIND}\" desc=\"${base_desc}\" path=\"${DEFAULT_INSTRUCTIONS_FILE}\">"$'\n'
-  sections+="${base_content}"$'\n''</instructions-section>'$'\n'
-  SOURCE_LINES+=("Base: ${base_desc}")
-
-  # 叠加 -f/-c 源
-  for i in "${!SRC_TYPES[@]}"; do
-    local t="${SRC_TYPES[$i]}"; local v="${SRC_VALUES[$i]}"
-    case "$t" in
-      F)
-        if [[ "$v" == "-" ]]; then
-          sections+=$'\n'"<instructions-section type=\"file\" path=\"STDIN\">"$'\n'
-          sections+="${STDIN_CONTENT}"$'\n''</instructions-section>'$'\n'
-          SOURCE_LINES+=("Add file: STDIN")
-        else
-          if [[ -f "$v" ]]; then
-            sections+=$'\n'"<instructions-section type=\"file\" path=\"${v}\">"$'\n'
-            sections+="$(cat "$v")"$'\n''</instructions-section>'$'\n'
-            SOURCE_LINES+=("Add file: $v")
-          else
-            # 不存在则标注为空块
-            sections+=$'\n'"<instructions-section type=\"file\" path=\"${v}\">[missing]</instructions-section>"$'\n'
-            SOURCE_LINES+=("Add file: $v (missing)")
-          fi
-        fi ;;
-      C)
-        sections+=$'\n'"<instructions-section type=\"text\">"$'\n'
-        sections+="${v}"$'\n''</instructions-section>'$'\n'
-        local _pv
-        _pv=$(printf '%s' "${v}" | tr '\n' ' ' | cut -c1-80)
-        SOURCE_LINES+=("Add text: ${_pv}...") ;;
+    if [[ -n "${PREPEND_CONTENT}" ]]; then
+      sections+=$'\n'"<instructions-section type=\"prepend-text\">"$'\n'
+      sections+="${PREPEND_CONTENT}"$'\n''</instructions-section>'$'\n'
+      local _pv; _pv=$(printf '%s' "${PREPEND_CONTENT}" | tr '\n' ' ' | cut -c1-80)
+      SOURCE_LINES+=("Prepend text: ${_pv}...")
+    fi
+    local base_content=""; local base_desc="${BASE_SOURCE_DESC}"
+    case "${BASE_SOURCE_KIND}" in
+      override-file)   base_content="$(cat "${OVERRIDE_FILE}")" ;;
+      override-stdin)  base_content="${STDIN_CONTENT}" ;;
+      default-file)    if [[ -f "${DEFAULT_INSTRUCTIONS_FILE}" ]]; then base_content="$(cat "${DEFAULT_INSTRUCTIONS_FILE}")"; else base_content="${DEFAULT_INSTRUCTIONS}"; fi ;;
+      env)             base_content="${INSTRUCTIONS}" ;;
+      stdin)           base_content="${STDIN_CONTENT}" ;;
+      default-builtin|*) base_content="${DEFAULT_INSTRUCTIONS}" ;;
     esac
-  done
-
-  # 后置模板
-  if [[ -n "${APPEND_FILE}" ]]; then
-    if [[ -f "${APPEND_FILE}" ]]; then
+    sections+=$'\n'"<instructions-section type=\"base\" source=\"${BASE_SOURCE_KIND}\" desc=\"${base_desc}\" path=\"${DEFAULT_INSTRUCTIONS_FILE}\">"$'\n'
+    sections+="${base_content}"$'\n''</instructions-section>'$'\n'
+    SOURCE_LINES+=("Base: ${base_desc}")
+    for i in "${!SRC_TYPES[@]}"; do
+      local t="${SRC_TYPES[$i]}"; local v="${SRC_VALUES[$i]}"
+      case "$t" in
+        F)
+          if [[ "$v" == "-" ]]; then
+            sections+=$'\n'"<instructions-section type=\"file\" path=\"STDIN\">"$'\n'
+            sections+="${STDIN_CONTENT}"$'\n''</instructions-section>'$'\n'
+            SOURCE_LINES+=("Add file: STDIN")
+          else
+            if [[ -f "$v" ]]; then
+              sections+=$'\n'"<instructions-section type=\"file\" path=\"${v}\">"$'\n'
+              sections+="$(cat "$v")"$'\n''</instructions-section>'$'\n'
+              SOURCE_LINES+=("Add file: $v")
+            else
+              sections+=$'\n'"<instructions-section type=\"file\" path=\"${v}\">[missing]</instructions-section>"$'\n'
+              SOURCE_LINES+=("Add file: $v (missing)")
+            fi
+          fi ;;
+        C)
+          sections+=$'\n'"<instructions-section type=\"text\">"$'\n'
+          sections+="${v}"$'\n''</instructions-section>'$'\n'
+          local _pv; _pv=$(printf '%s' "${v}" | tr '\n' ' ' | cut -c1-80)
+          SOURCE_LINES+=("Add text: ${_pv}...") ;;
+      esac
+    done
+    if [[ -n "${APPEND_FILE}" && -f "${APPEND_FILE}" ]]; then
       sections+=$'\n'"<instructions-section type=\"append-file\" path=\"${APPEND_FILE}\">"$'\n'
       sections+="$(cat "${APPEND_FILE}")"$'\n''</instructions-section>'$'\n'
       SOURCE_LINES+=("Append file: ${APPEND_FILE}")
     fi
-  fi
-  if [[ -n "${APPEND_CONTENT}" ]]; then
-    sections+=$'\n'"<instructions-section type=\"append-text\">"$'\n'
-    sections+="${APPEND_CONTENT}"$'\n''</instructions-section>'$'\n'
-    local _pv
-    _pv=$(printf '%s' "${APPEND_CONTENT}" | tr '\n' ' ' | cut -c1-80)
-    SOURCE_LINES+=("Append text: ${_pv}...")
-  fi
-
-  INSTRUCTIONS=$'<user-instructions>\n['"${ts_iso}"$'] Composed instructions:\n\n'"${sections}"$'\n</user-instructions>\n'
-}
+    if [[ -n "${APPEND_CONTENT}" ]]; then
+      sections+=$'\n'"<instructions-section type=\"append-text\">"$'\n'
+      sections+="${APPEND_CONTENT}"$'\n''</instructions-section>'$'\n'
+      local _pv; _pv=$(printf '%s' "${APPEND_CONTENT}" | tr '\n' ' ' | cut -c1-80)
+      SOURCE_LINES+=("Append text: ${_pv}...")
+    fi
+    INSTRUCTIONS=$'<user-instructions>\n['"${ts_iso}"$'] Composed instructions:\n\n'"${sections}"$'\n</user-instructions>\n'
+  }
+fi
 
 ALL_PATTERNS=("${REDACT_PATTERNS[@]}")
 if [[ ${#ALL_PATTERNS[@]} -eq 0 ]]; then
@@ -785,15 +756,17 @@ if [[ "${CODEX_LOG_AGGREGATE}" == "1" ]]; then
 fi
 
 # 生成元数据 JSON（函数定义在顶部库中也存在，保留以确保可用）
-json_escape() {
-  local s=$1
-  s=${s//\\/\\\\}
-  s=${s//\"/\\\"}
-  s=${s//$'\n'/\\n}
-  s=${s//$'\r'/}
-  s=${s//$'\t'/\\t}
-  printf '%s' "$s"
-}
+if ! declare -F json_escape >/dev/null 2>&1; then
+  json_escape() {
+    local s=$1
+    s=${s//\\/\\\\}
+    s=${s//\"/\\\"}
+    s=${s//$'\n'/\\n}
+    s=${s//$'\r'/}
+    s=${s//$'\t'/\\t}
+    printf '%s' "$s"
+  }
+fi
 
 classify_exit "${RUN_LAST_MSG_FILE}" "${CODEX_LOG_FILE}" "${CODEX_EXIT}"
 INSTR_TITLE=$(awk 'NF {print; exit}' "${INSTR_FILE}" 2>/dev/null || echo "")

@@ -107,7 +107,13 @@ safe_classify() {
   # Usage: safe_classify <last_msg_file|""> <log_file> <exit_code>
   local last_msg_file="$1"; local log_file="$2"; local code="$3"
   SC_CLASSIFICATION="normal"; SC_TOKENS_USED=""
-  # tokens used (best-effort)
+  if declare -F classify_exit >/dev/null 2>&1; then
+    classify_exit "$last_msg_file" "$log_file" "$code"
+    SC_CLASSIFICATION="${CLASSIFICATION:-normal}"
+    SC_TOKENS_USED="${TOKENS_USED:-}"
+    return 0
+  fi
+  # Fallback grep-based classification
   SC_TOKENS_USED=$(( (grep -Ei 'tokens used' "$log_file" 2>/dev/null | tail -n1 | sed -E 's/.*tokens used[^0-9]*([0-9,]+).*/\1/i' | tr -d ',') || true ) )
   SC_TOKENS_USED="${SC_TOKENS_USED:-}"
   if [[ "$code" -eq 0 ]]; then
@@ -189,9 +195,20 @@ status_compute_and_update() {
     last_msg=$(latest_file_by_mtime "$last_glob")
     meta_file=$(latest_file_by_mtime "$meta_glob")
     classification="null"; tokens_used="null"
-    safe_classify "${last_msg:-}" "${log_file}" "${code}"
-    if [[ -n "${SC_CLASSIFICATION:-}" ]]; then classification="\"$(json_escape_local "${SC_CLASSIFICATION}")\""; fi
-    if [[ -n "${SC_TOKENS_USED:-}" ]]; then tokens_used="\"$(json_escape_local "${SC_TOKENS_USED}")\""; fi
+    # Prefer meta.json if present
+    if [[ -n "${meta_file}" && -f "${meta_file}" ]]; then
+      local m_cls m_tok
+      m_cls=$(grep -E '"classification"' "$meta_file" | sed -E 's/.*"classification"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+      m_tok=$(grep -E '"tokens_used"' "$meta_file" | sed -E 's/.*"tokens_used"\s*:\s*"?([^",}]*)"?.*/\1/' | head -n1 || true)
+      if [[ -n "$m_cls" && "$m_cls" != "null" ]]; then classification="\"$(json_escape_local "$m_cls")\""; fi
+      if [[ -n "$m_tok" && "$m_tok" != "null" ]]; then tokens_used="\"$(json_escape_local "$m_tok")\""; fi
+    fi
+    # Fallback to on-the-fly classification
+    if [[ "$classification" == "null" || "$tokens_used" == "null" ]]; then
+      safe_classify "${last_msg:-}" "${log_file}" "${code}"
+      if [[ "$classification" == "null" && -n "${SC_CLASSIFICATION:-}" ]]; then classification="\"$(json_escape_local "${SC_CLASSIFICATION}")\""; fi
+      if [[ "$tokens_used" == "null" && -n "${SC_TOKENS_USED:-}" ]]; then tokens_used="\"$(json_escape_local "${SC_TOKENS_USED}")\""; fi
+    fi
     # stopped vs completed/failed: rely on exit_code
     if [[ "$code" -eq 0 ]]; then state="completed"; else state="failed"; fi
   fi
