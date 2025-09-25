@@ -1,6 +1,0 @@
-=== [20250924_223240] Codex Run  ===
-Log: /home/stark/codex/codex-command/runs/cdx-20250924_223240-mcp-e2e-logs/job.log
-Instructions: /home/stark/codex/codex-command/runs/cdx-20250924_223240-mcp-e2e-logs/job.instructions.md
-Title: <user-instructions>
-Exit: 0
-
