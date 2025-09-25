@@ -12,7 +12,15 @@ Usage
   - `node dist/index.js`
 
 - As CLI after publish:
-  - `npx codex-father-mcp-server` (or `codex-mcp-server` if globally installed)
+  - GitHub Packages (this repo uses GH Packages)
+    - Configure ~/.npmrc:
+      - `@yuanyuanyuan:registry=https://npm.pkg.github.com`
+      - `//npm.pkg.github.com/:_authToken=<YOUR_GITHUB_TOKEN>`
+    - Install or run:
+      - `npm install -g @yuanyuanyuan/codex-father-mcp-server`
+      - or `npx @yuanyuanyuan/codex-father-mcp-server`
+  - npmjs (if published there)
+    - `npx @yuanyuanyuan/codex-father-mcp-server` (or `codex-mcp-server` if globally installed)
 
 Tools
 - `codex.exec`: Synchronous execution (blocks until finish). Args:

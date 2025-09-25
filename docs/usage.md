@@ -16,9 +16,13 @@
   - `-F/--file-override <p>` 使用指定文件替换默认基底；支持 `-` 表示从 STDIN 读取一次。
   - 若未显式提供，基底按优先级：`~/.codex/instructions.md` > `INSTRUCTIONS` 环境变量（当无其它输入）> STDIN（当无其它输入且有管道输入）> 内置默认文本。
 - 叠加与顺序：
-  - `-f/--file <glob...>` 追加一个或多个文件内容（可多次，保持命令行顺序；支持通配符）。
+  - `-f/--file <path...>` 追加一个或多个文件内容（可多次，保持命令行顺序）。支持：
+    - 通配符（含 `**`，已启用 globstar）
+    - 目录（递归收集 `*.md|*.markdown`）
+    - 列表文件（使用 `@list.txt` 语法，逐行读取路径/通配；支持 `#` 注释）
   - `-c/--content <text>` 追加一段文本（可多次，保持顺序）。
-  - `--docs <glob...>` 为常用的“批量文档”简写，等价为一组 `-f`。
+  - `--docs <glob...>` 为常用的“批量文档”简写，等价为一组 `-f`；同样支持通配、目录、`@列表`。
+  - `--docs-dir <dir>` 递归添加目录下的 Markdown 文档（`*.md|*.markdown`）。
 - 前后模板：
   - `--prepend <txt>` / `--prepend-file <p>` 在最终指令前追加文本/文件。
   - `--append <txt>` / `--append-file <p>` 在最终指令后追加文本/文件。
@@ -74,6 +78,21 @@
   - 叠加文件：`{"args":["--docs","docs/**/*.md","-f","readme.md"]}`
   - 追加文本：`{"args":["-c","请输出 CONTROL: DONE"]}`
   - 注意：由于 MCP 采用后台/前台子进程执行，不建议使用 STDIN（`-F -`/`-f -`）。请用 `-c` 或落盘到文件再通过 `-f` 传入。
+
+Glob / 目录 / 列表用法示例
+- 通配符（含 **）：`./start.sh --docs "docs/**/*.md"`
+- 目录递归：`./start.sh --docs-dir docs/technical`
+- 列表文件：
+  - `cat > docs-list.txt <<'EOF'
+    # 每行一个路径或通配
+    docs/technical/*.md
+    refer-research/openai-codex/README.md
+    EOF`
+  - `./start.sh --docs @docs-list.txt`
+
+错误与提示增强
+- 未知参数时，CLI 会输出“猜你想用”的相近参数（含 `--task`/`--docs`/`--docs-dir` 等）并提示使用 `--help` 查看完整列表。
+- 通配符未匹配时，错误信息包含调试块：工作目录、搜索模式、匹配数量与候选列表，并给出“改用具体文件或 --docs-dir”的建议。
 
 任务开始与停止规则
   - 同步（start.sh）

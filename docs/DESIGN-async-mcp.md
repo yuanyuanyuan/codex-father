@@ -131,7 +131,8 @@ MCP Server 作为可选组件，遵循“薄封装”与“仅依赖 Bash/GNU �
 
 ## 使用示例
 - CLI 非阻塞：
-  - 启动：`./job.sh start --preset sprint --docs 'docs/**/*.md' --task '审阅 CLI 并给出 PR 计划' --tag sprint-1 --json`
+- 启动：`./job.sh start --preset sprint --docs 'docs/**/*.md' --task '审阅 CLI 并给出 PR 计划' --tag sprint-1 --json`
+  - 亦可使用 `--docs-dir docs` 或 `--docs @docs-list.txt`（目录/列表更稳定）
   - 查询：`./job.sh status <job-id> --json`
   - 日志：`./job.sh logs <job-id> --tail 200`
   - 停止：`./job.sh stop <job-id>`

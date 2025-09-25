@@ -12,6 +12,9 @@ e2e: mcp-build
 smoke:
 	@bash tests/smoke_start_json.sh
 	@bash tests/smoke_job_json.sh
+	@bash tests/smoke_start_unknown_arg.sh
+	@bash tests/smoke_start_docs_success.sh
+	@bash tests/smoke_start_docs_fail.sh
 
 test: smoke e2e
 
@@ -24,4 +27,3 @@ clean-sessions:
 	else \
 	  echo "[make] no sessions dir"; \
 	fi
-

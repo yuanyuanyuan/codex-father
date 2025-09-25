@@ -23,6 +23,8 @@
   - `./start.sh --task "总结 docs 的关键点"`
 - 合并多个文件与文本
   - `./start.sh --docs 'docs/**/*.md' -f refer-research/openai-codex/README.md -c "仅输出中文要点"`
+  - 目录递归：`./start.sh --docs-dir docs/technical`
+  - 列表文件：`./start.sh --docs @docs-list.txt`
 - 多轮冲刺（直到 DONE）
   - `./start.sh --preset sprint --task "审阅 CLI 并给出 PR 计划"`
 - 仅生成日志与指令（不实际调用 Codex）
@@ -34,7 +36,7 @@
 
 - 指令组合
   - 基底：默认文件、`~/.codex/instructions.md`、`-F/--file-override`、`INSTRUCTIONS` 环境变量、STDIN（`-` 仅可出现一次）
-  - 叠加：`-f/--file`（多次、通配）、`--docs` 简写、`-c/--content`（多次）
+  - 叠加：`-f/--file`（多次、支持通配/目录/@列表）、`--docs` 简写（等价一组 -f）、`--docs-dir`、`-c/--content`（多次）
   - 模板：`--prepend*` / `--append*`
   - 统一包裹 `<instructions-section type=...>`，便于复盘/解析
 - 迭代执行
@@ -101,6 +103,19 @@
 
 - TS MCP 端到端：`bash tests/mcp_ts_e2e.sh`
   - 覆盖 initialize / tools/list / codex.start / codex.status / codex.logs
+- start.sh 增强相关自检：`make smoke`
+  - 覆盖未知参数建议、glob 成功/失败、目录与 @列表支持
+
+## 发布与分发
+
+- GitHub Packages（本仓库默认）：
+  - 包名：`@yuanyuanyuan/codex-father-mcp-server`
+  - 安装（需配置 `~/.npmrc`）：
+    - `@yuanyuanyuan:registry=https://npm.pkg.github.com`
+    - `//npm.pkg.github.com/:_authToken=<YOUR_GITHUB_TOKEN>`
+    - `npm i -g @yuanyuanyuan/codex-father-mcp-server` 或 `npx @yuanyuanyuan/codex-father-mcp-server`
+- npmjs（可选）：仓库配置了语义化发版工作流，设置 `NPM_TOKEN` 后自动同步。
+- 详见：`docs/publish.md`
 
 ## 贡献与许可
 

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+# 提升通配符能力（支持 **）
+shopt -s globstar
 
 # 运行环境与默认值
 DEFAULT_INSTRUCTIONS="你好，请解释当前脚本的能力和使用示例。"
@@ -49,12 +51,113 @@ REDACT_PATTERNS_DEFAULT=(
 )
 REDACT_REPLACEMENT="${REDACT_REPLACEMENT:-***REDACTED***}"
 
+KNOWN_FLAGS=(
+  "-f" "--file" "-F" "--file-override" "-c" "--content" "-l" "--log-file"
+  "--log-dir" "--tag" "--log-subdirs" "--flat-logs" "--echo-instructions"
+  "--no-echo-instructions" "--echo-limit" "--preset" "--docs" "--docs-dir"
+  "--task" "--require-change-in" "--require-git-commit" "--auto-commit-on-done"
+  "--auto-commit-message" "--no-overflow-retry" "--overflow-retries" "--repeat-until"
+  "--max-runs" "--sleep-seconds" "--no-carry-context" "--no-compress-context"
+  "--context-head" "--context-grep" "--sandbox" "--approvals" "--profile"
+  "--full-auto" "--dangerously-bypass-approvals-and-sandbox" "--codex-config"
+  "--codex-arg" "--no-aggregate" "--aggregate-file" "--aggregate-jsonl-file"
+  "--redact" "--redact-pattern" "--prepend" "--append" "--prepend-file"
+  "--append-file" "--patch-mode" "--dry-run" "--json" "-h" "--help"
+)
+
+flag_help_line() {
+  case "$1" in
+    --task) echo "--task <text>         设置任务描述" ;;
+    --preset) echo "--preset <name>       使用预设(sprint|analysis|secure|fast)" ;;
+    --docs) echo "--docs <files...>     指定参考文档（支持通配符与多值/@列表/目录）" ;;
+    --docs-dir) echo "--docs-dir <dir>     指定目录内的文档（递归 *.md）" ;;
+    -f|--file) echo "-f, --file <path>    叠加文件（支持通配符/多值/@列表/目录）" ;;
+    -F|--file-override) echo "-F, --file-override <path> 覆盖基底为指定文件" ;;
+    -h|--help) echo "-h, --help           查看完整帮助" ;;
+    *) echo "$1" ;;
+  esac
+}
+
+print_unknown_arg_help() {
+  local unknown="$1"
+  local u=${unknown#--}; u=${u#-}
+  local u_tokens; IFS='-' read -r -a u_tokens <<< "$u"
+  local scored=()
+  local f
+  for f in "${KNOWN_FLAGS[@]}"; do
+    local clean=${f#--}; clean=${clean#-}
+    local score=0
+    # 前缀/包含加权
+    if [[ "$clean" == "$u" ]]; then score=200; fi
+    if [[ "$clean" == "$u"* ]] || [[ "$u" == "$clean"* ]]; then score=$((score+120)); fi
+    if [[ "$clean" == *"$u"* ]] || [[ "$u" == *"$clean"* ]]; then score=$((score+40)); fi
+    # token 重合
+    local t; for t in "${u_tokens[@]}"; do
+      [[ -z "$t" ]] && continue
+      if [[ "$clean" == *"$t"* ]]; then score=$((score+10)); fi
+    done
+    scored+=("$score $f")
+  done
+  # 取前 5 个候选
+  mapfile -t suggestions < <(printf '%s\n' "${scored[@]}" | sort -nr | awk 'NR<=5{print $2}')
+  {
+    echo "❌ 未知参数: ${unknown}"
+    echo "💡 是否想使用以下参数？"
+    local s; for s in "${suggestions[@]}"; do flag_help_line "$s"; done | sed 's/^/   /'
+    echo "📖 运行 --help 查看完整参数列表"
+  } >&2
+}
+
+expand_arg_to_files() {
+  # $1: input token; returns via global arrays: EXP_FILES, EXP_ERRORS(optional text)
+  EXP_FILES=()
+  EXP_ERRORS=""
+  local token="$1"
+  # @list 文件
+  if [[ "$token" == @* ]]; then
+    local list_file=${token#@}
+    if [[ ! -f "$list_file" ]]; then
+      EXP_ERRORS="列表文件不存在: $list_file"; return 1
+    fi
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      line="${line%%$'\r'}" # trim CR
+      [[ -z "$line" || "$line" == \#* ]] && continue
+      expand_arg_to_files "$line" || true
+      if (( ${#EXP_FILES[@]} > 0 )); then
+        :
+      fi
+    done < "$list_file"
+    return 0
+  fi
+  # 目录：递归匹配 *.md
+  if [[ -d "$token" ]]; then
+    while IFS= read -r f; do EXP_FILES+=("$f"); done < <(find "$token" -type f \( -name '*.md' -o -name '*.markdown' \) -print | sort)
+    if (( ${#EXP_FILES[@]} == 0 )); then
+      EXP_ERRORS="目录内未找到 Markdown 文件: $token"; return 1
+    fi
+    return 0
+  fi
+  # 通配符
+  if [[ "$token" == *'*'* || "$token" == *'?'* || "$token" == *'['* ]]; then
+    mapfile -t _matches < <(compgen -G -- "$token" || true)
+    if (( ${#_matches[@]} > 0 )); then
+      local m; for m in "${_matches[@]}"; do EXP_FILES+=("$m"); done
+      return 0
+    else
+      EXP_ERRORS="未匹配到任何文件: $token"; return 1
+    fi
+  fi
+  # 常规文件
+  if [[ -f "$token" ]]; then EXP_FILES+=("$token"); return 0; fi
+  EXP_ERRORS="文件不存在: $token"; return 1
+}
+
 usage() {
   cat <<'EOF'
 用法: start.sh [选项]
 
 选项:
-  -f, --file <path>   叠加读取文件内容；可多次，也可一次跟多个值直至遇到下一个选项；支持通配符（*.md）；支持 '-' 从 STDIN 读取一次
+  -f, --file <path>   叠加读取文件内容；可多次，也可一次跟多个值直至遇到下一个选项；支持通配符（*.md）；支持 '-' 从 STDIN 读取一次；支持目录/文件列表(@list.txt)
   -F, --file-override <path>
                       覆盖基底为指定文件（支持 '-' 表示从 STDIN 读取一次；与 -f 可同时使用，-f 将继续在其后叠加）
   -c, --content <txt> 叠加一段文本内容（可多次，保持顺序）
@@ -67,7 +170,8 @@ usage() {
       --no-echo-instructions 不在日志中回显最终合成的指令与来源
       --echo-limit <n>      限制在日志中回显的指令最大行数（0 表示不限制）
       --preset <name>       使用预设参数集（sprint|analysis|secure|fast）
-      --docs <glob...>      简化形式，等价于一组 -f（支持通配符与多值）
+      --docs <glob...>      简化形式，等价于一组 -f（支持通配符、多值、目录、@列表文件）
+      --docs-dir <dir>      递归添加目录下的 Markdown 文档（*.md|*.markdown）
       --task <text>         简化形式，等价于一次 -c 文本
       --require-change-in <glob>  要求最后完成前这些文件（通配符）必须有变更（可多次）
       --require-git-commit       要求最后完成前 HEAD 必须前进（至少一次提交）
@@ -179,19 +283,15 @@ while [[ $# -gt 0 ]]; do
       while [[ $# -gt 0 ]]; do
         next="$1"
         if [[ "$next" == "-" || "$next" != -* ]]; then
-          # Expand globs if present; fall back to literal if no match
-          if [[ "$next" != "-" && ( "$next" == *'*'* || "$next" == *'?'* || "$next" == *'['* ) ]]; then
-            # 使用 compgen -G 做通配符展开；无匹配则保持字面量
-            mapfile -t _matches < <(compgen -G -- "$next" || true)
-            if (( ${#_matches[@]} > 0 )); then
-              for _m in "${_matches[@]}"; do
-                SRC_TYPES+=("F"); SRC_VALUES+=("${_m}"); FILE_INPUTS+=("${_m}")
-              done
+          if [[ "$next" == "-" ]]; then
+            SRC_TYPES+=("F"); SRC_VALUES+=("${next}"); FILE_INPUTS+=("${next}")
+          else
+            if expand_arg_to_files "$next"; then
+              for _m in "${EXP_FILES[@]}"; do SRC_TYPES+=("F"); SRC_VALUES+=("${_m}"); FILE_INPUTS+=("${_m}"); done
             else
+              # 记录原始 token 以便下游报错时输出调试信息
               SRC_TYPES+=("F"); SRC_VALUES+=("${next}"); FILE_INPUTS+=("${next}")
             fi
-          else
-            SRC_TYPES+=("F"); SRC_VALUES+=("${next}"); FILE_INPUTS+=("${next}")
           fi
           shift
         else
@@ -249,21 +349,33 @@ while [[ $# -gt 0 ]]; do
       while [[ $# -gt 0 ]]; do
         next="$1"
         if [[ "$next" == "-" || "$next" != -* ]]; then
-          if [[ "$next" != "-" && ( "$next" == *'*'* || "$next" == *'?'* || "$next" == *'['* ) ]]; then
-            mapfile -t _matches < <(compgen -G -- "$next" || true)
-            if (( ${#_matches[@]} > 0 )); then
-              for _m in "${_matches[@]}"; do SRC_TYPES+=("F"); SRC_VALUES+=("${_m}"); FILE_INPUTS+=("${_m}"); done
+          if [[ "$next" == "-" ]]; then
+            SRC_TYPES+=("F"); SRC_VALUES+=("${next}"); FILE_INPUTS+=("${next}")
+          else
+            if expand_arg_to_files "$next"; then
+              for _m in "${EXP_FILES[@]}"; do SRC_TYPES+=("F"); SRC_VALUES+=("${_m}"); FILE_INPUTS+=("${_m}"); done
             else
               SRC_TYPES+=("F"); SRC_VALUES+=("${next}"); FILE_INPUTS+=("${next}")
             fi
-          else
-            SRC_TYPES+=("F"); SRC_VALUES+=("${next}"); FILE_INPUTS+=("${next}")
           fi
           shift
         else
           break
         fi
       done ;;
+    --docs-dir)
+      [[ $# -ge 2 ]] || { echo "错误: --docs-dir 需要一个目录参数" >&2; exit 2; }
+      DOCS_DIR_IN="$2"
+      if [[ -d "$DOCS_DIR_IN" ]]; then
+        mapfile -t _docs_dir_files < <(find "$DOCS_DIR_IN" -type f \( -name '*.md' -o -name '*.markdown' \) -print | sort)
+        if (( ${#_docs_dir_files[@]} == 0 )); then
+          echo "错误: 目录内未找到 Markdown 文件: $DOCS_DIR_IN" >&2; exit 2
+        fi
+        for _m in "${_docs_dir_files[@]}"; do SRC_TYPES+=("F"); SRC_VALUES+=("${_m}"); FILE_INPUTS+=("${_m}"); done
+      else
+        echo "错误: 目录不存在: $DOCS_DIR_IN" >&2; exit 2
+      fi
+      shift 2 ;;
     --task)
       [[ $# -ge 2 ]] || { echo "错误: --task 需要文本参数" >&2; exit 2; }
       SRC_TYPES+=("C"); SRC_VALUES+=("${2}"); shift 2 ;;
@@ -343,8 +455,7 @@ while [[ $# -gt 0 ]]; do
     --)
       shift; break ;;
     *)
-      echo "未知参数: ${1}" >&2
-      usage
+      print_unknown_arg_help "${1}"
       exit 2 ;;
   esac
 done
@@ -437,9 +548,28 @@ for i in "${!SRC_TYPES[@]}"; do
         INSTRUCTIONS="${INSTRUCTIONS}"$'\n\n'"${STDIN_CONTENT}"
         SOURCE_LINES+=("Add file: STDIN")
       else
-        [[ -f "$v" ]] || { echo "错误: 文件不存在: $v" >&2; exit 2; }
-        INSTRUCTIONS="${INSTRUCTIONS}"$'\n\n'"$(cat "$v")"
-        SOURCE_LINES+=("Add file: $v")
+        if [[ -f "$v" ]]; then
+          INSTRUCTIONS="${INSTRUCTIONS}"$'\n\n'"$(cat "$v")"
+          SOURCE_LINES+=("Add file: $v")
+        else
+          # 更友好的调试信息
+          if [[ "$v" == *'*'* || "$v" == *'?'* || "$v" == *'['* ]]; then
+            mapfile -t _dbg_matches < <(compgen -G -- "$v" || true)
+            echo "错误: 文件不存在: $v" >&2
+            echo "🔎 调试信息:" >&2
+            echo "   - 搜索模式: $v" >&2
+            echo "   - 工作目录: $(pwd)" >&2
+            echo "   - 匹配到的文件: ${#_dbg_matches[@]} 个" >&2
+            if (( ${#_dbg_matches[@]} > 0 )); then
+              printf '     • %s\n' "${_dbg_matches[@]}" >&2
+            fi
+            echo "   - 建议: 确认路径/通配符是否正确；必要时改用具体文件或 --docs-dir 目录" >&2
+          else
+            echo "错误: 文件不存在: $v" >&2
+            echo "   - 工作目录: $(pwd)" >&2
+          fi
+          exit 2
+        fi
       fi
       ;;
     C)

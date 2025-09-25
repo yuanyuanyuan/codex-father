@@ -94,6 +94,13 @@
   srv.stdin.write(JSON.stringify({ jsonrpc:"2.0", id:2, method:"tools/call", params:{ name:"codex.exec", arguments:{ args:["--task","Sync via MCP","--dry-run"], tag:"demo" } } })+"\n");
   ```
 
+## 分发与安装（GH Packages）
+- 包名：`@yuanyuanyuan/codex-father-mcp-server`
+- 通过 GitHub Packages 安装/运行（需要配置 `~/.npmrc`）：
+  - `@yuanyuanyuan:registry=https://npm.pkg.github.com`
+  - `//npm.pkg.github.com/:_authToken=<YOUR_GITHUB_TOKEN>`
+  - `npx @yuanyuanyuan/codex-father-mcp-server`
+
 ## 安全与故障排查
 - 默认安全：若未在 `arguments.args` 中显式提供，MCP 会为 `codex.exec`/`codex.start` 注入 `--sandbox workspace-write --approvals on-request`。
 - 覆盖方式：在 args 中显式设置 `--approvals`（如 `never|on-request`）与 `--sandbox`（如 `read-only|workspace-write`）；需要脱敏时使用 `--redact`/`--redact-pattern`。

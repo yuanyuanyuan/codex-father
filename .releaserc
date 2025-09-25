@@ -1,0 +1,28 @@
+{
+  "branches": ["main"],
+  "tagFormat": "mcp-v${version}",
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/changelog",
+      { "changelogFile": "mcp/codex-mcp-server/CHANGELOG.md" }
+    ],
+    [
+      "@semantic-release/npm",
+      { "pkgRoot": "mcp/codex-mcp-server", "npmPublish": true }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": [
+          "mcp/codex-mcp-server/CHANGELOG.md",
+          "mcp/codex-mcp-server/package.json"
+        ],
+        "message": "chore(release): mcp v${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ],
+    "@semantic-release/github"
+  ]
+}
+
