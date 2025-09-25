@@ -47,7 +47,7 @@
   - 会话内聚合：`aggregate.txt`、`aggregate.jsonl`
 - 脱敏与直通
   - `--redact`、`--redact-pattern <regex>`
-  - 透传 Codex：`--sandbox`、`--approvals`、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg`
+  - 透传 Codex：`--sandbox`、`--approval-mode <policy>`（等价 `-c approval_policy=<policy>`）、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg`
 
 ## MCP 服务器（标准 SDK 实现）
 
@@ -67,7 +67,7 @@
 
 补丁模式（只输出改动，不改盘）
 - 加参：`--patch-mode`（自动注入 policy-note，提示模型仅输出补丁）
-- 常配：`--sandbox read-only --approvals never`
+- 常配：`--sandbox read-only --codex-config approval_policy=never`
 - 最小交互（stdio）：
   - `printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"demo","version":"0.0.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | ./mcp/server.sh`
 

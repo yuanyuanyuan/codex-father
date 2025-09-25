@@ -33,10 +33,10 @@
 
 补丁模式（只输出改动，不改盘）
 - 启用方式：`--patch-mode`（自动注入 policy-note，要求模型“仅输出补丁（patch/diff），不执行写命令/不直接改仓库”）。
-- 常配合只读与免审批：`--sandbox read-only --approvals never`。
+- 常配合只读与免审批：`--sandbox read-only --codex-config approval_policy=never`（或 `--approval-mode never`）。
 - 示例：
-  - `./start.sh --task "修复 lint 错误" --patch-mode --sandbox read-only --approvals never`
-  - MCP：在 `codex.exec` 的 `arguments.args` 中加入 `"--patch-mode"`（必要时同时传 `"--sandbox","read-only","--approvals","never"`）。
+  - `./start.sh --task "修复 lint 错误" --patch-mode --sandbox read-only --approval-mode never`
+  - MCP：在 `codex.exec` 的 `arguments.args` 中加入 `"--patch-mode"`（必要时同时传 `"--sandbox","read-only","--codex-config","approval_policy=never"`）。
 
 示例（CLI）
 - 用 STDIN 覆盖基底并叠加多文件与尾部模板：
@@ -50,7 +50,7 @@
   - 日志：`--log-dir`、`--log-file`、`--tag`、`--flat-logs`、`--echo-instructions[*]`、`--echo-limit`
   - 输出：`--json`（将最终 meta.json 打印到 STDOUT）
   - 安全：`--redact`、`--redact-pattern <regex>`
-  - 直通：`--sandbox`、`--approvals`、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg`
+  - 直通：`--sandbox`、`--approval-mode <policy>`（等价 `-c approval_policy=<policy>`）、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg`
 
 - 产物与日志
   - 默认写入 `<项目根>/.codex-father/sessions/<job-id>/`（同步/异步一致）
@@ -111,4 +111,4 @@ Glob / 目录 / 列表用法示例
   - 异步：`codex.start` / `codex.status` / `codex.logs` / `codex.stop` / `codex.list`（均支持 `cwd`）
 
 安全与审批
-- 通过 `--sandbox`、`--approvals`、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg` 对 Codex CLI 进行透传；高危项默认不启用，请谨慎使用。
+- 通过 `--sandbox`、`--approval-mode`（或 `--codex-config approval_policy=...`）、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg` 对 Codex CLI 进行透传；高危项默认不启用，请谨慎使用。

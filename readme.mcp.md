@@ -27,7 +27,7 @@
   ```
 - 同步执行：
   ```bash
-  printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","Sync via MCP","--dry-run","--approvals","never","--sandbox","workspace-write"],"tag":"mcp-sync"}}}\n' | ./mcp/server.sh
+  printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","Sync via MCP","--dry-run","--sandbox","workspace-write","--codex-config","approval_policy=never"],"tag":"mcp-sync"}}}\n' | ./mcp/server.sh
   ```
 返回 JSON 含：`runId, exitCode, processExit, cwd, logFile, instructionsFile, metaFile, lastMessageFile, tag`。
 - 异步执行与管理：
@@ -44,16 +44,16 @@
 - 模板：`--prepend[/-file]`、`--append[/-file]`
 - 迭代与预设：`--preset sprint`、`--repeat-until 'CONTROL: DONE'`、`--max-runs N`、`--sleep-seconds S`
 - 上下文压缩：`--no-carry-context`、`--no-compress-context`、`--context-head N`、`--context-grep REGEX`
-- 直通 Codex：`--sandbox`、`--approvals`、`--profile`、`--full-auto`、`--codex-config key=value`、`--codex-arg "--flag value"`
+- 直通 Codex：`--sandbox`、`--approval-mode <policy>` 或 `--codex-config approval_policy=<policy>`、`--profile`、`--full-auto`、`--codex-config key=value`、`--codex-arg "--flag value"`
 - 注意：MCP 中不建议使用 STDIN（`-f -`/`-F -`）；改用 `-c` 或将内容落盘后用 `-f` 传入。
 
 补丁模式（只输出改动，不改盘）
 - 目的：在受限环境（只读/免审批）下，模型只给出可应用的补丁（patch/diff），而不尝试直接改文件。
 - 开关：`--patch-mode`（会自动注入 policy-note 提示）。
-- 建议与只读搭配：`--sandbox read-only --approvals never`。
+- 建议与只读搭配：`--sandbox read-only --codex-config approval_policy=never`。
 - 示例（stdio）：
   ```bash
-  printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","修复TS类型","--patch-mode","--sandbox","read-only","--approvals","never"],"tag":"patch-run","cwd":"'$PWD'"}}}\n' | ./mcp/server.sh
+  printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","修复TS类型","--patch-mode","--sandbox","read-only","--codex-config","approval_policy=never"],"tag":"patch-run","cwd":"'$PWD'"}}}\n' | ./mcp/server.sh
   ```
 
 ## 产物与路径
@@ -103,7 +103,7 @@
 
 ## 安全与故障排查
 - 默认安全：若未在 `arguments.args` 中显式提供，MCP 会为 `codex.exec`/`codex.start` 注入 `--sandbox workspace-write`（不再默认注入 `--approvals` 以兼容不同 Codex CLI 版本）。
-- 覆盖方式：在 args 中显式设置 `--approvals`（如 `never|on-request`）与 `--sandbox`（如 `read-only|workspace-write`）；需要脱敏时使用 `--redact`/`--redact-pattern`。
+- 覆盖方式：在 args 中显式设置 `--approval-mode`（如 `never|on-request`，将被映射为 `-c approval_policy=...`）与 `--sandbox`（如 `read-only|workspace-write`）；或直接传 `--codex-config approval_policy=<policy>`；需要脱敏时使用 `--redact`/`--redact-pattern`。
 - 故障排查：若 `exec`/`start` 失败，查看 `<项目根>/.codex-father/sessions/<job-id>/job.log`（末尾含 `Exit Code:`）；元数据见 `*.meta.json`；可运行 `tests/mcp_ts_e2e.sh` 做端到端自检。
 
 注意与建议

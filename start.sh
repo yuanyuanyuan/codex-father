@@ -58,7 +58,7 @@ KNOWN_FLAGS=(
   "--task" "--require-change-in" "--require-git-commit" "--auto-commit-on-done"
   "--auto-commit-message" "--no-overflow-retry" "--overflow-retries" "--repeat-until"
   "--max-runs" "--sleep-seconds" "--no-carry-context" "--no-compress-context"
-  "--context-head" "--context-grep" "--sandbox" "--approvals" "--profile"
+  "--context-head" "--context-grep" "--sandbox" "--approval-mode" "--approvals" "--profile"
   "--full-auto" "--dangerously-bypass-approvals-and-sandbox" "--codex-config"
   "--codex-arg" "--no-aggregate" "--aggregate-file" "--aggregate-jsonl-file"
   "--redact" "--redact-pattern" "--prepend" "--append" "--prepend-file"
@@ -202,6 +202,7 @@ usage() {
   - 默认将日志保存在 ${CODEX_LOG_DIR_DEFAULT}，并按“日期/标签”分层：logs/YYYYMMDD/<tag|untagged>/codex-YYYYMMDD_HHMMSS-<tag>.log；
     可通过 --flat-logs 改为平铺至 --log-dir。摘要附加到 ${REPO_ROOT}/codex_run_recording.txt。
   - 日志默认回显“最终合成的指令”与“各来源列表”，可用 --no-echo-instructions 关闭；或用 --echo-limit 控制回显的行数。
+  - 审批策略：通过 `--approval-mode <策略>`（untrusted|on-failure|on-request|never）或 `-c approval_policy=<策略>` 配置；兼容别名 `--approvals` 将自动映射为 `-c approval_policy=<策略>`。
   - 为简化常用场景，可使用 --preset：
     - sprint：多轮推进，直到输出 CONTROL: DONE；配合自动连续执行与宽松时限。
     - analysis：单轮快速分析，回显行数默认限制为 200。
@@ -403,9 +404,13 @@ while [[ $# -gt 0 ]]; do
     --sandbox)
       [[ $# -ge 2 ]] || { echo "错误: --sandbox 需要一个值 (read-only|workspace-write|danger-full-access)" >&2; exit 2; }
       CODEX_GLOBAL_ARGS+=("--sandbox" "${2}"); shift 2 ;;
+    --approval-mode)
+      [[ $# -ge 2 ]] || { echo "错误: --approval-mode 需要一个策略 (untrusted|on-failure|on-request|never)" >&2; exit 2; }
+      CODEX_GLOBAL_ARGS+=("--config" "approval_policy=${2}"); shift 2 ;;
     --approvals)
       [[ $# -ge 2 ]] || { echo "错误: --approvals 需要一个策略 (untrusted|on-failure|on-request|never)" >&2; exit 2; }
-      CODEX_GLOBAL_ARGS+=("--approvals" "${2}"); shift 2 ;;
+      echo "[warn] --approvals 为兼容别名，将映射为 -c approval_policy=${2}" >&2
+      CODEX_GLOBAL_ARGS+=("--config" "approval_policy=${2}"); shift 2 ;;
     --profile)
       [[ $# -ge 2 ]] || { echo "错误: --profile 需要一个配置名" >&2; exit 2; }
       CODEX_GLOBAL_ARGS+=("--profile" "${2}"); shift 2 ;;
