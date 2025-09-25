@@ -27,12 +27,21 @@ Tools
   - `args`: string[] — forwarded to `start.sh`
   - `tag`: string — label for the run (used in directory name)
   - `cwd`: string — project root for session storage (default: server cwd)
+  - Convenience fields (optional):
+    - `approvalPolicy`: `untrusted|on-failure|on-request|never`
+    - `sandbox`: `read-only|workspace-write|danger-full-access`
+    - `network`: boolean (enables network in workspace-write mode)
+    - `fullAuto`: boolean (adds `--full-auto`)
+    - `dangerouslyBypass`: boolean (adds `--dangerously-bypass-approvals-and-sandbox` and enforces `--sandbox danger-full-access`)
+    - `profile`: string (Codex config profile)
+    - `codexConfig`: object (mapped to repeated `--codex-config 'k=v'`)
   - Returns JSON: `{ runId, exitCode, cwd, logFile, instructionsFile, metaFile, lastMessageFile, tag }`
 
 - `codex.start`: Start a non-blocking run. Args:
   - `args`: string[] — forwarded to `start.sh`
   - `tag`: string — job tag
   - `cwd`: string — working directory for job
+  - Same convenience fields as `codex.exec` are supported.
 
 - `codex.status`: Get job status. Args: `{ jobId: string, cwd?: string }`
 - `codex.logs`: Read job log. Args:
@@ -68,3 +77,27 @@ Environment
 
 Storage layout
 - Sessions live under `<project>/.codex-father/sessions/<job-id>/` with `job.log`, `*.instructions.md`, `*.meta.json`, `state.json` (async), and `*.last.txt` files.
+
+Examples
+- Full‑auto without prompts (workspace‑write + network + never):
+```
+{"jsonrpc":"2.0","id":100,"method":"tools/call","params":{"name":"codex.exec","arguments":{
+  "cwd":"/path/to/repo",
+  "tag":"mcp-fullauto",
+  "approvalPolicy":"never",
+  "sandbox":"workspace-write",
+  "network":true,
+  "fullAuto":true,
+  "args":["--task","一次性完成任务示例"]
+}}}
+```
+
+- YOLO (not recommended outside containers):
+```
+{"jsonrpc":"2.0","id":101,"method":"tools/call","params":{"name":"codex.exec","arguments":{
+  "cwd":"/path/to/repo",
+  "tag":"yolo",
+  "dangerouslyBypass":true,
+  "args":["--task","危险示例，仅在可信环境使用"]
+}}}
+```

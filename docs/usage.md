@@ -71,7 +71,67 @@
     - `printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","Sync via MCP","--dry-run"],"tag":"mcp-sync","cwd":"$PWD"}}}\n' | ./mcp/server.sh`
   - 启动一次运行（可选 `cwd`）：
     - `printf '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"codex.start","arguments":{"args":["--task","TS MCP test","--dry-run"],"tag":"mcp-ts","cwd":"$PWD"}}}\n' | ./mcp/server.sh`
-  - 默认安全：若未在 `arguments.args` 中显式传入，MCP 会注入 `--sandbox workspace-write`（不默认注入 `--approvals` 以兼容不同版本的 Codex CLI）。
+  - 默认安全：若未在 `arguments.args` 中显式传入，MCP 会注入 `--sandbox workspace-write`（不默认注入危险绕过；网络默认关闭）。
+
+MCP 全自动（不询问）用法
+- 便捷字段（在 `tools/call` 的 `arguments` 内）：
+  - `approvalPolicy`: `untrusted|on-failure|on-request|never`（相当于 `--approval-mode`）
+  - `sandbox`: `read-only|workspace-write|danger-full-access`（相当于 `--sandbox`）
+  - `network`: `true|false`（在 `workspace-write` 模式下启用网络，等价 `--codex-config 'sandbox_workspace_write.network_access=true'`）
+  - `fullAuto`: `true|false`（等价 `--full-auto`）
+  - `dangerouslyBypass`: `true|false`（等价 `--dangerously-bypass-approvals-and-sandbox`，会显式设置 `--sandbox danger-full-access`）
+  - `profile`: `string`（等价 `--profile <name>`）
+  - `codexConfig`: `object`（将每个 `k: v` 映射为 `--codex-config 'k=v'`；字符串会自动加 TOML 引号）
+
+- 同步 exec（推荐：工作区写 + 网络 + 从不询问）
+  - `printf '{
+      "jsonrpc":"2.0","id":300,"method":"tools/call",
+      "params":{
+        "name":"codex.exec",
+        "arguments":{
+          "cwd":"'"$PWD"'",
+          "tag":"mcp-fullauto",
+          "approvalPolicy":"never",
+          "sandbox":"workspace-write",
+          "network":true,
+          "fullAuto":true,
+          "args":["--task","一次性完成任务示例"]
+        }
+      }
+    }\n' | ./mcp/server.sh`
+
+- 完全放开（容器或受控环境下使用）
+  - `printf '{
+      "jsonrpc":"2.0","id":301,"method":"tools/call",
+      "params":{
+        "name":"codex.exec",
+        "arguments":{
+          "cwd":"'"$PWD"'",
+          "tag":"mcp-yolo",
+          "dangerouslyBypass":true,
+          "args":["--task","危险示例，仅在可信环境使用"]
+        }
+      }
+    }\n' | ./mcp/server.sh`
+
+- 只读补丁模式（产出 diff，不改盘）
+  - `printf '{
+      "jsonrpc":"2.0","id":302,"method":"tools/call",
+      "params":{
+        "name":"codex.exec",
+        "arguments":{
+          "cwd":"'"$PWD"'",
+          "tag":"mcp-patch",
+          "approvalPolicy":"never",
+          "sandbox":"read-only",
+          "args":["--task","修复 lint 错误","--patch-mode"]
+        }
+      }
+    }\n' | ./mcp/server.sh`
+
+提示与排查
+- MCP 客户端（如 MCP Inspector）默认超时时间较短，长任务请将请求/总超时调大到 600000ms（10 分钟）。
+- 日志若出现 `approval_required/sandbox_denied`，这是策略阻止的提示，并非弹窗等待；如需自动化继续，请放宽 `sandbox` 或开启 `network`/`dangerouslyBypass`。
 
 在 MCP 中传递指令参数
 - 所有 start.sh 选项均可通过 `arguments.args` 传入，例如：
