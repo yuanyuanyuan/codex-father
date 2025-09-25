@@ -102,7 +102,7 @@
   - `npx @yuanyuanyuan/codex-father-mcp-server`
 
 ## 安全与故障排查
-- 默认安全：若未在 `arguments.args` 中显式提供，MCP 会为 `codex.exec`/`codex.start` 注入 `--sandbox workspace-write --approvals on-request`。
+- 默认安全：若未在 `arguments.args` 中显式提供，MCP 会为 `codex.exec`/`codex.start` 注入 `--sandbox workspace-write`（不再默认注入 `--approvals` 以兼容不同 Codex CLI 版本）。
 - 覆盖方式：在 args 中显式设置 `--approvals`（如 `never|on-request`）与 `--sandbox`（如 `read-only|workspace-write`）；需要脱敏时使用 `--redact`/`--redact-pattern`。
 - 故障排查：若 `exec`/`start` 失败，查看 `<项目根>/.codex-father/sessions/<job-id>/job.log`（末尾含 `Exit Code:`）；元数据见 `*.meta.json`；可运行 `tests/mcp_ts_e2e.sh` 做端到端自检。
 

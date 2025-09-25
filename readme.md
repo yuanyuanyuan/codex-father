@@ -54,7 +54,7 @@
 - 入口：`mcp/server.sh`（将启动 `mcp/codex-mcp-server/dist/index.js`）
 - 工具（tools）：`codex.exec`（同步）、`codex.start`、`codex.status`、`codex.logs`、`codex.stop`、`codex.list`
 - 详细文档：`readme.mcp.md`
- - 默认安全：未显式传入时，自动注入 `--sandbox workspace-write --approvals on-request`（可在 `arguments.args` 覆盖）。
+ - 默认安全：未显式传入时，自动注入 `--sandbox workspace-write`（不再默认注入 `--approvals` 以提升兼容性）。
 
 快速使用（stdio）：
 - 构建：`cd mcp/codex-mcp-server && npm install && npm run build`

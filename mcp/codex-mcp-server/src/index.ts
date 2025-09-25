@@ -144,9 +144,7 @@ async function handleCall(req: CallToolRequest) {
         const args: string[] = Array.isArray(p.args) ? p.args.map(String) : [];
         // Default-safe injection (unless explicitly provided)
         const hasSandbox = args.includes('--sandbox');
-        const hasApprovals = args.includes('--approvals');
         if (!hasSandbox) { args.push('--sandbox', 'workspace-write'); }
-        if (!hasApprovals) { args.push('--approvals', 'on-request'); }
         const tag = p.tag ? String(p.tag) : '';
         const cwd = p.cwd ? String(p.cwd) : '';
         const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
@@ -230,9 +228,7 @@ async function handleCall(req: CallToolRequest) {
         const args: string[] = Array.isArray(p.args) ? p.args.map(String) : [];
         // Default-safe injection (unless explicitly provided)
         const hasSandbox = args.includes('--sandbox');
-        const hasApprovals = args.includes('--approvals');
         if (!hasSandbox) { args.push('--sandbox', 'workspace-write'); }
-        if (!hasApprovals) { args.push('--approvals', 'on-request'); }
         const pass: string[] = ['start', '--json'];
         if (p.tag) pass.push('--tag', String(p.tag));
         if (p.cwd) pass.push('--cwd', String(p.cwd));

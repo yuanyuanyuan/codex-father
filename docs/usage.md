@@ -71,7 +71,7 @@
     - `printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","Sync via MCP","--dry-run"],"tag":"mcp-sync","cwd":"$PWD"}}}\n' | ./mcp/server.sh`
   - 启动一次运行（可选 `cwd`）：
     - `printf '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"codex.start","arguments":{"args":["--task","TS MCP test","--dry-run"],"tag":"mcp-ts","cwd":"$PWD"}}}\n' | ./mcp/server.sh`
-  - 默认安全：若未在 `arguments.args` 中显式传入，MCP 会注入 `--sandbox workspace-write --approvals on-request`（可覆盖）。
+  - 默认安全：若未在 `arguments.args` 中显式传入，MCP 会注入 `--sandbox workspace-write`（不默认注入 `--approvals` 以兼容不同版本的 Codex CLI）。
 
 在 MCP 中传递指令参数
 - 所有 start.sh 选项均可通过 `arguments.args` 传入，例如：
