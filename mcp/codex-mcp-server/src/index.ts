@@ -75,7 +75,21 @@ function toolsSpec(): ListToolsResult {
             fullAuto: { type: 'boolean' },
             dangerouslyBypass: { type: 'boolean' },
             profile: { type: 'string' },
-            codexConfig: { type: 'object', additionalProperties: true }
+            codexConfig: { type: 'object', additionalProperties: true },
+            // run controls (map to start.sh)
+            preset: { type: 'string' },
+            repeatUntil: { type: 'string' },
+            maxRuns: { type: 'integer' },
+            sleepSeconds: { type: 'integer' },
+            carryContext: { type: 'boolean' },
+            compressContext: { type: 'boolean' },
+            contextHead: { type: 'integer' },
+            patchMode: { type: 'boolean' },
+            // completion enforcement + auto commit
+            requireChangeIn: { type: 'array', items: { type: 'string' } },
+            requireGitCommit: { type: 'boolean' },
+            autoCommitOnDone: { type: 'boolean' },
+            autoCommitMessage: { type: 'string' }
           },
           additionalProperties: false
         }
@@ -95,7 +109,19 @@ function toolsSpec(): ListToolsResult {
             fullAuto: { type: 'boolean' },
             dangerouslyBypass: { type: 'boolean' },
             profile: { type: 'string' },
-            codexConfig: { type: 'object', additionalProperties: true }
+            codexConfig: { type: 'object', additionalProperties: true },
+            preset: { type: 'string' },
+            repeatUntil: { type: 'string' },
+            maxRuns: { type: 'integer' },
+            sleepSeconds: { type: 'integer' },
+            carryContext: { type: 'boolean' },
+            compressContext: { type: 'boolean' },
+            contextHead: { type: 'integer' },
+            patchMode: { type: 'boolean' },
+            requireChangeIn: { type: 'array', items: { type: 'string' } },
+            requireGitCommit: { type: 'boolean' },
+            autoCommitOnDone: { type: 'boolean' },
+            autoCommitMessage: { type: 'string' }
           },
           additionalProperties: false
         }
@@ -201,6 +227,22 @@ function applyConvenienceOptions(args: string[], p: any) {
       args.push('--codex-config', `${k}=${toTomlValue(v)}`);
     }
   }
+
+  // run controls mapping to start.sh flags
+  if (p?.preset) args.push('--preset', String(p.preset));
+  if (p?.repeatUntil) args.push('--repeat-until', String(p.repeatUntil));
+  if (Number.isFinite(p?.maxRuns)) args.push('--max-runs', String(p.maxRuns));
+  if (Number.isFinite(p?.sleepSeconds)) args.push('--sleep-seconds', String(p.sleepSeconds));
+  if (p?.carryContext === false) args.push('--no-carry-context');
+  if (p?.compressContext === false) args.push('--no-compress-context');
+  if (Number.isFinite(p?.contextHead)) args.push('--context-head', String(p.contextHead));
+  if (p?.patchMode) args.push('--patch-mode');
+  if (Array.isArray(p?.requireChangeIn)) {
+    for (const g of p.requireChangeIn) args.push('--require-change-in', String(g));
+  }
+  if (p?.requireGitCommit) args.push('--require-git-commit');
+  if (p?.autoCommitOnDone) args.push('--auto-commit-on-done');
+  if (p?.autoCommitMessage) args.push('--auto-commit-message', String(p.autoCommitMessage));
 }
 
 async function handleCall(req: CallToolRequest) {
