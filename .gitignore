@@ -1,3 +1,4 @@
 # Local run artifacts
 runs/
 .codex-father/sessions/
+**/.codex-father/sessions/
