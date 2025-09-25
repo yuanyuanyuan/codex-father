@@ -119,14 +119,29 @@ expand_arg_to_files() {
     if [[ ! -f "$list_file" ]]; then
       EXP_ERRORS="列表文件不存在: $list_file"; return 1
     fi
+    local had_any=0
     while IFS= read -r line || [[ -n "$line" ]]; do
       line="${line%%$'\r'}" # trim CR
       [[ -z "$line" || "$line" == \#* ]] && continue
-      expand_arg_to_files "$line" || true
-      if (( ${#EXP_FILES[@]} > 0 )); then
-        :
+      if [[ -d "$line" ]]; then
+        while IFS= read -r f; do EXP_FILES+=("$f"); had_any=1; done < <(find "$line" -type f \( -name '*.md' -o -name '*.markdown' \) -print | sort)
+        continue
       fi
+      if [[ "$line" == *'*'* || "$line" == *'?'* || "$line" == *'['* ]]; then
+        local old_nullglob; old_nullglob=$(shopt -p nullglob || true)
+        shopt -s nullglob
+        local expanded_line=( $line )
+        eval "$old_nullglob" || true
+        if (( ${#expanded_line[@]} > 0 )); then
+          local m; for m in "${expanded_line[@]}"; do EXP_FILES+=("$m"); done
+          had_any=1
+        fi
+        continue
+      fi
+      if [[ -f "$line" ]]; then EXP_FILES+=("$line"); had_any=1; continue; fi
+      # otherwise ignore silently; caller会在最终读取阶段提示缺失项
     done < "$list_file"
+    if (( had_any == 0 )); then EXP_ERRORS="列表中未解析到任何文件: $list_file"; return 1; fi
     return 0
   fi
   # 目录：递归匹配 *.md
@@ -139,9 +154,14 @@ expand_arg_to_files() {
   fi
   # 通配符
   if [[ "$token" == *'*'* || "$token" == *'?'* || "$token" == *'['* ]]; then
-    mapfile -t _matches < <(compgen -G -- "$token" || true)
-    if (( ${#_matches[@]} > 0 )); then
-      local m; for m in "${_matches[@]}"; do EXP_FILES+=("$m"); done
+    local old_nullglob
+    old_nullglob=$(shopt -p nullglob || true)
+    shopt -s nullglob
+    local expanded=( $token )
+    # 恢复 nullglob 之前的设置
+    eval "$old_nullglob" || true
+    if (( ${#expanded[@]} > 0 )); then
+      local m; for m in "${expanded[@]}"; do EXP_FILES+=("$m"); done
       return 0
     else
       EXP_ERRORS="未匹配到任何文件: $token"; return 1
@@ -845,22 +865,42 @@ if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/n
 fi
 EXEC_ARGS=("${CODEX_EXEC_ARGS[@]}" "--output-last-message" "${RUN_LAST_MSG_FILE}")
   if [[ ${DRY_RUN} -eq 1 ]]; then
-    echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件" | tee -a "${CODEX_LOG_FILE}"
+    if [[ "${JSON_OUTPUT}" == "1" ]]; then
+      echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件" >> "${CODEX_LOG_FILE}"
+    else
+      echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件" | tee -a "${CODEX_LOG_FILE}"
+    fi
     CODEX_EXIT=0
   else
   if ! command -v codex >/dev/null 2>&1; then
-    echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
+    if [[ "${JSON_OUTPUT}" == "1" ]]; then
+      echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" >> "${CODEX_LOG_FILE}"
+    else
+      echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
+    fi
     CODEX_EXIT=127
   else
     if [[ "${REDACT_ENABLE}" == "1" ]]; then
       # 通过 STDIN 传递指令，避免参数过长问题；仅对输出做脱敏
-      printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-        | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
-      CODEX_EXIT=${PIPESTATUS[1]}
+      if [[ "${JSON_OUTPUT}" == "1" ]]; then
+        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+          | sed -u -E "${REDACT_SED_ARGS[@]}" >> "${CODEX_LOG_FILE}"
+        CODEX_EXIT=${PIPESTATUS[1]}
+      else
+        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+          | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
+        CODEX_EXIT=${PIPESTATUS[1]}
+      fi
     else
-      printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-        | tee -a "${CODEX_LOG_FILE}"
-      CODEX_EXIT=${PIPESTATUS[1]}
+      if [[ "${JSON_OUTPUT}" == "1" ]]; then
+        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+          >> "${CODEX_LOG_FILE}"
+        CODEX_EXIT=${PIPESTATUS[1]}
+      else
+        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+          | tee -a "${CODEX_LOG_FILE}"
+        CODEX_EXIT=${PIPESTATUS[1]}
+      fi
     fi
   fi
   fi
@@ -948,9 +988,18 @@ if (( DO_LOOP == 0 )); then
   fi
   if (( DO_LOOP == 0 )); then
     # 执行结果摘要（单轮）
+    echo "[debug] JSON_OUTPUT=${JSON_OUTPUT} writing summary (single-run)" >> "${CODEX_LOG_FILE}"
     if [[ "${JSON_OUTPUT}" == "1" ]]; then
-      # 直接输出 meta JSON
-      cat "${META_FILE}" 2>/dev/null || printf '%s\n' "${META_JSON}"
+      set +e
+      # 直接输出 meta JSON；若文件缺失则使用内存中的 META_JSON；再退化为即时拼装
+      if [[ -f "${META_FILE}" ]]; then
+        cat "${META_FILE}"
+      elif [[ -n "${META_JSON:-}" ]]; then
+        printf '%s\n' "${META_JSON}"
+      else
+        printf '{"exit_code": %s, "log_file": "%s", "instructions_file": "%s"}\n' "${CODEX_EXIT}" "$(json_escape "${CODEX_LOG_FILE}")" "$(json_escape "${INSTR_FILE}")"
+      fi
+      set -e
     else
       echo "Codex 运行完成。退出码: ${CODEX_EXIT}"
       echo "日志文件: ${CODEX_LOG_FILE}"
@@ -1145,21 +1194,41 @@ while (( RUN <= MAX_RUNS )); do
   RUN_LAST_MSG_FILE="${CODEX_LOG_FILE%.log}.r${RUN}.last.txt"
   EXEC_ARGS=("${CODEX_EXEC_ARGS[@]}" "--output-last-message" "${RUN_LAST_MSG_FILE}")
   if [[ ${DRY_RUN} -eq 1 ]]; then
-    echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件 (iteration ${RUN})" | tee -a "${CODEX_LOG_FILE}"
+    if [[ "${JSON_OUTPUT}" == "1" ]]; then
+      echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件 (iteration ${RUN})" >> "${CODEX_LOG_FILE}"
+    else
+      echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件 (iteration ${RUN})" | tee -a "${CODEX_LOG_FILE}"
+    fi
     CODEX_EXIT=0
   else
     if ! command -v codex >/dev/null 2>&1; then
-      echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
+      if [[ "${JSON_OUTPUT}" == "1" ]]; then
+        echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" >> "${CODEX_LOG_FILE}"
+      else
+        echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
+      fi
       CODEX_EXIT=127
     else
       if [[ "${REDACT_ENABLE}" == "1" ]]; then
-        printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-          | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
-        CODEX_EXIT=${PIPESTATUS[1]}
+        if [[ "${JSON_OUTPUT}" == "1" ]]; then
+          printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | sed -u -E "${REDACT_SED_ARGS[@]}" >> "${CODEX_LOG_FILE}"
+          CODEX_EXIT=${PIPESTATUS[1]}
+        else
+          printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
+          CODEX_EXIT=${PIPESTATUS[1]}
+        fi
       else
-        printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-          | tee -a "${CODEX_LOG_FILE}"
-        CODEX_EXIT=${PIPESTATUS[1]}
+        if [[ "${JSON_OUTPUT}" == "1" ]]; then
+          printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            >> "${CODEX_LOG_FILE}"
+          CODEX_EXIT=${PIPESTATUS[1]}
+        else
+          printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | tee -a "${CODEX_LOG_FILE}"
+          CODEX_EXIT=${PIPESTATUS[1]}
+        fi
       fi
     fi
   fi
@@ -1215,13 +1284,17 @@ done
 
 # 最终摘要（多轮）
 if [[ "${JSON_OUTPUT}" == "1" ]]; then
-  # 输出最后一轮的 meta JSON（若无则回退第一次）
+  set +e
+  # 输出最后一轮的 meta JSON（若无则回退第一次；仍无则即时拼装简版 JSON）
   LAST_META_FILE=$(ls -1t "${CODEX_LOG_FILE%.log}"*.meta.json 2>/dev/null | head -n1 || true)
   if [[ -n "${LAST_META_FILE}" && -f "${LAST_META_FILE}" ]]; then
     cat "${LAST_META_FILE}"
+  elif [[ -f "${META_FILE}" ]]; then
+    cat "${META_FILE}"
   else
-    cat "${META_FILE}" 2>/dev/null || true
+    printf '{"exit_code": %s, "log_file": "%s", "instructions_file": "%s"}\n' "${CODEX_EXIT}" "$(json_escape "${CODEX_LOG_FILE}")" "$(json_escape "${INSTR_FILE}")"
   fi
+  set -e
 else
   echo "Codex 运行完成。退出码: ${CODEX_EXIT}"
   echo "日志文件: ${CODEX_LOG_FILE}"
