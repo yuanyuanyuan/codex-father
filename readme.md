@@ -51,6 +51,16 @@
 
 - 入口：`mcp/server.sh`（将启动 `mcp/codex-mcp-server/dist/index.js`）
 - 工具（tools）：`codex.exec`（同步）、`codex.start`、`codex.status`、`codex.logs`、`codex.stop`、`codex.list`
+- 详细文档：`readme.mcp.md`
+
+快速使用（stdio）：
+- 构建：`cd mcp/codex-mcp-server && npm install && npm run build`
+- 初始化 + 列表：
+  - `printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"demo","version":"0.0.1"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | ./mcp/server.sh`
+- 同步执行：
+  - `printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","Sync via MCP","--dry-run"],"tag":"mcp-sync"}}}\n' | ./mcp/server.sh`
+- 异步执行：
+  - `printf '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"codex.start","arguments":{"args":["--task","Async via MCP","--dry-run"],"tag":"mcp-async"}}}\n' | ./mcp/server.sh`
 - 最小交互（stdio）：
   - `printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"demo","version":"0.0.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | ./mcp/server.sh`
 
