@@ -19,7 +19,7 @@ if [[ -f "${SCRIPT_DIR}/lib/presets.sh" ]]; then
 fi
 
 # 日志相关默认
-CODEX_LOG_DIR_DEFAULT="${SCRIPT_DIR}/logs"
+CODEX_LOG_DIR_DEFAULT="${PWD}/.codex-father/sessions"
 CODEX_LOG_DIR="${CODEX_LOG_DIR:-$CODEX_LOG_DIR_DEFAULT}"
 CODEX_LOG_FILE="${CODEX_LOG_FILE:-}"
 CODEX_LOG_TAG="${CODEX_LOG_TAG:-}"
@@ -29,8 +29,9 @@ CODEX_LOG_AGGREGATE="${CODEX_LOG_AGGREGATE:-1}"
 CODEX_ECHO_INSTRUCTIONS="${CODEX_ECHO_INSTRUCTIONS:-1}"
 # 回显的行数上限（0 表示不限制，全部输出）
 CODEX_ECHO_INSTRUCTIONS_LIMIT="${CODEX_ECHO_INSTRUCTIONS_LIMIT:-0}"
-CODEX_LOG_AGGREGATE_FILE="${CODEX_LOG_AGGREGATE_FILE:-${REPO_ROOT}/codex_run_recording.txt}"
-CODEX_LOG_AGGREGATE_JSONL_FILE="${CODEX_LOG_AGGREGATE_JSONL_FILE:-${REPO_ROOT}/codex_run_recording.jsonl}"
+# 聚合默认在会话目录内（若未显式覆盖）
+CODEX_LOG_AGGREGATE_FILE="${CODEX_LOG_AGGREGATE_FILE:-}"
+CODEX_LOG_AGGREGATE_JSONL_FILE="${CODEX_LOG_AGGREGATE_JSONL_FILE:-}"
 
 # 脱敏相关默认
 REDACT_ENABLE="${REDACT_ENABLE:-0}"
@@ -478,23 +479,34 @@ fi
 
 TS="$(date +%Y%m%d_%H%M%S)"
 
+# 会话目录优先：若提供 CODEX_SESSION_DIR 则使用其中的 job.* 文件
 if [[ -z "${CODEX_LOG_FILE}" ]]; then
-  if [[ "${CODEX_LOG_SUBDIRS}" == "1" ]]; then
-    DATE_DIR="$(date +%Y%m%d)"
-    SUB_TAG_DIR="${SAFE_TAG:-untagged}"
-    LOG_DIR_NESTED="${CODEX_LOG_DIR}/${DATE_DIR}/${SUB_TAG_DIR}"
-    mkdir -p "${LOG_DIR_NESTED}"
-    CODEX_LOG_FILE="${LOG_DIR_NESTED}/codex-${TS}${TAG_SUFFIX}.log"
+  if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+    mkdir -p "${CODEX_SESSION_DIR}"
+    CODEX_LOG_FILE="${CODEX_SESSION_DIR}/job.log"
   else
-    CODEX_LOG_FILE="${CODEX_LOG_DIR}/codex-${TS}${TAG_SUFFIX}.log"
+    # 构造默认的会话目录：.codex-father/sessions/exec-<ts>-<tag>
+    SESSIONS_ROOT="${CODEX_SESSIONS_ROOT:-${PWD}/.codex-father/sessions}"
+    mkdir -p "${SESSIONS_ROOT}"
+    SESSION_ID="exec-${TS}${TAG_SUFFIX}"
+    CODEX_SESSION_DIR="${SESSIONS_ROOT}/${SESSION_ID}"
+    mkdir -p "${CODEX_SESSION_DIR}"
+    CODEX_LOG_FILE="${CODEX_SESSION_DIR}/job.log"
   fi
 fi
 
-# 确保最终日志文件目录存在
+# 规范化相关文件路径
 mkdir -p "$(dirname "${CODEX_LOG_FILE}")"
-
 INSTR_FILE="${CODEX_LOG_FILE%.log}.instructions.md"
 META_FILE="${CODEX_LOG_FILE%.log}.meta.json"
+
+# 若未显式设置聚合路径，则使用会话目录内的聚合文件
+if [[ -z "${CODEX_LOG_AGGREGATE_FILE}" ]]; then
+  CODEX_LOG_AGGREGATE_FILE="$(dirname "${CODEX_LOG_FILE}")/aggregate.txt"
+fi
+if [[ -z "${CODEX_LOG_AGGREGATE_JSONL_FILE}" ]]; then
+  CODEX_LOG_AGGREGATE_JSONL_FILE="$(dirname "${CODEX_LOG_FILE}")/aggregate.jsonl"
+fi
 
 # 构建脱敏 sed 参数
 build_redact_sed_args() {

@@ -146,9 +146,10 @@ async function handleCall(req: CallToolRequest) {
         const cwd = p.cwd ? String(p.cwd) : '';
         const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
         const safeTag = tag ? tag.replace(/[^A-Za-z0-9_.-]/g, '-').replace(/^-+|-+$/g, '') : 'untagged';
-        const runsDir = path.resolve(path.dirname(JOB_SH), 'runs');
+        const baseDir = cwd || process.cwd();
+        const sessionsRoot = path.resolve(baseDir, '.codex-father', 'sessions');
         const runId = `exec-${ts}-${safeTag}`;
-        const runDir = path.join(runsDir, runId);
+        const runDir = path.join(sessionsRoot, runId);
         fs.mkdirSync(runDir, { recursive: true });
         const logFile = path.join(runDir, 'job.log');
         const aggTxt = path.join(runDir, 'aggregate.txt');
@@ -157,7 +158,7 @@ async function handleCall(req: CallToolRequest) {
         const pass = ['--log-file', logFile, '--flat-logs', ...args];
         const env = {
           ...process.env,
-          CODEX_LOG_DIR: runDir,
+          CODEX_SESSION_DIR: runDir,
           CODEX_LOG_FILE: logFile,
           CODEX_LOG_AGGREGATE: '1',
           CODEX_LOG_AGGREGATE_FILE: aggTxt,
@@ -233,7 +234,9 @@ async function handleCall(req: CallToolRequest) {
       case 'codex.status': {
         const jobId = String(p.jobId || '');
         if (!jobId) throw new Error('Missing jobId');
-        const { code, stdout, stderr } = await run(JOB_SH, ['status', jobId, '--json']);
+        const pass = ['status', jobId, '--json'] as string[];
+        if (p.cwd) pass.push('--cwd', String(p.cwd));
+        const { code, stdout, stderr } = await run(JOB_SH, pass);
         if (code !== 0) throw new Error(`status failed rc=${code} ${stderr}`);
         return { content: [{ type: 'text', text: stdout.trim() }] };
       }
@@ -243,20 +246,24 @@ async function handleCall(req: CallToolRequest) {
         if (!jobId) throw new Error('Missing jobId');
         const pass = ['stop', jobId];
         if (force) pass.push('--force');
+        if (p.cwd) pass.push('--cwd', String(p.cwd));
         const { code, stdout, stderr } = await run(JOB_SH, pass);
         if (code !== 0) throw new Error(`stop failed rc=${code} ${stderr}`);
         return { content: [{ type: 'text', text: stdout.trim() }] };
       }
       case 'codex.list': {
-        const { code, stdout, stderr } = await run(JOB_SH, ['list', '--json']);
+        const pass = ['list', '--json'] as string[];
+        if (p.cwd) pass.push('--cwd', String(p.cwd));
+        const { code, stdout, stderr } = await run(JOB_SH, pass);
         if (code !== 0) throw new Error(`list failed rc=${code} ${stderr}`);
         return { content: [{ type: 'text', text: stdout.trim() }] };
       }
       case 'codex.logs': {
         const jobId = String(p.jobId || '');
         if (!jobId) throw new Error('Missing jobId');
-        const runsDir = path.resolve(path.dirname(JOB_SH), 'runs');
-        const logFile = path.join(runsDir, jobId, 'job.log');
+        const baseDir = p.cwd ? String(p.cwd) : process.cwd();
+        const sessionsRoot = path.resolve(baseDir, '.codex-father', 'sessions');
+        const logFile = path.join(sessionsRoot, jobId, 'job.log');
         if (!fs.existsSync(logFile)) throw new Error(`log not found: ${logFile}`);
         const mode = (p.mode || 'bytes') as 'bytes' | 'lines';
         if (mode === 'lines') {

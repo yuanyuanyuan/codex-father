@@ -2,10 +2,9 @@
 
 set -euo pipefail
 
-# Async job manager for codex-command/start.sh
+# Async job manager for start.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RUNS_DIR="${SCRIPT_DIR}/runs"
 START_SH="${SCRIPT_DIR}/start.sh"
 
 # shellcheck disable=SC1091
@@ -40,7 +39,11 @@ err() { echo "$*" >&2; }
 
 now_iso() { date -u "+%Y-%m-%dT%H:%M:%SZ"; }
 
-ensure_runs_dir() { mkdir -p "${RUNS_DIR}"; }
+sessions_dir() {
+  # Usage: sessions_dir [base_dir]
+  local base="${1:-$PWD}"
+  printf '%s/.codex-father/sessions' "$base"
+}
 
 safe_tag() {
   local t="$1"
@@ -252,8 +255,6 @@ EOF
 }
 
 cmd_start() {
-  ensure_runs_dir
-
   local json_out=0 tag="" cwd=""; local -a pass_args=()
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -265,7 +266,10 @@ cmd_start() {
   done
 
   local job_id; job_id=$(gen_job_id "$tag")
-  local run_dir="${RUNS_DIR}/${job_id}"
+  local base_dir="${cwd:-$PWD}"
+  local sess_root; sess_root=$(sessions_dir "$base_dir")
+  mkdir -p "$sess_root"
+  local run_dir="${sess_root}/${job_id}"
   mkdir -p "$run_dir"
 
   local log_file="${run_dir}/job.log"
@@ -273,32 +277,18 @@ cmd_start() {
   local agg_jsonl="${run_dir}/aggregate.jsonl"
 
   # Launch in background
-  if [[ -n "$cwd" ]]; then
-    (
-      cd "$cwd"
-      setsid nohup env \
-        CODEX_LOG_DIR="$run_dir" \
-        CODEX_LOG_FILE="$log_file" \
-        CODEX_LOG_AGGREGATE=1 \
-        CODEX_LOG_AGGREGATE_FILE="$agg_txt" \
-        CODEX_LOG_AGGREGATE_JSONL_FILE="$agg_jsonl" \
-        CODEX_LOG_SUBDIRS=0 \
-        "$START_SH" --log-file "$log_file" --flat-logs "${pass_args[@]}" \
-        >>"$run_dir/bootstrap.out" 2>>"$run_dir/bootstrap.err" & echo $! > "$run_dir/pid"
-    )
-  else
-    (
-      setsid nohup env \
-        CODEX_LOG_DIR="$run_dir" \
-        CODEX_LOG_FILE="$log_file" \
-        CODEX_LOG_AGGREGATE=1 \
-        CODEX_LOG_AGGREGATE_FILE="$agg_txt" \
-        CODEX_LOG_AGGREGATE_JSONL_FILE="$agg_jsonl" \
-        CODEX_LOG_SUBDIRS=0 \
-        "$START_SH" --log-file "$log_file" --flat-logs "${pass_args[@]}" \
-        >>"$run_dir/bootstrap.out" 2>>"$run_dir/bootstrap.err" & echo $! > "$run_dir/pid"
-    )
-  fi
+  (
+    if [[ -n "$cwd" ]]; then cd "$cwd"; fi
+    setsid nohup env \
+      CODEX_SESSION_DIR="$run_dir" \
+      CODEX_LOG_FILE="$log_file" \
+      CODEX_LOG_AGGREGATE=1 \
+      CODEX_LOG_AGGREGATE_FILE="$agg_txt" \
+      CODEX_LOG_AGGREGATE_JSONL_FILE="$agg_jsonl" \
+      CODEX_LOG_SUBDIRS=0 \
+      "$START_SH" --log-file "$log_file" --flat-logs "${pass_args[@]}" \
+      >>"$run_dir/bootstrap.out" 2>>"$run_dir/bootstrap.err" & echo $! > "$run_dir/pid"
+  )
 
   # Prepare initial state.json
   local pid; pid=$(cat "$run_dir/pid" 2>/dev/null || echo "")
@@ -350,27 +340,30 @@ JSON
 }
 
 cmd_status() {
-  local json_out=0
-  [[ $# -ge 1 ]] || { err "用法: job.sh status <job-id> [--json]"; exit 2; }
+  local json_out=0 cwd=""
+  [[ $# -ge 1 ]] || { err "用法: job.sh status <job-id> [--json] [--cwd <dir>]"; exit 2; }
   local job_id="$1"; shift || true
-  while [[ $# -gt 0 ]]; do case "$1" in --json) json_out=1; shift ;; *) shift ;; esac; done
-  local run_dir="${RUNS_DIR}/${job_id}"
+  while [[ $# -gt 0 ]]; do case "$1" in --json) json_out=1; shift ;; --cwd) [[ $# -ge 2 ]] || { err "--cwd 需要路径"; exit 2; }; cwd="$2"; shift 2 ;; *) shift ;; esac; done
+  local run_dir
+  run_dir="$(sessions_dir "${cwd:-$PWD}")/${job_id}"
   [[ -d "$run_dir" ]] || { err "未找到任务目录: ${run_dir}"; exit 2; }
   status_compute_and_update "$run_dir" "$json_out"
 }
 
 cmd_logs() {
-  local tail_n=""; local follow=0
-  [[ $# -ge 1 ]] || { err "用法: job.sh logs <job-id> [--tail N] [--follow]"; exit 2; }
+  local tail_n=""; local follow=0; local cwd=""
+  [[ $# -ge 1 ]] || { err "用法: job.sh logs <job-id> [--tail N] [--follow] [--cwd <dir>]"; exit 2; }
   local job_id="$1"; shift || true
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --tail) [[ $# -ge 2 ]] || { err "--tail 需要数字"; exit 2; }; tail_n="$2"; shift 2 ;;
       --follow) follow=1; shift ;;
+      --cwd) [[ $# -ge 2 ]] || { err "--cwd 需要路径"; exit 2; }; cwd="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
-  local log_file="${RUNS_DIR}/${job_id}/job.log"
+  local log_file
+  log_file="$(sessions_dir "${cwd:-$PWD}")/${job_id}/job.log"
   [[ -f "$log_file" ]] || { err "日志不存在: ${log_file}"; exit 2; }
   if (( follow == 1 )); then
     if [[ -n "$tail_n" ]]; then tail -n "$tail_n" -F "$log_file"; else tail -n 50 -F "$log_file"; fi
@@ -380,11 +373,12 @@ cmd_logs() {
 }
 
 cmd_stop() {
-  local force=0
-  [[ $# -ge 1 ]] || { err "用法: job.sh stop <job-id> [--force]"; exit 2; }
+  local force=0 cwd=""
+  [[ $# -ge 1 ]] || { err "用法: job.sh stop <job-id> [--force] [--cwd <dir>]"; exit 2; }
   local job_id="$1"; shift || true
-  while [[ $# -gt 0 ]]; do case "$1" in --force) force=1; shift ;; *) shift ;; esac; done
-  local run_dir="${RUNS_DIR}/${job_id}"
+  while [[ $# -gt 0 ]]; do case "$1" in --force) force=1; shift ;; --cwd) [[ $# -ge 2 ]] || { err "--cwd 需要路径"; exit 2; }; cwd="$2"; shift 2 ;; *) shift ;; esac; done
+  local run_dir
+  run_dir="$(sessions_dir "${cwd:-$PWD}")/${job_id}"
   local pid_file="${run_dir}/pid"
   [[ -f "$pid_file" ]] || { err "未找到 pid 文件: ${pid_file}"; exit 2; }
   local pid; pid=$(cat "$pid_file" 2>/dev/null || echo "")
@@ -398,12 +392,13 @@ cmd_stop() {
 }
 
 cmd_list() {
-  local json_out=0
-  while [[ $# -gt 0 ]]; do case "$1" in --json) json_out=1; shift ;; *) shift ;; esac; done
-  ensure_runs_dir
+  local json_out=0 cwd=""
+  while [[ $# -gt 0 ]]; do case "$1" in --json) json_out=1; shift ;; --cwd) [[ $# -ge 2 ]] || { err "--cwd 需要路径"; exit 2; }; cwd="$2"; shift 2 ;; *) shift ;; esac; done
+  local sess_root; sess_root=$(sessions_dir "${cwd:-$PWD}")
+  mkdir -p "$sess_root"
   local first=1
   if (( json_out == 1 )); then echo "["; fi
-  for d in "${RUNS_DIR}"/*; do
+  for d in "${sess_root}"/*; do
     [[ -d "$d" ]] || continue
     local id; id=$(basename "$d")
     local state_file="${d}/state.json"

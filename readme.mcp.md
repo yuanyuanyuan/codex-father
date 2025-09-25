@@ -40,9 +40,10 @@
 - 注意：MCP 中不建议使用 STDIN（`-f -`/`-F -`）；改用 `-c` 或将内容落盘后用 `-f` 传入。
 
 ## 产物与路径
-- 同步（exec）：`runs/exec-<timestamp>-<tag>/job.log | job.instructions.md | job.meta.json | *.last.txt`
-- 异步（start）：`runs/<job-id>/job.log | *.instructions.md | *.meta.json | state.json | pid`
-- `runs/` 已加入 `.gitignore`；可按需清理。
+- 所有会话产物均位于：`<项目根>/.codex-father/sessions/<job-id>/`
+- 同步（exec）：`job.log | job.instructions.md | job.meta.json | *.last.txt | aggregate.*`
+- 异步（start）：`job.log | *.instructions.md | *.meta.json | state.json | pid | aggregate.*`
+- 建议为远程调用显式传入 `cwd` 指向你的项目根，以确保产物落在预期目录。
 
 ## 客户端集成示例
 - VS Code/Claude 风格配置：
@@ -62,4 +63,3 @@
 ## 安全与故障排查
 - 安全：在 args 中显式设置 `--approvals`（如 `never|on-request`）与 `--sandbox`（如 `read-only|workspace-write`）；需要脱敏时使用 `--redact`/`--redact-pattern`。
 - 故障排查：若 `exec`/`start` 失败，查看 `runs/.../job.log`（末尾含 `Exit Code:`）；元数据见 `*.meta.json`；可运行 `tests/mcp_ts_e2e.sh` 做端到端自检。
-

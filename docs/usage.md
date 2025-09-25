@@ -39,21 +39,25 @@
   - 安全：`--redact`、`--redact-pattern <regex>`
   - 直通：`--sandbox`、`--approvals`、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg`
 
+- 产物与日志
+  - 默认写入 `<项目根>/.codex-father/sessions/<job-id>/`（同步/异步一致）
+  - 会话内包含：`job.log`、`*.instructions.md`、`*.meta.json`、`*.last.txt`、（异步）`state.json`、聚合 `aggregate.*`
+
 - job.sh（异步）
   - 启动：`./job.sh start --task "审阅 CLI" --dry-run --tag demo --json`
-  - 状态：`./job.sh status <job-id> --json`
-  - 日志：`./job.sh logs <job-id> --tail 200` 或 `--follow`
-  - 停止：`./job.sh stop <job-id>`（或 `--force`）
-  - 列表：`./job.sh list --json`
+  - 状态：`./job.sh status <job-id> --json [--cwd <dir>]`
+  - 日志：`./job.sh logs <job-id> --tail 200 [--cwd <dir>]` 或 `--follow`
+  - 停止：`./job.sh stop <job-id> [--cwd <dir>]`（或 `--force`）
+  - 列表：`./job.sh list --json [--cwd <dir>]`
 
 - MCP（TS 实现）
   - 构建：`cd mcp/codex-mcp-server && npm install && npm run build`
   - 初始化 + 列表（stdio）：
     - `printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"demo","version":"0.0.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | ./mcp/server.sh`
-  - 同步执行：
-    - `printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","Sync via MCP","--dry-run"],"tag":"mcp-sync"}}}\n' | ./mcp/server.sh`
-  - 启动一次运行：
-    - `printf '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"codex.start","arguments":{"args":["--task","TS MCP test","--dry-run"],"tag":"mcp-ts"}}}\n' | ./mcp/server.sh`
+  - 同步执行（可选 `cwd` 指明项目根）：
+    - `printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","Sync via MCP","--dry-run"],"tag":"mcp-sync","cwd":"$PWD"}}}\n' | ./mcp/server.sh`
+  - 启动一次运行（可选 `cwd`）：
+    - `printf '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"codex.start","arguments":{"args":["--task","TS MCP test","--dry-run"],"tag":"mcp-ts","cwd":"$PWD"}}}\n' | ./mcp/server.sh`
 
 在 MCP 中传递指令参数
 - 所有 start.sh 选项均可通过 `arguments.args` 传入，例如：
@@ -74,8 +78,8 @@
   - 日志：`job.sh logs <jobId> [--tail N] [--follow]`
   - 停止：`job.sh stop <jobId> [--force]`（优先 SIGTERM，`--force` 为 SIGKILL）。
 - MCP（同步/异步）
-  - 同步：`codex.exec`（返回 `exitCode/logFile/instructionsFile/metaFile/lastMessageFile` 等路径）
-  - 异步：`codex.start` / `codex.status` / `codex.logs` / `codex.stop` / `codex.list`
+  - 同步：`codex.exec`（返回 `exitCode/logFile/instructionsFile/metaFile/lastMessageFile` 等路径；支持 `cwd`）
+  - 异步：`codex.start` / `codex.status` / `codex.logs` / `codex.stop` / `codex.list`（均支持 `cwd`）
 
 安全与审批
 - 通过 `--sandbox`、`--approvals`、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg` 对 Codex CLI 进行透传；高危项默认不启用，请谨慎使用。

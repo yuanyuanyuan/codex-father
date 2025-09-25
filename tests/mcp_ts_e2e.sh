@@ -36,7 +36,7 @@ test_initialize_and_list() {
 
 test_start_status_logs() {
   info "codex.start (dry-run)"
-  local start='{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"codex.start","arguments":{"args":["--task","E2E TS MCP","--dry-run"],"tag":"mcp-ts-e2e"}}}'
+  local start='{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"codex.start","arguments":{"args":["--task","E2E TS MCP","--dry-run"],"tag":"mcp-ts-e2e","cwd":"'"$ROOT_DIR"'"}}}'
   local res; res=$(mcp_call "$start")
   local text; text=$(echo "$res" | jq -r '.result.content[0].text // empty')
   [[ -n "$text" ]] || fatal "empty start text"
@@ -59,7 +59,7 @@ test_start_status_logs() {
   [[ "$tries" -gt 0 ]] || fatal "status did not complete"
 
   info "codex.logs (tail lines)"
-  local logs; logs=$(printf '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"codex.logs","arguments":{"jobId":"%s","mode":"lines","tailLines":80}}}\n' "$jobId" | "$MCP_SH")
+  local logs; logs=$(printf '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"codex.logs","arguments":{"jobId":"%s","mode":"lines","tailLines":80,"cwd":"'"$ROOT_DIR"'"}}}\n' "$jobId" | "$MCP_SH")
   echo "$logs" | grep -q 'Exit Code' || fatal "logs missing 'Exit Code'"
 }
 

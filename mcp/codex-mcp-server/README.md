@@ -18,7 +18,7 @@ Tools
 - `codex.exec`: Synchronous execution (blocks until finish). Args:
   - `args`: string[] — forwarded to `start.sh`
   - `tag`: string — label for the run (used in directory name)
-  - `cwd`: string — working directory for execution
+  - `cwd`: string — project root for session storage (default: server cwd)
   - Returns JSON: `{ runId, exitCode, cwd, logFile, instructionsFile, metaFile, lastMessageFile, tag }`
 
 - `codex.start`: Start a non-blocking run. Args:
@@ -26,11 +26,12 @@ Tools
   - `tag`: string — job tag
   - `cwd`: string — working directory for job
 
-- `codex.status`: Get job status. Args: `{ jobId: string }`
+- `codex.status`: Get job status. Args: `{ jobId: string, cwd?: string }`
 - `codex.logs`: Read job log. Args:
-  - `jobId` (string) and either byte pagination (`offset`, `limit`) or line mode (`mode: "lines"`, with `offsetLines`/`limitLines` or `tailLines`, optional `grep`)
-- `codex.stop`: Stop a job. Args: `{ jobId: string, force?: boolean }`
-- `codex.list`: List known jobs.
+  - `jobId` (string), optional `cwd` to locate `.codex-father/sessions`
+  - Either byte pagination (`offset`, `limit`) or line mode (`mode: "lines"`, with `offsetLines`/`limitLines` or `tailLines`, optional `grep`)
+- `codex.stop`: Stop a job. Args: `{ jobId: string, force?: boolean, cwd?: string }`
+- `codex.list`: List known jobs. Args: `{ cwd?: string }`
 
 Configuration (VS Code-style)
 ```
@@ -56,3 +57,6 @@ Deepwiki note
 Environment
 - `CODEX_JOB_SH`: optional absolute path to `job.sh`. Defaults to `./job.sh` from current working dir.
 - `CODEX_START_SH`: optional absolute path to `start.sh`. Defaults to `./start.sh` from current working dir.
+
+Storage layout
+- Sessions live under `<project>/.codex-father/sessions/<job-id>/` with `job.log`, `*.instructions.md`, `*.meta.json`, `state.json` (async), and `*.last.txt` files.
