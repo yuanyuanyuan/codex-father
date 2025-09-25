@@ -67,7 +67,15 @@ function toolsSpec(): ListToolsResult {
           properties: {
             args: { type: 'array', items: { type: 'string' } },
             tag: { type: 'string' },
-            cwd: { type: 'string' }
+            cwd: { type: 'string' },
+            // convenience flags for assembling start.sh args
+            approvalPolicy: { type: 'string', enum: ['untrusted', 'on-failure', 'on-request', 'never'] },
+            sandbox: { type: 'string', enum: ['read-only', 'workspace-write', 'danger-full-access'] },
+            network: { type: 'boolean' },
+            fullAuto: { type: 'boolean' },
+            dangerouslyBypass: { type: 'boolean' },
+            profile: { type: 'string' },
+            codexConfig: { type: 'object', additionalProperties: true }
           },
           additionalProperties: false
         }
@@ -80,7 +88,14 @@ function toolsSpec(): ListToolsResult {
           properties: {
             args: { type: 'array', items: { type: 'string' } },
             tag: { type: 'string' },
-            cwd: { type: 'string' }
+            cwd: { type: 'string' },
+            approvalPolicy: { type: 'string', enum: ['untrusted', 'on-failure', 'on-request', 'never'] },
+            sandbox: { type: 'string', enum: ['read-only', 'workspace-write', 'danger-full-access'] },
+            network: { type: 'boolean' },
+            fullAuto: { type: 'boolean' },
+            dangerouslyBypass: { type: 'boolean' },
+            profile: { type: 'string' },
+            codexConfig: { type: 'object', additionalProperties: true }
           },
           additionalProperties: false
         }
@@ -135,6 +150,59 @@ function toolsSpec(): ListToolsResult {
   };
 }
 
+function toTomlValue(v: any): string {
+  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
+  if (v === null || v === undefined) return '""';
+  const s = String(v).replace(/\\/g, "\\\\").replace(/\"/g, '\\"');
+  return `"${s}"`;
+}
+
+function applyConvenienceOptions(args: string[], p: any) {
+  const hasSandbox = args.includes('--sandbox');
+  const hasBypassArg = args.includes('--dangerously-bypass-approvals-and-sandbox');
+
+  // sandbox precedence: explicit param > existing args > default workspace-write
+  if (p?.sandbox && typeof p.sandbox === 'string') {
+    args.push('--sandbox', p.sandbox);
+  } else if (!hasSandbox && !hasBypassArg) {
+    args.push('--sandbox', 'workspace-write');
+  }
+
+  // dangerouslyBypass convenience
+  if (p?.dangerouslyBypass) {
+    args.push('--dangerously-bypass-approvals-and-sandbox');
+  }
+  // If bypass flag present (either via args or convenience field), ensure explicit danger-full-access sandbox unless already set
+  if ((p?.dangerouslyBypass || hasBypassArg) && !args.includes('--sandbox')) {
+    args.push('--sandbox', 'danger-full-access');
+  }
+
+  // approval policy
+  if (p?.approvalPolicy && typeof p.approvalPolicy === 'string') {
+    args.push('--approval-mode', p.approvalPolicy);
+  }
+
+  // full-auto
+  if (p?.fullAuto) args.push('--full-auto');
+
+  // profile
+  if (p?.profile && typeof p.profile === 'string') {
+    args.push('--profile', p.profile);
+  }
+
+  // network for workspace-write
+  if (p?.network) {
+    args.push('--codex-config', 'sandbox_workspace_write.network_access=true');
+  }
+
+  // additional codex config map
+  if (p?.codexConfig && typeof p.codexConfig === 'object') {
+    for (const [k, v] of Object.entries(p.codexConfig)) {
+      args.push('--codex-config', `${k}=${toTomlValue(v)}`);
+    }
+  }
+}
+
 async function handleCall(req: CallToolRequest) {
   const name = req.params.name;
   const p = (req.params.arguments ?? {}) as any;
@@ -142,9 +210,7 @@ async function handleCall(req: CallToolRequest) {
     switch (name) {
       case 'codex.exec': {
         const args: string[] = Array.isArray(p.args) ? p.args.map(String) : [];
-        // Default-safe injection (unless explicitly provided)
-        const hasSandbox = args.includes('--sandbox');
-        if (!hasSandbox) { args.push('--sandbox', 'workspace-write'); }
+        applyConvenienceOptions(args, p);
         const tag = p.tag ? String(p.tag) : '';
         const cwd = p.cwd ? String(p.cwd) : '';
         const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
@@ -226,22 +292,34 @@ async function handleCall(req: CallToolRequest) {
       }
       case 'codex.start': {
         const args: string[] = Array.isArray(p.args) ? p.args.map(String) : [];
-        // Default-safe injection (unless explicitly provided)
-        const hasSandbox = args.includes('--sandbox');
-        if (!hasSandbox) { args.push('--sandbox', 'workspace-write'); }
-        const pass: string[] = ['start', '--json'];
-        if (p.tag) pass.push('--tag', String(p.tag));
-        if (p.cwd) pass.push('--cwd', String(p.cwd));
-        pass.push(...args);
-        const { code, stdout, stderr } = await run(JOB_SH, pass);
-        if (code !== 0) throw new Error(`start failed rc=${code} ${stderr}`);
-        return { content: [{ type: 'text', text: stdout.trim() }] };
+        applyConvenienceOptions(args, p);
+        const isStub = !!process.env.CODEX_START_SH;
+        if (isStub) {
+          // Test stub mode: invoke START_SH directly with first arg as the value of --log-file (if present)
+          let outPath = '';
+          for (let i = 0; i < args.length - 1; i++) {
+            if (args[i] === '--log-file') { outPath = String(args[i + 1]); break; }
+          }
+          const directArgs = outPath ? [outPath, ...args] : args;
+          const { code, stdout, stderr } = await run(START_SH, directArgs);
+          if (code !== 0) throw new Error(`start(stub) failed rc=${code} ${stderr}`);
+          return { content: [{ type: 'text', text: (stdout || '').trim() }] };
+        } else {
+          const pass: string[] = ['start', '--json'];
+          if (p.tag) pass.push('--tag', String(p.tag));
+          if (p.cwd) pass.push('--cwd', String(p.cwd));
+          pass.push(...args);
+          const { code, stdout, stderr } = await run(JOB_SH, pass);
+          if (code !== 0) throw new Error(`start failed rc=${code} ${stderr}`);
+          return { content: [{ type: 'text', text: stdout.trim() }] };
+        }
       }
       case 'codex.status': {
         const jobId = String(p.jobId || '');
         if (!jobId) throw new Error('Missing jobId');
         const pass = ['status', jobId, '--json'] as string[];
-        if (p.cwd) pass.push('--cwd', String(p.cwd));
+        const base = p.cwd ? String(p.cwd) : path.dirname(JOB_SH);
+        if (base) pass.push('--cwd', base);
         const { code, stdout, stderr } = await run(JOB_SH, pass);
         if (code !== 0) throw new Error(`status failed rc=${code} ${stderr}`);
         return { content: [{ type: 'text', text: stdout.trim() }] };
@@ -252,14 +330,16 @@ async function handleCall(req: CallToolRequest) {
         if (!jobId) throw new Error('Missing jobId');
         const pass = ['stop', jobId];
         if (force) pass.push('--force');
-        if (p.cwd) pass.push('--cwd', String(p.cwd));
+        const base = p.cwd ? String(p.cwd) : path.dirname(JOB_SH);
+        if (base) pass.push('--cwd', base);
         const { code, stdout, stderr } = await run(JOB_SH, pass);
         if (code !== 0) throw new Error(`stop failed rc=${code} ${stderr}`);
         return { content: [{ type: 'text', text: stdout.trim() }] };
       }
       case 'codex.list': {
         const pass = ['list', '--json'] as string[];
-        if (p.cwd) pass.push('--cwd', String(p.cwd));
+        const base = p.cwd ? String(p.cwd) : path.dirname(JOB_SH);
+        if (base) pass.push('--cwd', base);
         const { code, stdout, stderr } = await run(JOB_SH, pass);
         if (code !== 0) throw new Error(`list failed rc=${code} ${stderr}`);
         return { content: [{ type: 'text', text: stdout.trim() }] };
@@ -267,7 +347,7 @@ async function handleCall(req: CallToolRequest) {
       case 'codex.logs': {
         const jobId = String(p.jobId || '');
         if (!jobId) throw new Error('Missing jobId');
-        const baseDir = p.cwd ? String(p.cwd) : process.cwd();
+        const baseDir = p.cwd ? String(p.cwd) : path.dirname(JOB_SH);
         const sessionsRoot = path.resolve(baseDir, '.codex-father', 'sessions');
         const logFile = path.join(sessionsRoot, jobId, 'job.log');
         if (!fs.existsSync(logFile)) throw new Error(`log not found: ${logFile}`);

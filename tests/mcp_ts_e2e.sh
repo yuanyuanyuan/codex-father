@@ -29,7 +29,7 @@ test_initialize_and_list() {
   local init='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"e2e","version":"0.0.0"}}}'
   local list='{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
   local out; out=$(printf '%s\n%s\n' "$init" "$list" | "$MCP_SH")
-  echo "$out" | jq -e . >/dev/null 2>&1 || fatal "invalid JSON output"
+  echo "$out" | jq -c -s . >/dev/null 2>&1 || fatal "invalid JSON stream"
   echo "$out" | grep -q '"tools"' || fatal "tools not present"
   echo "$out" | grep -q 'codex.start' || fatal "codex.start not listed"
 }
