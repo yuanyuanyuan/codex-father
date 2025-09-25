@@ -2,11 +2,11 @@
 
 ## Project Structure & Module Organization
 - `start.sh`: Compose and run Codex instructions (sync or iterative).
-- `job.sh`: Async job manager (start/status/logs/stop/list), writes to `runs/<job-id>/`.
+- `job.sh`: Async job manager (start/status/logs/stop/list), writes to `.codex-father/sessions/<job-id>/`.
 - `mcp/`: MCP server (`mcp/server.sh`, TypeScript at `mcp/codex-mcp-server`).
 - `lib/`: Shared Bash helpers (`common.sh`, `presets.sh`).
 - `docs/`: Usage and design notes. `tests/`: E2E scripts.
-- `.gitignore`: excludes `runs/` artifacts.
+- `.gitignore`: excludes `.codex-father/sessions/` artifacts (legacy `runs/` also ignored).
 
 ## Build, Test, and Development Commands
 - CLI quick run: `./start.sh --task "hello" --dry-run`
@@ -18,7 +18,7 @@
 - Bash (>=5): use `#!/usr/bin/env bash`, keep `set -euo pipefail`, write errors to stderr.
 - Modularize: put shared functions in `lib/common.sh`; presets in `lib/presets.sh`.
 - Portability: prefer `sed -E`, `grep -E`, `awk`, `tee`, `compgen -G`; avoid unnecessary deps.
-- Artifacts: logs `codex-*.log`, snapshots `*.instructions.md`, meta `*.meta.json` under `runs/`.
+- Artifacts: logs `codex-*.log`, snapshots `*.instructions.md`, meta `*.meta.json` under `.codex-father/sessions/<job-id>/`.
 
 ## Testing Guidelines
 - TS server: compile with `npm run build` (Node >=18).

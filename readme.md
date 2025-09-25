@@ -41,8 +41,8 @@
   - `--repeat-until`、`--max-runs`、`--sleep-seconds`、`--no-carry-context`、`--no-compress-context`、`--context-head`、`--context-grep`
   - 预设：`sprint` / `analysis` / `secure` / `fast`
 - 产物与日志
-  - `runs/<job-id>/` 下产出：`job.log`、`*.instructions.md`、`*.meta.json`、`state.json` 等
-  - 根部汇总：`codex_run_recording.txt`、`codex_run_recording.jsonl`
+  - `.codex-father/sessions/<job-id>/` 下产出：`job.log`、`*.instructions.md`、`*.meta.json`、（异步）`state.json` 等
+  - 会话内聚合：`aggregate.txt`、`aggregate.jsonl`
 - 脱敏与直通
   - `--redact`、`--redact-pattern <regex>`
   - 透传 Codex：`--sandbox`、`--approvals`、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg`

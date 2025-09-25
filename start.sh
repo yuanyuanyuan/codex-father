@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -84,6 +84,7 @@ usage() {
       --append-file <p>  从文件读入后置文本
       --patch-mode      启用“补丁模式”：自动追加 policy-note，要求模型仅输出补丁（patch/diff）而不直接写仓库
       --dry-run        仅生成文件与日志头，不实际执行 codex
+      --json           以 JSON 输出（打印最终 meta.json 内容到 STDOUT，并尽量减少人类可读回显）
   -h, --help          显示帮助并退出
 
 其他:
@@ -117,6 +118,7 @@ PREPEND_FILE=""
 APPEND_FILE=""
 DRY_RUN=0
 PATCH_MODE=0
+JSON_OUTPUT=0
 
 # 补丁模式提示文案（仅输出可应用补丁，不执行写入）
 PATCH_POLICY_NOTE=$'请仅输出可应用的补丁（patch/diff），不要执行任何写文件、运行命令或直接修改仓库。\n优先使用统一 diff（git apply）或 Codex CLI apply_patch 片段，逐文件展示新增/修改/删除。\n如需迁移脚本或测试，请以新增文件形式包含于补丁中。完成后输出 “CONTROL: DONE”。'
@@ -291,7 +293,7 @@ while [[ $# -gt 0 ]]; do
       CODEX_GLOBAL_ARGS+=("--sandbox" "${2}"); shift 2 ;;
     --approvals)
       [[ $# -ge 2 ]] || { echo "错误: --approvals 需要一个策略 (untrusted|on-failure|on-request|never)" >&2; exit 2; }
-      CODEX_GLOBAL_ARGS+=("--ask-for-approval" "${2}"); shift 2 ;;
+      CODEX_GLOBAL_ARGS+=("--approvals" "${2}"); shift 2 ;;
     --profile)
       [[ $# -ge 2 ]] || { echo "错误: --profile 需要一个配置名" >&2; exit 2; }
       CODEX_GLOBAL_ARGS+=("--profile" "${2}"); shift 2 ;;
@@ -334,6 +336,8 @@ while [[ $# -gt 0 ]]; do
       PATCH_MODE=1; shift 1 ;;
     --dry-run)
       DRY_RUN=1; shift 1 ;;
+    --json)
+      JSON_OUTPUT=1; shift 1 ;;
     -h|--help)
       usage; exit 0 ;;
     --)
@@ -734,21 +738,26 @@ if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/n
   GIT_HEAD_BEFORE=$(git rev-parse HEAD 2>/dev/null || echo "")
 fi
 EXEC_ARGS=("${CODEX_EXEC_ARGS[@]}" "--output-last-message" "${RUN_LAST_MSG_FILE}")
-if [[ ${DRY_RUN} -eq 1 ]]; then
-  echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件" | tee -a "${CODEX_LOG_FILE}"
-  CODEX_EXIT=0
-else
-  if [[ "${REDACT_ENABLE}" == "1" ]]; then
-    # 通过 STDIN 传递指令，避免参数过长问题；仅对输出做脱敏
-    printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-      | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
-    CODEX_EXIT=${PIPESTATUS[1]}
+  if [[ ${DRY_RUN} -eq 1 ]]; then
+    echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件" | tee -a "${CODEX_LOG_FILE}"
+    CODEX_EXIT=0
   else
-    printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-      | tee -a "${CODEX_LOG_FILE}"
-    CODEX_EXIT=${PIPESTATUS[1]}
+  if ! command -v codex >/dev/null 2>&1; then
+    echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
+    CODEX_EXIT=127
+  else
+    if [[ "${REDACT_ENABLE}" == "1" ]]; then
+      # 通过 STDIN 传递指令，避免参数过长问题；仅对输出做脱敏
+      printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+        | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
+      CODEX_EXIT=${PIPESTATUS[1]}
+    else
+      printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+        | tee -a "${CODEX_LOG_FILE}"
+      CODEX_EXIT=${PIPESTATUS[1]}
+    fi
   fi
-fi
+  fi
 set -e
 if (( GIT_ENABLED == 1 )); then
   GIT_HEAD_AFTER=$(git rev-parse HEAD 2>/dev/null || echo "")
@@ -831,13 +840,18 @@ if (( DO_LOOP == 0 )); then
   fi
   if (( DO_LOOP == 0 )); then
     # 执行结果摘要（单轮）
-    echo "Codex 运行完成。退出码: ${CODEX_EXIT}"
-    echo "日志文件: ${CODEX_LOG_FILE}"
-    echo "指令文件: ${INSTR_FILE}"
-    echo "元数据: ${META_FILE}"
-    if [[ "${CODEX_LOG_AGGREGATE}" == "1" ]]; then
-      echo "汇总记录: ${CODEX_LOG_AGGREGATE_FILE}"
-      echo "JSONL 汇总: ${CODEX_LOG_AGGREGATE_JSONL_FILE}"
+    if [[ "${JSON_OUTPUT}" == "1" ]]; then
+      # 直接输出 meta JSON
+      cat "${META_FILE}" 2>/dev/null || printf '%s\n' "${META_JSON}"
+    else
+      echo "Codex 运行完成。退出码: ${CODEX_EXIT}"
+      echo "日志文件: ${CODEX_LOG_FILE}"
+      echo "指令文件: ${INSTR_FILE}"
+      echo "元数据: ${META_FILE}"
+      if [[ "${CODEX_LOG_AGGREGATE}" == "1" ]]; then
+        echo "汇总记录: ${CODEX_LOG_AGGREGATE_FILE}"
+        echo "JSONL 汇总: ${CODEX_LOG_AGGREGATE_JSONL_FILE}"
+      fi
     fi
     exit "${CODEX_EXIT}"
   fi
@@ -1026,14 +1040,19 @@ while (( RUN <= MAX_RUNS )); do
     echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件 (iteration ${RUN})" | tee -a "${CODEX_LOG_FILE}"
     CODEX_EXIT=0
   else
-    if [[ "${REDACT_ENABLE}" == "1" ]]; then
-      printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-        | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
-      CODEX_EXIT=${PIPESTATUS[1]}
+    if ! command -v codex >/dev/null 2>&1; then
+      echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
+      CODEX_EXIT=127
     else
-      printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-        | tee -a "${CODEX_LOG_FILE}"
-      CODEX_EXIT=${PIPESTATUS[1]}
+      if [[ "${REDACT_ENABLE}" == "1" ]]; then
+        printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+          | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
+        CODEX_EXIT=${PIPESTATUS[1]}
+      else
+        printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+          | tee -a "${CODEX_LOG_FILE}"
+        CODEX_EXIT=${PIPESTATUS[1]}
+      fi
     fi
   fi
   set -e
@@ -1087,12 +1106,22 @@ EOF
 done
 
 # 最终摘要（多轮）
-echo "Codex 运行完成。退出码: ${CODEX_EXIT}"
-echo "日志文件: ${CODEX_LOG_FILE}"
-echo "指令文件: ${INSTR_FILE}"
-echo "元数据: ${META_FILE}"
-if [[ "${CODEX_LOG_AGGREGATE}" == "1" ]]; then
-  echo "汇总记录: ${CODEX_LOG_AGGREGATE_FILE}"
-  echo "JSONL 汇总: ${CODEX_LOG_AGGREGATE_JSONL_FILE}"
+if [[ "${JSON_OUTPUT}" == "1" ]]; then
+  # 输出最后一轮的 meta JSON（若无则回退第一次）
+  LAST_META_FILE=$(ls -1t "${CODEX_LOG_FILE%.log}"*.meta.json 2>/dev/null | head -n1 || true)
+  if [[ -n "${LAST_META_FILE}" && -f "${LAST_META_FILE}" ]]; then
+    cat "${LAST_META_FILE}"
+  else
+    cat "${META_FILE}" 2>/dev/null || true
+  fi
+else
+  echo "Codex 运行完成。退出码: ${CODEX_EXIT}"
+  echo "日志文件: ${CODEX_LOG_FILE}"
+  echo "指令文件: ${INSTR_FILE}"
+  echo "元数据: ${META_FILE}"
+  if [[ "${CODEX_LOG_AGGREGATE}" == "1" ]]; then
+    echo "汇总记录: ${CODEX_LOG_AGGREGATE_FILE}"
+    echo "JSONL 汇总: ${CODEX_LOG_AGGREGATE_JSONL_FILE}"
+  fi
 fi
 exit "${CODEX_EXIT}"

@@ -23,17 +23,17 @@
 ---
 
 ## 总体思路
-在 `codex-command` 新增“任务管理器 + 运行目录布局”，将现有同步执行脚本 `start.sh` 封装为后台任务：
+在本仓库新增“任务管理器 + 运行目录布局”，将现有同步执行脚本 `start.sh` 封装为后台任务：
 - `job.sh`：异步任务管理 CLI，支持 `start/status/logs/stop/list`；后台调用 `start.sh`。
-- `runs/<job-id>/`：每次运行的独立目录，集中保存 PID、状态、日志与快照。
+- `.codex-father/sessions/<job-id>/`：每次运行的独立目录，集中保存 PID、状态、日志与快照。
 - MCP（可选组件）：提供最小 JSON-RPC/stdio 服务器脚本，工具映射到 `job.sh` 子命令；不阻塞返回。
 
 ---
 
 ## 目录与产物布局
-- `codex-command/job.sh`：异步任务管理入口（Bash）。
-- `codex-command/runs/`：运行根目录（首次使用时创建）。
-- `codex-command/runs/<job-id>/`：单任务目录，包含：
+- `job.sh`：异步任务管理入口（Bash）。
+- `.codex-father/sessions/`：运行根目录（首次使用时创建）。
+- `.codex-father/sessions/<job-id>/`：单任务目录，包含：
   - `pid`：后台进程 PID。
   - `state.json`：标准化任务状态（见下文）。
   - `job.log`：任务日志（`start.sh` 通过 `--log-file` 指向此处）。
@@ -45,15 +45,15 @@
 ---
 
 ## 与 `start.sh` 的衔接
-保持 `start.sh` 的输入与产出不变，仅在 `job.sh` 中：
-- 生成 `job-id`（如 `cdx-YYYYmmdd_HHMMSS-<tag>`），创建 `runs/<job-id>/`。
-- 追加或覆写参数，使所有产物写入 `runs/<job-id>/`：
-  - `--log-file runs/<job-id>/job.log` 与 `--flat-logs`
+- 保持 `start.sh` 的输入与产出不变，仅在 `job.sh` 中：
+- 生成 `job-id`（如 `cdx-YYYYmmdd_HHMMSS-<tag>`），创建 `.codex-father/sessions/<job-id>/`。
+- 追加或覆写参数，使所有产物写入 `.codex-father/sessions/<job-id>/`：
+  - `--log-file .codex-father/sessions/<job-id>/job.log` 与 `--flat-logs`
   - 环境变量：
-    - `CODEX_LOG_DIR=runs/<job-id>`（冗余保障）
+    - `CODEX_LOG_DIR=.codex-father/sessions/<job-id>`（冗余保障）
     - `CODEX_LOG_AGGREGATE=1`
-    - `CODEX_LOG_AGGREGATE_FILE=runs/<job-id>/aggregate.txt`
-    - `CODEX_LOG_AGGREGATE_JSONL_FILE=runs/<job-id>/aggregate.jsonl`
+    - `CODEX_LOG_AGGREGATE_FILE=.codex-father/sessions/<job-id>/aggregate.txt`
+    - `CODEX_LOG_AGGREGATE_JSONL_FILE=.codex-father/sessions/<job-id>/aggregate.jsonl`
 - 后台启动：`setsid nohup ./codex-command/start.sh ... >/dev/null 2>&1 &`；写入 `pid` 与初始 `state.json`，立即返回。
 
 ---
@@ -70,7 +70,7 @@
 - `stop <job-id> [--force]`
   - `SIGTERM` 优雅停止；`--force` 时 `SIGKILL`；更新 `state.json`。
 - `list [--json]`
-  - 枚举 `runs/*/state.json`；输出简表：`{ id,state,createdAt,updatedAt,tag,title? }`。
+  - 枚举 `.codex-father/sessions/*/state.json`；输出简表：`{ id,state,createdAt,updatedAt,tag,title? }`。
 
 ---
 
@@ -87,9 +87,9 @@
   "created_at": "2024-09-24T12:00:01Z",
   "updated_at": "2024-09-24T12:00:01Z",
   "tag": "mytag",
-  "log_file": "codex-command/runs/<job-id>/job.log",
-  "meta_file": "codex-command/runs/<job-id>/*.rN.meta.json",
-  "last_message_file": "codex-command/runs/<job-id>/*.rN.last.txt",
+  "log_file": ".codex-father/sessions/<job-id>/job.log",
+  "meta_file": ".codex-father/sessions/<job-id>/*.rN.meta.json",
+  "last_message_file": ".codex-father/sessions/<job-id>/*.rN.last.txt",
   "args": ["--preset","sprint", "--task","..."],
   "title": "<instructions first non-empty line>"
 }
@@ -131,10 +131,10 @@ MCP Server 作为可选组件，遵循“薄封装”与“仅依赖 Bash/GNU �
 
 ## 使用示例
 - CLI 非阻塞：
-  - 启动：`./codex-command/job.sh start --preset sprint --docs 'docs/**/*.md' --task '审阅 CLI 并给出 PR 计划' --tag sprint-1 --json`
-  - 查询：`./codex-command/job.sh status <job-id> --json`
-  - 日志：`./codex-command/job.sh logs <job-id> --tail 200`
-  - 停止：`./codex-command/job.sh stop <job-id>`
+  - 启动：`./job.sh start --preset sprint --docs 'docs/**/*.md' --task '审阅 CLI 并给出 PR 计划' --tag sprint-1 --json`
+  - 查询：`./job.sh status <job-id> --json`
+  - 日志：`./job.sh logs <job-id> --tail 200`
+  - 停止：`./job.sh stop <job-id>`
 - MCP：
   - `codex.start(args)` → 即刻返回 `jobId`
   - 轮询 `codex.status(jobId)` 或 `codex.logs(jobId, offset, limit)` 获取进度
@@ -143,7 +143,7 @@ MCP Server 作为可选组件，遵循“薄封装”与“仅依赖 Bash/GNU �
 
 ## 分阶段落地
 1) Phase 1：CLI 异步
-- 新增 `job.sh` 与 `runs/` 布局；保证 start/status/logs/stop/list 可用。
+- 新增 `job.sh` 与 `.codex-father/sessions/` 布局；保证 start/status/logs/stop/list 可用。
 - 更新 `readme.md`：新增“异步模式”章节与最小验证步骤。
 
 2) Phase 2：MCP
@@ -158,10 +158,8 @@ MCP Server 作为可选组件，遵循“薄封装”与“仅依赖 Bash/GNU �
 
 ## 验收与回归
 - `start.sh --dry-run` 仍然按预期工作；
-- 异步模式下：产物集中落于 `runs/<job-id>/`；`state.json` 与 `job.log` 一致；
-- 不影响原有 `logs/` 与根部汇总文件的历史兼容性（异步模式默认定向到 `runs/`，但不移除现有行为）。
+- 异步模式下：产物集中落于 `.codex-father/sessions/<job-id>/`；`state.json` 与 `job.log` 一致。
 
 ---
 
 如需我继续落地 Phase 1 的脚本实现，请在本目录下创建 `job.sh` 的任务。本文仅为设计说明，不包含实现代码改动。
-

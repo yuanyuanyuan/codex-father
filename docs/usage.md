@@ -9,6 +9,7 @@
   - 合并文件：`./start.sh --docs 'docs/**/*.md' -f refer-research/openai-codex/README.md`
   - 多轮冲刺：`./start.sh --preset sprint --task "审阅 CLI 并给出 PR 计划"`
   - 仅生成产物：`./start.sh --task "演示" --dry-run`
+  - 机器可读输出：在上述任一命令追加 `--json`（输出最终 meta.json 到 STDOUT）
 
 覆盖与追加（Instructions 组合）
 - 基底覆盖：
@@ -43,6 +44,7 @@
   - 来源与组合：`-F/--file-override`、`-f/--file`、`--docs`、`-c/--content`、`--prepend[/-file]`、`--append[/-file]`
   - 循环与上下文：`--preset`、`--repeat-until`、`--max-runs`、`--sleep-seconds`、`--no-carry-context`、`--no-compress-context`、`--context-head`、`--context-grep`
   - 日志：`--log-dir`、`--log-file`、`--tag`、`--flat-logs`、`--echo-instructions[*]`、`--echo-limit`
+  - 输出：`--json`（将最终 meta.json 打印到 STDOUT）
   - 安全：`--redact`、`--redact-pattern <regex>`
   - 直通：`--sandbox`、`--approvals`、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg`
 
@@ -73,10 +75,10 @@
   - 注意：由于 MCP 采用后台/前台子进程执行，不建议使用 STDIN（`-F -`/`-f -`）。请用 `-c` 或落盘到文件再通过 `-f` 传入。
 
 任务开始与停止规则
-- 同步（start.sh）
+  - 同步（start.sh）
   - 单轮：默认 `MAX_RUNS=1`，执行完成后立即退出，其退出码为 Codex 执行退出码（`--dry-run` 为 0）。
   - 多轮：通过 `--repeat-until <regex>`、`--max-runs <N>`、`--sleep-seconds <S>` 控制迭代；常用预设 `--preset sprint` 等价于“直到检测到 `CONTROL: DONE`”。
-  - 控制标记：模型输出中的 `CONTROL: DONE` / `CONTROL: CONTINUE` 会被识别，用于退出分类（写入 `*.meta.json` 与根部 `*.jsonl`）。
+  - 控制标记：模型输出中的 `CONTROL: DONE` / `CONTROL: CONTINUE` 会被识别，用于退出分类（写入 `*.meta.json` 与会话内 `aggregate.jsonl`）。
   - 溢出重试：默认开启“上下文溢出自动重试”，可用 `--no-overflow-retry` 关闭或用 `--overflow-retries N` 调整重试次数。
   - 完成前置校验：可选 `--require-change-in <glob>` 与 `--require-git-commit` 强制在满足 `repeat-until` 前校验“有匹配变更且已提交”；未满足时可用 `--auto-commit-on-done` 自动提交后再结束。
 - 异步/队列（job.sh）

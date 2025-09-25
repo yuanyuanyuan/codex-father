@@ -1,7 +1,7 @@
 ### 调试指南
 
 - 日志产物
-  - 异步运行落盘于 `runs/<job-id>/`
+  - 异步运行落盘于 `.codex-father/sessions/<job-id>/`
   - 关键文件：`job.log`、`*.instructions.md`、`*.meta.json`、`state.json`
 
 - 常见问题
@@ -19,4 +19,3 @@
     - `printf '{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | ./mcp/server.sh`
   - 触发运行：
     - `printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.start","arguments":{"args":["--task","Debug run","--dry-run"],"tag":"debug"}}}\n' | ./mcp/server.sh`
-
