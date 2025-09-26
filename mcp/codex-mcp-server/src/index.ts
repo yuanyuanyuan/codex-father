@@ -15,22 +15,18 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Resolve job.sh path
 function resolveJobSh(): string {
   const fromEnv = process.env.CODEX_JOB_SH;
   if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
-  // Prefer repo root job.sh when run within codex-father
   const candidate = path.resolve(process.cwd(), 'job.sh');
   if (fs.existsSync(candidate)) return candidate;
-  // Else, relative to this package when installed
   const rel = path.resolve(__dirname, '../../..', 'job.sh');
   if (fs.existsSync(rel)) return rel;
-  return candidate; // default fallback
+  return candidate;
 }
 
 const JOB_SH = resolveJobSh();
 
-// Resolve start.sh path
 function resolveStartSh(): string {
   const fromEnv = process.env.CODEX_START_SH;
   if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
@@ -68,7 +64,6 @@ function toolsSpec(): ListToolsResult {
             args: { type: 'array', items: { type: 'string' } },
             tag: { type: 'string' },
             cwd: { type: 'string' },
-            // convenience flags for assembling start.sh args
             approvalPolicy: { type: 'string', enum: ['untrusted', 'on-failure', 'on-request', 'never'] },
             sandbox: { type: 'string', enum: ['read-only', 'workspace-write', 'danger-full-access'] },
             network: { type: 'boolean' },
@@ -76,16 +71,11 @@ function toolsSpec(): ListToolsResult {
             dangerouslyBypass: { type: 'boolean' },
             profile: { type: 'string' },
             codexConfig: { type: 'object', additionalProperties: true },
-            // run controls (map to start.sh)
             preset: { type: 'string' },
-            repeatUntil: { type: 'string' },
-            maxRuns: { type: 'integer' },
-            sleepSeconds: { type: 'integer' },
             carryContext: { type: 'boolean' },
             compressContext: { type: 'boolean' },
             contextHead: { type: 'integer' },
             patchMode: { type: 'boolean' },
-            // completion enforcement + auto commit
             requireChangeIn: { type: 'array', items: { type: 'string' } },
             requireGitCommit: { type: 'boolean' },
             autoCommitOnDone: { type: 'boolean' },
@@ -111,9 +101,6 @@ function toolsSpec(): ListToolsResult {
             profile: { type: 'string' },
             codexConfig: { type: 'object', additionalProperties: true },
             preset: { type: 'string' },
-            repeatUntil: { type: 'string' },
-            maxRuns: { type: 'integer' },
-            sleepSeconds: { type: 'integer' },
             carryContext: { type: 'boolean' },
             compressContext: { type: 'boolean' },
             contextHead: { type: 'integer' },
@@ -159,10 +146,8 @@ function toolsSpec(): ListToolsResult {
           properties: {
             jobId: { type: 'string' },
             mode: { type: 'string', enum: ['bytes', 'lines'] },
-            // bytes
             offset: { type: 'integer' },
             limit: { type: 'integer' },
-            // lines
             offsetLines: { type: 'integer' },
             limitLines: { type: 'integer' },
             tailLines: { type: 'integer' },
@@ -186,53 +171,34 @@ function toTomlValue(v: any): string {
 function applyConvenienceOptions(args: string[], p: any) {
   const hasSandbox = args.includes('--sandbox');
   const hasBypassArg = args.includes('--dangerously-bypass-approvals-and-sandbox');
-
-  // sandbox precedence: explicit param > existing args > default workspace-write
   if (p?.sandbox && typeof p.sandbox === 'string') {
     args.push('--sandbox', p.sandbox);
   } else if (!hasSandbox && !hasBypassArg) {
     args.push('--sandbox', 'workspace-write');
   }
-
-  // dangerouslyBypass convenience
   if (p?.dangerouslyBypass) {
     args.push('--dangerously-bypass-approvals-and-sandbox');
   }
-  // If bypass flag present (either via args or convenience field), ensure explicit danger-full-access sandbox unless already set
   if ((p?.dangerouslyBypass || hasBypassArg) && !args.includes('--sandbox')) {
     args.push('--sandbox', 'danger-full-access');
   }
-
-  // approval policy
+  const bypassActive = !!p?.dangerouslyBypass || hasBypassArg;
   if (p?.approvalPolicy && typeof p.approvalPolicy === 'string') {
-    args.push('--approval-mode', p.approvalPolicy);
+    if (!bypassActive) args.push('--ask-for-approval', p.approvalPolicy);
   }
-
-  // full-auto
-  if (p?.fullAuto) args.push('--full-auto');
-
-  // profile
+  if (p?.fullAuto && !bypassActive) args.push('--full-auto');
   if (p?.profile && typeof p.profile === 'string') {
     args.push('--profile', p.profile);
   }
-
-  // network for workspace-write
   if (p?.network) {
     args.push('--codex-config', 'sandbox_workspace_write.network_access=true');
   }
-
-  // additional codex config map
   if (p?.codexConfig && typeof p.codexConfig === 'object') {
     for (const [k, v] of Object.entries(p.codexConfig)) {
       args.push('--codex-config', `${k}=${toTomlValue(v)}`);
     }
   }
-
-  // run controls mapping to start.sh flags
   if (p?.preset) args.push('--preset', String(p.preset));
-  if (p?.repeatUntil) args.push('--repeat-until', String(p.repeatUntil));
-  if (Number.isFinite(p?.maxRuns)) args.push('--max-runs', String(p.maxRuns));
-  if (Number.isFinite(p?.sleepSeconds)) args.push('--sleep-seconds', String(p.sleepSeconds));
   if (p?.carryContext === false) args.push('--no-carry-context');
   if (p?.compressContext === false) args.push('--no-compress-context');
   if (Number.isFinite(p?.contextHead)) args.push('--context-head', String(p.contextHead));
@@ -265,7 +231,6 @@ async function handleCall(req: CallToolRequest) {
         const logFile = path.join(runDir, 'job.log');
         const aggTxt = path.join(runDir, 'aggregate.txt');
         const aggJsonl = path.join(runDir, 'aggregate.jsonl');
-
         const pass = ['--log-file', logFile, '--flat-logs', ...args];
         const env = {
           ...process.env,
@@ -276,7 +241,6 @@ async function handleCall(req: CallToolRequest) {
           CODEX_LOG_AGGREGATE_JSONL_FILE: aggJsonl,
           CODEX_LOG_SUBDIRS: '0'
         } as NodeJS.ProcessEnv;
-
         let code = 0; let stdout = ''; let stderr = '';
         await new Promise<void>((resolve) => {
           const child = spawn(START_SH, pass, {
@@ -288,24 +252,18 @@ async function handleCall(req: CallToolRequest) {
           child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
           child.on('close', (c: number | null) => { code = c ?? -1; resolve(); });
         });
-
-        // Derive instruction/meta/last files
         const instrFile = logFile.replace(/\.log$/, '.instructions.md');
         const metaFile = logFile.replace(/\.log$/, '.meta.json');
-        // Find the most recent *.last.txt if any
         let lastMessageFile = '';
         try {
           const entries = fs.readdirSync(runDir).filter((f) => /\.last\.txt$/.test(f));
           entries.sort((a, b) => fs.statSync(path.join(runDir, b)).mtimeMs - fs.statSync(path.join(runDir, a)).mtimeMs);
           if (entries.length) lastMessageFile = path.join(runDir, entries[0]);
         } catch {}
-
-        // Prefer exit code parsed from log (aligns with job.sh derive)
         let exitCode = code;
         try {
           if (fs.existsSync(logFile)) {
             const text = fs.readFileSync(logFile, 'utf8');
-            // Match the last occurrence of "Exit Code: <num>"
             const matches = text.match(/Exit Code:\s*(-?\d+)/g);
             if (matches && matches.length > 0) {
               const last = matches[matches.length - 1];
@@ -314,20 +272,11 @@ async function handleCall(req: CallToolRequest) {
             }
           }
         } catch {}
-
         const payload = {
-          runId,
-          exitCode,
-          cwd: cwd || process.cwd(),
-          logFile,
-          instructionsFile: instrFile,
-          metaFile,
-          lastMessageFile,
-          tag: safeTag
+          runId, exitCode, cwd: cwd || process.cwd(), logFile,
+          instructionsFile: instrFile, metaFile, lastMessageFile, tag: safeTag
         };
-        // Always return a JSON payload; rely on exitCode for status
         if (code !== 0 && !fs.existsSync(logFile)) {
-          // Hard failure before log creation
           return { content: [{ type: 'text', text: JSON.stringify({ ...payload, processExit: code, error: stderr.trim() }) }], isError: true };
         }
         return { content: [{ type: 'text', text: JSON.stringify({ ...payload, processExit: code }) }] };
@@ -337,7 +286,6 @@ async function handleCall(req: CallToolRequest) {
         applyConvenienceOptions(args, p);
         const isStub = !!process.env.CODEX_START_SH;
         if (isStub) {
-          // Test stub mode: invoke START_SH directly with first arg as the value of --log-file (if present)
           let outPath = '';
           for (let i = 0; i < args.length - 1; i++) {
             if (args[i] === '--log-file') { outPath = String(args[i + 1]); break; }
@@ -413,7 +361,6 @@ async function handleCall(req: CallToolRequest) {
           const payload = { lines, totalLines: total };
           return { content: [{ type: 'text', text: JSON.stringify(payload) }] };
         }
-        // bytes mode
         const stat = fs.statSync(logFile);
         const size = stat.size;
         let offset = Math.max(0, Number.isFinite(p.offset) ? Number(p.offset) : 0);
@@ -441,22 +388,14 @@ async function handleCall(req: CallToolRequest) {
 }
 
 async function main() {
-  const server = new Server({
-    name: 'codex-father-mcp',
-    version: '0.1.0'
-  }, {
-    capabilities: { tools: {} }
-  });
-
+  const server = new Server({ name: 'codex-father-mcp', version: '0.1.0' }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, async () => toolsSpec());
   server.setRequestHandler(CallToolRequestSchema, async (req) => handleCall(req));
-
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
 main().catch((err) => {
-  // Non-throwing to avoid breaking stdio
   process.stderr.write(`[codex-mcp] fatal: ${err?.stack || err}\n`);
   process.exit(1);
 });

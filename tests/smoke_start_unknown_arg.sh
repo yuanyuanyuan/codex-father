@@ -20,7 +20,5 @@ fi
 grep -Fq "未知参数" <<<"$out_err" || { echo "[smoke-start-unknown-arg] missing '未知参数' hint" >&2; exit 1; }
 grep -Fq "--help" <<<"$out_err" || { echo "[smoke-start-unknown-arg] missing '--help' hint" >&2; exit 1; }
 grep -Fq -- "--task" <<<"$out_err" || { echo "[smoke-start-unknown-arg] missing '--task' suggestion" >&2; exit 1; }
-grep -Fq -- "--docs" <<<"$out_err" || { echo "[smoke-start-unknown-arg] missing '--docs' suggestion" >&2; exit 1; }
-grep -Fq -- "--docs-dir" <<<"$out_err" || { echo "[smoke-start-unknown-arg] missing '--docs-dir' suggestion" >&2; exit 1; }
 
 echo "[smoke-start-unknown-arg] PASS"

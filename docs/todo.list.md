@@ -5,20 +5,17 @@
 另外一个spec的mcp 仓库就可以在里面增加一个功能,集成deepwiki来生成最佳的spec,随时生成即可, 
 
 
+
+1. 要支持打印输入参数的log
+2. 
+
+
 现在我的目标是需要有查询参考代码仓库的能力,所以我
 
 
-1. 将以下内容的仓库添加到到目录refer-research (使用my-stark-scripts来维护)
-
-```
-https://github.com/agency-ai-solutions/openai-codex-mcp
-https://github.com/tomascupr/codexMCP
-https://github.com/kky42/codex-as-mcp
-https://github.com/ymichael/open-codex
-```
 
 
-2. 使用mcp工具deepwiki 来随时查询https://github.com/modelcontextprotocol/typescript-sdk 的内容,将当前仓库的MCP server部分进行改造,改造成使用typescript-sdk来完成MCP server开发,并发布npm 服务器.
+1. 使用mcp工具deepwiki 来随时查询https://github.com/modelcontextprotocol/typescript-sdk 的内容,将当前仓库的MCP server部分进行改造,改造成使用typescript-sdk来完成MCP server开发,并发布npm 服务器.
 
 
 ```

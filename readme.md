@@ -3,7 +3,7 @@
 围绕 Codex CLI 的指令编排与异步运行工具，配套标准 MCP 服务器（TypeScript 实现）。本版本已清理不必要文件，仅保留核心能力、文档与 my-stark-scripts。
 
 **核心模块**
-- `start.sh`：组合多源文本/文件为规范化指令，执行一次或按预设多轮迭代
+- `start.sh`：组合多源文本/文件为规范化指令，执行一次
 - `job.sh`：异步任务管理（start/status/logs/stop/list）
 - `mcp/server.sh`：MCP 服务器入口（Node >= 18，TypeScript 实现）
 - `mcp/codex-mcp-server`：基于 `@modelcontextprotocol/sdk` 的标准 MCP 服务器
@@ -25,7 +25,7 @@
   - `./start.sh --docs 'docs/**/*.md' -f refer-research/openai-codex/README.md -c "仅输出中文要点"`
   - 目录递归：`./start.sh --docs-dir docs/technical`
   - 列表文件：`./start.sh --docs @docs-list.txt`
-- 多轮冲刺（直到 DONE）
+- 冲刺预设（单轮）
   - `./start.sh --preset sprint --task "审阅 CLI 并给出 PR 计划"`
 - 仅生成日志与指令（不实际调用 Codex）
   - `./start.sh --task "演示" --dry-run`
@@ -39,15 +39,21 @@
   - 叠加：`-f/--file`（多次、支持通配/目录/@列表）、`--docs` 简写（等价一组 -f）、`--docs-dir`、`-c/--content`（多次）
   - 模板：`--prepend*` / `--append*`
   - 统一包裹 `<instructions-section type=...>`，便于复盘/解析
-- 迭代执行
-  - `--repeat-until`、`--max-runs`、`--sleep-seconds`、`--no-carry-context`、`--no-compress-context`、`--context-head`、`--context-grep`
+- 执行控制
+  - `--no-carry-context`、`--no-compress-context`、`--context-head`、`--context-grep`
   - 预设：`sprint` / `analysis` / `secure` / `fast`
 - 产物与日志
   - `.codex-father/sessions/<job-id>/` 下产出：`job.log`、`*.instructions.md`、`*.meta.json`、（异步）`state.json` 等
   - 会话内聚合：`aggregate.txt`、`aggregate.jsonl`
 - 脱敏与直通
   - `--redact`、`--redact-pattern <regex>`
-  - 透传 Codex：`--sandbox`、`--approval-mode <policy>`（等价 `-c approval_policy=<policy>`）、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg`
+  - 透传 Codex：`--sandbox`、`--ask-for-approval <policy>`、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg`
+  - 推荐组合：
+    - 只读浏览（交互审批）：`--sandbox read-only --ask-for-approval on-request`
+    - CI 只读（无审批）：`--sandbox read-only --ask-for-approval never`
+    - 可改仓库（遇风险再问）：`--sandbox workspace-write --ask-for-approval on-request`
+    - 全自动（便捷）：`--full-auto`（等价 `--sandbox workspace-write` + `--ask-for-approval on-failure`）
+    - YOLO（不推荐）：`--dangerously-bypass-approvals-and-sandbox`（与 `--ask-for-approval`/`--full-auto` 互斥）
 
 ## MCP 服务器（标准 SDK 实现）
 
@@ -67,7 +73,7 @@
 
 补丁模式（只输出改动，不改盘）
 - 加参：`--patch-mode`（自动注入 policy-note，提示模型仅输出补丁）
-- 常配：`--sandbox read-only --codex-config approval_policy=never`
+- 常配：`--sandbox read-only --ask-for-approval never`
 - 最小交互（stdio）：
   - `printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"demo","version":"0.0.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | ./mcp/server.sh`
 
@@ -105,6 +111,9 @@
   - 覆盖 initialize / tools/list / codex.start / codex.status / codex.logs
 - start.sh 增强相关自检：`make smoke`
   - 覆盖未知参数建议、glob 成功/失败、目录与 @列表支持
+  - 旗标兼容与冲突：
+    - `bash tests/smoke_start_ask_compat.sh`
+    - `bash tests/smoke_start_conflicts.sh`
 
 ## 发布与分发
 

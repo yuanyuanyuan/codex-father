@@ -42,7 +42,7 @@
 ## 参数映射与指令组合（传给 `arguments.args`）
 - 覆盖/叠加：`-F/--file-override`、`-f/--file`（支持通配）、`--docs`、`-c/--content`
 - 模板：`--prepend[/-file]`、`--append[/-file]`
-- 迭代与预设：`--preset sprint`、`--repeat-until 'CONTROL: DONE'`、`--max-runs N`、`--sleep-seconds S`
+- 预设：`--preset sprint`（单轮、低摩擦）、`analysis`、`secure`、`fast`
 - 上下文压缩：`--no-carry-context`、`--no-compress-context`、`--context-head N`、`--context-grep REGEX`
 - 直通 Codex：`--sandbox`、`--approval-mode <policy>` 或 `--codex-config approval_policy=<policy>`、`--profile`、`--full-auto`、`--codex-config key=value`、`--codex-arg "--flag value"`
 - 注意：MCP 中不建议使用 STDIN（`-f -`/`-F -`）；改用 `-c` 或将内容落盘后用 `-f` 传入。

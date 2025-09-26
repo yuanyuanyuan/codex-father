@@ -20,9 +20,7 @@ build_server() {
   ( cd "$TS_SRV_DIR" && npm install --silent && npm run build --silent )
 }
 
-mcp_call() {
-  local req="$1"; printf '%s\n' "$req" | "$MCP_SH"
-}
+mcp_call() { local req="$1"; printf '%s\n' "$req" | "$MCP_SH"; }
 
 test_initialize_and_list() {
   info "Init + tools/list"

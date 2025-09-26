@@ -1,0 +1,32 @@
+{
+  "name": "codex-father",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18"
+    }
+  },
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "vscode",
+  "workspaceFolder": "/workspaces/codex-father",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspaces/codex-father,type=bind,consistency=cached"
+  ],
+  "postCreateCommand": "bash -lc 'if [ -d mcp/codex-mcp-server ]; then (cd mcp/codex-mcp-server && npm install --silent && npm run build --silent) || true; fi'",
+  "containerEnv": {
+    "CODEX_SESSIONS_ROOT": "/workspaces/codex-father/.codex-father/sessions"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-vscode.vscode-typescript-next"
+      ]
+    }
+  }
+}
+

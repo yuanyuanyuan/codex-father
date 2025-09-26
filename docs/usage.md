@@ -7,7 +7,6 @@
 - start.sh 常用
   - 单次运行：`./start.sh --task "总结 docs 的关键点"`
   - 合并文件：`./start.sh --docs 'docs/**/*.md' -f refer-research/openai-codex/README.md`
-  - 多轮冲刺：`./start.sh --preset sprint --task "审阅 CLI 并给出 PR 计划"`
   - 仅生成产物：`./start.sh --task "演示" --dry-run`
   - 机器可读输出：在上述任一命令追加 `--json`（输出最终 meta.json 到 STDOUT）
 
@@ -33,24 +32,24 @@
 
 补丁模式（只输出改动，不改盘）
 - 启用方式：`--patch-mode`（自动注入 policy-note，要求模型“仅输出补丁（patch/diff），不执行写命令/不直接改仓库”）。
-- 常配合只读与免审批：`--sandbox read-only --codex-config approval_policy=never`（或 `--approval-mode never`）。
+- 常配合只读与免审批：`--sandbox read-only --ask-for-approval never`。
 - 示例：
   - `./start.sh --task "修复 lint 错误" --patch-mode --sandbox read-only --approval-mode never`
   - MCP：在 `codex.exec` 的 `arguments.args` 中加入 `"--patch-mode"`（必要时同时传 `"--sandbox","read-only","--codex-config","approval_policy=never"`）。
 
 示例（CLI）
 - 用 STDIN 覆盖基底并叠加多文件与尾部模板：
-  - `cat prompt.md | ./start.sh -F - --docs 'docs/**/*.md' -f refer-research/openai-codex/README.md --append '\n请最终输出 CONTROL: DONE'`
+  - `cat prompt.md | ./start.sh -F - --docs 'docs/**/*.md' -f refer-research/openai-codex/README.md --append '\n请给出最终要点'`
 - 直接追加一段文本作为任务：
   - `./start.sh -c "请审阅 README 并给出改进点" --dry-run`
 
 - 参数速览
   - 来源与组合：`-F/--file-override`、`-f/--file`、`--docs`、`-c/--content`、`--prepend[/-file]`、`--append[/-file]`
-  - 循环与上下文：`--preset`、`--repeat-until`、`--max-runs`、`--sleep-seconds`、`--no-carry-context`、`--no-compress-context`、`--context-head`、`--context-grep`
+  - 上下文与预设：`--preset`、`--no-carry-context`、`--no-compress-context`、`--context-head`、`--context-grep`
   - 日志：`--log-dir`、`--log-file`、`--tag`、`--flat-logs`、`--echo-instructions[*]`、`--echo-limit`
   - 输出：`--json`（将最终 meta.json 打印到 STDOUT）
   - 安全：`--redact`、`--redact-pattern <regex>`
-  - 直通：`--sandbox`、`--approval-mode <policy>`（等价 `-c approval_policy=<policy>`）、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg`
+  - 直通：`--sandbox`、`--ask-for-approval <policy>`、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg`
 
 - 产物与日志
   - 默认写入 `<项目根>/.codex-father/sessions/<job-id>/`（同步/异步一致）
@@ -136,7 +135,7 @@ MCP 全自动（不询问）用法
 在 MCP 中传递指令参数
 - 所有 start.sh 选项均可通过 `arguments.args` 传入，例如：
   - 叠加文件：`{"args":["--docs","docs/**/*.md","-f","readme.md"]}`
-  - 追加文本：`{"args":["-c","请输出 CONTROL: DONE"]}`
+  - 追加文本：`{"args":["-c","请给出最终要点"]}`
   - 注意：由于 MCP 采用后台/前台子进程执行，不建议使用 STDIN（`-F -`/`-f -`）。请用 `-c` 或落盘到文件再通过 `-f` 传入。
 
 Glob / 目录 / 列表用法示例
@@ -156,11 +155,9 @@ Glob / 目录 / 列表用法示例
 
 任务开始与停止规则
   - 同步（start.sh）
-  - 单轮：默认 `MAX_RUNS=1`，执行完成后立即退出，其退出码为 Codex 执行退出码（`--dry-run` 为 0）。
-  - 多轮：通过 `--repeat-until <regex>`、`--max-runs <N>`、`--sleep-seconds <S>` 控制迭代；常用预设 `--preset sprint` 等价于“直到检测到 `CONTROL: DONE`”。
-  - 控制标记：模型输出中的 `CONTROL: DONE` / `CONTROL: CONTINUE` 会被识别，用于退出分类（写入 `*.meta.json` 与会话内 `aggregate.jsonl`）。
+  - 单轮：默认执行一次后退出，其退出码为 Codex 执行退出码（`--dry-run` 为 0）。`--preset sprint` 为单轮低摩擦推进（自动连续执行、合理时限与步数上限）。
   - 溢出重试：默认开启“上下文溢出自动重试”，可用 `--no-overflow-retry` 关闭或用 `--overflow-retries N` 调整重试次数。
-  - 完成前置校验：可选 `--require-change-in <glob>` 与 `--require-git-commit` 强制在满足 `repeat-until` 前校验“有匹配变更且已提交”；未满足时可用 `--auto-commit-on-done` 自动提交后再结束。
+  - 完成前置校验：可选 `--require-change-in <glob>` 与 `--require-git-commit` 在结束前校验“有匹配变更且已提交”；未满足时可用 `--auto-commit-on-done` 自动提交后再结束。
 - 异步/队列（job.sh）
   - 启动：`job.sh start ...` 立即返回 `jobId`，后台运行 `start.sh`。
   - 状态：`job.sh status <jobId> [--json]` 会解析 `job.log`/`*.meta.json` 推导 `state/exit_code/classification/tokens_used`。
@@ -171,4 +168,6 @@ Glob / 目录 / 列表用法示例
   - 异步：`codex.start` / `codex.status` / `codex.logs` / `codex.stop` / `codex.list`（均支持 `cwd`）
 
 安全与审批
-- 通过 `--sandbox`、`--approval-mode`（或 `--codex-config approval_policy=...`）、`--profile`、`--full-auto`、`--dangerously-bypass-approvals-and-sandbox`、`--codex-config`、`--codex-arg` 对 Codex CLI 进行透传；高危项默认不启用，请谨慎使用。
+- 推荐使用：`--sandbox` 与 `--ask-for-approval` 组合；`--full-auto` 等价于 `--sandbox workspace-write` + `--ask-for-approval on-failure`。
+- YOLO：`--dangerously-bypass-approvals-and-sandbox`（不推荐），与 `--ask-for-approval`、`--full-auto` 互斥（脚本内会前置阻断）。
+- 网络开关：`workspace-write` 默认禁网；如需启用网络，使用 `--codex-config 'sandbox_workspace_write.network_access=true'`，或在配置文件 `[sandbox_workspace_write] network_access = true`。

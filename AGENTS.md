@@ -23,6 +23,7 @@
 ## Testing Guidelines
 - TS server: compile with `npm run build` (Node >=18).
 - Bash: prefer small, hermetic tests; run `bash -n` and `shellcheck` if available.
+- Arg forwarding smoke: `bash tests/smoke_start_args_forwarding.sh` validates `start.sh` forwards core flags to `codex`.
 - E2E scope: `tests/mcp_ts_e2e.sh` covers MCP initialize, exec, start/status/logs.
 
 ## Commit & Pull Request Guidelines
