@@ -288,6 +288,39 @@ export interface QueueEventEmitter {
   emit(event: QueueEvent, data: Partial<QueueEventData>): void;
 }
 
+export const TASK_QUEUE_ERROR_CODES = {
+  QUEUE_FULL: 'TQ001',
+  QUEUE_CORRUPTED: 'TQ002',
+  QUEUE_LOCKED: 'TQ003',
+  QUEUE_NOT_INITIALIZED: 'TQ004',
+  TASK_NOT_FOUND: 'TQ101',
+  TASK_INVALID_STATUS: 'TQ102',
+  TASK_TIMEOUT: 'TQ103',
+  TASK_CANCELLED: 'TQ104',
+  TASK_RETRY_EXHAUSTED: 'TQ105',
+  PERMISSION_DENIED: 'TQ201',
+  DISK_SPACE_FULL: 'TQ202',
+  FILE_CORRUPTED: 'TQ203',
+  DIRECTORY_NOT_FOUND: 'TQ204',
+  EXECUTOR_NOT_FOUND: 'TQ301',
+  EXECUTOR_OVERLOADED: 'TQ302',
+  EXECUTOR_FAILED: 'TQ303',
+} as const;
+
+export type TaskQueueErrorCode = typeof TASK_QUEUE_ERROR_CODES[keyof typeof TASK_QUEUE_ERROR_CODES];
+
+export class TaskQueueError extends Error {
+  constructor(
+    message: string,
+    public readonly code: TaskQueueErrorCode,
+    public readonly taskId?: string,
+    public readonly details?: Record<string, any>,
+  ) {
+    super(message);
+    this.name = 'TaskQueueError';
+  }
+}
+
 // ============================================================================
 // 验证相关类型
 // ============================================================================

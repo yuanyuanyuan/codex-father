@@ -116,11 +116,12 @@
 - **估时**: 2小时
 - **状态**: COMPLETED - 实现队列事件发射器并覆盖多监听器、负载规范化与注销流程
 
-**T017** [P] - 创建错误处理测试
+**T017** [P] ✅ - 创建错误处理测试
 - **File**: `core/lib/tests/queue-errors.test.ts`
 - **目标**: 实现 TaskQueueError 和错误代码测试
 - **验收标准**: 所有错误代码和异常处理
 - **估时**: 1.5小时
+- **状态**: COMPLETED - 实装 TaskQueueError 工厂并验证所有错误代码与上下文元数据
 
 **T018** [P] - 创建队列配置测试
 - **File**: `core/lib/tests/queue-config.test.ts`
