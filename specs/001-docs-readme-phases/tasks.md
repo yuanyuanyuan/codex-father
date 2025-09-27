@@ -64,7 +64,7 @@
 
 ### Task Queue Contract Tests [P]
 
-**T009** [P] - 创建任务队列核心接口测试
+**T009** [P] ✅ - 创建任务队列核心接口测试
 - **File**: `core/lib/tests/task-queue.test.ts`
 - **目标**: 实现 TaskQueue 接口所有方法测试
 - **验收标准**: enqueue、dequeue、getTask、updateTaskStatus等
