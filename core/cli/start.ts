@@ -199,11 +199,57 @@ class CodexFatherCLI {
    */
   private async handleStatusCommand(context: CommandContext): Promise<CommandResult> {
     const startTime = Date.now();
+    const initialMemory = process.memoryUsage();
 
     try {
       const config = await getConfig();
       const { validateLegacyScripts } = await import('./legacy-compatibility.js');
       const scriptValidation = await validateLegacyScripts();
+
+      const finalMemory = process.memoryUsage();
+      const executionTime = Date.now() - startTime;
+
+      const formatMemorySnapshot = (snapshot: NodeJS.MemoryUsage) => {
+        const rss = snapshot.rss;
+        const heapTotal = snapshot.heapTotal;
+        const heapUsed = snapshot.heapUsed;
+        const external = snapshot.external ?? 0;
+        const arrayBuffers = snapshot.arrayBuffers ?? 0;
+        const sharedArrayBuffers = (snapshot as any).sharedArrayBuffers ?? 0;
+
+        return {
+          rssBytes: rss,
+          heapTotalBytes: heapTotal,
+          heapUsedBytes: heapUsed,
+          externalBytes: external,
+          arrayBuffersBytes: arrayBuffers,
+          sharedArrayBuffersBytes: sharedArrayBuffers,
+          rssMB: Number((rss / 1024 / 1024).toFixed(2)),
+          heapUsedMB: Number((heapUsed / 1024 / 1024).toFixed(2)),
+        };
+      };
+
+      const memoryUsage = {
+        initial: formatMemorySnapshot(initialMemory),
+        final: formatMemorySnapshot(finalMemory),
+        peak: formatMemorySnapshot({
+          rss: Math.max(initialMemory.rss, finalMemory.rss),
+          heapTotal: Math.max(initialMemory.heapTotal, finalMemory.heapTotal),
+          heapUsed: Math.max(initialMemory.heapUsed, finalMemory.heapUsed),
+          external: Math.max(initialMemory.external ?? 0, finalMemory.external ?? 0),
+          arrayBuffers: Math.max(initialMemory.arrayBuffers ?? 0, finalMemory.arrayBuffers ?? 0),
+          sharedArrayBuffers: Math.max(
+            (initialMemory as any).sharedArrayBuffers ?? 0,
+            (finalMemory as any).sharedArrayBuffers ?? 0
+          ),
+        } as NodeJS.MemoryUsage),
+        delta: {
+          rssBytes: finalMemory.rss - initialMemory.rss,
+          heapUsedBytes: finalMemory.heapUsed - initialMemory.heapUsed,
+          rssMB: Number(((finalMemory.rss - initialMemory.rss) / 1024 / 1024).toFixed(2)),
+          heapUsedMB: Number(((finalMemory.heapUsed - initialMemory.heapUsed) / 1024 / 1024).toFixed(2)),
+        },
+      };
 
       const statusData = {
         environment: config.environment,
@@ -222,13 +268,18 @@ class CodexFatherCLI {
           completed: ['Project structure', 'TypeScript setup', 'CLI framework'],
           pending: ['Task queue system', 'Git automation', 'Container integration'],
         },
+        performance: {
+          executionTimeMs: executionTime,
+          uptimeSeconds: Number(process.uptime().toFixed(3)),
+          memoryUsage,
+        },
       };
 
       if (context.json) {
         return {
           success: true,
           data: statusData,
-          executionTime: Date.now() - startTime,
+          executionTime,
         };
       }
 
@@ -260,12 +311,18 @@ class CodexFatherCLI {
       messages.push(`   Current: ${statusData.phase.current}`);
       messages.push(`   Completed: ${statusData.phase.completed.join(', ')}`);
       messages.push(`   Pending: ${statusData.phase.pending.join(', ')}`);
+      messages.push('');
+      messages.push('⏱️ Performance Metrics:');
+      messages.push(`   Execution Time: ${executionTime}ms`);
+      messages.push(`   Uptime: ${statusData.performance.uptimeSeconds}s`);
+      messages.push(`   RSS Memory: ${statusData.performance.memoryUsage.final.rssMB} MB`);
+      messages.push(`   Heap Used: ${statusData.performance.memoryUsage.final.heapUsedMB} MB`);
 
       return {
         success: true,
         message: messages.join('\n'),
         data: context.options.detailed ? statusData : undefined,
-        executionTime: Date.now() - startTime,
+        executionTime,
       };
     } catch (error) {
       throw createError.internal('Failed to get status information', { error: error.message });
