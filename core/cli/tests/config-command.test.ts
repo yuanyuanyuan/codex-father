@@ -98,16 +98,11 @@ describe('Config Command Interface (T003)', () => {
           { name: 'key', description: 'Configuration key (for get/set)', required: false },
         ],
         options: [
-          { flags: '--value <value>', description: 'Configuration value for set action' },
           { flags: '--environment <env>', description: 'Target environment name' },
-          { flags: '--profile <profile>', description: 'Profile identifier for resolving values' },
-          { flags: '--format <format>', description: 'Output format (table|json|yaml)' },
-          { flags: '--filter <expression>', description: 'Filter expression when listing configs' },
-          { flags: '--schema <path>', description: 'Schema file for validation' },
-          { flags: '--output <path>', description: 'Path to write validation report' },
-          { flags: '--template <name>', description: 'Template to use when initializing configs' },
-          { flags: '--path <path>', description: 'Destination directory for init' },
-          { flags: '--force', description: 'Force overwrite existing configuration files' },
+          { flags: '--env <env>', description: 'Alias of --environment' },
+          { flags: '--secure', description: 'Store value encrypted at rest' },
+          { flags: '--reveal', description: 'Reveal decrypted values when reading' },
+          { flags: '--json', description: 'Output in JSON format' },
         ],
       }
     );
@@ -132,10 +127,10 @@ describe('Config Command Interface (T003)', () => {
     const optionFlags = configCommand?.options.map(opt => opt.flags) ?? [];
     expect(optionFlags).toEqual(
       expect.arrayContaining([
-        '--value <value>',
         '--environment <env>',
-        '--schema <path>',
-        '--force',
+        '--env <env>',
+        '--secure',
+        '--reveal',
       ])
     );
   });
@@ -152,15 +147,14 @@ describe('Config Command Interface (T003)', () => {
       'core.timeout',
       '--environment',
       'production',
-      '--profile',
-      'default',
+      '--reveal',
     ]);
 
     const context = handledContexts.at(-1);
     expect(context?.args?.[0]).toBe('get');
     expect(context?.args?.[1]).toBe('core.timeout');
     expect(context?.options.environment).toBe('production');
-    expect(context?.options.profile).toBe('default');
+    expect(context?.options.reveal).toBe(true);
 
     const payload = logSpy.mock.calls.at(-1)?.[0] ?? '{}';
     const parsed = JSON.parse(payload);
@@ -184,17 +178,17 @@ describe('Config Command Interface (T003)', () => {
       'config',
       'set',
       'logging.level',
-      '--value',
       'debug',
       '--environment',
       'development',
+      '--secure',
     ]);
 
     const context = handledContexts.at(-1);
     expect(context?.args?.[0]).toBe('set');
     expect(context?.args?.[1]).toBe('logging.level');
-    expect(context?.options.value).toBe('debug');
     expect(context?.options.environment).toBe('development');
+    expect(context?.options.secure).toBe(true);
 
     const payload = logSpy.mock.calls.at(-1)?.[0] ?? '{}';
     const parsed = JSON.parse(payload);
@@ -207,7 +201,7 @@ describe('Config Command Interface (T003)', () => {
     });
   });
 
-  it('lists configuration entries with filters and formatting', async () => {
+  it('lists configuration entries and environments', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     await parser.parse([
@@ -216,19 +210,10 @@ describe('Config Command Interface (T003)', () => {
       '--json',
       'config',
       'list',
-      '--environment',
-      'staging',
-      '--format',
-      'json',
-      '--filter',
-      'core.*',
     ]);
 
     const context = handledContexts.at(-1);
     expect(context?.args?.[0]).toBe('list');
-    expect(context?.options.environment).toBe('staging');
-    expect(context?.options.format).toBe('json');
-    expect(context?.options.filter).toBe('core.*');
 
     const payload = logSpy.mock.calls.at(-1)?.[0] ?? '{}';
     const parsed = JSON.parse(payload);
@@ -250,16 +235,10 @@ describe('Config Command Interface (T003)', () => {
       '--json',
       'config',
       'validate',
-      '--schema',
-      './schemas/config-schema.json',
-      '--output',
-      './reports/validation.json',
     ]);
 
     const context = handledContexts.at(-1);
     expect(context?.args?.[0]).toBe('validate');
-    expect(context?.options.schema).toBe('./schemas/config-schema.json');
-    expect(context?.options.output).toBe('./reports/validation.json');
 
     const payload = logSpy.mock.calls.at(-1)?.[0] ?? '{}';
     const parsed = JSON.parse(payload);
@@ -281,18 +260,13 @@ describe('Config Command Interface (T003)', () => {
       '--json',
       'config',
       'init',
-      '--template',
-      'advanced',
-      '--path',
-      './config/bootstrap',
-      '--force',
+      '--environment',
+      'testing',
     ]);
 
     const context = handledContexts.at(-1);
     expect(context?.args?.[0]).toBe('init');
-    expect(context?.options.template).toBe('advanced');
-    expect(context?.options.path).toBe('./config/bootstrap');
-    expect(context?.options.force).toBe(true);
+    expect(context?.options.environment).toBe('testing');
 
     const payload = logSpy.mock.calls.at(-1)?.[0] ?? '{}';
     const parsed = JSON.parse(payload);

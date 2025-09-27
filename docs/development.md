@@ -21,7 +21,7 @@
 
 - CLI 命令（TypeScript 实现）
   - `codex-father task <action>`：创建/列出/查询/取消/重试任务，自动管理 `.codex-father/queue/` 目录结构，支持 `--json` 输出。
-  - `codex-father config <action>`：初始化与维护配置数据，支持点号键访问、环境隔离和 JSON 输出。
+  - `codex-father config <action>`：初始化与维护配置数据，支持点号键访问、环境隔离、`--secure` 加密写入（依赖 `CODEX_CONFIG_SECRET`）与 `--reveal` 解密查看，默认 JSON/文本输出。
   - `codex-father status`：查看 CLI 与任务队列健康度、性能基线及 legacy 脚本检测结果。
 
 - Bash 脚本规范

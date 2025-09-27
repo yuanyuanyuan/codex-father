@@ -29,7 +29,7 @@
   - JSON 输出：`--json` 输出最终 meta.json 内容到 STDOUT，包含 `exit_code/log_file/instructions_file` 等字段。
   - TypeScript CLI 同步提供 `task` 与 `config` 命令：
     - `task`：Create/List/Status/Cancel/Retry/Logs/Stats，写入 `.codex-father/queue/`。
-    - `config`：Init/Get/Set/List/Validate，写入 `.codex-father/config/config.json` 并支持环境隔离。
+    - `config`：Init/Get/Set/List/Validate，写入 `.codex-father/config/config.json`，支持环境隔离、`CODEX_CONFIG_SECRET` 驱动的安全存储（`--secure`/`--reveal`），并在检测到权限过宽时自动收紧目录/文件权限。
 
 - MCP 行为
   - 默认注入 `--sandbox workspace-write`（若未显式传入也未 YOLO）；`network=true` 时注入 `--codex-config sandbox_workspace_write.network_access=true`。
