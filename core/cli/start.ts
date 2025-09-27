@@ -10,6 +10,7 @@ import { parser } from './parser.js';
 import { LegacyCommandHandler, routeLegacyCommand } from './legacy-compatibility.js';
 import { registerTaskCommand } from './commands/task-command.js';
 import { registerConfigCommand } from './commands/config-command.js';
+import { registerQueueCommand } from './commands/queue-command.js';
 import type { CommandContext, CommandResult } from '../lib/types.js';
 
 /**
@@ -124,6 +125,9 @@ class CodexFatherCLI {
     registerTaskCommand(parser);
 
     registerConfigCommand(parser);
+
+    // queue 命令（完整队列管理）
+    registerQueueCommand(parser);
 
     // mcp 命令 (计划中)
     parser.registerCommand(

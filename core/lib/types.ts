@@ -369,3 +369,41 @@ export class CodexError extends Error {
     this.name = 'CodexError';
   }
 }
+
+// ============================================================================
+// 队列配置类型（供 queue/config.ts 与监控/优化等组件使用）
+// ============================================================================
+
+export interface QueueMonitoringConfig {
+  enabled: boolean;
+  logLevel: 'debug' | 'info' | 'warn' | 'error';
+  metricsInterval: number; // ms
+  alertThresholds: {
+    queueDepth: number;
+    failureRate: number; // 0-100
+    averageWaitTime: number; // ms
+    diskUsage: number; // 0-100
+  };
+}
+
+export interface QueuePerformanceConfig {
+  batchSize: number;
+  processingInterval: number;
+  indexingEnabled: boolean;
+  compressionEnabled: boolean;
+  cacheSize: number;
+  optimizationLevel: 'none' | 'basic' | 'aggressive';
+}
+
+export interface QueueConfiguration {
+  baseDirectory: string;
+  maxConcurrentTasks: number;
+  maxQueueSize: number;
+  defaultTimeout: number;
+  defaultRetryPolicy: TaskRetryPolicy;
+  cleanupInterval: number;
+  archiveCompletedTasks: boolean;
+  archiveAfterDays: number;
+  monitoring: QueueMonitoringConfig;
+  performance: QueuePerformanceConfig;
+}
