@@ -21,6 +21,19 @@ export interface ExecutionOptions {
   logExecution?: boolean;
 }
 
+export interface ResourceRequirements {
+  memory: number; // bytes
+  cpu: number;    // percentage
+  disk: number;   // bytes
+}
+
+export interface BasicTaskExecutorOptions {
+  queuePath?: string;
+  maxConcurrency?: number;
+  resourceDefaults?: Partial<ResourceRequirements>;
+  collectMemoryUsage?: boolean;
+}
+
 /**
  * 任务执行结果
  */
@@ -32,6 +45,20 @@ export interface ExecutionResult {
   retryCount: number;
   startTime: Date;
   endTime: Date;
+  metrics?: ExecutionMetrics;
+}
+export interface ExecutionMetrics {
+  durationMs: number;
+  waitTimeMs?: number;
+  handlerLatencyMs?: number;
+  memoryUsage?: NodeJS.MemoryUsage;
+}
+
+export interface TaskExecutorCapabilities {
+  supportedTypes: string[];
+  maxConcurrency: number;
+  averageExecutionTime: number;
+  resourceRequirements: ResourceRequirements;
 }
 
 /**
@@ -60,13 +87,29 @@ export const BUILT_IN_TASK_TYPES = {
  * 基础任务执行器类
  */
 export class BasicTaskExecutor {
-  private queueOps: BasicQueueOperations;
-  private taskHandlers: Map<string, TaskHandler> = new Map();
+  private readonly queueOps: BasicQueueOperations;
+  private readonly taskHandlers: Map<string, TaskHandler> = new Map();
   private executionLog: ExecutionResult[] = [];
-  private maxLogSize: number = 1000;
+  private readonly maxLogSize: number = 1000;
+  private readonly maxConcurrency: number;
+  private readonly resourceDefaults: ResourceRequirements;
+  private readonly collectMemoryUsage: boolean;
 
-  constructor(queuePath?: string) {
-    this.queueOps = new BasicQueueOperations({ queuePath });
+  constructor(queuePath?: string, options?: BasicTaskExecutorOptions);
+  constructor(options?: BasicTaskExecutorOptions);
+  constructor(
+    queuePathOrOptions?: string | BasicTaskExecutorOptions,
+    options: BasicTaskExecutorOptions = {}
+  ) {
+    const resolved = this.resolveOptions(queuePathOrOptions, options);
+    this.queueOps = new BasicQueueOperations({ queuePath: resolved.queuePath });
+    this.maxConcurrency = resolved.maxConcurrency ?? 1;
+    this.resourceDefaults = {
+      memory: resolved.resourceDefaults?.memory ?? 32 * 1024 * 1024,
+      cpu: resolved.resourceDefaults?.cpu ?? 50,
+      disk: resolved.resourceDefaults?.disk ?? 16 * 1024 * 1024,
+    };
+    this.collectMemoryUsage = resolved.collectMemoryUsage ?? true;
     this.registerBuiltInHandlers();
   }
 
@@ -198,68 +241,98 @@ export class BasicTaskExecutor {
     };
   }
 
+  canHandle(taskType: string): boolean {
+    return this.taskHandlers.has(taskType);
+  }
+
+  getCapabilities(): TaskExecutorCapabilities {
+    const stats = this.getExecutionStats();
+    return {
+      supportedTypes: this.getRegisteredTaskTypes(),
+      maxConcurrency: this.maxConcurrency,
+      averageExecutionTime: stats.averageExecutionTime,
+      resourceRequirements: { ...this.resourceDefaults },
+    };
+  }
+
   /**
    * 使用上下文执行任务
    */
   private async executeTaskWithContext(context: ExecutionContext): Promise<ExecutionResult> {
     const { task, options } = context;
-    const startTime = performance.now();
+    const measurementStart = performance.now();
+
+    // 预计算等待时间（基于读取到的任务创建时间）
+    const waitTimeFromContext = this.calculateWaitTimeFromContext(task, context.startTime);
+
+    // 确保任务状态为处理中
+    await this.queueOps.updateTaskStatus(task.id, 'processing');
+
+    const handler = this.taskHandlers.get(task.type);
+    if (!handler) {
+      throw new Error(`No handler registered for task type: ${task.type}`);
+    }
+
+    const processingSnapshot = await this.queueOps.getTask(task.id);
+    const attemptNumber = processingSnapshot?.attempts ?? context.attempt + 1;
+    const startedAt = this.ensureDate(processingSnapshot?.startedAt) ?? context.startTime;
+    const effectiveWait = waitTimeFromContext ?? this.calculateWaitTime(processingSnapshot, startedAt);
+
+    const handlerStart = performance.now();
 
     try {
-      // 确保任务状态为处理中
-      await this.queueOps.updateTaskStatus(task.id, 'processing');
-
-      // 获取任务处理器
-      const handler = this.taskHandlers.get(task.type);
-      if (!handler) {
-        throw new Error(`No handler registered for task type: ${task.type}`);
-      }
-
-      // 执行任务（支持超时）
       const result = options.timeout
         ? await this.executeWithTimeout(handler, task.payload, options.timeout)
         : await handler(task.payload);
 
-      const endTime = performance.now();
-      const executionTime = endTime - startTime;
+      const handlerEnd = performance.now();
+      const metrics: ExecutionMetrics = {
+        durationMs: Math.max(handlerEnd - measurementStart, 0),
+        waitTimeMs: effectiveWait,
+        handlerLatencyMs: Math.max(handlerEnd - handlerStart, 0),
+        memoryUsage: this.collectMemoryUsage ? process.memoryUsage() : undefined,
+      };
 
-      // 更新任务状态为成功
       await this.queueOps.updateTaskStatus(task.id, 'completed', result);
 
       const executionResult: ExecutionResult = {
         success: true,
         result,
-        executionTime,
-        retryCount: context.attempt,
+        executionTime: metrics.durationMs,
+        retryCount: attemptNumber,
         startTime: context.startTime,
         endTime: new Date(),
+        metrics,
       };
 
-      // 记录执行日志
       if (options.logExecution) {
         this.addToExecutionLog(executionResult);
       }
 
       return executionResult;
-
     } catch (error) {
-      const endTime = performance.now();
-      const executionTime = endTime - startTime;
+      const handlerEnd = performance.now();
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-      // 更新任务状态为失败
       await this.queueOps.updateTaskStatus(task.id, 'failed', undefined, errorMessage);
+
+      const metrics: ExecutionMetrics = {
+        durationMs: Math.max(handlerEnd - measurementStart, 0),
+        waitTimeMs: effectiveWait,
+        handlerLatencyMs: Math.max(handlerEnd - handlerStart, 0),
+        memoryUsage: this.collectMemoryUsage ? process.memoryUsage() : undefined,
+      };
 
       const executionResult: ExecutionResult = {
         success: false,
         error: errorMessage,
-        executionTime,
-        retryCount: context.attempt,
+        executionTime: metrics.durationMs,
+        retryCount: attemptNumber,
         startTime: context.startTime,
         endTime: new Date(),
+        metrics,
       };
 
-      // 记录执行日志
       if (options.logExecution) {
         this.addToExecutionLog(executionResult);
       }
@@ -303,6 +376,55 @@ export class BasicTaskExecutor {
     if (this.executionLog.length > this.maxLogSize) {
       this.executionLog = this.executionLog.slice(-this.maxLogSize);
     }
+  }
+
+  private resolveOptions(
+    queuePathOrOptions?: string | BasicTaskExecutorOptions,
+    options: BasicTaskExecutorOptions = {}
+  ): BasicTaskExecutorOptions {
+    if (typeof queuePathOrOptions === 'string') {
+      return {
+        ...options,
+        queuePath: queuePathOrOptions,
+      };
+    }
+    if (queuePathOrOptions) {
+      return { ...queuePathOrOptions };
+    }
+    return { ...options };
+  }
+
+  private calculateWaitTime(task: Task | null, startedAt: Date): number | undefined {
+    if (!task) {
+      return undefined;
+    }
+    const createdAt = this.ensureDate(task.createdAt);
+    if (!createdAt) {
+      return undefined;
+    }
+    return Math.max(startedAt.getTime() - createdAt.getTime(), 0);
+  }
+
+  private calculateWaitTimeFromContext(task: Task, startedAt: Date): number | undefined {
+    const createdAt = this.ensureDate(task.createdAt);
+    if (!createdAt) {
+      return undefined;
+    }
+    return Math.max(startedAt.getTime() - createdAt.getTime(), 0);
+  }
+
+  private ensureDate(value: Date | string | undefined): Date | undefined {
+    if (!value) {
+      return undefined;
+    }
+    if (value instanceof Date) {
+      return value;
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return undefined;
+    }
+    return parsed;
   }
 
   /**
