@@ -109,11 +109,12 @@
 - **估时**: 3.5小时
 - **状态**: COMPLETED - 覆盖文件队列目录结构完整性、自动修复流程并提供队列结构查询能力
 
-**T016** [P] - 创建队列事件测试
+**T016** [P] ✅ - 创建队列事件测试
 - **File**: `core/lib/tests/queue-events.test.ts`
 - **目标**: 实现 QueueEventEmitter 测试
 - **验收标准**: 事件监听、触发、数据传递
 - **估时**: 2小时
+- **状态**: COMPLETED - 实现队列事件发射器并覆盖多监听器、负载规范化与注销流程
 
 **T017** [P] - 创建错误处理测试
 - **File**: `core/lib/tests/queue-errors.test.ts`

@@ -259,6 +259,35 @@ export interface MigrationResult {
   warnings: string[];
 }
 
+export type QueueEvent =
+  | 'task_enqueued'
+  | 'task_started'
+  | 'task_completed'
+  | 'task_failed'
+  | 'task_cancelled'
+  | 'task_retrying'
+  | 'queue_full'
+  | 'queue_empty'
+  | 'executor_started'
+  | 'executor_stopped'
+  | 'corruption_detected'
+  | 'performance_warning';
+
+export interface QueueEventData {
+  event: QueueEvent;
+  timestamp: Date;
+  taskId?: string;
+  details: Record<string, any>;
+}
+
+export type QueueEventListener = (data: QueueEventData) => void;
+
+export interface QueueEventEmitter {
+  on(event: QueueEvent, listener: QueueEventListener): void;
+  off(event: QueueEvent, listener: QueueEventListener): void;
+  emit(event: QueueEvent, data: Partial<QueueEventData>): void;
+}
+
 // ============================================================================
 // 验证相关类型
 // ============================================================================
