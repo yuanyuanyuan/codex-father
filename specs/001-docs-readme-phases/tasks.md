@@ -26,7 +26,7 @@
 - **验收标准**: 覆盖create、list、status、cancel、retry、logs操作
 - **估时**: 3小时
 
-**T003** [P] - 创建配置管理命令测试
+**T003** [P] ✅ - 创建配置管理命令测试
 - **File**: `core/cli/tests/config-command.test.ts`
 - **目标**: 实现 ConfigCommand 所有actions的测试用例
 - **验收标准**: 覆盖get、set、list、validate、init操作
