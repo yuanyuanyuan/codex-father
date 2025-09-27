@@ -20,7 +20,7 @@
 - **验收标准**: 测试覆盖全局选项、帮助信息、版本显示、JSON输出格式
 - **估时**: 2小时
 
-**T002** [P] - 创建任务管理命令测试
+**T002** [P] ✅ - 创建任务管理命令测试
 - **File**: `core/cli/tests/task-command.test.ts`
 - **目标**: 实现 TaskCommand 所有actions的测试用例
 - **验收标准**: 覆盖create、list、status、cancel、retry、logs操作
