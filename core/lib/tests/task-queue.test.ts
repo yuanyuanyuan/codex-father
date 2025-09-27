@@ -39,7 +39,7 @@ describe('Task Queue Core Operations (T009)', () => {
   });
 
   it('enqueues tasks with metadata written to pending queue', async () => {
-    const taskId = await queueOps.enqueueTask({
+    const { taskId } = await queueOps.enqueueTask({
       type: 'analysis',
       payload: { file: 'docs.md' },
       priority: 2,
@@ -62,8 +62,8 @@ describe('Task Queue Core Operations (T009)', () => {
   });
 
   it('dequeues next pending task and transitions to processing state', async () => {
-    const firstId = await queueOps.enqueueTask({ type: 'task-a', payload: {}, priority: 1 });
-    const secondId = await queueOps.enqueueTask({ type: 'task-b', payload: {}, priority: 1 });
+    const { taskId: firstId } = await queueOps.enqueueTask({ type: 'task-a', payload: {}, priority: 1 });
+    const { taskId: secondId } = await queueOps.enqueueTask({ type: 'task-b', payload: {}, priority: 1 });
 
     const dequeued = await queueOps.dequeueTask();
     expect(dequeued?.id).toBeDefined();
@@ -76,7 +76,7 @@ describe('Task Queue Core Operations (T009)', () => {
   });
 
   it('updates task status to completed with result payload', async () => {
-    const taskId = await queueOps.enqueueTask({ type: 'report', payload: { range: 'phase1' }, priority: 3 });
+    const { taskId } = await queueOps.enqueueTask({ type: 'report', payload: { range: 'phase1' }, priority: 3 });
 
     await queueOps.updateTaskStatus(taskId, 'completed', { summary: 'ok' });
 

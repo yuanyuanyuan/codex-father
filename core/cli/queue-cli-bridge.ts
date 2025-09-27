@@ -64,9 +64,15 @@ export class QueueCLIBridge {
       }
 
       // 创建任务
-      const taskId = await this.queueOps.enqueueTask({ type, payload });
+      const enqueueResult = await this.queueOps.enqueueTask({ type, payload });
+      const { taskId, queuePosition, estimatedStartTime, scheduledAt } = enqueueResult;
 
-      let result: any = { taskId };
+      let result: any = {
+        taskId,
+        queuePosition,
+        estimatedStartTime,
+        scheduledAt,
+      };
       let executionTime = 0;
       const startTime = Date.now();
 
@@ -99,6 +105,12 @@ export class QueueCLIBridge {
       }
 
       const messages = [`✅ Task created: ${chalk.cyan(taskId)}`];
+      if (typeof queuePosition === 'number') {
+        messages.push(`📬 Queue position: ${queuePosition}`);
+      }
+      if (estimatedStartTime instanceof Date) {
+        messages.push(`⏱️ Estimated start: ${estimatedStartTime.toISOString()}`);
+      }
       if (execute) {
         const execResult = result.execution;
         if (execResult.success) {

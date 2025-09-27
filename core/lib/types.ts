@@ -127,6 +127,28 @@ export interface Task {
   retryPolicy: TaskRetryPolicy;
 }
 
+export interface EnqueueResult {
+  taskId: string;
+  queuePosition?: number;
+  estimatedStartTime?: Date;
+  scheduledAt?: Date;
+}
+
+export interface CancelResult {
+  taskId: string;
+  cancelled: boolean;
+  reason?: string;
+  wasRunning: boolean;
+}
+
+export interface RetryResult {
+  taskId: string;
+  retryScheduled: boolean;
+  nextAttemptAt?: Date;
+  attemptNumber: number;
+  reason?: string;
+}
+
 // ============================================================================
 // 验证相关类型
 // ============================================================================

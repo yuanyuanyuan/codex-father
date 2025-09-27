@@ -5,7 +5,14 @@
 
 import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync } from 'fs';
 import { resolve, join } from 'path';
-import type { Task, TaskStatus, TaskDefinition } from '../types.js';
+import type {
+  Task,
+  TaskStatus,
+  TaskDefinition,
+  EnqueueResult,
+  CancelResult,
+  RetryResult,
+} from '../types.js';
 import { createTaskFromDefinition } from './task-definition.js';
 
 /**
@@ -82,7 +89,7 @@ export class BasicQueueOperations {
   /**
    * 创建新任务并入队
    */
-  async enqueueTask(definition: TaskDefinition): Promise<string> {
+  async enqueueTask(definition: TaskDefinition): Promise<EnqueueResult> {
     const createdAt = new Date();
     const task = createTaskFromDefinition(definition, { now: createdAt });
 
@@ -107,7 +114,18 @@ export class BasicQueueOperations {
       };
       writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), 'utf8');
 
-      return task.id;
+      const queuePosition = task.status === 'pending' ? this.countTasks('pending') : undefined;
+      const estimatedStartTime =
+        task.status === 'scheduled'
+          ? task.scheduledAt ?? new Date(createdAt.getTime())
+          : new Date(createdAt.getTime());
+
+      return {
+        taskId: task.id,
+        queuePosition,
+        estimatedStartTime,
+        scheduledAt: task.scheduledAt,
+      };
     } catch (error) {
       throw new Error(`Failed to enqueue task: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -168,10 +186,87 @@ export class BasicQueueOperations {
     return null;
   }
 
+  async cancelTask(taskId: string, reason?: string): Promise<CancelResult> {
+    const task = await this.getTask(taskId);
+    if (!task) {
+      return {
+        taskId,
+        cancelled: false,
+        reason,
+        wasRunning: false,
+      };
+    }
+
+    const wasRunning = task.status === 'processing';
+    const cancellableStatuses: TaskStatus[] = ['pending', 'scheduled', 'processing', 'retrying'];
+
+    if (!cancellableStatuses.includes(task.status)) {
+      return {
+        taskId,
+        cancelled: false,
+        reason,
+        wasRunning,
+      };
+    }
+
+    const updated = await this.updateTaskStatus(taskId, 'cancelled');
+    return {
+      taskId,
+      cancelled: updated,
+      reason,
+      wasRunning,
+    };
+  }
+
+  async retryTask(taskId: string): Promise<RetryResult> {
+    const task = await this.getTask(taskId);
+    if (!task) {
+      return {
+        taskId,
+        retryScheduled: false,
+        attemptNumber: 0,
+        reason: 'task_not_found',
+      };
+    }
+
+    const attemptsSoFar = task.attempts;
+    const maxAttempts = task.retryPolicy?.maxAttempts ?? 0;
+
+    if (attemptsSoFar >= maxAttempts) {
+      return {
+        taskId,
+        retryScheduled: false,
+        attemptNumber: attemptsSoFar,
+        reason: 'max_attempts_reached',
+      };
+    }
+
+    const delayMs = this.calculateRetryDelay(task);
+    const nextAttemptAt = new Date(Date.now() + delayMs);
+
+    const updated = await this.updateTaskStatus(taskId, 'retrying', undefined, undefined, {
+      scheduledAt: nextAttemptAt,
+    });
+
+    return {
+      taskId,
+      retryScheduled: updated,
+      nextAttemptAt,
+      attemptNumber: attemptsSoFar + 1,
+      reason: updated ? undefined : 'update_failed',
+    };
+  }
+
   /**
    * 更新任务状态
    */
-  async updateTaskStatus(taskId: string, newStatus: TaskStatus, result?: any, error?: string): Promise<boolean> {
+  async updateTaskStatus(
+    taskId: string,
+    newStatus: TaskStatus,
+    result?: any,
+    error?: string,
+    updates?: Partial<Task>
+  ): Promise<boolean> {
     const currentTask = await this.getTask(taskId);
     if (!currentTask) {
       return false;
@@ -201,6 +296,10 @@ export class BasicQueueOperations {
         currentTask.lastError = error;
       }
 
+      if (updates) {
+        Object.assign(currentTask, updates);
+      }
+
       // 计算新旧路径
       const oldTaskPath = this.getTaskPath(taskId, oldStatus);
       const newTaskPath = this.getTaskPath(taskId, newStatus);
@@ -218,6 +317,9 @@ export class BasicQueueOperations {
         metadata.attempts = currentTask.attempts;
         metadata.lastError = currentTask.lastError;
         metadata.result = currentTask.result;
+        if (updates?.scheduledAt) {
+          metadata.scheduledAt = updates.scheduledAt;
+        }
         writeFileSync(newMetadataPath, JSON.stringify(metadata, null, 2), 'utf8');
         unlinkSync(oldMetadataPath);
       }
@@ -248,6 +350,49 @@ export class BasicQueueOperations {
   private getMetadataPath(taskId: string, status: TaskStatus): string {
     const statusDir = STATUS_DIR_MAP[status];
     return join(this.config.queuePath, statusDir, 'metadata', `${taskId}.json`);
+  }
+
+  private calculateRetryDelay(task: Task): number {
+    const policy = task.retryPolicy;
+    const baseDelay = Math.max(policy?.baseDelay ?? 1000, 0);
+    const maxDelay = Math.max(policy?.maxDelay ?? baseDelay, baseDelay);
+    const attemptIndex = Math.max(task.attempts, 0);
+    const strategy = policy?.backoffStrategy ?? 'exponential';
+
+    let delay = baseDelay;
+    switch (strategy) {
+      case 'fixed':
+        delay = baseDelay;
+        break;
+      case 'linear':
+        delay = baseDelay * (attemptIndex + 1);
+        break;
+      case 'exponential':
+      default:
+        delay = baseDelay * Math.pow(2, attemptIndex);
+        break;
+    }
+
+    if (policy?.retryableErrors && policy.retryableErrors.length > 0) {
+      // ensure non-retryable errors fall back to minimum delay
+      if (task.lastError && !policy.retryableErrors.includes(task.lastError)) {
+        delay = baseDelay;
+      }
+    }
+
+    return Math.min(delay, maxDelay);
+  }
+
+  private countTasks(status: TaskStatus): number {
+    const statusDir = STATUS_DIR_MAP[status];
+    const tasksDir = join(this.config.queuePath, statusDir, 'tasks');
+
+    try {
+      const files = readdirSync(tasksDir);
+      return files.filter(file => file.endsWith('.json')).length;
+    } catch {
+      return 0;
+    }
   }
 
   /**
