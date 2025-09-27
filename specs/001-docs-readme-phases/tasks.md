@@ -32,7 +32,7 @@
 - **验收标准**: 覆盖get、set、list、validate、init操作
 - **估时**: 3小时
 
-**T004** [P] - 创建MCP命令测试
+**T004** [P] ✅ - 创建MCP命令测试
 - **File**: `core/cli/tests/mcp-command.test.ts`
 - **目标**: 实现 MCPCommand 所有actions的测试用例
 - **验收标准**: 覆盖start、stop、status、logs、tools操作
