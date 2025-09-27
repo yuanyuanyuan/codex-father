@@ -38,7 +38,7 @@
 - **验收标准**: 覆盖start、stop、status、logs、tools操作
 - **估时**: 2.5小时
 
-**T005** [P] - 创建参数验证测试
+**T005** [P] ✅ - 创建参数验证测试
 - **File**: `core/cli/tests/validation.test.ts`
 - **目标**: 实现 ValidationRule 和验证逻辑测试
 - **验收标准**: 覆盖required、format、range、enum、custom验证
