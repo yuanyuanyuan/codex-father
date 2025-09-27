@@ -77,19 +77,19 @@
 - **估时**: 2小时
 - **状态**: COMPLETED - 新增任务定义工厂与状态转换测试，扩展队列模型支持重试策略与元数据追踪
 
-**T011** [P] - 创建队列操作结果测试
+**T011** [P] ✅ - 创建队列操作结果测试
 - **File**: `core/lib/tests/queue-results.test.ts`
 - **目标**: 实现 EnqueueResult、CancelResult、RetryResult 测试
 - **验收标准**: 操作结果验证和状态追踪
 - **估时**: 2小时
 
-**T012** [P] - 创建任务过滤和查询测试
+**T012** [P] ✅ - 创建任务过滤和查询测试
 - **File**: `core/lib/tests/task-filter.test.ts`
 - **目标**: 实现 TaskFilter 和查询逻辑测试
 - **验收标准**: 按状态、类型、优先级、时间过滤
 - **估时**: 2.5小时
 
-**T013** [P] - 创建队列统计测试
+**T013** [P] ✅ - 创建队列统计测试
 - **File**: `core/lib/tests/queue-statistics.test.ts`
 - **目标**: 实现 QueueStatistics 测试
 - **验收标准**: 性能指标、存储统计、容量监控
@@ -123,7 +123,7 @@
 - **估时**: 1.5小时
 - **状态**: COMPLETED - 实装 TaskQueueError 工厂并验证所有错误代码与上下文元数据
 
-**T018** [P] - 创建队列配置测试
+**T018** [P] ✅ - 创建队列配置测试
 - **File**: `core/lib/tests/queue-config.test.ts`
 - **目标**: 实现 QueueConfiguration 测试
 - **验收标准**: 配置验证、性能调优、监控设置
@@ -131,73 +131,73 @@
 
 ### MCP Service Contract Tests [P]
 
-**T019** [P] - 创建MCP协议基础测试
+**T019** [P] ✅ - 创建MCP协议基础测试
 - **File**: `core/mcp/tests/protocol.test.ts`
 - **目标**: 实现 MCPMessage、MCPError、MCPCapabilities 测试
 - **验收标准**: JSON-RPC协议兼容性验证
 - **估时**: 2.5小时
 
-**T020** [P] - 创建MCP服务器接口测试
+**T020** [P] ✅ - 创建MCP服务器接口测试
 - **File**: `core/mcp/tests/server.test.ts`
 - **目标**: 实现 MCPServer 接口测试
 - **验收标准**: 启动、停止、状态管理、工具列表
 - **估时**: 3小时
 
-**T021** [P] - 创建MCP工具接口测试
+**T021** [P] ✅ - 创建MCP工具接口测试
 - **File**: `core/mcp/tests/tools.test.ts`
 - **目标**: 实现 MCPTool 和 MCPToolHandler 测试
 - **验收标准**: 工具注册、执行、结果处理
 - **估时**: 3小时
 
-**T022** [P] - 创建任务管理工具测试
+**T022** [P] ✅ - 创建任务管理工具测试
 - **File**: `core/mcp/tests/task-tools.test.ts`
 - **目标**: 实现 TaskManagementTools 测试
 - **验收标准**: 所有任务管理MCP工具功能
 - **估时**: 3小时
 
-**T023** [P] - 创建配置管理工具测试
+**T023** [P] ✅ - 创建配置管理工具测试
 - **File**: `core/mcp/tests/config-tools.test.ts`
 - **目标**: 实现 ConfigManagementTools 测试
 - **验收标准**: 配置读写、验证、重载功能
 - **估时**: 2.5小时
 
-**T024** [P] - 创建文件系统工具测试
+**T024** [P] ✅ - 创建文件系统工具测试
 - **File**: `core/mcp/tests/filesystem-tools.test.ts`
 - **目标**: 实现 FileSystemTools 测试
 - **验收标准**: 文件操作、目录管理、权限控制
 - **估时**: 3小时
 
-**T025** [P] - 创建Git操作工具测试
+**T025** [P] ✅ - 创建Git操作工具测试
 - **File**: `core/mcp/tests/git-tools.test.ts`
 - **目标**: 实现 GitOperationTools 测试
 - **验收标准**: Git命令封装、PR创建、分支管理
 - **估时**: 3.5小时
 
-**T026** [P] - 创建容器管理工具测试
+**T026** [P] ✅ - 创建容器管理工具测试
 - **File**: `core/mcp/tests/container-tools.test.ts`
 - **目标**: 实现 ContainerManagementTools 测试
 - **验收标准**: 容器构建、运行、日志管理
 - **估时**: 3小时
 
-**T027** [P] - 创建MCP资源测试
+**T027** [P] ✅ - 创建MCP资源测试
 - **File**: `core/mcp/tests/resources.test.ts`
 - **目标**: 实现 MCPResource 和资源处理器测试
 - **验收标准**: 资源访问、缓存、权限验证
 - **估时**: 2.5小时
 
-**T028** [P] - 创建MCP提示测试
+**T028** [P] ✅ - 创建MCP提示测试
 - **File**: `core/mcp/tests/prompts.test.ts`
 - **目标**: 实现 MCPPrompt 和提示处理器测试
 - **验收标准**: 提示生成、参数处理、消息格式
 - **估时**: 2小时
 
-**T029** [P] - 创建性能监控测试
+**T029** [P] ✅ - 创建性能监控测试
 - **File**: `core/mcp/tests/performance.test.ts`
 - **目标**: 实现 MCPPerformanceMetrics 测试
 - **验收标准**: 响应时间、内存使用、错误率监控
 - **估时**: 2小时
 
-**T030** [P] - 创建MCP错误处理测试
+**T030** [P] ✅ - 创建MCP错误处理测试
 - **File**: `core/mcp/tests/error-handling.test.ts`
 - **目标**: 实现 MCP_ERROR_CODES 和异常处理测试
 - **验收标准**: 所有错误代码和错误恢复机制
