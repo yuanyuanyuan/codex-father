@@ -149,6 +149,38 @@ export interface RetryResult {
   reason?: string;
 }
 
+export interface QueueProcessingCapacity {
+  maxConcurrent: number;
+  currentlyProcessing: number;
+  availableSlots: number;
+}
+
+export interface QueuePerformanceMetrics {
+  throughputPerHour: number;
+  averageWaitTime: number;
+  successRate: number;
+  retryRate: number;
+}
+
+export interface QueueStorageMetrics {
+  diskUsage: number;
+  fileCount: number;
+  oldestTask?: Date;
+  newestTask?: Date;
+}
+
+export interface QueueStatistics {
+  totalTasks: number;
+  tasksByStatus: Record<TaskStatus, number>;
+  tasksByType: Record<string, number>;
+  tasksByPriority: Record<number, number>;
+  averageProcessingTime: number;
+  queueDepth: number;
+  processingCapacity: QueueProcessingCapacity;
+  performance: QueuePerformanceMetrics;
+  storage: QueueStorageMetrics;
+}
+
 // ============================================================================
 // 验证相关类型
 // ============================================================================
