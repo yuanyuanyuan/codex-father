@@ -490,7 +490,7 @@ export class ConfigLoader {
  * 全局配置实例
  */
 let globalConfig: ProjectConfig | null = null;
-// let globalConfigLoader: ConfigLoader | null = null;
+let globalConfigLoader: ConfigLoader | null = null;
 
 /**
  * 获取全局配置

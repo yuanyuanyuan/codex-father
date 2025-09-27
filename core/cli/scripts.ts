@@ -5,6 +5,7 @@
 
 import { resolve, dirname } from 'path';
 import { spawn } from 'child_process';
+import { existsSync } from 'fs';
 import type { SpawnOptions } from 'child_process';
 
 /**
@@ -14,13 +15,10 @@ import type { SpawnOptions } from 'child_process';
 function findProjectRoot(): string {
   let currentDir = process.cwd();
 
-  // 使用同步方法避免异步初始化问题
-  const fs = require('fs');
-
   while (currentDir !== dirname(currentDir)) {
     if (
-      fs.existsSync(resolve(currentDir, 'package.json')) ||
-      fs.existsSync(resolve(currentDir, '.git'))
+      existsSync(resolve(currentDir, 'package.json')) ||
+      existsSync(resolve(currentDir, '.git'))
     ) {
       return currentDir;
     }

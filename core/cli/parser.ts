@@ -228,10 +228,15 @@ export class CLIParser {
   private buildCommandContext(commandName: string, args: any[]): CommandContext {
     // 最后一个参数通常是 Command 实例和选项
     const command = args[args.length - 1];
-    const options = command.opts();
+    let options = {};
+
+    // 检查是否有有效的 Command 实例
+    if (command && typeof command.opts === 'function') {
+      options = command.opts();
+    }
 
     // 前面的参数是命令参数
-    const commandArgs = args.slice(0, -1);
+    const commandArgs = args.slice(0, command && typeof command.opts === 'function' ? -1 : args.length);
 
     return {
       args: commandArgs,
