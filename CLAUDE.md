@@ -4,6 +4,7 @@ Auto-generated from all feature plans. Last updated: 2025-09-27
 
 ## Active Technologies
 - TypeScript 5.x + Node.js 18+ (统一技术栈) (001-docs-readme-phases)
+- 文件系统 - JSON/YAML配置文件 + 结构化文本日志 (001-docs-readme-phases)
 
 ## Project Structure
 ```
@@ -18,6 +19,7 @@ npm test [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNO
 TypeScript 5.x + Node.js 18+ (统一技术栈): Follow standard conventions
 
 ## Recent Changes
+- 001-docs-readme-phases: Added 文件系统 - JSON/YAML配置文件 + 结构化文本日志
 - 001-docs-readme-phases: Added TypeScript 5.x + Node.js 18+ (统一技术栈)
 
 <!-- MANUAL ADDITIONS START -->
