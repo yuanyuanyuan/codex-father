@@ -1,10 +1,9 @@
-对当前项目的开发方向要调整一下，要优先实现MCP模式，然后再实现CLI模式，
-
+对当前项目的开发方向要调整一下，要优先实现MCP模式，然后再实现CLI模式。
 
 
 下面的是具体的调整参考思路：
 
-
+```md
   - 先明确“对外协议”和“对内引擎”两层：
       - 对外协议：尽量统一为 MCP（外部生态兼容最好）。若外部不支持 MCP，再补充 HTTP/队列等网关。
       - 对内引擎：优先使用 codex MCP（单进程可并发多会话）；必要时按作业隔离用多进程 codex exec（非交互）作为后备。
@@ -348,3 +347,118 @@
 
   总之，多 MCP 入口是最简单的“分片 + 并发 + 管理分离”方案。做好 CODEX_HOME 隔离、默认 profile 区分、日志各自落盘，再配上调用侧的并发与超时
   控制，就能稳定支撑你的 codex-father v0。后续如需更细的调度/审计/可恢复作业，再把 codex exec --json 加进来即可。
+
+
+
+## 容器功能
+
+- 把“隔离/权限”放在容器层；把“会话并发/审批/日志/调度”放在 father 层。
+  - 在容器里尽量使用 MCP（stdio）作为对内协议；需要跨容器/跨主机时，配一个适配器暴露为 TCP/SSE。
+
+  沙箱与安全
+
+  - Linux 容器内的原生沙箱可能不可用
+      - 文档说明容器环境中 Landlock/seccomp 可能不可用；建议由容器本身提供隔离并在容器内将 Codex 的沙箱放宽。见 refer-research/openai-
+  codex/docs/sandbox.md:85
+      - 做法：
+          - 容器层加固：非 root 运行（USER 1000:1000）、根 FS 只读（--read-only）、仅挂载需要的卷、--cap-drop=ALL、--network=none 或最
+  小 egress。
+          - Codex 层配置：容器内可设 sandbox_mode="danger-full-access" 或 workspace-write（如果你仍希望保留“工作区写”语义），审批策略保留
+  approval_policy="on-request"；避免 --yolo。
+  - 网络控制
+      - Codex 的 workspace-write 默认禁网（[sandbox_workspace_write].network_access=false），但容器内可能无法生效；用容器网络策略替代
+  （Docker --network none，或 egress 规则）。
+
+  进程模型与并发
+
+  - 多 MCP 入口 = 多个 codex mcp 进程
+      - 每个进程内部已支持多会话并发（每个 tools/call 独立 tokio 任务），father 侧再控“实例数 + 并发数”更好。
+      - 将不同入口拆分为不同容器（或同容器不同进程）以隔离配置、日志、崩溃域。
+  - 不同入口使用不同 CODEX_HOME
+      - 进程级隔离凭据/配置/日志：为每个入口设独立卷挂载 CODEX_HOME，例如 /srv/codex/dev、/srv/codex/review。
+
+  stdio/IPC 与可达性
+
+  - MCP 是 stdio 协议
+      - 容器外进程无法直接 exec 容器内的 codex mcp；要么让客户端也在容器里，要么使用适配器将 stdio 转成 TCP/SSE。
+      - 文档建议对 SSE 需求用适配器（如 mcp-proxy）。见 refer-research/openai-codex/docs/config.md:341
+  - Devcontainer 推荐
+      - 最简单：在 devcontainer 内同时跑 IDE/客户端 与 codex mcp，确保 command 为容器内的绝对路径。
+
+  路径与卷
+
+  - 工作区路径一致性
+      - MCP 工具入参的 cwd 必须是容器内部路径；不要把宿主路径传给容器内的 codex mcp。
+      - 为每个 job 在容器内准备独立工作目录（挂载卷或 workspace 子目录），便于授权与清理。
+  - CODEX_HOME 持久化
+      - 将各入口 CODEX_HOME 目录挂载为持久卷（保存 config.toml、sessions/rollouts、日志）。
+      - 多入口分别挂载不同卷，避免相互污染。
+
+  配置与凭据
+
+  - 登录方式
+      - 容器/Devcontainer 通常无浏览器；用 API Key 登录：codex login --api-key，或直接通过环境变量/配置文件注入。
+      - 不同入口使用不同 CODEX_HOME，各自独立登录。
+  - 入口默认策略
+      - 在各自的 config.toml 里定义 profile（如 dev、review），入口通过 args: ["mcp","-c","profile=\"dev\""] 选择，见 refer-research/
+  openai-codex/docs/advanced.md:87 的工具入参与 profile 说明。
+  - 绝对路径
+      - mcpServers 的 command 用容器内绝对路径（避免 PATH 差异导致启动失败）。
+
+  日志与持久化
+
+  - 事件日志
+      - MCP 会把 Codex 事件通过通知发出；father/客户端应落盘为 JSONL（按入口/会话/请求号分文件），这是最权威的审计源。
+  - 进程日志
+      - 用 RUST_LOG=info 将 codex mcp stderr 输出重定向到文件（按入口独立），支持滚动。
+  - rollout 文件
+      - SessionConfigured 会给出服务端 rollout_path（容器内路径，见 refer-research/openai-codex/protocol/src/protocol.rs:1203）。可选：在容
+  器内做归档；不要依赖容器外直接读取。
+
+  资源与限额
+
+  - 容器限额
+      - 合理设置 --cpus --memory --pids-limit，并按入口/租户规划并发；父层做队列与超时。
+  - ULIMIT/FDs
+      - 并发较高时增加文件描述符上限；注意 stdout 阻塞会导致内存增长，客户端要持续及时读取。
+
+  健康检查与退出
+
+  - HEALTHCHECK
+      - MCP 是 stdio 程序，不易“外部探测”；可以用简单“进程存活 + stderr 最近更新”作为健康信号。
+      - 更严谨：容器内 sidecar 启一个小探针，与 codex mcp 做一次 initialize + tools/list 以验证端到端。
+  - 信号/回收
+      - 运行时使用 --init（tini）或 dumb-init，保证 SIGTERM 能传递并清理子进程。
+      - 退出时，先给所有会话/任务软取消，再停服务，避免半写日志。
+
+  Devcontainer 特别注意
+
+  - features/依赖
+      - 安装 codex 二进制到 /usr/local/bin；必要时 curl/git 等工具也装齐。
+  - postCreateCommand
+      - 自动 codex login --api-key（用 devcontainer 的 secrets），并创建 CODEX_HOME 目录与默认 config.toml。
+  - runArgs
+      - 若要容器级禁网："runArgs": ["--network", "none"]（或自定义 egress allowlist）。
+      - 读取/写入：确保工作区目录可写，根 FS 可设只读。
+
+  多入口示例（容器内）
+
+  - codex‑1‑develop
+      - env: CODEX_HOME=/srv/codex/dev, RUST_LOG=info
+      - args: ["mcp","-c","profile=\"dev\""]
+      - /srv/codex/dev/config.toml: sandbox_mode="workspace-write", approval_policy="on-request"
+  - codex‑1‑review
+      - env: CODEX_HOME=/srv/codex/review, RUST_LOG=info
+      - args: ["mcp","-c","profile=\"review\""]
+      - /srv/codex/review/config.toml: sandbox_mode="read-only", approval_policy="untrusted"
+
+  常见坑与规避
+
+  - 容器外客户端直连 MCP：不可直接 exec 容器内命令；改为“客户端也在容器内”或用适配器（mcp-proxy），见 refer-research/openai-codex/docs/
+  config.md:341。
+  - 路径不匹配：传入的 cwd 必须是容器内路径；否则写失败或越权。
+  - --yolo：不要在服务化环境启用；用 approval-policy/sandbox 细粒度控制（refer-research/openai-codex/docs/sandbox.md:34）。
+  - 沙箱预期落空：容器内 Landlock 不生效，需容器级隔离代替（read-only root、最小卷、禁网）。
+```
+
+
