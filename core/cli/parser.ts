@@ -17,6 +17,7 @@ interface GlobalOptions {
   json: boolean;
   config?: string;
   workingDirectory: string;
+  logLevel: 'debug' | 'info' | 'warn' | 'error';
 }
 
 /**
@@ -41,10 +42,11 @@ export class CLIParser {
     dryRun: false,
     json: false,
     workingDirectory: process.cwd(),
+    logLevel: 'info',
   };
 
-  constructor() {
-    this.command = program;
+  constructor(commandInstance?: Command) {
+    this.command = commandInstance ?? program;
     this.setupGlobalOptions();
     this.setupMetaCommands();
     this.setupErrorHandling();
@@ -66,7 +68,8 @@ export class CLIParser {
       .option('--dry-run', 'Show what would be done without executing', false)
       .option('--json', 'Output in JSON format', false)
       .option('--config <path>', 'Specify config file path')
-      .option('--cwd <path>', 'Change working directory', process.cwd());
+      .option('--cwd <path>', 'Change working directory', process.cwd())
+      .option('--log-level <level>', 'Set log level (debug|info|warn|error)', this.globalOptions.logLevel);
 
     // 全局选项处理钩子
     this.command.hook('preAction', (thisCommand) => {
@@ -77,6 +80,7 @@ export class CLIParser {
         json: opts.json || false,
         config: opts.config,
         workingDirectory: opts.cwd || process.cwd(),
+        logLevel: this.normalizeLogLevel(opts.logLevel),
       };
 
       // 切换工作目录
@@ -246,6 +250,7 @@ export class CLIParser {
       verbose: this.globalOptions.verbose,
       dryRun: this.globalOptions.dryRun,
       json: this.globalOptions.json,
+      logLevel: this.globalOptions.logLevel,
     };
   }
 
@@ -368,6 +373,21 @@ export class CLIParser {
    */
   getProgram(): Command {
     return this.command;
+  }
+
+  /**
+   * 规范化日志级别
+   */
+  private normalizeLogLevel(level?: string): 'debug' | 'info' | 'warn' | 'error' {
+    const allowedLevels = new Set(['debug', 'info', 'warn', 'error']);
+    if (!level) {
+      return 'info';
+    }
+
+    const normalized = String(level).toLowerCase();
+    return (allowedLevels.has(normalized)
+      ? normalized
+      : 'info') as 'debug' | 'info' | 'warn' | 'error';
   }
 }
 

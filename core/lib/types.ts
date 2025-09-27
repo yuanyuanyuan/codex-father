@@ -15,6 +15,7 @@ export interface CommandContext {
   verbose: boolean;
   dryRun: boolean;
   json: boolean;
+  logLevel: 'debug' | 'info' | 'warn' | 'error';
 }
 
 export interface CommandResult {

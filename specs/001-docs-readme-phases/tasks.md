@@ -14,7 +14,7 @@
 
 ### CLI Interface Contract Tests [P]
 
-**T001** [P] - 创建CLI主命令接口测试
+**T001** [P] ✅ - 创建CLI主命令接口测试
 - **File**: `core/cli/tests/main-command.test.ts`
 - **目标**: 实现 MainCommand 接口的核心测试用例
 - **验收标准**: 测试覆盖全局选项、帮助信息、版本显示、JSON输出格式
