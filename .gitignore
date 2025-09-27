@@ -1,6 +1,6 @@
 # Local run artifacts
 runs/
-.codex-father/sessions/
+.codex-father
 **/.codex-father/sessions/
 node_modules
 node_modules/*

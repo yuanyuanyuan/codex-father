@@ -1,0 +1,418 @@
+/**
+ * 基础任务执行器
+ * 处理任务的同步执行、结果记录和状态更新
+ */
+
+import { performance } from 'perf_hooks';
+import type { Task, TaskStatus } from '../types.js';
+import { BasicQueueOperations } from './basic-operations.js';
+
+/**
+ * 任务处理器函数类型
+ */
+export type TaskHandler = (payload: Record<string, any>) => Promise<any> | any;
+
+/**
+ * 任务执行选项
+ */
+export interface ExecutionOptions {
+  timeout?: number; // milliseconds
+  retryCount?: number;
+  logExecution?: boolean;
+}
+
+/**
+ * 任务执行结果
+ */
+export interface ExecutionResult {
+  success: boolean;
+  result?: any;
+  error?: string;
+  executionTime: number;
+  retryCount: number;
+  startTime: Date;
+  endTime: Date;
+}
+
+/**
+ * 任务执行上下文
+ */
+export interface ExecutionContext {
+  task: Task;
+  attempt: number;
+  startTime: Date;
+  options: ExecutionOptions;
+}
+
+/**
+ * 预定义任务类型
+ */
+export const BUILT_IN_TASK_TYPES = {
+  SHELL_COMMAND: 'shell:command',
+  FILE_OPERATION: 'file:operation',
+  HTTP_REQUEST: 'http:request',
+  DATA_PROCESSING: 'data:processing',
+  VALIDATION: 'validation:check',
+  NOTIFICATION: 'notification:send',
+} as const;
+
+/**
+ * 基础任务执行器类
+ */
+export class BasicTaskExecutor {
+  private queueOps: BasicQueueOperations;
+  private taskHandlers: Map<string, TaskHandler> = new Map();
+  private executionLog: ExecutionResult[] = [];
+  private maxLogSize: number = 1000;
+
+  constructor(queuePath?: string) {
+    this.queueOps = new BasicQueueOperations({ queuePath });
+    this.registerBuiltInHandlers();
+  }
+
+  /**
+   * 注册任务处理器
+   */
+  registerTaskHandler(taskType: string, handler: TaskHandler): void {
+    this.taskHandlers.set(taskType, handler);
+  }
+
+  /**
+   * 移除任务处理器
+   */
+  unregisterTaskHandler(taskType: string): boolean {
+    return this.taskHandlers.delete(taskType);
+  }
+
+  /**
+   * 获取已注册的任务类型
+   */
+  getRegisteredTaskTypes(): string[] {
+    return Array.from(this.taskHandlers.keys());
+  }
+
+  /**
+   * 执行单个任务
+   */
+  async executeTask(taskId: string, options: ExecutionOptions = {}): Promise<ExecutionResult> {
+    const defaultOptions: ExecutionOptions = {
+      timeout: 30000, // 30 seconds
+      retryCount: 0,
+      logExecution: true,
+      ...options,
+    };
+
+    const task = await this.queueOps.getTask(taskId);
+    if (!task) {
+      throw new Error(`Task not found: ${taskId}`);
+    }
+
+    if (task.status !== 'processing' && task.status !== 'pending') {
+      throw new Error(`Task ${taskId} is not in executable state. Current status: ${task.status}`);
+    }
+
+    const context: ExecutionContext = {
+      task,
+      attempt: defaultOptions.retryCount || 0,
+      startTime: new Date(),
+      options: defaultOptions,
+    };
+
+    return this.executeTaskWithContext(context);
+  }
+
+  /**
+   * 从队列中获取并执行下一个任务
+   */
+  async executeNextTask(options: ExecutionOptions = {}): Promise<ExecutionResult | null> {
+    const task = await this.queueOps.dequeueTask();
+    if (!task) {
+      return null; // 没有待执行的任务
+    }
+
+    return this.executeTask(task.id, options);
+  }
+
+  /**
+   * 批量执行多个任务
+   */
+  async executeTasks(taskIds: string[], options: ExecutionOptions = {}): Promise<ExecutionResult[]> {
+    const results: ExecutionResult[] = [];
+
+    for (const taskId of taskIds) {
+      try {
+        const result = await this.executeTask(taskId, options);
+        results.push(result);
+      } catch (error) {
+        const errorResult: ExecutionResult = {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          executionTime: 0,
+          retryCount: 0,
+          startTime: new Date(),
+          endTime: new Date(),
+        };
+        results.push(errorResult);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * 获取执行日志
+   */
+  getExecutionLog(): ExecutionResult[] {
+    return [...this.executionLog];
+  }
+
+  /**
+   * 清理执行日志
+   */
+  clearExecutionLog(): void {
+    this.executionLog = [];
+  }
+
+  /**
+   * 获取执行统计信息
+   */
+  getExecutionStats(): {
+    totalExecutions: number;
+    successCount: number;
+    failureCount: number;
+    averageExecutionTime: number;
+    successRate: number;
+  } {
+    const total = this.executionLog.length;
+    const successful = this.executionLog.filter(r => r.success).length;
+    const avgTime = total > 0
+      ? this.executionLog.reduce((sum, r) => sum + r.executionTime, 0) / total
+      : 0;
+
+    return {
+      totalExecutions: total,
+      successCount: successful,
+      failureCount: total - successful,
+      averageExecutionTime: avgTime,
+      successRate: total > 0 ? successful / total : 0,
+    };
+  }
+
+  /**
+   * 使用上下文执行任务
+   */
+  private async executeTaskWithContext(context: ExecutionContext): Promise<ExecutionResult> {
+    const { task, options } = context;
+    const startTime = performance.now();
+
+    try {
+      // 确保任务状态为处理中
+      await this.queueOps.updateTaskStatus(task.id, 'processing');
+
+      // 获取任务处理器
+      const handler = this.taskHandlers.get(task.type);
+      if (!handler) {
+        throw new Error(`No handler registered for task type: ${task.type}`);
+      }
+
+      // 执行任务（支持超时）
+      const result = options.timeout
+        ? await this.executeWithTimeout(handler, task.payload, options.timeout)
+        : await handler(task.payload);
+
+      const endTime = performance.now();
+      const executionTime = endTime - startTime;
+
+      // 更新任务状态为成功
+      await this.queueOps.updateTaskStatus(task.id, 'completed', result);
+
+      const executionResult: ExecutionResult = {
+        success: true,
+        result,
+        executionTime,
+        retryCount: context.attempt,
+        startTime: context.startTime,
+        endTime: new Date(),
+      };
+
+      // 记录执行日志
+      if (options.logExecution) {
+        this.addToExecutionLog(executionResult);
+      }
+
+      return executionResult;
+
+    } catch (error) {
+      const endTime = performance.now();
+      const executionTime = endTime - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // 更新任务状态为失败
+      await this.queueOps.updateTaskStatus(task.id, 'failed', undefined, errorMessage);
+
+      const executionResult: ExecutionResult = {
+        success: false,
+        error: errorMessage,
+        executionTime,
+        retryCount: context.attempt,
+        startTime: context.startTime,
+        endTime: new Date(),
+      };
+
+      // 记录执行日志
+      if (options.logExecution) {
+        this.addToExecutionLog(executionResult);
+      }
+
+      return executionResult;
+    }
+  }
+
+  /**
+   * 带超时的任务执行
+   */
+  private async executeWithTimeout<T>(
+    handler: TaskHandler,
+    payload: Record<string, any>,
+    timeout: number
+  ): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error(`Task execution timed out after ${timeout}ms`));
+      }, timeout);
+
+      Promise.resolve(handler(payload))
+        .then(result => {
+          clearTimeout(timeoutId);
+          resolve(result);
+        })
+        .catch(error => {
+          clearTimeout(timeoutId);
+          reject(error);
+        });
+    });
+  }
+
+  /**
+   * 添加到执行日志
+   */
+  private addToExecutionLog(result: ExecutionResult): void {
+    this.executionLog.push(result);
+
+    // 保持日志大小在限制内
+    if (this.executionLog.length > this.maxLogSize) {
+      this.executionLog = this.executionLog.slice(-this.maxLogSize);
+    }
+  }
+
+  /**
+   * 注册内置任务处理器
+   */
+  private registerBuiltInHandlers(): void {
+    // Shell 命令执行器
+    this.registerTaskHandler(BUILT_IN_TASK_TYPES.SHELL_COMMAND, async (payload) => {
+      const { command, args = [], options = {} } = payload;
+      if (!command) {
+        throw new Error('Shell command is required');
+      }
+
+      // 这里可以集成 child_process 来执行 shell 命令
+      // 为了安全起见，现在只返回模拟结果
+      return {
+        command,
+        args,
+        output: `Mock execution of: ${command} ${args.join(' ')}`,
+        exitCode: 0,
+        executedAt: new Date().toISOString(),
+      };
+    });
+
+    // 文件操作处理器
+    this.registerTaskHandler(BUILT_IN_TASK_TYPES.FILE_OPERATION, async (payload) => {
+      const { operation, path, content, options = {} } = payload;
+      if (!operation || !path) {
+        throw new Error('File operation and path are required');
+      }
+
+      // 模拟文件操作
+      return {
+        operation,
+        path,
+        success: true,
+        timestamp: new Date().toISOString(),
+        message: `Mock ${operation} operation on ${path}`,
+      };
+    });
+
+    // HTTP 请求处理器
+    this.registerTaskHandler(BUILT_IN_TASK_TYPES.HTTP_REQUEST, async (payload) => {
+      const { method = 'GET', url, headers = {}, body } = payload;
+      if (!url) {
+        throw new Error('URL is required for HTTP request');
+      }
+
+      // 模拟 HTTP 请求
+      return {
+        method,
+        url,
+        status: 200,
+        statusText: 'OK',
+        data: `Mock response from ${method} ${url}`,
+        headers: { 'content-type': 'application/json' },
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    // 数据处理器
+    this.registerTaskHandler(BUILT_IN_TASK_TYPES.DATA_PROCESSING, async (payload) => {
+      const { data, operation, options = {} } = payload;
+      if (!data || !operation) {
+        throw new Error('Data and operation are required');
+      }
+
+      // 模拟数据处理
+      return {
+        operation,
+        originalSize: Array.isArray(data) ? data.length : 1,
+        processedData: `Processed data with operation: ${operation}`,
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    // 验证处理器
+    this.registerTaskHandler(BUILT_IN_TASK_TYPES.VALIDATION, async (payload) => {
+      const { data, rules = [], strict = false } = payload;
+      if (!data) {
+        throw new Error('Data is required for validation');
+      }
+
+      // 模拟验证
+      return {
+        valid: true,
+        data,
+        appliedRules: rules,
+        errors: [],
+        warnings: [],
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    // 通知处理器
+    this.registerTaskHandler(BUILT_IN_TASK_TYPES.NOTIFICATION, async (payload) => {
+      const { type, recipient, message, options = {} } = payload;
+      if (!type || !recipient || !message) {
+        throw new Error('Type, recipient, and message are required for notification');
+      }
+
+      // 模拟通知发送
+      return {
+        type,
+        recipient,
+        message,
+        sent: true,
+        messageId: `msg_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+      };
+    });
+  }
+}
