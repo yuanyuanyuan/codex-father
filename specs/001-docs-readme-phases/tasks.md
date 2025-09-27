@@ -326,6 +326,7 @@
 - **验收标准**: commander.js集成、全局选项、子命令路由
 - **估时**: 2小时
 - **依赖**: T031-T045 [CRITICAL]
+- **状态**: COMPLETED - 统一 CLI 启动流程，改用 `process.execPath` 驱动 tsx 以修复测试环境下 `spawn node ENOENT` 问题，确保所有开发/测试模式入口稳定可用
 
 **T047** [S] - 实现命令基类
 - **File**: `core/cli/base-command.ts`
