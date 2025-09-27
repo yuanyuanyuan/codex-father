@@ -1,0 +1,34 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "removeComments": true,
+    "importHelpers": true,
+    "inlineSourceMap": false,
+    "inlineSources": false,
+    "noEmitOnError": true,
+    "emitDeclarationOnly": false,
+    "composite": true,
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo.build"
+  },
+  "include": [
+    "core/**/*",
+    "phases/**/*"
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.bench.ts",
+    "tests/**/*",
+    "node_modules",
+    "dist",
+    "mcp/codex-mcp-server",
+    ".codex-father",
+    ".git",
+    "refer-research",
+    "docs/**/*"
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "outDir": "dist",
+    "rootDir": ".",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@core/*": ["core/*"],
+      "@lib/*": ["core/lib/*"],
+      "@cli/*": ["core/cli/*"],
+      "@mcp/*": ["core/mcp/*"],
+      "@phases/*": ["phases/*"],
+      "@tests/*": ["tests/*"],
+      "@config/*": ["config/*"]
+    }
+  },
+  "include": [
+    "core/**/*",
+    "phases/**/*",
+    "tests/**/*",
+    "config/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "mcp/codex-mcp-server/node_modules",
+    "mcp/codex-mcp-server/dist",
+    ".codex-father",
+    ".git",
+    "refer-research"
+  ],
+  "references": [
+    {
+      "path": "./mcp/codex-mcp-server"
+    }
+  ]
+}

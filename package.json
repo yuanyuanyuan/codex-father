@@ -1,0 +1,174 @@
+{
+  "name": "codex-father",
+  "version": "1.0.0",
+  "description": "Codex Father - 一个基于三阶段实施方案的CLI工具包装器架构，支持MCP服务器模块",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuanyuanyuan/codex-father.git"
+  },
+  "homepage": "https://github.com/yuanyuanyuan/codex-father#readme",
+  "bugs": {
+    "url": "https://github.com/yuanyuanyuan/codex-father/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "cli",
+    "typescript",
+    "mcp",
+    "task-queue",
+    "automation",
+    "development-tools"
+  ],
+  "author": "Codex Father Maintainers",
+  "bin": {
+    "codex-father": "./dist/bin/codex-father.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./cli": {
+      "import": "./dist/cli/index.js",
+      "types": "./dist/cli/index.d.ts"
+    },
+    "./lib": {
+      "import": "./dist/lib/index.js",
+      "types": "./dist/lib/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "config",
+    "!dist/**/*.test.*",
+    "!dist/**/*.spec.*"
+  ],
+  "workspaces": [
+    "mcp/codex-mcp-server"
+  ],
+  "scripts": {
+    "build": "npm-run-all clean build:tsc",
+    "build:tsc": "tsc -p tsconfig.build.json",
+    "build:watch": "tsc -p tsconfig.build.json --watch",
+    "dev": "tsx --watch core/cli/start.ts",
+    "clean": "rimraf dist .tsbuildinfo .tsbuildinfo.build",
+    "lint": "eslint . --ext .ts,.js --fix",
+    "lint:check": "eslint . --ext .ts,.js",
+    "format": "prettier --write \"**/*.{ts,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,js,json,md}\"",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "test:watch": "vitest --watch",
+    "typecheck": "tsc --noEmit",
+    "typecheck:watch": "tsc --noEmit --watch",
+    "check:all": "npm-run-all typecheck lint:check format:check test:run",
+    "prepare": "husky install || true",
+    "prepublishOnly": "npm run check:all && npm run build",
+    "start": "./start.sh",
+    "mcp:dev": "npm run dev --workspace=mcp/codex-mcp-server",
+    "mcp:build": "npm run build --workspace=mcp/codex-mcp-server",
+    "validate:structure": "node -e \"console.log('Directory structure validation - TODO: implement')\"",
+    "check:typescript": "tsc --version && echo 'TypeScript environment valid'",
+    "benchmark": "vitest bench",
+    "docs:build": "typedoc --out docs/api core/lib/index.ts",
+    "release": "semantic-release"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "chalk": "^5.3.0",
+    "fs-extra": "^11.2.0",
+    "zod": "^3.22.4",
+    "yaml": "^2.3.4",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/fs-extra": "^11.0.4",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "@vitest/ui": "^1.0.0",
+    "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.1.0",
+    "rimraf": "^5.0.5",
+    "tsx": "^4.6.0",
+    "typedoc": "^0.25.4",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0",
+    "vite": "^5.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "prettier": {
+    "semi": true,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "printWidth": 100,
+    "tabWidth": 2,
+    "useTabs": false
+  },
+  "eslintConfig": {
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "plugins": ["@typescript-eslint", "prettier"],
+    "extends": [
+      "eslint:recommended",
+      "@typescript-eslint/recommended",
+      "prettier"
+    ],
+    "rules": {
+      "prettier/prettier": "error",
+      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+      "@typescript-eslint/explicit-function-return-type": "warn",
+      "@typescript-eslint/no-explicit-any": "warn"
+    },
+    "env": {
+      "node": true,
+      "es2022": true
+    }
+  },
+  "vitest": {
+    "globals": true,
+    "environment": "node",
+    "coverage": {
+      "provider": "v8",
+      "reporter": ["text", "json", "html"],
+      "exclude": [
+        "node_modules/",
+        "dist/",
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "tests/fixtures/"
+      ],
+      "thresholds": {
+        "global": {
+          "branches": 80,
+          "functions": 80,
+          "lines": 80,
+          "statements": 80
+        }
+      }
+    }
+  }
+}
