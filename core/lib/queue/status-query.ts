@@ -14,6 +14,11 @@ import { BasicQueueOperations } from './basic-operations.js';
 export interface TaskFilter {
   status?: TaskStatus[];
   type?: string[];
+  priority?: {
+    min?: number;
+    max?: number;
+    values?: number[];
+  };
   createdBefore?: Date;
   createdAfter?: Date;
   updatedBefore?: Date;
@@ -316,7 +321,17 @@ export class TaskStatusQuery {
    */
   private async getAllTasksEfficiently(statusFilter?: TaskStatus[]): Promise<Task[]> {
     const tasks: Task[] = [];
-    const statusesToCheck = statusFilter || ['pending', 'processing', 'completed', 'failed', 'cancelled'];
+    const defaultStatuses: TaskStatus[] = [
+      'pending',
+      'scheduled',
+      'processing',
+      'retrying',
+      'completed',
+      'failed',
+      'timeout',
+      'cancelled',
+    ];
+    const statusesToCheck = statusFilter && statusFilter.length > 0 ? statusFilter : defaultStatuses;
 
     for (const status of statusesToCheck) {
       const statusTasks = await this.queueOps.listTasks(status);
@@ -339,6 +354,20 @@ export class TaskStatusQuery {
       // 类型过滤
       if (filter.type && !filter.type.includes(task.type)) {
         return false;
+      }
+
+      // 优先级过滤
+      if (filter.priority) {
+        const { min, max, values } = filter.priority;
+        if (typeof min === 'number' && task.priority < min) {
+          return false;
+        }
+        if (typeof max === 'number' && task.priority > max) {
+          return false;
+        }
+        if (values && values.length > 0 && !values.includes(task.priority)) {
+          return false;
+        }
       }
 
       // 创建时间过滤
