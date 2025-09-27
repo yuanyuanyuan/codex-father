@@ -181,6 +181,84 @@ export interface QueueStatistics {
   storage: QueueStorageMetrics;
 }
 
+export type QueueStatusDirectory =
+  | 'pending'
+  | 'scheduled'
+  | 'processing'
+  | 'retrying'
+  | 'completed'
+  | 'failed'
+  | 'timeout'
+  | 'cancelled';
+
+export interface QueueDirectoryStructure {
+  base: string;
+  statuses: Record<QueueStatusDirectory, string>;
+  tasks: Record<QueueStatusDirectory, string>;
+  metadata: Record<QueueStatusDirectory, string>;
+  logs: string;
+  index: string;
+  locks: string;
+  tmp: string;
+  archived: string;
+  all: string[];
+}
+
+export interface CorruptionIssue {
+  type: 'missing_file' | 'invalid_json' | 'inconsistent_status' | 'orphaned_file' | 'permission_error';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  path: string;
+  description: string;
+  autoFixable: boolean;
+  recommendation: string;
+}
+
+export interface IntegrityCheckResult {
+  valid: boolean;
+  issues: CorruptionIssue[];
+  recommendations: string[];
+  checkedFiles: number;
+  corruptedFiles: number;
+  orphanedFiles: number;
+  summary: string;
+}
+
+export interface RepairResult {
+  repaired: boolean;
+  issuesFixed: number;
+  issuesRemaining: number;
+  backupCreated: boolean;
+  backupPath?: string;
+  summary: string;
+}
+
+export interface BackupResult {
+  success: boolean;
+  backupPath: string;
+  fileCount: number;
+  totalSize: number; // bytes
+  duration: number;  // milliseconds
+  compression: number; // ratio
+}
+
+export interface RestoreResult {
+  success: boolean;
+  restoredFiles: number;
+  skippedFiles: number;
+  errors: string[];
+  duration: number; // milliseconds
+}
+
+export interface MigrationResult {
+  success: boolean;
+  fromVersion: string;
+  toVersion: string;
+  migratedTasks: number;
+  backupPath: string;
+  duration: number; // milliseconds
+  warnings: string[];
+}
+
 // ============================================================================
 // 验证相关类型
 // ============================================================================
