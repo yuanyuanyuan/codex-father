@@ -44,7 +44,7 @@
 - **验收标准**: 覆盖required、format、range、enum、custom验证
 - **估时**: 2小时
 
-**T006** [P] - 创建输出格式测试
+**T006** [P] ✅ - 创建输出格式测试
 - **File**: `core/cli/tests/output-format.test.ts`
 - **目标**: 实现 HumanReadableOutput 和 JSONOutput 测试
 - **验收标准**: 测试表格、列表、代码块输出格式
