@@ -3,12 +3,36 @@
  * 提供渐进式迁移路径，保持向后兼容性
  */
 
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
 import { spawn } from 'child_process';
 import type { SpawnOptions } from 'child_process';
 
+/**
+ * 动态查找项目根目录
+ * 通过向上查找 package.json 或 .git 目录来确定项目根目录
+ */
+function findProjectRoot(): string {
+  let currentDir = process.cwd();
+
+  // 使用同步方法避免异步初始化问题
+  const fs = require('fs');
+
+  while (currentDir !== dirname(currentDir)) {
+    if (
+      fs.existsSync(resolve(currentDir, 'package.json')) ||
+      fs.existsSync(resolve(currentDir, '.git'))
+    ) {
+      return currentDir;
+    }
+    currentDir = dirname(currentDir);
+  }
+
+  // 如果找不到，回退到当前工作目录
+  return process.cwd();
+}
+
 // 项目根目录路径
-const PROJECT_ROOT = resolve(__dirname, '../..');
+const PROJECT_ROOT = findProjectRoot();
 
 /**
  * 现有脚本路径映射
@@ -52,6 +76,42 @@ export interface ScriptOptions extends Omit<SpawnOptions, 'stdio'> {
 /**
  * 执行现有 Shell 脚本的通用函数
  */
+// 默认超时配置
+const DEFAULT_TIMEOUTS = {
+  start: 600000, // 10分钟 - start.sh 可能需要初始化时间
+  job: 1800000, // 30分钟 - job.sh 异步作业可能很长
+  runTests: 900000, // 15分钟 - 测试可能需要较长时间
+  default: 600000, // 10分钟 - 其他脚本默认超时
+} as const;
+
+/**
+ * 获取脚本的合适超时时间
+ */
+function getScriptTimeout(scriptPath: string, customTimeout?: number): number {
+  if (customTimeout !== undefined) {
+    return customTimeout;
+  }
+
+  // 从环境变量获取超时配置
+  const envTimeout = process.env.CODEX_SCRIPT_TIMEOUT;
+  if (envTimeout && !isNaN(Number(envTimeout))) {
+    return Number(envTimeout);
+  }
+
+  // 根据脚本类型选择超时时间
+  if (scriptPath.includes('start.sh')) {
+    return DEFAULT_TIMEOUTS.start;
+  }
+  if (scriptPath.includes('job.sh')) {
+    return DEFAULT_TIMEOUTS.job;
+  }
+  if (scriptPath.includes('test')) {
+    return DEFAULT_TIMEOUTS.runTests;
+  }
+
+  return DEFAULT_TIMEOUTS.default;
+}
+
 export async function executeScript(
   scriptPath: string,
   args: string[] = [],
@@ -59,7 +119,7 @@ export async function executeScript(
 ): Promise<ScriptResult> {
   const startTime = Date.now();
   const {
-    timeout = 300000, // 5分钟默认超时
+    timeout = getScriptTimeout(scriptPath, options.timeout),
     captureOutput = true,
     workingDirectory = PROJECT_ROOT,
     ...spawnOptions
@@ -139,7 +199,10 @@ export class LegacyScriptRunner {
   /**
    * 更新 Agent 上下文
    */
-  static async updateAgentContext(agent: string = 'claude', options?: ScriptOptions): Promise<ScriptResult> {
+  static async updateAgentContext(
+    agent: string = 'claude',
+    options?: ScriptOptions
+  ): Promise<ScriptResult> {
     return executeScript(LEGACY_SCRIPTS.updateAgentContext, [agent], options);
   }
 
@@ -174,12 +237,7 @@ export const MIGRATION_STATUS = {
   ]),
 
   // 计划迁移的脚本
-  planned: new Set<string>([
-    'start.sh',
-    'job.sh',
-    'lib/common.sh',
-    'lib/presets.sh',
-  ]),
+  planned: new Set<string>(['start.sh', 'job.sh', 'lib/common.sh', 'lib/presets.sh']),
 
   // 保持为 Shell 脚本的文件
   keepAsShell: new Set<string>([
@@ -191,41 +249,83 @@ export const MIGRATION_STATUS = {
 } as const;
 
 /**
- * 检查脚本是否存在且可执行
+ * 检查脚本文件的状态
  */
-export async function validateScript(scriptPath: string): Promise<boolean> {
+export async function checkScriptStatus(scriptPath: string): Promise<{
+  exists: boolean;
+  executable: boolean;
+}> {
   try {
     const { access, constants } = await import('fs/promises');
-    await access(scriptPath, constants.F_OK | constants.X_OK);
-    return true;
+
+    // 检查文件是否存在
+    let exists = true;
+    try {
+      await access(scriptPath, constants.F_OK);
+    } catch {
+      exists = false;
+    }
+
+    // 检查文件是否可执行（只有在文件存在时才检查）
+    let executable = false;
+    if (exists) {
+      try {
+        await access(scriptPath, constants.X_OK);
+        executable = true;
+      } catch {
+        executable = false;
+      }
+    }
+
+    return { exists, executable };
   } catch {
-    return false;
+    return { exists: false, executable: false };
   }
+}
+
+/**
+ * 检查脚本是否存在且可执行（向后兼容）
+ */
+export async function validateScript(scriptPath: string): Promise<boolean> {
+  const { exists, executable } = await checkScriptStatus(scriptPath);
+  return exists && executable;
 }
 
 /**
  * 获取所有脚本的状态信息
  */
-export async function getScriptStatus(): Promise<Record<string, {
-  path: string;
-  exists: boolean;
-  executable: boolean;
-  migrationStatus: 'migrated' | 'planned' | 'keepAsShell' | 'unknown';
-}>> {
+export async function getScriptStatus(): Promise<
+  Record<
+    string,
+    {
+      path: string;
+      exists: boolean;
+      executable: boolean;
+      migrationStatus: 'migrated' | 'planned' | 'keepAsShell' | 'unknown';
+    }
+  >
+> {
   const status: Record<string, any> = {};
 
   for (const [name, path] of Object.entries(LEGACY_SCRIPTS)) {
-    const exists = await validateScript(path);
+    const { exists, executable } = await checkScriptStatus(path);
+
+    // 提取相对于项目根目录的相对路径用于状态比较
+    const relativePath = path.replace(PROJECT_ROOT + '/', '');
 
     let migrationStatus: 'migrated' | 'planned' | 'keepAsShell' | 'unknown' = 'unknown';
-    if (MIGRATION_STATUS.migrated.has(path)) migrationStatus = 'migrated';
-    else if (MIGRATION_STATUS.planned.has(path)) migrationStatus = 'planned';
-    else if (MIGRATION_STATUS.keepAsShell.has(path)) migrationStatus = 'keepAsShell';
+    if (MIGRATION_STATUS.migrated.has(relativePath)) {
+      migrationStatus = 'migrated';
+    } else if (MIGRATION_STATUS.planned.has(relativePath)) {
+      migrationStatus = 'planned';
+    } else if (MIGRATION_STATUS.keepAsShell.has(relativePath)) {
+      migrationStatus = 'keepAsShell';
+    }
 
     status[name] = {
       path,
       exists,
-      executable: exists, // 如果存在则假定可执行
+      executable,
       migrationStatus,
     };
   }

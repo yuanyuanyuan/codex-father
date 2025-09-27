@@ -2,3 +2,5 @@
 runs/
 .codex-father/sessions/
 **/.codex-father/sessions/
+node_modules
+node_modules/*

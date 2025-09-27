@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+
+/**
+ * Codex Father CLI 主入口点
+ * 可执行的 CLI 入口脚本，提供统一的命令行接口
+ */
+
+// 检查 Node.js 版本要求
+const MIN_NODE_VERSION = 18;
+const currentVersion = process.versions.node;
+const majorVersion = parseInt(currentVersion.split('.')[0], 10);
+
+if (majorVersion < MIN_NODE_VERSION) {
+  console.error(`❌ Error: Node.js ${MIN_NODE_VERSION}+ is required. Current version: ${currentVersion}`);
+  console.error('Please upgrade Node.js: https://nodejs.org/');
+  process.exit(1);
+}
+
+// 错误边界：捕获未处理的异常
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error.message);
+  console.error('Stack trace:', error.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+// 动态导入并启动 CLI 应用
+async function main() {
+  try {
+    // 根据环境选择入口文件
+    const isProduction = process.env.NODE_ENV === 'production';
+    const entryModule = isProduction ? '../dist/core/cli/start.js' : '../core/cli/start.ts';
+
+    // 尝试导入 CLI 应用
+    let app;
+    try {
+      app = await import(entryModule);
+    } catch (importError) {
+      // 如果生产入口失败，回退到开发入口
+      if (isProduction) {
+        console.warn('⚠️  Production build not found, falling back to TypeScript source');
+        app = await import('../core/cli/start.ts');
+      } else {
+        throw importError;
+      }
+    }
+
+    // 启动 CLI 应用
+    if (app.default && typeof app.default === 'function') {
+      await app.default();
+    } else if (app.startCLI && typeof app.startCLI === 'function') {
+      await app.startCLI();
+    } else {
+      throw new Error('No valid CLI entry point found in the imported module');
+    }
+  } catch (error) {
+    console.error('❌ Failed to start Codex Father CLI:');
+    console.error(`   ${error.message}`);
+
+    // 提供有用的调试信息
+    if (error.code === 'MODULE_NOT_FOUND') {
+      console.error('\n💡 Suggestions:');
+      console.error('   1. Run `npm install` to install dependencies');
+      console.error('   2. Run `npm run build` to build the project');
+      console.error('   3. Check that all required files exist');
+    }
+
+    // 在开发环境显示完整堆栈
+    if (process.env.NODE_ENV === 'development' || process.env.DEBUG) {
+      console.error('\n🔍 Debug information:');
+      console.error(error.stack);
+    }
+
+    process.exit(1);
+  }
+}
+
+// 启动应用
+main().catch((error) => {
+  console.error('❌ Fatal error during CLI startup:', error.message);
+  process.exit(1);
+});

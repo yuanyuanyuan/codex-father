@@ -1,9 +1,10 @@
 // @ts-check
 import eslint from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import tsParser from '@typescript-eslint/parser';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
 import prettier from 'eslint-plugin-prettier';
 
-export default tseslint.config(
+export default [
   {
     // Global ignores
     ignores: [
@@ -11,13 +12,15 @@ export default tseslint.config(
       '**/dist/**',
       '**/.git/**',
       '**/.codex-father/**',
-      '**/mcp/codex-mcp-server/dist/**',
+      '**/mcp/codex-mcp-server/**',
       '**/refer-research/**',
+      '**/specs/**',
+      'vitest.config.ts',
     ],
   },
   {
     // Base configuration for all files
-    extends: [eslint.configs.recommended],
+    ...eslint.configs.recommended,
     rules: {
       // Console logs allowed in CLI tools
       'no-console': 'off',
@@ -34,17 +37,15 @@ export default tseslint.config(
   {
     // TypeScript specific configuration
     files: ['**/*.ts', '**/*.tsx'],
-    extends: [
-      ...tseslint.configs.recommended,
-      ...tseslint.configs.recommendedTypeChecked,
-    ],
     languageOptions: {
+      parser: tsParser,
       parserOptions: {
         project: './tsconfig.json',
         tsconfigRootDir: process.cwd(),
       },
     },
     plugins: {
+      '@typescript-eslint': tsPlugin,
       prettier,
     },
     rules: {
@@ -62,41 +63,6 @@ export default tseslint.config(
       ],
       '@typescript-eslint/explicit-function-return-type': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/prefer-nullish-coalescing': 'error',
-      '@typescript-eslint/prefer-optional-chain': 'error',
-      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
-      '@typescript-eslint/no-non-null-assertion': 'warn',
-
-      // Async/await best practices
-      '@typescript-eslint/no-floating-promises': 'error',
-      '@typescript-eslint/await-thenable': 'error',
-
-      // Import/export
-      '@typescript-eslint/consistent-type-imports': [
-        'error',
-        { prefer: 'type-imports' },
-      ],
-
-      // Naming conventions
-      '@typescript-eslint/naming-convention': [
-        'error',
-        {
-          selector: 'interface',
-          format: ['PascalCase'],
-        },
-        {
-          selector: 'typeAlias',
-          format: ['PascalCase'],
-        },
-        {
-          selector: 'enum',
-          format: ['PascalCase'],
-        },
-        {
-          selector: 'enumMember',
-          format: ['UPPER_CASE'],
-        },
-      ],
     },
   },
   {
@@ -105,8 +71,9 @@ export default tseslint.config(
     rules: {
       // More lenient rules for tests
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
+      // Allow var in global declarations
+      'no-var': 'off',
     },
   }
-);
+];

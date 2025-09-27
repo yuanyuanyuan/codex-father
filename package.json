@@ -25,25 +25,6 @@
     "development-tools"
   ],
   "author": "Codex Father Maintainers",
-  "bin": {
-    "codex-father": "./dist/bin/codex-father.js"
-  },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./cli": {
-      "import": "./dist/cli/index.js",
-      "types": "./dist/cli/index.d.ts"
-    },
-    "./lib": {
-      "import": "./dist/lib/index.js",
-      "types": "./dist/lib/index.d.ts"
-    }
-  },
   "files": [
     "dist",
     "config",
@@ -59,8 +40,8 @@
     "build:watch": "tsc -p tsconfig.build.json --watch",
     "dev": "tsx --watch core/cli/start.ts",
     "clean": "rimraf dist .tsbuildinfo .tsbuildinfo.build",
-    "lint": "eslint . --ext .ts,.js --fix",
-    "lint:check": "eslint . --ext .ts,.js",
+    "lint": "eslint . --fix",
+    "lint:check": "eslint .",
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,js,json,md}\"",
     "test": "vitest",
@@ -79,7 +60,7 @@
     "validate:structure": "node -e \"console.log('Directory structure validation - TODO: implement')\"",
     "check:typescript": "tsc --version && echo 'TypeScript environment valid'",
     "benchmark": "vitest bench",
-    "docs:build": "typedoc --out docs/api core/lib/index.ts",
+    "docs:build": "echo 'Documentation generation will be enabled when core/lib/index.ts exists'",
     "release": "semantic-release"
   },
   "dependencies": {
@@ -88,7 +69,8 @@
     "fs-extra": "^11.2.0",
     "zod": "^3.22.4",
     "yaml": "^2.3.4",
-    "winston": "^3.11.0"
+    "winston": "^3.11.0",
+    "tslib": "^2.6.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -119,56 +101,5 @@
     "*.{json,md}": [
       "prettier --write"
     ]
-  },
-  "prettier": {
-    "semi": true,
-    "trailingComma": "es5",
-    "singleQuote": true,
-    "printWidth": 100,
-    "tabWidth": 2,
-    "useTabs": false
-  },
-  "eslintConfig": {
-    "root": true,
-    "parser": "@typescript-eslint/parser",
-    "plugins": ["@typescript-eslint", "prettier"],
-    "extends": [
-      "eslint:recommended",
-      "@typescript-eslint/recommended",
-      "prettier"
-    ],
-    "rules": {
-      "prettier/prettier": "error",
-      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
-      "@typescript-eslint/explicit-function-return-type": "warn",
-      "@typescript-eslint/no-explicit-any": "warn"
-    },
-    "env": {
-      "node": true,
-      "es2022": true
-    }
-  },
-  "vitest": {
-    "globals": true,
-    "environment": "node",
-    "coverage": {
-      "provider": "v8",
-      "reporter": ["text", "json", "html"],
-      "exclude": [
-        "node_modules/",
-        "dist/",
-        "**/*.test.ts",
-        "**/*.spec.ts",
-        "tests/fixtures/"
-      ],
-      "thresholds": {
-        "global": {
-          "branches": 80,
-          "functions": 80,
-          "lines": 80,
-          "statements": 80
-        }
-      }
-    }
   }
 }

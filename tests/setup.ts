@@ -4,10 +4,13 @@
  */
 
 import { beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { resolve } from 'path';
-import { mkdirSync, rmSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import { fileURLToPath } from 'url';
 
 // 测试环境配置
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const TEST_DIR = resolve(__dirname, '../.test-temp');
 const ORIGINAL_ENV = process.env;
 
@@ -60,8 +63,7 @@ global.testUtils = {
   tempDir: TEST_DIR,
   createTempFile: (name: string, content: string) => {
     const filePath = resolve(TEST_DIR, name);
-    const fs = require('fs');
-    fs.writeFileSync(filePath, content, 'utf8');
+    writeFileSync(filePath, content, 'utf8');
     return filePath;
   },
   cleanup: () => {
@@ -71,5 +73,5 @@ global.testUtils = {
     } catch (error) {
       console.warn('Failed to cleanup during test:', error);
     }
-  }
+  },
 };

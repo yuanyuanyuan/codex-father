@@ -9,7 +9,7 @@ import type { CommandContext, CommandResult } from '../lib/types.js';
 /**
  * 将 Shell 脚本结果转换为 CLI 命令结果
  */
-export function adaptScriptResult(scriptResult: ScriptResult, command: string): CommandResult {
+export function adaptScriptResult(scriptResult: ScriptResult): CommandResult {
   return {
     success: scriptResult.success,
     message: scriptResult.success ? 'Command executed successfully' : 'Command failed',
@@ -18,8 +18,8 @@ export function adaptScriptResult(scriptResult: ScriptResult, command: string): 
       stderr: scriptResult.stderr,
       duration: scriptResult.duration,
     },
-    errors: scriptResult.success ? undefined : [scriptResult.stderr || 'Unknown error'],
-    warnings: scriptResult.stderr && scriptResult.success ? [scriptResult.stderr] : undefined,
+    errors: scriptResult.success ? [] : [scriptResult.stderr || 'Unknown error'],
+    warnings: scriptResult.stderr && scriptResult.success ? [scriptResult.stderr] : [],
     executionTime: scriptResult.duration,
   };
 }
@@ -39,7 +39,7 @@ export class LegacyCommandHandler {
         captureOutput: !context.verbose,
       });
 
-      return adaptScriptResult(result, 'start');
+      return adaptScriptResult(result);
     } catch (error) {
       return {
         success: false,
@@ -60,7 +60,7 @@ export class LegacyCommandHandler {
         captureOutput: !context.verbose,
       });
 
-      return adaptScriptResult(result, 'job');
+      return adaptScriptResult(result);
     } catch (error) {
       return {
         success: false,
@@ -81,7 +81,7 @@ export class LegacyCommandHandler {
         captureOutput: !context.verbose,
       });
 
-      return adaptScriptResult(result, 'test');
+      return adaptScriptResult(result);
     } catch (error) {
       return {
         success: false,
@@ -97,12 +97,7 @@ export class LegacyCommandHandler {
  * 检查是否应该使用遗留脚本处理命令
  */
 export function shouldUseLegacyHandler(command: string): boolean {
-  const legacyCommands = new Set([
-    'start',
-    'job',
-    'test',
-    'run-tests',
-  ]);
+  const legacyCommands = new Set(['start', 'job', 'test', 'run-tests']);
 
   return legacyCommands.has(command);
 }

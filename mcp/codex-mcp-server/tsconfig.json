@@ -10,8 +10,9 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "declaration": false,
+    "declaration": true,
     "sourceMap": false,
+    "composite": true,
     "types": ["node"]
   },
   "include": ["src/**/*"]

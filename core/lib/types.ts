@@ -53,7 +53,7 @@ export interface LogOutput {
 
 export interface PerformanceConfig {
   maxExecutionTime: number; // milliseconds
-  maxMemoryUsage: number;   // bytes
+  maxMemoryUsage: number; // bytes
   enableProfiling: boolean;
 }
 
@@ -67,12 +67,7 @@ export interface SecurityConfig {
 // 任务相关类型
 // ============================================================================
 
-export type TaskStatus =
-  | 'pending'
-  | 'processing'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
+export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
 export interface Task {
   id: string;
