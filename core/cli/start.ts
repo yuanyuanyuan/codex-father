@@ -8,6 +8,7 @@ import { LoggerManager, setupDevelopmentLogging } from './logger-setup.js';
 import { getConfig } from './config-loader.js';
 import { parser } from './parser.js';
 import { LegacyCommandHandler, routeLegacyCommand } from './legacy-compatibility.js';
+import { registerTaskCommand } from './commands/task-command.js';
 import type { CommandContext, CommandResult } from '../lib/types.js';
 
 /**
@@ -119,25 +120,7 @@ class CodexFatherCLI {
    * 注册现代命令（将来扩展）
    */
   private registerModernCommands(): void {
-    // task 命令 (计划中)
-    parser.registerCommand(
-      'task',
-      'Task queue management (coming soon)',
-      async (context: CommandContext): Promise<CommandResult> => {
-        return {
-          success: false,
-          message: 'Task management is not yet implemented',
-          errors: ['This feature is planned for Phase 2 implementation'],
-          warnings: ['Use legacy scripts for now: ./start.sh, ./job.sh'],
-          executionTime: 0,
-        };
-      },
-      {
-        arguments: [
-          { name: 'action', description: 'Task action (create, list, status, cancel, retry, logs)', required: true }
-        ],
-      }
-    );
+    registerTaskCommand(parser);
 
     // config 命令 (计划中)
     parser.registerCommand(

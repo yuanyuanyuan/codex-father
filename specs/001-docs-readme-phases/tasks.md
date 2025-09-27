@@ -357,6 +357,7 @@
 - **验收标准**: create、list、status、cancel、retry、logs操作
 - **估时**: 4小时
 - **依赖**: T047, T009-T018
+- **状态**: COMPLETED - 新增 `task` 命令实现，创建/查询/状态/取消/重试/日志/统计全量可用并输出 JSON 或文本，自动初始化文件队列结构
 
 **T051** [S] - 实现任务创建逻辑
 - **File**: `core/cli/handlers/task-creation.ts`
