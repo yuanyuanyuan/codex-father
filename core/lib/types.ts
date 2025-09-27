@@ -68,17 +68,63 @@ export interface SecurityConfig {
 // 任务相关类型
 // ============================================================================
 
-export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+export type TaskStatus =
+  | 'pending'
+  | 'scheduled'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'retrying'
+  | 'cancelled'
+  | 'timeout';
+
+export interface TaskRetryPolicy {
+  maxAttempts: number;
+  baseDelay: number; // milliseconds
+  maxDelay: number; // milliseconds
+  backoffStrategy: 'linear' | 'exponential' | 'fixed';
+  retryableErrors?: string[];
+}
+
+export interface TaskMetadata {
+  source: string;
+  userId?: string;
+  sessionId?: string;
+  correlationId?: string;
+  tags: string[];
+  environment: string;
+  version: string;
+}
+
+export interface TaskDefinition {
+  type: string;
+  priority: number;
+  payload: Record<string, any>;
+  scheduledAt?: Date;
+  timeout?: number;
+  retryPolicy?: TaskRetryPolicy;
+  metadata?: TaskMetadata;
+}
 
 export interface Task {
   id: string;
   type: string;
+  priority: number;
+  payload: Record<string, any>;
   status: TaskStatus;
   createdAt: Date;
   updatedAt: Date;
-  payload: Record<string, any>;
+  scheduledAt?: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+  attempts: number;
+  maxAttempts: number;
+  lastError?: string;
   result?: any;
   error?: string;
+  metadata: TaskMetadata;
+  timeout: number;
+  retryPolicy: TaskRetryPolicy;
 }
 
 // ============================================================================

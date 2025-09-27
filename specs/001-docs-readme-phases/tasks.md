@@ -70,11 +70,12 @@
 - **验收标准**: enqueue、dequeue、getTask、updateTaskStatus等
 - **估时**: 3小时
 
-**T010** [P] - 创建任务定义和状态测试
+**T010** [P] ✅ - 创建任务定义和状态测试
 - **File**: `core/lib/tests/task-definition.test.ts`
 - **目标**: 实现 TaskDefinition 和 TaskStatus 测试
 - **验收标准**: 状态转换、重试策略、元数据处理
 - **估时**: 2小时
+- **状态**: COMPLETED - 新增任务定义工厂与状态转换测试，扩展队列模型支持重试策略与元数据追踪
 
 **T011** [P] - 创建队列操作结果测试
 - **File**: `core/lib/tests/queue-results.test.ts`

@@ -56,12 +56,14 @@ describe('Task Queue Core Operations (T009)', () => {
     expect(task.payload).toEqual({ file: 'docs.md' });
 
     const metadata = JSON.parse(readFileSync(metadataFile, 'utf8'));
-    expect(metadata).toMatchObject({ taskId, priority: 2, retryCount: 0 });
+    expect(metadata).toMatchObject({ taskId, priority: 2, attempts: 0, status: 'pending' });
+    expect(metadata.retryPolicy).toBeDefined();
+    expect(metadata.maxAttempts).toBeGreaterThan(0);
   });
 
   it('dequeues next pending task and transitions to processing state', async () => {
-    const firstId = await queueOps.enqueueTask({ type: 'task-a', payload: {} });
-    const secondId = await queueOps.enqueueTask({ type: 'task-b', payload: {} });
+    const firstId = await queueOps.enqueueTask({ type: 'task-a', payload: {}, priority: 1 });
+    const secondId = await queueOps.enqueueTask({ type: 'task-b', payload: {}, priority: 1 });
 
     const dequeued = await queueOps.dequeueTask();
     expect(dequeued?.id).toBeDefined();
@@ -74,7 +76,7 @@ describe('Task Queue Core Operations (T009)', () => {
   });
 
   it('updates task status to completed with result payload', async () => {
-    const taskId = await queueOps.enqueueTask({ type: 'report', payload: { range: 'phase1' } });
+    const taskId = await queueOps.enqueueTask({ type: 'report', payload: { range: 'phase1' }, priority: 3 });
 
     await queueOps.updateTaskStatus(taskId, 'completed', { summary: 'ok' });
 

@@ -5,8 +5,8 @@
 
 import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync } from 'fs';
 import { resolve, join } from 'path';
-import { randomUUID } from 'crypto';
-import type { Task, TaskStatus } from '../types.js';
+import type { Task, TaskStatus, TaskDefinition } from '../types.js';
+import { createTaskFromDefinition } from './task-definition.js';
 
 /**
  * 队列配置
@@ -20,22 +20,15 @@ export interface QueueConfig {
 /**
  * 任务创建选项
  */
-export interface CreateTaskOptions {
-  type: string;
-  payload: Record<string, any>;
-  priority?: number;
-}
-
-/**
- * 队列状态到目录的映射
- * 注意：将 'processing' 状态映射到 'running' 目录
- */
 const STATUS_DIR_MAP: Record<TaskStatus, string> = {
   pending: 'pending',
-  processing: 'running', // 映射到running目录
+  scheduled: 'scheduled',
+  processing: 'running',
   completed: 'completed',
   failed: 'failed',
+  retrying: 'retrying',
   cancelled: 'cancelled',
+  timeout: 'timeout',
 };
 
 /**
@@ -68,9 +61,12 @@ export class BasicQueueOperations {
     // 验证必要的目录结构
     const requiredDirs = [
       'pending/tasks', 'pending/metadata',
+      'scheduled/tasks', 'scheduled/metadata',
       'running/tasks', 'running/metadata',
+      'retrying/tasks', 'retrying/metadata',
       'completed/tasks', 'completed/metadata',
       'failed/tasks', 'failed/metadata',
+      'timeout/tasks', 'timeout/metadata',
       'cancelled/tasks', 'cancelled/metadata',
       'locks', 'logs', 'tmp'
     ];
@@ -86,31 +82,28 @@ export class BasicQueueOperations {
   /**
    * 创建新任务并入队
    */
-  async enqueueTask(options: CreateTaskOptions): Promise<string> {
-    const task: Task = {
-      id: randomUUID(),
-      type: options.type,
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      payload: options.payload,
-    };
+  async enqueueTask(definition: TaskDefinition): Promise<string> {
+    const createdAt = new Date();
+    const task = createTaskFromDefinition(definition, { now: createdAt });
 
-    const taskPath = this.getTaskPath(task.id, 'pending');
-    const metadataPath = this.getMetadataPath(task.id, 'pending');
+    const taskPath = this.getTaskPath(task.id, task.status);
+    const metadataPath = this.getMetadataPath(task.id, task.status);
 
     try {
-      // 写入任务文件
       writeFileSync(taskPath, JSON.stringify(task, null, 2), 'utf8');
 
-      // 写入元数据
       const metadata = {
         taskId: task.id,
-        priority: options.priority || 0,
-        retryCount: 0,
-        maxRetries: this.config.maxRetries,
+        priority: task.priority,
+        attempts: task.attempts,
+        maxAttempts: task.maxAttempts,
+        retryPolicy: task.retryPolicy,
+        timeout: task.timeout,
+        scheduledAt: task.scheduledAt,
         createdAt: task.createdAt,
-        queuedAt: new Date(),
+        queuedAt: createdAt,
+        status: task.status,
+        metadata: task.metadata,
       };
       writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), 'utf8');
 
@@ -185,18 +178,27 @@ export class BasicQueueOperations {
     }
 
     const oldStatus = currentTask.status;
-    const newStatusDir = STATUS_DIR_MAP[newStatus];
-    const oldStatusDir = STATUS_DIR_MAP[oldStatus];
-
     try {
-      // 更新任务对象
+      const now = new Date();
+
       currentTask.status = newStatus;
-      currentTask.updatedAt = new Date();
+      currentTask.updatedAt = now;
+
+      if (newStatus === 'processing') {
+        currentTask.startedAt = now;
+        currentTask.attempts += 1;
+      }
+
+      if (newStatus === 'completed') {
+        currentTask.completedAt = now;
+      }
+
       if (result !== undefined) {
         currentTask.result = result;
       }
       if (error !== undefined) {
         currentTask.error = error;
+        currentTask.lastError = error;
       }
 
       // 计算新旧路径
@@ -211,8 +213,11 @@ export class BasicQueueOperations {
       // 移动元数据（如果存在）
       if (existsSync(oldMetadataPath)) {
         const metadata = JSON.parse(readFileSync(oldMetadataPath, 'utf8'));
-        metadata.updatedAt = new Date();
+        metadata.updatedAt = now;
         metadata.status = newStatus;
+        metadata.attempts = currentTask.attempts;
+        metadata.lastError = currentTask.lastError;
+        metadata.result = currentTask.result;
         writeFileSync(newMetadataPath, JSON.stringify(metadata, null, 2), 'utf8');
         unlinkSync(oldMetadataPath);
       }
@@ -251,10 +256,13 @@ export class BasicQueueOperations {
   async getQueueStats(): Promise<Record<TaskStatus, number>> {
     const stats: Record<TaskStatus, number> = {
       pending: 0,
+      scheduled: 0,
       processing: 0,
       completed: 0,
       failed: 0,
+      retrying: 0,
       cancelled: 0,
+      timeout: 0,
     };
 
     for (const status of Object.keys(STATUS_DIR_MAP) as TaskStatus[]) {
