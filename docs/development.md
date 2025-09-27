@@ -19,9 +19,13 @@
     - 在 `tools/list` 中声明工具及 `inputSchema`
     - 在 `CallToolRequest` 分支中实现具体逻辑（与 `job.sh` 对接）
 
+- CLI 命令（TypeScript 实现）
+  - `codex-father task <action>`：创建/列出/查询/取消/重试任务，自动管理 `.codex-father/queue/` 目录结构，支持 `--json` 输出。
+  - `codex-father config <action>`：初始化与维护配置数据，支持点号键访问、环境隔离和 JSON 输出。
+  - `codex-father status`：查看 CLI 与任务队列健康度、性能基线及 legacy 脚本检测结果。
+
 - Bash 脚本规范
   - 开头必须：`#!/usr/bin/env bash` + `set -euo pipefail`
   - 错误输出统一到 stderr
   - 兼容 Linux/macOS 常见工具（`grep -E`、`sed -E`、`awk` 等）
   - 遵循 `AGENTS.md` 中的约束（STDIN 仅出现一次等）
-

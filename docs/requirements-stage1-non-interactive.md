@@ -27,6 +27,9 @@
   - 冲突检测：`--dangerously-bypass-approvals-and-sandbox` 与 `--ask-for-approval|--full-auto` 互斥，报错并退出码 2。
   - `--patch-mode`：在只读/never 组合下应可用，不写盘，仅输出补丁；日志与 meta 正常。
   - JSON 输出：`--json` 输出最终 meta.json 内容到 STDOUT，包含 `exit_code/log_file/instructions_file` 等字段。
+  - TypeScript CLI 同步提供 `task` 与 `config` 命令：
+    - `task`：Create/List/Status/Cancel/Retry/Logs/Stats，写入 `.codex-father/queue/`。
+    - `config`：Init/Get/Set/List/Validate，写入 `.codex-father/config/config.json` 并支持环境隔离。
 
 - MCP 行为
   - 默认注入 `--sandbox workspace-write`（若未显式传入也未 YOLO）；`network=true` 时注入 `--codex-config sandbox_workspace_write.network_access=true`。
@@ -68,4 +71,3 @@
 ## 风险与缓解
 - 容器/宿主沙箱差异导致 YOLO 误用：通过文档强调容器内使用 YOLO；默认降级保护。
 - MCP 客户端超时：文档建议延长超时时间（600s）。
-

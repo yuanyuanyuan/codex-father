@@ -388,6 +388,7 @@
 - **验收标准**: get、set、list、validate、init操作
 - **估时**: 3小时
 - **依赖**: T047, T036, T040
+- **状态**: COMPLETED - 提供配置命令，支持初始化环境、全局/环境级键值读写、列表展示与校验，并在 JSON 与文本模式下保持一致输出
 
 **T055** [S] - 实现配置读写逻辑
 - **File**: `core/cli/handlers/config-access.ts`

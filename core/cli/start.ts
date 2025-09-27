@@ -9,6 +9,7 @@ import { getConfig } from './config-loader.js';
 import { parser } from './parser.js';
 import { LegacyCommandHandler, routeLegacyCommand } from './legacy-compatibility.js';
 import { registerTaskCommand } from './commands/task-command.js';
+import { registerConfigCommand } from './commands/config-command.js';
 import type { CommandContext, CommandResult } from '../lib/types.js';
 
 /**
@@ -122,25 +123,7 @@ class CodexFatherCLI {
   private registerModernCommands(): void {
     registerTaskCommand(parser);
 
-    // config 命令 (计划中)
-    parser.registerCommand(
-      'config',
-      'Configuration management (coming soon)',
-      async (context: CommandContext): Promise<CommandResult> => {
-        return {
-          success: false,
-          message: 'Configuration management is not yet implemented',
-          errors: ['This feature is planned for Phase 2 implementation'],
-          warnings: ['Basic configuration loading is available, but CLI management is not ready'],
-          executionTime: 0,
-        };
-      },
-      {
-        arguments: [
-          { name: 'action', description: 'Config action (get, set, list, validate, init)', required: true }
-        ],
-      }
-    );
+    registerConfigCommand(parser);
 
     // mcp 命令 (计划中)
     parser.registerCommand(
