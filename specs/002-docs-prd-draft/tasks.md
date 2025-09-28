@@ -141,12 +141,13 @@ plan.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅, quickstart.md �
 
 ### Model Creation (All Parallel - Different Files)
 
-- [ ] **T011** [P] Implement PRDDraft model at `src/models/prd-draft.ts`
-  - Create PRDDraft interface with all fields from data-model.md
-  - Implement DocumentMetadata and DocumentSection interfaces
-  - Add validation rules: title (1-200 chars), content (max 10MB), version
-    auto-increment
-  - Create factory methods and type guards
+- [x] **T011** [P] Implement PRDDraft model at `src/models/prd-draft.ts` ✅
+      COMPLETED
+  - [x] Create PRDDraft interface with all fields from data-model.md
+  - [x] Implement DocumentMetadata and DocumentSection interfaces
+  - [x] Add validation rules: title (1-200 chars), content (max 10MB), version
+        auto-increment
+  - [x] Create factory methods and type guards
 
 - [ ] **T012** [P] Implement Template model at `src/models/template.ts`
   - Create Template interface with TemplateStructure definition
