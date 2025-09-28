@@ -99,12 +99,12 @@ plan.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅, quickstart.md �
 
 ### Integration Tests (User Scenarios)
 
-- [ ] **T006** [P] Create basic workflow integration test at
-      `tests/integration/workflow.test.ts`
-  - Test quickstart scenario: config init → create draft → edit → list
-  - Verify complete user workflow from quickstart.md steps 1-5
-  - Test error handling and recovery scenarios
-  - Validate performance requirements (< 100ms document loading)
+- [x] **T006** [P] Create basic workflow integration test at
+      `tests/integration/workflow.test.ts` ✅ COMPLETED
+  - [x] Test quickstart scenario: config init → create draft → edit → list
+  - [x] Verify complete user workflow from quickstart.md steps 1-5
+  - [x] Test error handling and recovery scenarios
+  - [x] Validate performance requirements (< 100ms document loading)
 
 - [ ] **T007** [P] Create permission system integration test at
       `tests/integration/permission.test.ts`
