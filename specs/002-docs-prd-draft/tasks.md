@@ -86,16 +86,16 @@ plan.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅, quickstart.md �
   - [x] Test user management: listUsers, getCurrentUser, updateCurrentUser
   - [x] All tests MUST fail initially (Red phase of TDD)
 
-- [ ] **T005** [P] Create CLI commands contract tests at
-      `tests/contract/cli-commands.test.ts`
-  - Test all 12 CLI commands from contracts/cli-commands.yaml
-  - Verify command structure: create, list, show, edit, delete
-  - Test review subcommands: submit, status, respond
-  - Test version subcommands: list, show, restore, diff
-  - Test template subcommands: list, show, create, validate
-  - Test utility commands: config, export, import, search
-  - Verify --help, --json, error handling for all commands
-  - All tests MUST fail initially (Red phase of TDD)
+- [x] **T005** [P] Create CLI commands contract tests at
+      `tests/contract/cli-commands.test.ts` ✅ COMPLETED
+  - [x] Test all 12 CLI commands from contracts/cli-commands.yaml
+  - [x] Verify command structure: create, list, show, edit, delete
+  - [x] Test review subcommands: submit, status, respond
+  - [x] Test version subcommands: list, show, restore, diff
+  - [x] Test template subcommands: list, show, create, validate
+  - [x] Test utility commands: config, export, import, search
+  - [x] Verify --help, --json, error handling for all commands
+  - [x] All tests MUST fail initially (Red phase of TDD)
 
 ### Integration Tests (User Scenarios)
 
