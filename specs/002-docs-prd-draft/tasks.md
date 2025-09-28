@@ -128,12 +128,12 @@ plan.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅, quickstart.md �
   - [x] Test decision table rendering and customization
   - [x] Validate template inheritance and field validation
 
-- [ ] **T010** [P] Create diagram rendering integration test at
-      `tests/integration/diagram.test.ts`
-  - Test Mermaid diagram parsing, rendering, and caching
-  - Verify ASCII art support and conversion
-  - Test diagram error handling and fallback mechanisms
-  - Validate performance requirements (< 500ms diagram rendering)
+- [x] **T010** [P] Create diagram rendering integration test at
+      `tests/integration/diagram.test.ts` ✅ COMPLETED
+  - [x] Test Mermaid diagram parsing, rendering, and caching
+  - [x] Verify ASCII/sequence diagram support and conversion
+  - [x] Test diagram error handling and fallback mechanisms
+  - [x] Validate performance requirements (< 500ms diagram rendering)
 
 ---
 
