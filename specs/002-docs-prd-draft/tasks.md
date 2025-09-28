@@ -149,11 +149,14 @@ plan.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅, quickstart.md �
         auto-increment
   - [x] Create factory methods and type guards
 
-- [ ] **T012** [P] Implement Template model at `src/models/template.ts`
-  - Create Template interface with TemplateStructure definition
-  - Implement TemplateSectionDef, TemplateFieldDef, DecisionTableDef interfaces
-  - Add validation: name uniqueness, semver version format, required sections
-  - Create template validation and inheritance methods
+- [x] **T012** [P] Implement Template model at `src/models/template.ts` ✅
+      COMPLETED
+  - [x] Create Template interface with TemplateStructure definition
+  - [x] Implement TemplateSectionDef, TemplateFieldDef, DecisionTableDef
+        interfaces
+  - [x] Add validation: name uniqueness, semver version format, required
+        sections
+  - [x] Create template validation and inheritance methods
 
 - [ ] **T013** [P] Implement Version model at `src/models/version.ts`
   - Create Version interface with VersionChange and VersionMetadata
