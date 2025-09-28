@@ -177,11 +177,14 @@ export class ErrorFormatter {
   /**
    * 格式化错误为用户友好的消息
    */
-  static formatError(error: Error, options: {
-    verbose?: boolean;
-    json?: boolean;
-    colors?: boolean;
-  } = {}): string {
+  static formatError(
+    error: Error,
+    options: {
+      verbose?: boolean;
+      json?: boolean;
+      colors?: boolean;
+    } = {}
+  ): string {
     const { verbose = false, json = false, colors = true } = options;
 
     if (json) {
@@ -224,7 +227,14 @@ export class ErrorFormatter {
    */
   private static formatErrorAsText(error: Error, verbose: boolean, colors: boolean): string {
     const lines: string[] = [];
-    const colorize = colors ? chalk : { red: (s: string) => s, yellow: (s: string) => s, gray: (s: string) => s, bold: (s: string) => s };
+    const colorize = colors
+      ? chalk
+      : {
+          red: (s: string) => s,
+          yellow: (s: string) => s,
+          gray: (s: string) => s,
+          bold: (s: string) => s,
+        };
 
     if (error instanceof AppError) {
       // 用户友好的错误消息
@@ -234,7 +244,7 @@ export class ErrorFormatter {
       if (error.suggestions && error.suggestions.length > 0) {
         lines.push('');
         lines.push(colorize.yellow('💡 Suggestions:'));
-        error.suggestions.forEach(suggestion => {
+        error.suggestions.forEach((suggestion) => {
           lines.push(colorize.yellow(`   • ${suggestion}`));
         });
       }
@@ -274,10 +284,13 @@ export class ErrorFormatter {
   /**
    * 格式化命令结果
    */
-  static formatCommandResult(result: CommandResult, options: {
-    json?: boolean;
-    colors?: boolean;
-  } = {}): string {
+  static formatCommandResult(
+    result: CommandResult,
+    options: {
+      json?: boolean;
+      colors?: boolean;
+    } = {}
+  ): string {
     const { json = false, colors = true } = options;
 
     if (json) {
@@ -285,12 +298,14 @@ export class ErrorFormatter {
     }
 
     const lines: string[] = [];
-    const colorize = colors ? chalk : {
-      red: (s: string) => s,
-      yellow: (s: string) => s,
-      green: (s: string) => s,
-      gray: (s: string) => s
-    };
+    const colorize = colors
+      ? chalk
+      : {
+          red: (s: string) => s,
+          yellow: (s: string) => s,
+          green: (s: string) => s,
+          gray: (s: string) => s,
+        };
 
     // 主消息
     if (result.message) {
@@ -301,14 +316,14 @@ export class ErrorFormatter {
 
     // 警告
     if (result.warnings && result.warnings.length > 0) {
-      result.warnings.forEach(warning => {
+      result.warnings.forEach((warning) => {
         lines.push(colorize.yellow(`⚠️  ${warning}`));
       });
     }
 
     // 错误
     if (result.errors && result.errors.length > 0) {
-      result.errors.forEach(error => {
+      result.errors.forEach((error) => {
         lines.push(colorize.red(`❌ ${error}`));
       });
     }
@@ -334,11 +349,13 @@ export class ErrorBoundary {
   /**
    * 设置全局错误边界
    */
-  static setup(options: {
-    verbose?: boolean;
-    json?: boolean;
-    exitOnError?: boolean;
-  } = {}): void {
+  static setup(
+    options: {
+      verbose?: boolean;
+      json?: boolean;
+      exitOnError?: boolean;
+    } = {}
+  ): void {
     if (this.isSetup) {
       return;
     }
@@ -420,13 +437,19 @@ export class ErrorBoundary {
   /**
    * 处理中断信号
    */
-  private static async handleInterrupt(options: { verbose: boolean; json: boolean; exitOnError: boolean }): Promise<void> {
+  private static async handleInterrupt(options: {
+    verbose: boolean;
+    json: boolean;
+    exitOnError: boolean;
+  }): Promise<void> {
     if (options.json) {
-      console.log(JSON.stringify({
-        success: false,
-        message: 'Operation cancelled by user',
-        code: EXIT_CODES.INTERRUPTED,
-      }));
+      console.log(
+        JSON.stringify({
+          success: false,
+          message: 'Operation cancelled by user',
+          code: EXIT_CODES.INTERRUPTED,
+        })
+      );
     } else {
       console.log(chalk.yellow('\n\n⚠️  Operation cancelled by user'));
     }
@@ -439,13 +462,19 @@ export class ErrorBoundary {
   /**
    * 处理终止信号
    */
-  private static async handleTermination(options: { verbose: boolean; json: boolean; exitOnError: boolean }): Promise<void> {
+  private static async handleTermination(options: {
+    verbose: boolean;
+    json: boolean;
+    exitOnError: boolean;
+  }): Promise<void> {
     if (options.json) {
-      console.log(JSON.stringify({
-        success: false,
-        message: 'Application terminated',
-        code: EXIT_CODES.INTERRUPTED,
-      }));
+      console.log(
+        JSON.stringify({
+          success: false,
+          message: 'Application terminated',
+          code: EXIT_CODES.INTERRUPTED,
+        })
+      );
     } else {
       console.log(chalk.yellow('\n⚠️  Application terminated'));
     }
@@ -466,7 +495,7 @@ export class ErrorBoundary {
       }
 
       // 给其他清理操作一点时间
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
       console.error('Error during cleanup:', error);
     } finally {
@@ -491,11 +520,14 @@ export class ErrorBoundary {
   /**
    * 手动处理错误
    */
-  static async handleError(error: Error, options?: {
-    verbose?: boolean;
-    json?: boolean;
-    exit?: boolean;
-  }): Promise<void> {
+  static async handleError(
+    error: Error,
+    options?: {
+      verbose?: boolean;
+      json?: boolean;
+      exit?: boolean;
+    }
+  ): Promise<void> {
     const opts = {
       verbose: Boolean(getConfigValue('verbose') || false),
       json: Boolean(getConfigValue('json') || false),
@@ -544,18 +576,21 @@ export async function withErrorBoundary<T>(
     }
 
     // 包装为应用错误
-    const appError = new AppError({
-      category: ErrorCategory.INTERNAL,
-      code: EXIT_CODES.INTERNAL_ERROR,
-      message: error.message,
-      userMessage: 'An unexpected error occurred',
-      suggestions: [
-        'Try running the command again',
-        'Check the logs for more details',
-        'Report this issue if it persists',
-      ],
-      context,
-    }, error instanceof Error ? error : new Error(String(error)));
+    const appError = new AppError(
+      {
+        category: ErrorCategory.INTERNAL,
+        code: EXIT_CODES.INTERNAL_ERROR,
+        message: error.message,
+        userMessage: 'An unexpected error occurred',
+        suggestions: [
+          'Try running the command again',
+          'Check the logs for more details',
+          'Report this issue if it persists',
+        ],
+        context,
+      },
+      error instanceof Error ? error : new Error(String(error))
+    );
 
     throw appError;
   }
@@ -574,11 +609,9 @@ export const createError = {
   network: (message: string, url?: string, statusCode?: number) =>
     new NetworkError(message, url, statusCode),
 
-  timeout: (operation: string, timeout: number) =>
-    new TimeoutError(operation, timeout),
+  timeout: (operation: string, timeout: number) => new TimeoutError(operation, timeout),
 
-  permission: (message: string, path?: string) =>
-    new PermissionError(message, path),
+  permission: (message: string, path?: string) => new PermissionError(message, path),
 
   internal: (message: string, context?: Record<string, any>) =>
     new AppError({

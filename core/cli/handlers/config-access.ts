@@ -48,9 +48,9 @@ interface EncryptedPayload {
 function isEncryptedPayload(value: unknown): value is EncryptedPayload {
   return Boolean(
     value &&
-    typeof value === 'object' &&
-    (value as Record<string, unknown>).__encrypted === true &&
-    typeof (value as Record<string, unknown>).data === 'string'
+      typeof value === 'object' &&
+      (value as Record<string, unknown>).__encrypted === true &&
+      typeof (value as Record<string, unknown>).data === 'string'
   );
 }
 
@@ -84,7 +84,11 @@ function decryptValue(payload: EncryptedPayload, key: Buffer): unknown {
   return JSON.parse(decrypted.toString('utf8'));
 }
 
-function ensureConfigDirectory(baseDirectory: string): { configDir: string; configPath: string; warnings: string[] } {
+function ensureConfigDirectory(baseDirectory: string): {
+  configDir: string;
+  configPath: string;
+  warnings: string[];
+} {
   const configDir = resolve(baseDirectory, CONFIG_RELATIVE_DIR);
   const configPath = join(configDir, CONFIG_FILE_NAME);
   const warnings: string[] = [];
@@ -97,7 +101,9 @@ function ensureConfigDirectory(baseDirectory: string): { configDir: string; conf
     const stats = statSync(configDir);
     if ((stats.mode & 0o002) !== 0) {
       chmodSync(configDir, 0o700);
-      warnings.push('Configuration directory permissions were too permissive and were tightened to 700');
+      warnings.push(
+        'Configuration directory permissions were too permissive and were tightened to 700'
+      );
     }
   } catch (error) {
     warnings.push(`Unable to adjust permissions for ${configDir}: ${(error as Error).message}`);
@@ -144,7 +150,9 @@ function loadStore(configPath: string): ConfigStore {
       },
     };
   } catch (error) {
-    throw new Error(`Failed to parse configuration file ${configPath}: ${(error as Error).message}`);
+    throw new Error(
+      `Failed to parse configuration file ${configPath}: ${(error as Error).message}`
+    );
   }
 }
 
@@ -178,7 +186,11 @@ function setNestedValue(target: Record<string, unknown>, key: string, value: unk
       cursor[segment] = value;
       return;
     }
-    if (!Object.prototype.hasOwnProperty.call(cursor, segment) || typeof cursor[segment] !== 'object' || cursor[segment] === null) {
+    if (
+      !Object.prototype.hasOwnProperty.call(cursor, segment) ||
+      typeof cursor[segment] !== 'object' ||
+      cursor[segment] === null
+    ) {
       cursor[segment] = {};
     }
     cursor = cursor[segment] as Record<string, unknown>;
@@ -202,11 +214,22 @@ function parseValue(raw: string): unknown {
   if (trimmed === '') {
     return '';
   }
-  if (trimmed === 'true') return true;
-  if (trimmed === 'false') return false;
-  if (trimmed === 'null') return null;
-  if (!Number.isNaN(Number(trimmed))) return Number(trimmed);
-  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+  if (trimmed === 'true') {
+    return true;
+  }
+  if (trimmed === 'false') {
+    return false;
+  }
+  if (trimmed === 'null') {
+    return null;
+  }
+  if (!Number.isNaN(Number(trimmed))) {
+    return Number(trimmed);
+  }
+  if (
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']'))
+  ) {
     try {
       return JSON.parse(trimmed);
     } catch {
@@ -253,7 +276,8 @@ export class ConfigAccess {
 
     const store = loadStore(this.configPath);
     const container = resolveContainer(store, options.environment);
-    const parsedValue = typeof options.value === 'string' ? parseValue(options.value) : options.value;
+    const parsedValue =
+      typeof options.value === 'string' ? parseValue(options.value) : options.value;
     const encryptionKey = options.secure ? this.getEncryptionKey() : null;
 
     if (options.secure && !encryptionKey) {
@@ -318,7 +342,7 @@ export function maskSensitive(value: unknown): unknown {
     return '[encrypted]';
   }
   if (Array.isArray(value)) {
-    return value.map(item => maskSensitive(item));
+    return value.map((item) => maskSensitive(item));
   }
   if (typeof value === 'object' && value !== null) {
     const clone: Record<string, unknown> = {};
@@ -330,10 +354,12 @@ export function maskSensitive(value: unknown): unknown {
   return value;
 }
 
-export function summarise(store: ConfigStore): { global: Record<string, unknown>; environments: Record<string, Record<string, unknown>> } {
+export function summarise(store: ConfigStore): {
+  global: Record<string, unknown>;
+  environments: Record<string, Record<string, unknown>>;
+} {
   return {
     global: maskSensitive(store.global) as Record<string, unknown>,
     environments: maskSensitive(store.environments) as Record<string, Record<string, unknown>>,
   };
 }
-

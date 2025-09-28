@@ -45,7 +45,10 @@ export interface ConfigurationManagement {
   validation: ValidationRule[];
 }
 
-export function validateConfiguration(config: ConfigurationManagement, obj: Record<string, any>): ValidationResult {
+export function validateConfiguration(
+  config: ConfigurationManagement,
+  obj: Record<string, any>
+): ValidationResult {
   const errors: ValidationError[] = [];
   // schema validation (minimal)
   for (const [key, field] of Object.entries(config.schema.fields)) {
@@ -61,14 +64,17 @@ export function validateConfiguration(config: ConfigurationManagement, obj: Reco
         (field.type === 'boolean' && typeof val === 'boolean') ||
         (field.type === 'object' && typeof val === 'object' && !Array.isArray(val)) ||
         (field.type === 'array' && Array.isArray(val));
-      if (!ok) errors.push({ field: key, message: `expected ${field.type}`, code: 'CFG_TYPE' });
+      if (!ok) {
+        errors.push({ field: key, message: `expected ${field.type}`, code: 'CFG_TYPE' });
+      }
     }
   }
   // custom rules
   for (const rule of config.validation) {
     const v = (obj as any)[rule.field];
-    if (!rule.validator(v)) errors.push({ field: rule.field, message: rule.message, code: 'CFG_RULE' });
+    if (!rule.validator(v)) {
+      errors.push({ field: rule.field, message: rule.message, code: 'CFG_RULE' });
+    }
   }
   return { valid: errors.length === 0, errors, warnings: [] };
 }
-

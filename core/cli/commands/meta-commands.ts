@@ -201,8 +201,8 @@ export class HelpCommand {
 
     // 可用命令
     lines.push('COMMANDS:');
-    const availableCommands = AVAILABLE_COMMANDS.filter(cmd => cmd.status === 'available');
-    const plannedCommands = AVAILABLE_COMMANDS.filter(cmd => cmd.status === 'planned');
+    const availableCommands = AVAILABLE_COMMANDS.filter((cmd) => cmd.status === 'available');
+    const plannedCommands = AVAILABLE_COMMANDS.filter((cmd) => cmd.status === 'planned');
 
     if (availableCommands.length > 0) {
       lines.push('  Available:');
@@ -261,24 +261,24 @@ export class CommandDiscovery {
    * 获取所有可用命令
    */
   static getAvailableCommands(): CommandInfo[] {
-    return AVAILABLE_COMMANDS.filter(cmd => cmd.status === 'available');
+    return AVAILABLE_COMMANDS.filter((cmd) => cmd.status === 'available');
   }
 
   /**
    * 获取计划中的命令
    */
   static getPlannedCommands(): CommandInfo[] {
-    return AVAILABLE_COMMANDS.filter(cmd => cmd.status === 'planned');
+    return AVAILABLE_COMMANDS.filter((cmd) => cmd.status === 'planned');
   }
 
   /**
    * 查找命令（支持别名）
    */
   static findCommand(name: string): CommandInfo | null {
-    return AVAILABLE_COMMANDS.find(cmd =>
-      cmd.name === name ||
-      (cmd.aliases?.includes(name) === true)
-    ) || null;
+    return (
+      AVAILABLE_COMMANDS.find((cmd) => cmd.name === name || cmd.aliases?.includes(name) === true) ||
+      null
+    );
   }
 
   /**
@@ -293,23 +293,24 @@ export class CommandDiscovery {
    * 获取命令建议（用于拼写错误提示）
    */
   static getCommandSuggestions(input: string): string[] {
-    const allNames = AVAILABLE_COMMANDS.flatMap(cmd => [
-      cmd.name,
-      ...(cmd.aliases ?? [])
-    ]);
+    const allNames = AVAILABLE_COMMANDS.flatMap((cmd) => [cmd.name, ...(cmd.aliases ?? [])]);
 
     // 简单的相似性匹配
-    return allNames.filter(name => {
-      const distance = this.levenshteinDistance(input.toLowerCase(), name.toLowerCase());
-      return distance <= 2; // 允许最多2个字符差异
-    }).slice(0, 3); // 最多返回3个建议
+    return allNames
+      .filter((name) => {
+        const distance = this.levenshteinDistance(input.toLowerCase(), name.toLowerCase());
+        return distance <= 2; // 允许最多2个字符差异
+      })
+      .slice(0, 3); // 最多返回3个建议
   }
 
   /**
    * 计算编辑距离（用于命令建议）
    */
   private static levenshteinDistance(str1: string, str2: string): number {
-    const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+    const matrix = Array(str2.length + 1)
+      .fill(null)
+      .map(() => Array(str1.length + 1).fill(null));
 
     for (let i = 0; i <= str1.length; i++) {
       matrix[0][i] = i;

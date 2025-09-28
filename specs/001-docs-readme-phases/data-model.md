@@ -1,7 +1,6 @@
 # Data Model: 基于分阶段实施方案的技术架构更新
 
-**Date**: 2025-09-27
-**Context**: 基于 TypeScript 技术栈的数据模型设计
+**Date**: 2025-09-27 **Context**: 基于 TypeScript 技术栈的数据模型设计
 
 ## 核心实体模型
 
@@ -39,6 +38,7 @@ interface ModuleDefinition {
 ```
 
 **验证规则**:
+
 - `id` 必须唯一
 - `version` 遵循语义化版本规范
 - `modules` 不能有循环依赖
@@ -75,6 +75,7 @@ interface NamingConvention {
 ```
 
 **状态转换**:
+
 - `draft` → `review` → `approved` → `implemented`
 
 ### 3. 代码质量规范 (CodeQualityStandard)
@@ -182,6 +183,7 @@ interface RetryPolicy {
 ```
 
 **状态转换图**:
+
 ```
 pending → processing → completed
          ↓

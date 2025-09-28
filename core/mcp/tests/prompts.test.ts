@@ -37,7 +37,11 @@ describe('MCP Prompts (T028)', () => {
       },
     ],
     category: 'greeting',
-    handler: async (_name: string, args: Record<string, any>, _ctx: MCPPromptContext): Promise<MCPPromptResult> => {
+    handler: async (
+      _name: string,
+      args: Record<string, any>,
+      _ctx: MCPPromptContext
+    ): Promise<MCPPromptResult> => {
       if (!args.name) throw new Error('Missing name');
       return {
         description: 'Hello conversation',
@@ -57,4 +61,3 @@ describe('MCP Prompts (T028)', () => {
     await expect(helloPrompt.handler('hello', {}, ctx)).rejects.toThrow('Missing name');
   });
 });
-

@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync, readdirSync, mkdirSync, rmSync, cpSync, renameSync } from 'node:fs';
+import {
+  mkdtempSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  mkdirSync,
+  rmSync,
+  cpSync,
+  renameSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -46,7 +55,8 @@ describe('FileSystemTools (T024)', () => {
       description: 'Read a file',
       inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
       handler: async (args) => {
-        if (!ctx.permissions.readFileSystem) return { content: [{ type: 'text', text: 'PERMISSION_DENIED' }], isError: true };
+        if (!ctx.permissions.readFileSystem)
+          return { content: [{ type: 'text', text: 'PERMISSION_DENIED' }], isError: true };
         const p = join(ctx.workingDirectory, args.path);
         const text = readFileSync(p, 'utf8');
         return { content: [{ type: 'text', text }] };
@@ -58,9 +68,14 @@ describe('FileSystemTools (T024)', () => {
     const writeFile: MCPToolDefinition = {
       name: 'fs.write',
       description: 'Write a file',
-      inputSchema: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path', 'content'] },
+      inputSchema: {
+        type: 'object',
+        properties: { path: { type: 'string' }, content: { type: 'string' } },
+        required: ['path', 'content'],
+      },
       handler: async (args) => {
-        if (!ctx.permissions.writeFileSystem) return { content: [{ type: 'text', text: 'PERMISSION_DENIED' }], isError: true };
+        if (!ctx.permissions.writeFileSystem)
+          return { content: [{ type: 'text', text: 'PERMISSION_DENIED' }], isError: true };
         const p = join(ctx.workingDirectory, args.path);
         writeFileSync(p, args.content);
         return { content: [{ type: 'text', text: 'OK' }] };
@@ -111,7 +126,11 @@ describe('FileSystemTools (T024)', () => {
     const copyFile: MCPToolDefinition = {
       name: 'fs.cp',
       description: 'Copy file',
-      inputSchema: { type: 'object', properties: { src: { type: 'string' }, dest: { type: 'string' } }, required: ['src', 'dest'] },
+      inputSchema: {
+        type: 'object',
+        properties: { src: { type: 'string' }, dest: { type: 'string' } },
+        required: ['src', 'dest'],
+      },
       handler: async (args) => {
         const src = join(ctx.workingDirectory, args.src);
         const dest = join(ctx.workingDirectory, args.dest);
@@ -125,7 +144,11 @@ describe('FileSystemTools (T024)', () => {
     const moveFile: MCPToolDefinition = {
       name: 'fs.mv',
       description: 'Move/Rename file',
-      inputSchema: { type: 'object', properties: { src: { type: 'string' }, dest: { type: 'string' } }, required: ['src', 'dest'] },
+      inputSchema: {
+        type: 'object',
+        properties: { src: { type: 'string' }, dest: { type: 'string' } },
+        required: ['src', 'dest'],
+      },
       handler: async (args) => {
         const src = join(ctx.workingDirectory, args.src);
         const dest = join(ctx.workingDirectory, args.dest);
@@ -168,4 +191,3 @@ describe('FileSystemTools (T024)', () => {
     expect(denied.isError).toBe(true);
   });
 });
-

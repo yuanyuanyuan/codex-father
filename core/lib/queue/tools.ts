@@ -33,24 +33,36 @@ export function ensureQueueStructure(basePath?: string): QueueDirectoryStructure
 
   const tasks = STATUS_DIRECTORIES.reduce<Record<QueueStatusDirectory, string>>((acc, s) => {
     acc[s] = join(statuses[s], 'tasks');
-    if (!existsSync(acc[s])) mkdirSync(acc[s], { recursive: true });
+    if (!existsSync(acc[s])) {
+      mkdirSync(acc[s], { recursive: true });
+    }
     return acc;
   }, {} as any);
 
   const metadata = STATUS_DIRECTORIES.reduce<Record<QueueStatusDirectory, string>>((acc, s) => {
     acc[s] = join(statuses[s], 'metadata');
-    if (!existsSync(acc[s])) mkdirSync(acc[s], { recursive: true });
+    if (!existsSync(acc[s])) {
+      mkdirSync(acc[s], { recursive: true });
+    }
     return acc;
   }, {} as any);
 
   const extras = EXTRA_DIRS.reduce<Record<(typeof EXTRA_DIRS)[number], string>>((acc, d) => {
     const p = join(base, d);
-    if (!existsSync(p)) mkdirSync(p, { recursive: true });
+    if (!existsSync(p)) {
+      mkdirSync(p, { recursive: true });
+    }
     acc[d] = p;
     return acc;
   }, {} as any);
 
-  const all = [base, ...Object.values(statuses), ...Object.values(tasks), ...Object.values(metadata), ...Object.values(extras)];
+  const all = [
+    base,
+    ...Object.values(statuses),
+    ...Object.values(tasks),
+    ...Object.values(metadata),
+    ...Object.values(extras),
+  ];
 
   return {
     base,
@@ -66,7 +78,9 @@ export function ensureQueueStructure(basePath?: string): QueueDirectoryStructure
   };
 }
 
-export function readJSONSafe<T = any>(path: string): { ok: true; value: T } | { ok: false; error: string } {
+export function readJSONSafe<T = any>(
+  path: string
+): { ok: true; value: T } | { ok: false; error: string } {
   try {
     const raw = readFileSync(path, 'utf8');
     return { ok: true, value: JSON.parse(raw) };
@@ -82,4 +96,3 @@ export function now(): Date {
 export function toIso(d?: Date): string | undefined {
   return d ? new Date(d).toISOString() : undefined;
 }
-

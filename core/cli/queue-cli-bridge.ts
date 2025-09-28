@@ -6,8 +6,17 @@
 import chalk from 'chalk';
 import type { CommandContext, CommandResult } from '../lib/types.js';
 import { BasicQueueOperations, CreateTaskOptions } from '../lib/queue/basic-operations.js';
-import { TaskStatusQuery, TaskFilter, TaskSortOptions, PaginationOptions } from '../lib/queue/status-query.js';
-import { BasicTaskExecutor, ExecutionOptions, BUILT_IN_TASK_TYPES } from '../lib/queue/basic-executor.js';
+import {
+  TaskStatusQuery,
+  TaskFilter,
+  TaskSortOptions,
+  PaginationOptions,
+} from '../lib/queue/status-query.js';
+import {
+  BasicTaskExecutor,
+  ExecutionOptions,
+  BUILT_IN_TASK_TYPES,
+} from '../lib/queue/basic-executor.js';
 import { ErrorFormatter } from './error-boundary.js';
 
 /**
@@ -49,7 +58,10 @@ export class QueueCLIBridge {
   /**
    * 创建任务命令处理器
    */
-  async handleCreateTask(context: CommandContext, options: CLICreateTaskOptions): Promise<CommandResult> {
+  async handleCreateTask(
+    context: CommandContext,
+    options: CLICreateTaskOptions
+  ): Promise<CommandResult> {
     try {
       const { type, payload, execute = false, wait = false, timeout } = options;
 
@@ -67,7 +79,7 @@ export class QueueCLIBridge {
       const enqueueResult = await this.queueOps.enqueueTask({ type, payload });
       const { taskId, queuePosition, estimatedStartTime, scheduledAt } = enqueueResult;
 
-      let result: any = {
+      const result: any = {
         taskId,
         queuePosition,
         estimatedStartTime,
@@ -94,7 +106,7 @@ export class QueueCLIBridge {
         }
       }
 
-      executionTime = executionTime || (Date.now() - startTime);
+      executionTime = executionTime || Date.now() - startTime;
 
       if (context.json) {
         return {
@@ -114,7 +126,9 @@ export class QueueCLIBridge {
       if (execute) {
         const execResult = result.execution;
         if (execResult.success) {
-          messages.push(`✅ Task executed successfully in ${execResult.executionTime.toFixed(2)}ms`);
+          messages.push(
+            `✅ Task executed successfully in ${execResult.executionTime.toFixed(2)}ms`
+          );
         } else {
           messages.push(`❌ Task execution failed: ${execResult.error}`);
         }
@@ -139,7 +153,10 @@ export class QueueCLIBridge {
   /**
    * 列出任务命令处理器
    */
-  async handleListTasks(context: CommandContext, options: CLIQueryOptions = {}): Promise<CommandResult> {
+  async handleListTasks(
+    context: CommandContext,
+    options: CLIQueryOptions = {}
+  ): Promise<CommandResult> {
     try {
       const startTime = Date.now();
 
@@ -153,16 +170,20 @@ export class QueueCLIBridge {
       }
 
       // 构建排序选项
-      const sort: TaskSortOptions | undefined = options.sort ? {
-        field: options.sort as any,
-        direction: options.order || 'desc',
-      } : undefined;
+      const sort: TaskSortOptions | undefined = options.sort
+        ? {
+            field: options.sort as any,
+            direction: options.order || 'desc',
+          }
+        : undefined;
 
       // 构建分页选项
-      const pagination: PaginationOptions | undefined = options.limit ? {
-        page: options.page || 1,
-        limit: options.limit,
-      } : undefined;
+      const pagination: PaginationOptions | undefined = options.limit
+        ? {
+            page: options.page || 1,
+            limit: options.limit,
+          }
+        : undefined;
 
       // 查询任务
       const queryResult = await this.statusQuery.queryTasks(filter, sort, pagination);
@@ -251,7 +272,11 @@ export class QueueCLIBridge {
   /**
    * 执行任务命令处理器
    */
-  async handleExecuteTask(context: CommandContext, taskId: string, options: ExecutionOptions = {}): Promise<CommandResult> {
+  async handleExecuteTask(
+    context: CommandContext,
+    taskId: string,
+    options: ExecutionOptions = {}
+  ): Promise<CommandResult> {
     try {
       const startTime = Date.now();
 
@@ -355,10 +380,7 @@ export class QueueCLIBridge {
    * 获取可用任务类型
    */
   getAvailableTaskTypes(): string[] {
-    return [
-      ...this.executor.getRegisteredTaskTypes(),
-      ...Object.values(BUILT_IN_TASK_TYPES),
-    ];
+    return [...this.executor.getRegisteredTaskTypes(), ...Object.values(BUILT_IN_TASK_TYPES)];
   }
 
   /**
@@ -374,16 +396,18 @@ export class QueueCLIBridge {
         return JSON.stringify(tasks, null, 2);
 
       case 'list':
-        return tasks.map(task => {
-          const status = this.getStatusIcon(task.status);
-          const time = new Date(task.createdAt).toLocaleString();
-          return `${status} ${chalk.cyan(task.id)} [${chalk.yellow(task.type)}] - ${time}`;
-        }).join('\\n');
+        return tasks
+          .map((task) => {
+            const status = this.getStatusIcon(task.status);
+            const time = new Date(task.createdAt).toLocaleString();
+            return `${status} ${chalk.cyan(task.id)} [${chalk.yellow(task.type)}] - ${time}`;
+          })
+          .join('\\n');
 
       case 'table':
       default:
         const headers = ['ID', 'Type', 'Status', 'Created', 'Updated'];
-        const rows = tasks.map(task => [
+        const rows = tasks.map((task) => [
           task.id.substring(0, 8) + '...',
           task.type,
           this.getStatusIcon(task.status) + ' ' + task.status,
@@ -493,14 +517,14 @@ export class QueueCLIBridge {
 
     // 计算列宽
     const colWidths = headers.map((header, i) => {
-      const dataWidth = Math.max(...rows.map(row => (row[i] || '').length));
+      const dataWidth = Math.max(...rows.map((row) => (row[i] || '').length));
       return Math.max(header.length, dataWidth);
     });
 
     // 创建分隔线
-    const separator = '┼' + colWidths.map(w => '─'.repeat(w + 2)).join('┼') + '┼';
-    const topBorder = '┌' + colWidths.map(w => '─'.repeat(w + 2)).join('┬') + '┐';
-    const bottomBorder = '└' + colWidths.map(w => '─'.repeat(w + 2)).join('┴') + '┘';
+    const separator = '┼' + colWidths.map((w) => '─'.repeat(w + 2)).join('┼') + '┼';
+    const topBorder = '┌' + colWidths.map((w) => '─'.repeat(w + 2)).join('┬') + '┐';
+    const bottomBorder = '└' + colWidths.map((w) => '─'.repeat(w + 2)).join('┴') + '┘';
 
     // 格式化行
     const formatRow = (row: string[]) => {
@@ -510,7 +534,7 @@ export class QueueCLIBridge {
     // 组装表格
     const lines = [
       topBorder,
-      formatRow(headers.map(h => chalk.bold(h))),
+      formatRow(headers.map((h) => chalk.bold(h))),
       separator,
       ...rows.map(formatRow),
       bottomBorder,

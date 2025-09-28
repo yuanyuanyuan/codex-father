@@ -1,14 +1,20 @@
 ---
-description: Execute the implementation plan by processing and executing all tasks defined in tasks.md
+description:
+  Execute the implementation plan by processing and executing all tasks defined
+  in tasks.md
 ---
 
-The user input can be provided directly by the agent or as a command argument - you **MUST** consider it before proceeding with the prompt (if not empty).
+The user input can be provided directly by the agent or as a command argument -
+you **MUST** consider it before proceeding with the prompt (if not empty).
 
 User input:
 
 $ARGUMENTS
 
-1. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All paths must be absolute.
+1. Run
+   `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
+   from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All paths must
+   be absolute.
 
 2. Load and analyze the implementation context:
    - **REQUIRED**: Read tasks.md for the complete task list and execution plan
@@ -26,17 +32,23 @@ $ARGUMENTS
 
 4. Execute implementation following the task plan:
    - **Phase-by-phase execution**: Complete each phase before moving to the next
-   - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P] can run together  
-   - **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks
-   - **File-based coordination**: Tasks affecting the same files must run sequentially
+   - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P]
+     can run together
+   - **Follow TDD approach**: Execute test tasks before their corresponding
+     implementation tasks
+   - **File-based coordination**: Tasks affecting the same files must run
+     sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
 
 5. Implementation execution rules:
    - **Setup first**: Initialize project structure, dependencies, configuration
-   - **Tests before code**: If you need to write tests for contracts, entities, and integration scenarios
+   - **Tests before code**: If you need to write tests for contracts, entities,
+     and integration scenarios
    - **Core development**: Implement models, services, CLI commands, endpoints
-   - **Integration work**: Database connections, middleware, logging, external services
-   - **Polish and validation**: Unit tests, performance optimization, documentation
+   - **Integration work**: Database connections, middleware, logging, external
+     services
+   - **Polish and validation**: Unit tests, performance optimization,
+     documentation
 
 6. Progress tracking and error handling:
    - Report progress after each completed task
@@ -44,7 +56,8 @@ $ARGUMENTS
    - For parallel tasks [P], continue with successful tasks, report failed ones
    - Provide clear error messages with context for debugging
    - Suggest next steps if implementation cannot proceed
-   - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
+   - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in
+     the tasks file.
 
 7. Completion validation:
    - Verify all required tasks are completed
@@ -53,4 +66,6 @@ $ARGUMENTS
    - Confirm the implementation follows the technical plan
    - Report final status with summary of completed work
 
-Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/tasks` first to regenerate the task list.
+Note: This command assumes a complete task breakdown exists in tasks.md. If
+tasks are incomplete or missing, suggest running `/tasks` first to regenerate
+the task list.

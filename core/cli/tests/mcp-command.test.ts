@@ -98,7 +98,11 @@ describe('MCP Command Interface (T004)', () => {
       },
       {
         arguments: [
-          { name: 'action', description: 'MCP action (start|stop|status|logs|tools)', required: true },
+          {
+            name: 'action',
+            description: 'MCP action (start|stop|status|logs|tools)',
+            required: true,
+          },
           { name: 'name', description: 'Instance name or identifier', required: false },
         ],
         options: [
@@ -122,7 +126,7 @@ describe('MCP Command Interface (T004)', () => {
   });
 
   it('registers MCP command with expected arguments and options', () => {
-    const mcpCommand = command.commands.find(cmd => cmd.name() === 'mcp');
+    const mcpCommand = command.commands.find((cmd) => cmd.name() === 'mcp');
 
     expect(mcpCommand).toBeDefined();
     expect(mcpCommand?.description()).toContain('MCP server management');
@@ -132,14 +136,9 @@ describe('MCP Command Interface (T004)', () => {
     );
     expect(argNames).toEqual(['action', 'name']);
 
-    const optionFlags = mcpCommand?.options.map(opt => opt.flags) ?? [];
+    const optionFlags = mcpCommand?.options.map((opt) => opt.flags) ?? [];
     expect(optionFlags).toEqual(
-      expect.arrayContaining([
-        '--port <port>',
-        '--detached',
-        '--tail <lines>',
-        '--follow',
-      ])
+      expect.arrayContaining(['--port <port>', '--detached', '--tail <lines>', '--follow'])
     );
   });
 
@@ -183,14 +182,7 @@ describe('MCP Command Interface (T004)', () => {
   it('stops MCP server by instance name', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await parser.parse([
-      'node',
-      'codex-father',
-      '--json',
-      'mcp',
-      'stop',
-      'preview',
-    ]);
+    await parser.parse(['node', 'codex-father', '--json', 'mcp', 'stop', 'preview']);
 
     const context = handledContexts.at(-1);
     expect(context?.args?.[0]).toBe('stop');
@@ -210,15 +202,7 @@ describe('MCP Command Interface (T004)', () => {
   it('reports MCP status across instances', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await parser.parse([
-      'node',
-      'codex-father',
-      '--json',
-      'mcp',
-      'status',
-      '--format',
-      'json',
-    ]);
+    await parser.parse(['node', 'codex-father', '--json', 'mcp', 'status', '--format', 'json']);
 
     const context = handledContexts.at(-1);
     expect(context?.args?.[0]).toBe('status');

@@ -56,7 +56,7 @@ export class QueueStatisticsCollector {
     for (const status of STATUS_ORDER) {
       const statusTasks = await this.queueOps.listTasks(status);
       tasksByStatus[status] = statusTasks.length;
-      tasks.push(...statusTasks.map(task => this.normalizeTask(task)));
+      tasks.push(...statusTasks.map((task) => this.normalizeTask(task)));
     }
 
     const totalTasks = tasks.length;
@@ -115,9 +115,9 @@ export class QueueStatisticsCollector {
 
   private calculateAverageProcessingTime(tasks: Task[]): number {
     const durations = tasks
-      .filter(task => task.status === 'completed' && task.startedAt && task.completedAt)
-      .map(task => task.completedAt!.getTime() - task.startedAt!.getTime())
-      .filter(duration => duration >= 0);
+      .filter((task) => task.status === 'completed' && task.startedAt && task.completedAt)
+      .map((task) => task.completedAt!.getTime() - task.startedAt!.getTime())
+      .filter((duration) => duration >= 0);
 
     if (durations.length === 0) {
       return 0;
@@ -127,7 +127,9 @@ export class QueueStatisticsCollector {
     return Math.round(totalDuration / durations.length);
   }
 
-  private calculateProcessingCapacity(tasksByStatus: Record<TaskStatus, number>): QueueProcessingCapacity {
+  private calculateProcessingCapacity(
+    tasksByStatus: Record<TaskStatus, number>
+  ): QueueProcessingCapacity {
     const currentlyProcessing = tasksByStatus.processing;
     const availableSlots = Math.max(this.maxConcurrent - currentlyProcessing, 0);
     return {
@@ -142,13 +144,14 @@ export class QueueStatisticsCollector {
     tasksByStatus: Record<TaskStatus, number>,
     totalTasks: number
   ): QueuePerformanceMetrics {
-    const completedTasks = tasks.filter(task => task.status === 'completed');
+    const completedTasks = tasks.filter((task) => task.status === 'completed');
     const retryingTasks = tasksByStatus.retrying;
 
     const throughputPerHour = this.calculateThroughputPerHour(completedTasks);
     const averageWaitTime = this.calculateAverageWaitTime(tasks);
 
-    const successDenominator = completedTasks.length + tasksByStatus.failed + tasksByStatus.cancelled;
+    const successDenominator =
+      completedTasks.length + tasksByStatus.failed + tasksByStatus.cancelled;
     const successRate = successDenominator > 0 ? completedTasks.length / successDenominator : 1;
     const retryRate = totalTasks > 0 ? retryingTasks / totalTasks : 0;
 
@@ -166,9 +169,9 @@ export class QueueStatisticsCollector {
     }
 
     const completedTimes = tasks
-      .map(task => task.completedAt)
+      .map((task) => task.completedAt)
       .filter((value): value is Date => Boolean(value))
-      .map(date => date.getTime())
+      .map((date) => date.getTime())
       .sort((a, b) => a - b);
 
     if (completedTimes.length === 0) {
@@ -186,9 +189,9 @@ export class QueueStatisticsCollector {
 
   private calculateAverageWaitTime(tasks: Task[]): number {
     const waits = tasks
-      .filter(task => task.startedAt && task.createdAt)
-      .map(task => task.startedAt!.getTime() - task.createdAt.getTime())
-      .filter(wait => wait >= 0);
+      .filter((task) => task.startedAt && task.createdAt)
+      .map((task) => task.startedAt!.getTime() - task.createdAt.getTime())
+      .filter((wait) => wait >= 0);
 
     if (waits.length === 0) {
       return 0;

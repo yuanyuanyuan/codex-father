@@ -64,28 +64,42 @@ export class FileSystemQueue {
 
   getDirectoryStructure(): QueueDirectoryStructure {
     const base = this.queuePath;
-    const statuses = STATUS_DIRECTORIES.reduce<Record<QueueStatusDirectory, string>>((acc, status) => {
-      const directoryName = statusToDirectoryName(status);
-      acc[status] = join(base, directoryName);
-      return acc;
-    }, {} as Record<QueueStatusDirectory, string>);
+    const statuses = STATUS_DIRECTORIES.reduce<Record<QueueStatusDirectory, string>>(
+      (acc, status) => {
+        const directoryName = statusToDirectoryName(status);
+        acc[status] = join(base, directoryName);
+        return acc;
+      },
+      {} as Record<QueueStatusDirectory, string>
+    );
 
-    const tasks = STATUS_DIRECTORIES.reduce<Record<QueueStatusDirectory, string>>((acc, status) => {
-      const directoryName = statusToDirectoryName(status);
-      acc[status] = join(base, directoryName, 'tasks');
-      return acc;
-    }, {} as Record<QueueStatusDirectory, string>);
+    const tasks = STATUS_DIRECTORIES.reduce<Record<QueueStatusDirectory, string>>(
+      (acc, status) => {
+        const directoryName = statusToDirectoryName(status);
+        acc[status] = join(base, directoryName, 'tasks');
+        return acc;
+      },
+      {} as Record<QueueStatusDirectory, string>
+    );
 
-    const metadata = STATUS_DIRECTORIES.reduce<Record<QueueStatusDirectory, string>>((acc, status) => {
-      const directoryName = statusToDirectoryName(status);
-      acc[status] = join(base, directoryName, 'metadata');
-      return acc;
-    }, {} as Record<QueueStatusDirectory, string>);
+    const metadata = STATUS_DIRECTORIES.reduce<Record<QueueStatusDirectory, string>>(
+      (acc, status) => {
+        const directoryName = statusToDirectoryName(status);
+        acc[status] = join(base, directoryName, 'metadata');
+        return acc;
+      },
+      {} as Record<QueueStatusDirectory, string>
+    );
 
-    const additional = ADDITIONAL_DIRECTORIES.reduce<Record<(typeof ADDITIONAL_DIRECTORIES)[number], string>>((acc, dir) => {
-      acc[dir] = join(base, dir);
-      return acc;
-    }, {} as Record<(typeof ADDITIONAL_DIRECTORIES)[number], string>);
+    const additional = ADDITIONAL_DIRECTORIES.reduce<
+      Record<(typeof ADDITIONAL_DIRECTORIES)[number], string>
+    >(
+      (acc, dir) => {
+        acc[dir] = join(base, dir);
+        return acc;
+      },
+      {} as Record<(typeof ADDITIONAL_DIRECTORIES)[number], string>
+    );
 
     const all = [
       base,
@@ -121,7 +135,12 @@ export class FileSystemQueue {
     return this.queueOps.getTask(taskId);
   }
 
-  async updateTaskStatus(taskId: string, status: TaskStatus, result?: any, error?: string): Promise<void> {
+  async updateTaskStatus(
+    taskId: string,
+    status: TaskStatus,
+    result?: any,
+    error?: string
+  ): Promise<void> {
     await this.queueOps.updateTaskStatus(taskId, status, result, error);
   }
 
@@ -137,7 +156,11 @@ export class FileSystemQueue {
     return this.queueOps.retryTask(taskId);
   }
 
-  async purgeCompletedTasks(): Promise<{ totalPurged: number; tasksRemaining: number; diskSpaceFreed: number }> {
+  async purgeCompletedTasks(): Promise<{
+    totalPurged: number;
+    tasksRemaining: number;
+    diskSpaceFreed: number;
+  }> {
     // Purge logic not yet implemented; return placeholder values for contract compatibility.
     return {
       totalPurged: 0,
@@ -171,7 +194,7 @@ export class FileSystemQueue {
 
     counts.corruptedFiles = issues.length;
 
-    const recommendations = issues.map(issue => issue.recommendation);
+    const recommendations = issues.map((issue) => issue.recommendation);
     const valid = issues.length === 0;
 
     return {
@@ -181,7 +204,9 @@ export class FileSystemQueue {
       checkedFiles: counts.checkedFiles,
       corruptedFiles: counts.corruptedFiles,
       orphanedFiles: counts.orphanedFiles,
-      summary: valid ? 'Queue directory is healthy.' : `Queue directory has ${issues.length} issue(s).`,
+      summary: valid
+        ? 'Queue directory is healthy.'
+        : `Queue directory has ${issues.length} issue(s).`,
     };
   }
 

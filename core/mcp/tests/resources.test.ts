@@ -69,8 +69,15 @@ describe('MCP Resources (T027)', () => {
         }
 
         const path = uri.replace('file://', '');
-        const text = await Promise.resolve().then(() => require('node:fs').readFileSync(join(cwd, path), 'utf8'));
-        const content: MCPResourceContent = { uri, mimeType: 'text/plain', text, annotations: [{ type: 'fresh', text: 'loaded' }] };
+        const text = await Promise.resolve().then(() =>
+          require('node:fs').readFileSync(join(cwd, path), 'utf8')
+        );
+        const content: MCPResourceContent = {
+          uri,
+          mimeType: 'text/plain',
+          text,
+          annotations: [{ type: 'fresh', text: 'loaded' }],
+        };
         cache.set(key, { value: content, ts: now });
         return content;
       },
@@ -103,4 +110,3 @@ describe('MCP Resources (T027)', () => {
     await expect(fileRes.handler('file://a.txt', context)).rejects.toBeTruthy();
   });
 });
-

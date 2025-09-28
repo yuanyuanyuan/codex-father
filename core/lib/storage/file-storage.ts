@@ -1,10 +1,20 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, statSync, unlinkSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+  statSync,
+  unlinkSync,
+} from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 export class FileLock {
   constructor(private lockPath: string) {}
   release(): void {
-    if (existsSync(this.lockPath)) unlinkSync(this.lockPath);
+    if (existsSync(this.lockPath)) {
+      unlinkSync(this.lockPath);
+    }
   }
 }
 
@@ -13,7 +23,9 @@ export class FileStorage {
 
   private ensureDir(path: string) {
     const dir = dirname(path);
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
   }
 
   resolvePath(path: string): string {
@@ -39,7 +51,9 @@ export class FileStorage {
     this.ensureDir(abs);
     const start = Date.now();
     while (existsSync(abs)) {
-      if (Date.now() - start > timeoutMs) throw new Error(`Timeout acquiring lock: ${abs}`);
+      if (Date.now() - start > timeoutMs) {
+        throw new Error(`Timeout acquiring lock: ${abs}`);
+      }
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
     }
     writeFileSync(abs, String(process.pid), 'utf8');
@@ -61,4 +75,3 @@ export class FileStorage {
     return out;
   }
 }
-

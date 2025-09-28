@@ -252,6 +252,7 @@ echo "invalid json" > config/test.json && codex-father config validate
 ## 完整性验证检查表
 
 ### ✅ 功能验证
+
 - [ ] CLI 命令正常工作且响应时间 < 1s
 - [ ] 任务队列创建、执行、监控功能正常
 - [ ] 配置管理设置、获取、验证功能正常
@@ -259,6 +260,7 @@ echo "invalid json" > config/test.json && codex-father config validate
 - [ ] 容器集成和本地回退功能正常
 
 ### ✅ 性能验证
+
 - [ ] CLI 启动时间 < 1 秒
 - [ ] MCP 工具响应时间 < 500ms
 - [ ] 内存占用：CLI < 100MB，MCP < 200MB
@@ -266,6 +268,7 @@ echo "invalid json" > config/test.json && codex-father config validate
 - [ ] 并发任务支持 ≥ 10 个
 
 ### ✅ 质量验证
+
 - [ ] 单元测试覆盖率 ≥ 80%
 - [ ] 集成测试全部通过
 - [ ] 端到端测试关键路径覆盖率 100%
@@ -273,6 +276,7 @@ echo "invalid json" > config/test.json && codex-father config validate
 - [ ] TypeScript 类型检查无错误
 
 ### ✅ 安全验证
+
 - [ ] 默认沙箱策略生效
 - [ ] 输入验证防护有效
 - [ ] 敏感信息脱敏正常
@@ -280,6 +284,7 @@ echo "invalid json" > config/test.json && codex-father config validate
 - [ ] 错误恢复机制正常
 
 ### ✅ 兼容性验证
+
 - [ ] 跨平台运行（Linux/macOS/Windows）
 - [ ] Node.js 版本兼容性
 - [ ] 现有功能向后兼容
@@ -290,6 +295,7 @@ echo "invalid json" > config/test.json && codex-father config validate
 ### 常见问题解决
 
 1. **CLI 启动失败**
+
    ```bash
    # 检查 Node.js 版本
    node --version
@@ -300,6 +306,7 @@ echo "invalid json" > config/test.json && codex-father config validate
    ```
 
 2. **任务队列错误**
+
    ```bash
    # 检查队列目录权限
    codex-father task diagnose
@@ -308,6 +315,7 @@ echo "invalid json" > config/test.json && codex-father config validate
    ```
 
 3. **配置文件问题**
+
    ```bash
    # 重置配置为默认值
    codex-father config reset --confirm

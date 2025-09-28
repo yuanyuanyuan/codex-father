@@ -116,7 +116,9 @@ describe('ConfigManagementTools (T023)', () => {
     expect(get2.content[0].text).toBe(JSON.stringify('debug'));
 
     const list = await tools.listConfigs.handler({}, ctx);
-    expect(JSON.parse(list.content[0].text ?? '[]')).toEqual(expect.arrayContaining(['logLevel', 'retries']));
+    expect(JSON.parse(list.content[0].text ?? '[]')).toEqual(
+      expect.arrayContaining(['logLevel', 'retries'])
+    );
 
     const valid = await tools.validateConfig.handler({ key: 'logLevel' }, ctx);
     expect(valid.content[0].text).toBe('VALID');
@@ -127,4 +129,3 @@ describe('ConfigManagementTools (T023)', () => {
     expect(reload.content[0].text?.startsWith('reloaded@')).toBe(true);
   });
 });
-

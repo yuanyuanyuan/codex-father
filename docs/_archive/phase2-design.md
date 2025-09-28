@@ -3,9 +3,12 @@
 ## 1. 设计概述
 
 ### 1.1 测试架构目标
-构建全面、可扩展、高效的测试体系，确保 Codex Father 项目在功能完整性、性能稳定性、安全可靠性等方面达到生产级别的质量标准。
+
+构建全面、可扩展、高效的测试体系，确保 Codex
+Father 项目在功能完整性、性能稳定性、安全可靠性等方面达到生产级别的质量标准。
 
 ### 1.2 设计原则
+
 - **分层测试**: 单元测试、集成测试、端到端测试的清晰分层
 - **自动化优先**: 最大化自动化测试覆盖，减少手工测试依赖
 - **快速反馈**: 测试执行时间优化，支持快速开发迭代
@@ -13,6 +16,7 @@
 - **可维护性**: 测试代码的可读性、可扩展性和可维护性
 
 ### 1.3 技术栈选型
+
 - **Bash 测试**: BATS (Bash Automated Testing System)
 - **TypeScript 测试**: Jest + 自定义 MCP 测试框架
 - **安全扫描**: ShellCheck + ESLint Security + npm audit
@@ -968,9 +972,9 @@ name: Phase 2 Tests
 
 on:
   push:
-    branches: [ main, develop, feature/* ]
+    branches: [main, develop, feature/*]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
   schedule:
     # 每日性能基准测试
     - cron: '0 2 * * *'
@@ -1695,6 +1699,7 @@ gantt
 ### 3.2 交付清单
 
 **核心交付物**:
+
 - [ ] 完整的测试框架 (BATS + Jest + 自定义)
 - [ ] 全面的测试用例集 (单元、集成、E2E、性能、安全)
 - [ ] CI/CD 集成配置 (GitHub Actions)
@@ -1703,13 +1708,12 @@ gantt
 - [ ] 测试文档和使用指南
 
 **支持工具**:
+
 - [ ] 测试环境自动化脚本
 - [ ] 安全扫描工具集成
 - [ ] 测试数据管理工具
 
 ---
 
-**文档版本**: v1.0
-**创建日期**: 2025-09-26
-**负责人**: Claude Code 集成项目组
+**文档版本**: v1.0 **创建日期**: 2025-09-26 **负责人**: Claude Code 集成项目组
 **审批状态**: 待审批

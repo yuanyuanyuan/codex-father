@@ -5,20 +5,24 @@
 ## 配置分类
 
 ### 架构配置
+
 - `architecture/` - 技术架构规范
 - `directory-standard.json` - 目录结构标准
 - `quality-rules.json` - 代码质量规则
 
 ### 测试配置
+
 - `testing/` - 测试框架配置
 - `coverage-requirements.json` - 覆盖率要求
 
 ### 安全配置
+
 - `security/` - 安全策略配置
 - `sandbox-policies.json` - 沙箱策略
 - `audit-config.json` - 审计配置
 
 ### 环境配置
+
 - `environments/` - 环境特定配置
 - `development.json` - 开发环境
 - `testing.json` - 测试环境

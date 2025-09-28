@@ -5,3 +5,5 @@ runs/
 node_modules
 node_modules/*
 test-results
+refer-research
+refer-research/*

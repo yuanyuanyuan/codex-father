@@ -42,7 +42,11 @@ describe('ContainerManagementTools (T026)', () => {
     const buildContainer: MCPToolDefinition = {
       name: 'ctr.build',
       description: 'Build an image',
-      inputSchema: { type: 'object', properties: { context: { type: 'string' }, tag: { type: 'string' } }, required: ['context', 'tag'] },
+      inputSchema: {
+        type: 'object',
+        properties: { context: { type: 'string' }, tag: { type: 'string' } },
+        required: ['context', 'tag'],
+      },
       handler: async (args) => {
         const image = `${args.tag}:latest`;
         return { content: [{ type: 'text', text: JSON.stringify({ image }) }] };
@@ -54,7 +58,11 @@ describe('ContainerManagementTools (T026)', () => {
     const runContainer: MCPToolDefinition = {
       name: 'ctr.run',
       description: 'Run a container',
-      inputSchema: { type: 'object', properties: { image: { type: 'string' } }, required: ['image'] },
+      inputSchema: {
+        type: 'object',
+        properties: { image: { type: 'string' } },
+        required: ['image'],
+      },
       handler: async (args) => {
         const id = `c_${Math.random().toString(36).slice(2, 8)}`;
         containers.set(id, { id, image: args.image, running: true, logs: ['started'] });
@@ -84,7 +92,9 @@ describe('ContainerManagementTools (T026)', () => {
       description: 'List containers',
       inputSchema: { type: 'object' },
       handler: async () => {
-        return { content: [{ type: 'text', text: JSON.stringify(Array.from(containers.values())) }] };
+        return {
+          content: [{ type: 'text', text: JSON.stringify(Array.from(containers.values())) }],
+        };
       },
       category: 'container',
       version: '1.0.0',
@@ -106,7 +116,11 @@ describe('ContainerManagementTools (T026)', () => {
     const containerExec: MCPToolDefinition = {
       name: 'ctr.exec',
       description: 'Execute command in container',
-      inputSchema: { type: 'object', properties: { id: { type: 'string' }, cmd: { type: 'string' } }, required: ['id', 'cmd'] },
+      inputSchema: {
+        type: 'object',
+        properties: { id: { type: 'string' }, cmd: { type: 'string' } },
+        required: ['id', 'cmd'],
+      },
       handler: async (args) => {
         const c = containers.get(args.id);
         if (!c) return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
@@ -117,7 +131,14 @@ describe('ContainerManagementTools (T026)', () => {
       version: '1.0.0',
     };
 
-    tools = { buildContainer, runContainer, stopContainer, listContainers, containerLogs, containerExec };
+    tools = {
+      buildContainer,
+      runContainer,
+      stopContainer,
+      listContainers,
+      containerLogs,
+      containerExec,
+    };
   });
 
   it('builds, runs, lists, logs, execs and stops containers', async () => {
@@ -141,4 +162,3 @@ describe('ContainerManagementTools (T026)', () => {
     expect(stop.isError).toBeFalsy();
   });
 });
-

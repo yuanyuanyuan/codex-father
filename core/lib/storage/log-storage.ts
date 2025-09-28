@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync, appendFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+  appendFileSync,
+} from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 export interface LogRotateOptions {
@@ -11,7 +19,9 @@ export class LogStorage {
 
   private ensureDir(path: string) {
     const dir = dirname(path);
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
   }
 
   private filePath(category: 'audit' | 'tasks' | 'system', name = 'latest.log'): string {
@@ -26,15 +36,21 @@ export class LogStorage {
 
   rotate(category: 'audit' | 'tasks' | 'system', opts: LogRotateOptions): void {
     const p = this.filePath(category);
-    if (!existsSync(p)) return;
+    if (!existsSync(p)) {
+      return;
+    }
     const size = statSync(p).size;
-    if (size < opts.maxSizeBytes) return;
+    if (size < opts.maxSizeBytes) {
+      return;
+    }
 
     // rotate: latest.log -> latest.1.log ...
     for (let i = opts.keep - 1; i >= 1; i--) {
       const src = this.filePath(category, `latest.${i}.log`);
       const dst = this.filePath(category, `latest.${i + 1}.log`);
-      if (existsSync(src)) renameSync(src, dst);
+      if (existsSync(src)) {
+        renameSync(src, dst);
+      }
     }
     const first = this.filePath(category, 'latest.1.log');
     this.ensureDir(first);
@@ -42,4 +58,3 @@ export class LogStorage {
     writeFileSync(p, '');
   }
 }
-

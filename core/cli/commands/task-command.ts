@@ -75,7 +75,11 @@ export function registerTaskCommand(parser: CLIParser): void {
     },
     {
       arguments: [
-        { name: 'action', description: 'Task action (create|list|status|cancel|retry|logs|stats)', required: true },
+        {
+          name: 'action',
+          description: 'Task action (create|list|status|cancel|retry|logs|stats)',
+          required: true,
+        },
         { name: 'id', description: 'Task identifier for targeted actions', required: false },
       ],
       options: [
@@ -189,9 +193,8 @@ async function handleList(
   const statuses = Array.isArray(options.status) ? options.status : undefined;
 
   const tasks = await queueOps.listTasks();
-  const filtered = statuses && statuses.length
-    ? tasks.filter((task) => statuses.includes(task.status))
-    : tasks;
+  const filtered =
+    statuses && statuses.length ? tasks.filter((task) => statuses.includes(task.status)) : tasks;
 
   if (context.json) {
     return {
@@ -406,7 +409,9 @@ function handleLogs(
 }
 
 function toInteger(value: unknown, fallback: number): number {
-  if (value === undefined || value === null) return fallback;
+  if (value === undefined || value === null) {
+    return fallback;
+  }
   const parsed = Number.parseInt(String(value), 10);
   return Number.isFinite(parsed) ? parsed : fallback;
 }

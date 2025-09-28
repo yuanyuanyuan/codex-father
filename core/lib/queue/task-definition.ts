@@ -1,13 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import packageJson from '../../../package.json' assert { type: 'json' };
-import type {
-  Task,
-  TaskDefinition,
-  TaskMetadata,
-  TaskRetryPolicy,
-  TaskStatus,
-} from '../types.js';
+import type { Task, TaskDefinition, TaskMetadata, TaskRetryPolicy, TaskStatus } from '../types.js';
 
 export interface CreateTaskOptions {
   now?: Date;
@@ -44,7 +38,7 @@ export const TASK_STATUS_TRANSITIONS: Array<{ from: TaskStatus; to: TaskStatus[]
 ];
 
 export function isValidStatusTransition(from: TaskStatus, to: TaskStatus): boolean {
-  const entry = TASK_STATUS_TRANSITIONS.find(item => item.from === from);
+  const entry = TASK_STATUS_TRANSITIONS.find((item) => item.from === from);
   if (!entry) {
     return false;
   }
@@ -63,7 +57,9 @@ function mergeRetryPolicy(definition?: TaskRetryPolicy): TaskRetryPolicy {
   return {
     ...base,
     ...definition,
-    retryableErrors: definition.retryableErrors ? [...definition.retryableErrors] : [...(base.retryableErrors || [])],
+    retryableErrors: definition.retryableErrors
+      ? [...definition.retryableErrors]
+      : [...(base.retryableErrors || [])],
   };
 }
 

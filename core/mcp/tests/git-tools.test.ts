@@ -44,14 +44,25 @@ describe('GitOperationTools (T025)', () => {
       },
     };
 
-    repo = { branch: 'main', branches: new Set(['main']), staged: [], commits: [], remoteAhead: 0, remoteBehind: 0 };
+    repo = {
+      branch: 'main',
+      branches: new Set(['main']),
+      staged: [],
+      commits: [],
+      remoteAhead: 0,
+      remoteBehind: 0,
+    };
 
     const gitStatus: MCPToolDefinition = {
       name: 'git.status',
       description: 'Get repo status',
       inputSchema: { type: 'object' },
       handler: async () => {
-        return { content: [{ type: 'text', text: JSON.stringify({ branch: repo.branch, staged: repo.staged }) }] };
+        return {
+          content: [
+            { type: 'text', text: JSON.stringify({ branch: repo.branch, staged: repo.staged }) },
+          ],
+        };
       },
       category: 'git',
       version: '1.0.0',
@@ -60,7 +71,11 @@ describe('GitOperationTools (T025)', () => {
     const gitCommit: MCPToolDefinition = {
       name: 'git.commit',
       description: 'Create a commit',
-      inputSchema: { type: 'object', properties: { message: { type: 'string' } }, required: ['message'] },
+      inputSchema: {
+        type: 'object',
+        properties: { message: { type: 'string' } },
+        required: ['message'],
+      },
       handler: async (args) => {
         const hash = Math.random().toString(16).slice(2, 9);
         repo.commits.push(`${hash} ${args.message}`);
@@ -75,11 +90,22 @@ describe('GitOperationTools (T025)', () => {
     const gitBranch: MCPToolDefinition = {
       name: 'git.branch',
       description: 'Create/list/switch branches',
-      inputSchema: { type: 'object', properties: { name: { type: 'string' }, action: { type: 'string' } }, required: ['action'] },
+      inputSchema: {
+        type: 'object',
+        properties: { name: { type: 'string' }, action: { type: 'string' } },
+        required: ['action'],
+      },
       handler: async (args) => {
-        if (args.action === 'list') return { content: [{ type: 'text', text: JSON.stringify(Array.from(repo.branches)) }] };
-        if (args.action === 'create' && args.name) { repo.branches.add(args.name); return { content: [{ type: 'text', text: 'OK' }] }; }
-        if (args.action === 'switch' && args.name && repo.branches.has(args.name)) { repo.branch = args.name; return { content: [{ type: 'text', text: 'OK' }] }; }
+        if (args.action === 'list')
+          return { content: [{ type: 'text', text: JSON.stringify(Array.from(repo.branches)) }] };
+        if (args.action === 'create' && args.name) {
+          repo.branches.add(args.name);
+          return { content: [{ type: 'text', text: 'OK' }] };
+        }
+        if (args.action === 'switch' && args.name && repo.branches.has(args.name)) {
+          repo.branch = args.name;
+          return { content: [{ type: 'text', text: 'OK' }] };
+        }
         return { content: [{ type: 'text', text: 'INVALID' }], isError: true };
       },
       category: 'git',
@@ -105,7 +131,10 @@ describe('GitOperationTools (T025)', () => {
       name: 'git.push',
       description: 'Push to remote',
       inputSchema: { type: 'object' },
-      handler: async () => { repo.remoteAhead = 0; return { content: [{ type: 'text', text: 'OK' }] }; },
+      handler: async () => {
+        repo.remoteAhead = 0;
+        return { content: [{ type: 'text', text: 'OK' }] };
+      },
       category: 'git',
       version: '1.0.0',
     };
@@ -114,7 +143,10 @@ describe('GitOperationTools (T025)', () => {
       name: 'git.pull',
       description: 'Pull from remote',
       inputSchema: { type: 'object' },
-      handler: async () => { repo.remoteBehind = 0; return { content: [{ type: 'text', text: 'OK' }] }; },
+      handler: async () => {
+        repo.remoteBehind = 0;
+        return { content: [{ type: 'text', text: 'OK' }] };
+      },
       category: 'git',
       version: '1.0.0',
     };
@@ -122,9 +154,24 @@ describe('GitOperationTools (T025)', () => {
     const createPR: MCPToolDefinition = {
       name: 'git.pr.create',
       description: 'Create pull request',
-      inputSchema: { type: 'object', properties: { title: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' } }, required: ['title', 'base', 'head'] },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          base: { type: 'string' },
+          head: { type: 'string' },
+        },
+        required: ['title', 'base', 'head'],
+      },
       handler: async (args) => {
-        return { content: [{ type: 'text', text: JSON.stringify({ number: 1, url: `https://example/pr/1`, title: args.title }) }] };
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ number: 1, url: `https://example/pr/1`, title: args.title }),
+            },
+          ],
+        };
       },
       category: 'git',
       version: '1.0.0',
@@ -162,4 +209,3 @@ describe('GitOperationTools (T025)', () => {
     expect(pull.isError).toBeFalsy();
   });
 });
-

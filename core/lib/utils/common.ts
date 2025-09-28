@@ -1,5 +1,7 @@
 export function isSemver(version: string): boolean {
-  return /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-.]+)?(?:\+[0-9A-Za-z-.]+)?$/.test(version);
+  return /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-.]+)?(?:\+[0-9A-Za-z-.]+)?$/.test(
+    version
+  );
 }
 
 export function deepClone<T>(obj: T): T {
@@ -13,4 +15,3 @@ export function clamp(n: number, min: number, max: number): number {
 export function joinPath(...parts: string[]): string {
   return parts.join('/').replace(/\/+/, '/');
 }
-

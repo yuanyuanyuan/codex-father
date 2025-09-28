@@ -9,7 +9,8 @@ function simulateLatency(samples: number[]): MCPPerformanceMetrics {
   const total = samples.length;
   const sum = samples.reduce((a, b) => a + b, 0);
   const sorted = [...samples].sort((a, b) => a - b);
-  const p = (q: number) => sorted[Math.min(sorted.length - 1, Math.floor((q / 100) * sorted.length))];
+  const p = (q: number) =>
+    sorted[Math.min(sorted.length - 1, Math.floor((q / 100) * sorted.length))];
   return {
     requestsPerSecond: total / (sum / 1000),
     averageResponseTime: sum / total,
@@ -45,4 +46,3 @@ describe('MCP performance metrics (T029)', () => {
     expect(metrics.errorRate).toBeLessThanOrEqual(thresholds.maxErrorRate);
   });
 });
-

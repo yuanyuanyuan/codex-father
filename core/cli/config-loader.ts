@@ -143,10 +143,7 @@ export class ConfigLoader {
     let currentDir = process.cwd();
 
     while (currentDir !== dirname(currentDir)) {
-      if (
-        existsSync(join(currentDir, 'package.json')) ||
-        existsSync(join(currentDir, '.git'))
-      ) {
+      if (existsSync(join(currentDir, 'package.json')) || existsSync(join(currentDir, '.git'))) {
         return currentDir;
       }
       currentDir = dirname(currentDir);
@@ -311,19 +308,29 @@ export class ConfigLoader {
    */
   private parseEnvironmentValue(value: string, configPath: string): any {
     // 布尔值
-    if (value.toLowerCase() === 'true') return true;
-    if (value.toLowerCase() === 'false') return false;
+    if (value.toLowerCase() === 'true') {
+      return true;
+    }
+    if (value.toLowerCase() === 'false') {
+      return false;
+    }
 
     // 数字
-    if (/^\\d+$/.test(value)) return parseInt(value, 10);
-    if (/^\\d+\\.\\d+$/.test(value)) return parseFloat(value);
+    if (/^\\d+$/.test(value)) {
+      return parseInt(value, 10);
+    }
+    if (/^\\d+\\.\\d+$/.test(value)) {
+      return parseFloat(value);
+    }
 
     // JSON
     if (value.startsWith('{') || value.startsWith('[')) {
       try {
         return JSON.parse(value);
       } catch {
-        this.warnings.push(`Failed to parse JSON in environment variable for ${configPath}: ${value}`);
+        this.warnings.push(
+          `Failed to parse JSON in environment variable for ${configPath}: ${value}`
+        );
       }
     }
 
@@ -490,7 +497,7 @@ export class ConfigLoader {
  * 全局配置实例
  */
 let globalConfig: ProjectConfig | null = null;
-let globalConfigLoader: ConfigLoader | null = null;
+let _globalConfigLoader: ConfigLoader | null = null;
 
 /**
  * 获取全局配置
@@ -510,11 +517,11 @@ export async function getConfig(options?: {
     }
 
     globalConfig = result.config;
-    globalConfigLoader = loader;
+    _globalConfigLoader = loader;
 
     // 在 verbose 模式下显示警告
     if (result.warnings.length > 0 && process.env.CODEX_VERBOSE) {
-      result.warnings.forEach(warning => {
+      result.warnings.forEach((warning) => {
         console.warn(`⚠️  Config warning: ${warning}`);
       });
     }
@@ -526,7 +533,9 @@ export async function getConfig(options?: {
 /**
  * 重新加载配置
  */
-export async function reloadConfig(options?: Parameters<typeof getConfig>[0]): Promise<ProjectConfig> {
+export async function reloadConfig(
+  options?: Parameters<typeof getConfig>[0]
+): Promise<ProjectConfig> {
   return getConfig({ ...options, reload: true });
 }
 

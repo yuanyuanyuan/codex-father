@@ -276,7 +276,11 @@ export interface MCPPromptArgument {
 }
 
 export interface MCPPromptHandler {
-  (name: string, arguments: Record<string, any>, context: MCPPromptContext): Promise<MCPPromptResult>;
+  (
+    name: string,
+    arguments: Record<string, any>,
+    context: MCPPromptContext
+  ): Promise<MCPPromptResult>;
 }
 
 export interface MCPPromptContext {
@@ -341,7 +345,15 @@ export interface CachePolicy {
   strategy: 'lru' | 'fifo' | 'lfu';
 }
 
-export type LogLevel = 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'critical' | 'alert' | 'emergency';
+export type LogLevel =
+  | 'debug'
+  | 'info'
+  | 'notice'
+  | 'warning'
+  | 'error'
+  | 'critical'
+  | 'alert'
+  | 'emergency';
 
 export interface JSONSchema {
   type: string;
@@ -406,8 +418,8 @@ export interface MCPPerformanceMetrics {
 
 export interface MCPPerformanceThresholds {
   maxResponseTime: number; // milliseconds
-  maxMemoryUsage: number;  // bytes
-  maxCpuUsage: number;     // percentage
+  maxMemoryUsage: number; // bytes
+  maxCpuUsage: number; // percentage
   maxConnections: number;
-  maxErrorRate: number;    // percentage
+  maxErrorRate: number; // percentage
 }

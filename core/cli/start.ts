@@ -27,33 +27,36 @@ class CodexFatherCLI {
       return;
     }
 
-    await withErrorBoundary(async () => {
-      // 1. 设置错误边界
-      ErrorBoundary.setup({
-        verbose: process.env.NODE_ENV === 'development' || process.env.CODEX_VERBOSE === 'true',
-        json: process.env.CODEX_JSON === 'true',
-        exitOnError: process.env.NODE_ENV !== 'test',
-      });
+    await withErrorBoundary(
+      async () => {
+        // 1. 设置错误边界
+        ErrorBoundary.setup({
+          verbose: process.env.NODE_ENV === 'development' || process.env.CODEX_VERBOSE === 'true',
+          json: process.env.CODEX_JSON === 'true',
+          exitOnError: process.env.NODE_ENV !== 'test',
+        });
 
-      // 2. 加载配置
-      const config = await getConfig();
+        // 2. 加载配置
+        const config = await getConfig();
 
-      // 3. 初始化日志系统
-      await LoggerManager.initialize(config.logging);
+        // 3. 初始化日志系统
+        await LoggerManager.initialize(config.logging);
 
-      // 4. 设置开发模式日志
-      if (process.env.NODE_ENV === 'development') {
-        setupDevelopmentLogging();
-      }
+        // 4. 设置开发模式日志
+        if (process.env.NODE_ENV === 'development') {
+          setupDevelopmentLogging();
+        }
 
-      // 5. 注册遗留命令处理器
-      this.registerLegacyCommands();
+        // 5. 注册遗留命令处理器
+        this.registerLegacyCommands();
 
-      // 6. 注册现代命令处理器（将来扩展）
-      this.registerModernCommands();
+        // 6. 注册现代命令处理器（将来扩展）
+        this.registerModernCommands();
 
-      this.initialized = true;
-    }, { operation: 'CLI initialization' });
+        this.initialized = true;
+      },
+      { operation: 'CLI initialization' }
+    );
   }
 
   /**
@@ -70,7 +73,7 @@ class CodexFatherCLI {
       {
         aliases: [],
         arguments: [
-          { name: 'args', description: 'Arguments to pass to start.sh', required: false }
+          { name: 'args', description: 'Arguments to pass to start.sh', required: false },
         ],
         options: [
           { flags: '--timeout <ms>', description: 'Execution timeout in milliseconds' },
@@ -88,9 +91,7 @@ class CodexFatherCLI {
       },
       {
         aliases: [],
-        arguments: [
-          { name: 'args', description: 'Arguments to pass to job.sh', required: false }
-        ],
+        arguments: [{ name: 'args', description: 'Arguments to pass to job.sh', required: false }],
         options: [
           { flags: '--timeout <ms>', description: 'Execution timeout in milliseconds' },
           { flags: '--capture', description: 'Capture script output', defaultValue: true },
@@ -108,7 +109,7 @@ class CodexFatherCLI {
       {
         aliases: ['run-tests'],
         arguments: [
-          { name: 'args', description: 'Arguments to pass to test script', required: false }
+          { name: 'args', description: 'Arguments to pass to test script', required: false },
         ],
         options: [
           { flags: '--timeout <ms>', description: 'Execution timeout in milliseconds' },
@@ -144,7 +145,11 @@ class CodexFatherCLI {
       },
       {
         arguments: [
-          { name: 'action', description: 'MCP action (start, stop, status, logs, tools)', required: true }
+          {
+            name: 'action',
+            description: 'MCP action (start, stop, status, logs, tools)',
+            required: true,
+          },
         ],
       }
     );
@@ -157,9 +162,7 @@ class CodexFatherCLI {
         return await this.handleStatusCommand(context);
       },
       {
-        options: [
-          { flags: '--detailed', description: 'Show detailed status information' },
-        ],
+        options: [{ flags: '--detailed', description: 'Show detailed status information' }],
       }
     );
   }
@@ -217,7 +220,9 @@ class CodexFatherCLI {
           rssBytes: finalMemory.rss - initialMemory.rss,
           heapUsedBytes: finalMemory.heapUsed - initialMemory.heapUsed,
           rssMB: Number(((finalMemory.rss - initialMemory.rss) / 1024 / 1024).toFixed(2)),
-          heapUsedMB: Number(((finalMemory.heapUsed - initialMemory.heapUsed) / 1024 / 1024).toFixed(2)),
+          heapUsedMB: Number(
+            ((finalMemory.heapUsed - initialMemory.heapUsed) / 1024 / 1024).toFixed(2)
+          ),
         },
       };
 
@@ -303,13 +308,16 @@ class CodexFatherCLI {
    * 启动 CLI 应用
    */
   async start(argv?: string[]): Promise<void> {
-    await withErrorBoundary(async () => {
-      // 初始化
-      await this.initialize();
+    await withErrorBoundary(
+      async () => {
+        // 初始化
+        await this.initialize();
 
-      // 解析并执行命令
-      await parser.parse(argv);
-    }, { operation: 'CLI startup' });
+        // 解析并执行命令
+        await parser.parse(argv);
+      },
+      { operation: 'CLI startup' }
+    );
   }
 }
 

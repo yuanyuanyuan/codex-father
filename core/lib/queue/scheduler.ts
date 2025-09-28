@@ -27,14 +27,18 @@ export class TaskScheduler {
   }
 
   start(): void {
-    if (this.timer) return;
+    if (this.timer) {
+      return;
+    }
     this.timer = setInterval(() => {
       void this.tick();
     }, this.intervalMs);
   }
 
   stop(): void {
-    if (this.timer) clearInterval(this.timer);
+    if (this.timer) {
+      clearInterval(this.timer);
+    }
     this.timer = null;
   }
 
@@ -55,7 +59,9 @@ export class TaskScheduler {
     // 3) Fill remaining slots with pending tasks
     while (this.running < this.maxConcurrent) {
       const next = await this.ops.dequeueTask();
-      if (!next) break;
+      if (!next) {
+        break;
+      }
       await this.run(next);
     }
   }
@@ -63,9 +69,13 @@ export class TaskScheduler {
   private async consumeDueRetrying(nowValue: number): Promise<void> {
     const retrying = await this.ops.listTasks('retrying');
     // run tasks whose scheduledAt <= now
-    const due = retrying.filter(t => t.scheduledAt && new Date(t.scheduledAt).getTime() <= nowValue);
+    const due = retrying.filter(
+      (t) => t.scheduledAt && new Date(t.scheduledAt).getTime() <= nowValue
+    );
     for (const task of due) {
-      if (this.running >= this.maxConcurrent) break;
+      if (this.running >= this.maxConcurrent) {
+        break;
+      }
       await this.ops.updateTaskStatus(task.id, 'processing');
       await this.run(task);
     }
@@ -80,4 +90,3 @@ export class TaskScheduler {
     }
   }
 }
-

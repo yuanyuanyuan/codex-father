@@ -16,6 +16,10 @@ export default [
       '**/refer-research/**',
       '**/specs/**',
       'vitest.config.ts',
+      '**/.tsbuildinfo*',
+      '**/tsconfig.*.tsbuildinfo',
+      '**/coverage/**',
+      '**/.nyc_output/**',
     ],
   },
   {
@@ -28,10 +32,10 @@ export default [
       'no-var': 'error',
       'prefer-const': 'error',
       // Code quality
-      'eqeqeq': ['error', 'always'],
+      eqeqeq: ['error', 'always'],
       'no-unused-expressions': 'error',
       'no-unreachable': 'error',
-      'curly': ['error', 'all'],
+      curly: ['error', 'all'],
     },
   },
   {
@@ -58,7 +62,7 @@ export default [
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
-          caughtErrorsIgnorePattern: '^_'
+          caughtErrorsIgnorePattern: '^_',
         },
       ],
       '@typescript-eslint/explicit-function-return-type': 'warn',
@@ -75,5 +79,5 @@ export default [
       // Allow var in global declarations
       'no-var': 'off',
     },
-  }
+  },
 ];

@@ -148,7 +148,7 @@ export class TaskStatusQuery {
     const allTasks = await this.queueOps.listTasks();
     const searchLower = searchTerm.toLowerCase();
 
-    return allTasks.filter(task => {
+    return allTasks.filter((task) => {
       for (const field of searchFields) {
         let value: string = '';
 
@@ -198,8 +198,13 @@ export class TaskStatusQuery {
       byType[task.type] = (byType[task.type] || 0) + 1;
 
       // 计算执行时间（仅对已完成或失败的任务）
-      if ((task.status === 'completed' || task.status === 'failed') && task.updatedAt && task.createdAt) {
-        const executionTime = new Date(task.updatedAt).getTime() - new Date(task.createdAt).getTime();
+      if (
+        (task.status === 'completed' || task.status === 'failed') &&
+        task.updatedAt &&
+        task.createdAt
+      ) {
+        const executionTime =
+          new Date(task.updatedAt).getTime() - new Date(task.createdAt).getTime();
         totalExecutionTime += executionTime;
         executedTasks++;
       }
@@ -213,9 +218,10 @@ export class TaskStatusQuery {
       }
     }
 
-    const successRate = allTasks.length > 0
-      ? stats.completed / (stats.completed + stats.failed + stats.cancelled)
-      : 0;
+    const successRate =
+      allTasks.length > 0
+        ? stats.completed / (stats.completed + stats.failed + stats.cancelled)
+        : 0;
 
     return {
       total: allTasks.length,
@@ -231,7 +237,9 @@ export class TaskStatusQuery {
   /**
    * 获取任务执行时间线
    */
-  async getTaskTimeline(hours: number = 24): Promise<Array<{ hour: string; count: number; status: TaskStatus[] }>> {
+  async getTaskTimeline(
+    hours: number = 24
+  ): Promise<Array<{ hour: string; count: number; status: TaskStatus[] }>> {
     const allTasks = await this.queueOps.listTasks();
     const cutoffTime = new Date(Date.now() - hours * 60 * 60 * 1000);
     const timeline: Record<string, { count: number; statuses: Set<TaskStatus> }> = {};
@@ -278,7 +286,7 @@ export class TaskStatusQuery {
     const stalledThreshold = 30 * 60 * 1000; // 30 minutes
 
     // 检查是否有卡住的任务
-    const stalledTasks = runningTasks.filter(task => {
+    const stalledTasks = runningTasks.filter((task) => {
       const age = now - new Date(task.updatedAt).getTime();
       return age > stalledThreshold;
     });
@@ -294,7 +302,7 @@ export class TaskStatusQuery {
 
     // 检查失败率
     const totalProcessed = stats.completed + stats.failed + stats.cancelled;
-    if (totalProcessed > 0 && (stats.failed / totalProcessed) > 0.1) {
+    if (totalProcessed > 0 && stats.failed / totalProcessed > 0.1) {
       issues.push(`High failure rate: ${((stats.failed / totalProcessed) * 100).toFixed(1)}%`);
     }
 
@@ -331,7 +339,8 @@ export class TaskStatusQuery {
       'timeout',
       'cancelled',
     ];
-    const statusesToCheck = statusFilter && statusFilter.length > 0 ? statusFilter : defaultStatuses;
+    const statusesToCheck =
+      statusFilter && statusFilter.length > 0 ? statusFilter : defaultStatuses;
 
     for (const status of statusesToCheck) {
       const statusTasks = await this.queueOps.listTasks(status);
@@ -345,7 +354,7 @@ export class TaskStatusQuery {
    * 应用过滤器
    */
   private applyFilter(tasks: Task[], filter: TaskFilter): Task[] {
-    return tasks.filter(task => {
+    return tasks.filter((task) => {
       // 状态过滤
       if (filter.status && !filter.status.includes(task.status)) {
         return false;

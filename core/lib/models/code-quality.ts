@@ -37,26 +37,54 @@ export interface CodeQualityStandard {
 
 export function validateCodeQualityStandard(std: CodeQualityStandard): ValidationResult {
   const errors: ValidationError[] = [];
-  if (!std.id) errors.push({ field: 'id', message: 'id required', code: 'CQ_ID_REQUIRED' });
-  if (!std.linting?.configFile) errors.push({ field: 'linting.configFile', message: 'config file required', code: 'CQ_LINT_CFG' });
-  if (!Array.isArray(std.qualityGates)) errors.push({ field: 'qualityGates', message: 'qualityGates required', code: 'CQ_QG_REQUIRED' });
+  if (!std.id) {
+    errors.push({ field: 'id', message: 'id required', code: 'CQ_ID_REQUIRED' });
+  }
+  if (!std.linting?.configFile) {
+    errors.push({
+      field: 'linting.configFile',
+      message: 'config file required',
+      code: 'CQ_LINT_CFG',
+    });
+  }
+  if (!Array.isArray(std.qualityGates)) {
+    errors.push({
+      field: 'qualityGates',
+      message: 'qualityGates required',
+      code: 'CQ_QG_REQUIRED',
+    });
+  }
   return { valid: errors.length === 0, errors, warnings: [] };
 }
 
-export function evaluateQualityGates(metrics: Record<string, number>, gates: QualityGate[]): { pass: boolean; failed: QualityGate[] } {
+export function evaluateQualityGates(
+  metrics: Record<string, number>,
+  gates: QualityGate[]
+): { pass: boolean; failed: QualityGate[] } {
   const failed: QualityGate[] = [];
   for (const gate of gates) {
     const value = metrics[gate.metric];
     let ok = false;
     switch (gate.operator) {
-      case 'gt': ok = value > gate.threshold; break;
-      case 'gte': ok = value >= gate.threshold; break;
-      case 'lt': ok = value < gate.threshold; break;
-      case 'lte': ok = value <= gate.threshold; break;
-      case 'eq': ok = value === gate.threshold; break;
+      case 'gt':
+        ok = value > gate.threshold;
+        break;
+      case 'gte':
+        ok = value >= gate.threshold;
+        break;
+      case 'lt':
+        ok = value < gate.threshold;
+        break;
+      case 'lte':
+        ok = value <= gate.threshold;
+        break;
+      case 'eq':
+        ok = value === gate.threshold;
+        break;
     }
-    if (!ok && gate.required) failed.push(gate);
+    if (!ok && gate.required) {
+      failed.push(gate);
+    }
   }
   return { pass: failed.length === 0, failed };
 }
-

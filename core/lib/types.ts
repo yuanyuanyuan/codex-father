@@ -205,7 +205,12 @@ export interface QueueDirectoryStructure {
 }
 
 export interface CorruptionIssue {
-  type: 'missing_file' | 'invalid_json' | 'inconsistent_status' | 'orphaned_file' | 'permission_error';
+  type:
+    | 'missing_file'
+    | 'invalid_json'
+    | 'inconsistent_status'
+    | 'orphaned_file'
+    | 'permission_error';
   severity: 'low' | 'medium' | 'high' | 'critical';
   path: string;
   description: string;
@@ -237,7 +242,7 @@ export interface BackupResult {
   backupPath: string;
   fileCount: number;
   totalSize: number; // bytes
-  duration: number;  // milliseconds
+  duration: number; // milliseconds
   compression: number; // ratio
 }
 
@@ -307,14 +312,15 @@ export const TASK_QUEUE_ERROR_CODES = {
   EXECUTOR_FAILED: 'TQ303',
 } as const;
 
-export type TaskQueueErrorCode = typeof TASK_QUEUE_ERROR_CODES[keyof typeof TASK_QUEUE_ERROR_CODES];
+export type TaskQueueErrorCode =
+  (typeof TASK_QUEUE_ERROR_CODES)[keyof typeof TASK_QUEUE_ERROR_CODES];
 
 export class TaskQueueError extends Error {
   constructor(
     message: string,
     public readonly code: TaskQueueErrorCode,
     public readonly taskId?: string,
-    public readonly details?: Record<string, any>,
+    public readonly details?: Record<string, any>
   ) {
     super(message);
     this.name = 'TaskQueueError';

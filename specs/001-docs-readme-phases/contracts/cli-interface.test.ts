@@ -13,7 +13,7 @@ import type {
   ConfigCommand,
   MCPCommand,
   CLIError,
-  PerformanceMetrics
+  PerformanceMetrics,
 } from './cli-interface.js';
 
 // ============================================================================
@@ -61,7 +61,7 @@ describe('CLI Interface Contract Tests', () => {
     it('should display help information', async () => {
       const result = await mockCLI.executeCommand('codex-father', {
         ...testContext,
-        options: { help: true }
+        options: { help: true },
       });
 
       expect(result.success).toBe(true);
@@ -75,7 +75,7 @@ describe('CLI Interface Contract Tests', () => {
 
       await mockCLI.executeCommand('codex-father', {
         ...testContext,
-        options: { version: true }
+        options: { version: true },
       });
 
       const endTime = Date.now();
@@ -88,7 +88,7 @@ describe('CLI Interface Contract Tests', () => {
     it('should support JSON output format', async () => {
       const result = await mockCLI.executeCommand('codex-father', {
         ...testContext,
-        options: { version: true, json: true }
+        options: { version: true, json: true },
       });
 
       expect(result.success).toBe(true);
@@ -114,8 +114,8 @@ describe('CLI Interface Contract Tests', () => {
         options: {
           type: 'test',
           priority: 5,
-          payload: { message: 'test' }
-        }
+          payload: { message: 'test' },
+        },
       });
 
       expect(result.success).toBe(true);
@@ -130,8 +130,8 @@ describe('CLI Interface Contract Tests', () => {
         args: ['list'],
         options: {
           status: ['pending', 'processing'],
-          limit: 10
-        }
+          limit: 10,
+        },
       });
 
       expect(result.success).toBe(true);
@@ -145,7 +145,7 @@ describe('CLI Interface Contract Tests', () => {
 
       const result = await mockCLI.executeCommand('task', {
         ...testContext,
-        args: ['status', taskId]
+        args: ['status', taskId],
       });
 
       expect(result.success).toBe(true);
@@ -160,7 +160,7 @@ describe('CLI Interface Contract Tests', () => {
 
       const result = await mockCLI.executeCommand('task', {
         ...testContext,
-        args: ['cancel', taskId]
+        args: ['cancel', taskId],
       });
 
       expect(result.success).toBe(true);
@@ -173,7 +173,7 @@ describe('CLI Interface Contract Tests', () => {
 
       const result = await mockCLI.executeCommand('task', {
         ...testContext,
-        args: ['retry', taskId]
+        args: ['retry', taskId],
       });
 
       expect(result.success).toBe(true);
@@ -191,7 +191,7 @@ describe('CLI Interface Contract Tests', () => {
     it('should set configuration value', async () => {
       const result = await mockCLI.executeCommand('config', {
         ...testContext,
-        args: ['set', 'core.timeout', '30000']
+        args: ['set', 'core.timeout', '30000'],
       });
 
       expect(result.success).toBe(true);
@@ -201,7 +201,7 @@ describe('CLI Interface Contract Tests', () => {
     it('should get configuration value', async () => {
       const result = await mockCLI.executeCommand('config', {
         ...testContext,
-        args: ['get', 'core.timeout']
+        args: ['get', 'core.timeout'],
       });
 
       expect(result.success).toBe(true);
@@ -215,7 +215,7 @@ describe('CLI Interface Contract Tests', () => {
       const result = await mockCLI.executeCommand('config', {
         ...testContext,
         args: ['list'],
-        options: { verbose: true }
+        options: { verbose: true },
       });
 
       expect(result.success).toBe(true);
@@ -226,7 +226,7 @@ describe('CLI Interface Contract Tests', () => {
     it('should validate configuration', async () => {
       const result = await mockCLI.executeCommand('config', {
         ...testContext,
-        args: ['validate']
+        args: ['validate'],
       });
 
       expect(result.success).toBe(true);
@@ -241,7 +241,7 @@ describe('CLI Interface Contract Tests', () => {
       const result = await mockCLI.executeCommand('config', {
         ...testContext,
         args: ['init'],
-        options: { environment: 'development' }
+        options: { environment: 'development' },
       });
 
       expect(result.success).toBe(true);
@@ -258,7 +258,7 @@ describe('CLI Interface Contract Tests', () => {
       const result = await mockCLI.executeCommand('mcp', {
         ...testContext,
         args: ['start'],
-        options: { port: 3000, detached: true }
+        options: { port: 3000, detached: true },
       });
 
       expect(result.success).toBe(true);
@@ -271,7 +271,7 @@ describe('CLI Interface Contract Tests', () => {
     it('should stop MCP server', async () => {
       const result = await mockCLI.executeCommand('mcp', {
         ...testContext,
-        args: ['stop']
+        args: ['stop'],
       });
 
       expect(result.success).toBe(true);
@@ -281,7 +281,7 @@ describe('CLI Interface Contract Tests', () => {
     it('should show MCP server status', async () => {
       const result = await mockCLI.executeCommand('mcp', {
         ...testContext,
-        args: ['status']
+        args: ['status'],
       });
 
       expect(result.success).toBe(true);
@@ -294,7 +294,7 @@ describe('CLI Interface Contract Tests', () => {
     it('should list available tools', async () => {
       const result = await mockCLI.executeCommand('mcp', {
         ...testContext,
-        args: ['tools']
+        args: ['tools'],
       });
 
       expect(result.success).toBe(true);
@@ -320,7 +320,7 @@ describe('CLI Interface Contract Tests', () => {
       const result = await mockCLI.executeCommand('task', {
         ...testContext,
         args: ['create'],
-        options: {} // 缺少必需的 type 参数
+        options: {}, // 缺少必需的 type 参数
       });
 
       expect(result.success).toBe(false);
@@ -331,7 +331,7 @@ describe('CLI Interface Contract Tests', () => {
     it('should provide helpful error messages', async () => {
       const result = await mockCLI.executeCommand('config', {
         ...testContext,
-        args: ['get', 'invalid.key']
+        args: ['get', 'invalid.key'],
       });
 
       expect(result.success).toBe(false);
@@ -344,7 +344,7 @@ describe('CLI Interface Contract Tests', () => {
       const result = await mockCLI.executeCommand('config', {
         ...testContext,
         args: ['set', 'protected.key', 'value'],
-        options: { force: false }
+        options: { force: false },
       });
 
       if (!result.success) {
@@ -362,7 +362,7 @@ describe('CLI Interface Contract Tests', () => {
       await mockCLI.executeCommand('task', {
         ...testContext,
         args: ['create'],
-        options: { type: 'test', payload: {} }
+        options: { type: 'test', payload: {} },
       });
 
       const metrics = mockCLI.getPerformanceMetrics();
@@ -388,7 +388,7 @@ describe('CLI Interface Contract Tests', () => {
 
       await mockCLI.executeCommand('config', {
         ...testContext,
-        args: ['list']
+        args: ['list'],
       });
 
       const duration = Date.now() - start;
@@ -417,6 +417,6 @@ function createTestContext(): CommandContext {
     configPath: '/tmp/test/.codex-father',
     verbose: false,
     dryRun: false,
-    json: false
+    json: false,
   };
 }

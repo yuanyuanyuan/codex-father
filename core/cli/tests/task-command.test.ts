@@ -55,9 +55,7 @@ describe('Task Command Interface (T002)', () => {
               message: 'Listing tasks',
               data: {
                 ...baseData,
-                tasks: [
-                  { id: 'demo-task-id', type: 'analysis', status: 'pending' }
-                ],
+                tasks: [{ id: 'demo-task-id', type: 'analysis', status: 'pending' }],
                 totalCount: 1,
               },
               executionTime: 8,
@@ -124,7 +122,11 @@ describe('Task Command Interface (T002)', () => {
       },
       {
         arguments: [
-          { name: 'action', description: 'Task action (create|list|status|cancel|retry|logs)', required: true },
+          {
+            name: 'action',
+            description: 'Task action (create|list|status|cancel|retry|logs)',
+            required: true,
+          },
           { name: 'id', description: 'Task identifier for targeted actions', required: false },
         ],
         options: [
@@ -169,7 +171,7 @@ describe('Task Command Interface (T002)', () => {
     );
     expect(argumentDefs).toEqual(['action', 'id']);
 
-    const optionFlags = taskCommand?.options.map(opt => opt.flags) ?? [];
+    const optionFlags = taskCommand?.options.map((opt) => opt.flags) ?? [];
 
     expect(optionFlags).toEqual(
       expect.arrayContaining([
@@ -278,14 +280,7 @@ describe('Task Command Interface (T002)', () => {
   it('returns task status data for a given identifier', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await parser.parse([
-      'node',
-      'codex-father',
-      '--json',
-      'task',
-      'status',
-      'task-123',
-    ]);
+    await parser.parse(['node', 'codex-father', '--json', 'task', 'status', 'task-123']);
 
     const context = handledContexts.at(-1);
     expect(context?.args?.[0]).toBe('status');
@@ -304,15 +299,7 @@ describe('Task Command Interface (T002)', () => {
   it('cancels a task with optional force flag', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await parser.parse([
-      'node',
-      'codex-father',
-      '--json',
-      'task',
-      'cancel',
-      'task-456',
-      '--force',
-    ]);
+    await parser.parse(['node', 'codex-father', '--json', 'task', 'cancel', 'task-456', '--force']);
 
     const context = handledContexts.at(-1);
     expect(context?.args?.[0]).toBe('cancel');

@@ -76,35 +76,55 @@ describe('Task Filter Contract (T012)', () => {
     expect(result.tasks[0].status).toBe('completed');
 
     const pendingOnly = await statusQuery.queryTasks({ status: ['pending'] });
-    expect(pendingOnly.tasks.map(task => task.id)).toContain(pendingId);
-    expect(pendingOnly.tasks.every(task => task.status === 'pending')).toBe(true);
+    expect(pendingOnly.tasks.map((task) => task.id)).toContain(pendingId);
+    expect(pendingOnly.tasks.every((task) => task.status === 'pending')).toBe(true);
   });
 
   it('filters tasks within a priority range', async () => {
-    const { taskId: lowPriority } = await queueOps.enqueueTask({ type: 'queue:low', priority: 1, payload: {} });
-    const { taskId: midPriority } = await queueOps.enqueueTask({ type: 'queue:mid', priority: 5, payload: {} });
-    const { taskId: highPriority } = await queueOps.enqueueTask({ type: 'queue:high', priority: 9, payload: {} });
+    const { taskId: lowPriority } = await queueOps.enqueueTask({
+      type: 'queue:low',
+      priority: 1,
+      payload: {},
+    });
+    const { taskId: midPriority } = await queueOps.enqueueTask({
+      type: 'queue:mid',
+      priority: 5,
+      payload: {},
+    });
+    const { taskId: highPriority } = await queueOps.enqueueTask({
+      type: 'queue:high',
+      priority: 9,
+      payload: {},
+    });
 
     const result = await statusQuery.queryTasks({
       priority: { min: 3, max: 7 },
     });
 
-    const ids = result.tasks.map(task => task.id);
+    const ids = result.tasks.map((task) => task.id);
     expect(ids).toContain(midPriority);
     expect(ids).not.toContain(lowPriority);
     expect(ids).not.toContain(highPriority);
   });
 
   it('filters tasks by creation timestamps', async () => {
-    const { taskId: earlyTask } = await queueOps.enqueueTask({ type: 'timeline:early', priority: 2, payload: {} });
+    const { taskId: earlyTask } = await queueOps.enqueueTask({
+      type: 'timeline:early',
+      priority: 2,
+      payload: {},
+    });
 
     vi.setSystemTime(new Date('2025-01-01T04:00:00Z'));
     const cutoff = new Date('2025-01-01T02:00:00Z');
 
-    const { taskId: lateTask } = await queueOps.enqueueTask({ type: 'timeline:late', priority: 4, payload: {} });
+    const { taskId: lateTask } = await queueOps.enqueueTask({
+      type: 'timeline:late',
+      priority: 4,
+      payload: {},
+    });
 
     const filtered = await statusQuery.queryTasks({ createdAfter: cutoff });
-    const ids = filtered.tasks.map(task => task.id);
+    const ids = filtered.tasks.map((task) => task.id);
 
     expect(ids).toContain(lateTask);
     expect(ids).not.toContain(earlyTask);

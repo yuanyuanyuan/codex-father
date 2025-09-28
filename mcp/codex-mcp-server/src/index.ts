@@ -9,7 +9,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   type CallToolRequest,
-  type ListToolsResult
+  type ListToolsResult,
 } from '@modelcontextprotocol/sdk/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,14 +39,20 @@ function resolveStartSh(): string {
 
 const START_SH = resolveStartSh();
 
-function run(cmd: string, args: string[], input?: string): Promise<{ code: number; stdout: string; stderr: string }>{
+function run(
+  cmd: string,
+  args: string[],
+  input?: string
+): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     const child = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
     child.stdout.on('data', (d: Buffer) => (out += d.toString()));
     child.stderr.on('data', (d: Buffer) => (err += d.toString()));
-    child.on('close', (code: number | null) => resolve({ code: code ?? -1, stdout: out, stderr: err }));
+    child.on('close', (code: number | null) =>
+      resolve({ code: code ?? -1, stdout: out, stderr: err })
+    );
     if (input) child.stdin.end(input);
     else child.stdin.end();
   });
@@ -64,8 +70,14 @@ function toolsSpec(): ListToolsResult {
             args: { type: 'array', items: { type: 'string' } },
             tag: { type: 'string' },
             cwd: { type: 'string' },
-            approvalPolicy: { type: 'string', enum: ['untrusted', 'on-failure', 'on-request', 'never'] },
-            sandbox: { type: 'string', enum: ['read-only', 'workspace-write', 'danger-full-access'] },
+            approvalPolicy: {
+              type: 'string',
+              enum: ['untrusted', 'on-failure', 'on-request', 'never'],
+            },
+            sandbox: {
+              type: 'string',
+              enum: ['read-only', 'workspace-write', 'danger-full-access'],
+            },
             network: { type: 'boolean' },
             fullAuto: { type: 'boolean' },
             dangerouslyBypass: { type: 'boolean' },
@@ -79,10 +91,10 @@ function toolsSpec(): ListToolsResult {
             requireChangeIn: { type: 'array', items: { type: 'string' } },
             requireGitCommit: { type: 'boolean' },
             autoCommitOnDone: { type: 'boolean' },
-            autoCommitMessage: { type: 'string' }
+            autoCommitMessage: { type: 'string' },
           },
-          additionalProperties: false
-        }
+          additionalProperties: false,
+        },
       },
       {
         name: 'codex.start',
@@ -93,8 +105,14 @@ function toolsSpec(): ListToolsResult {
             args: { type: 'array', items: { type: 'string' } },
             tag: { type: 'string' },
             cwd: { type: 'string' },
-            approvalPolicy: { type: 'string', enum: ['untrusted', 'on-failure', 'on-request', 'never'] },
-            sandbox: { type: 'string', enum: ['read-only', 'workspace-write', 'danger-full-access'] },
+            approvalPolicy: {
+              type: 'string',
+              enum: ['untrusted', 'on-failure', 'on-request', 'never'],
+            },
+            sandbox: {
+              type: 'string',
+              enum: ['read-only', 'workspace-write', 'danger-full-access'],
+            },
             network: { type: 'boolean' },
             fullAuto: { type: 'boolean' },
             dangerouslyBypass: { type: 'boolean' },
@@ -108,10 +126,10 @@ function toolsSpec(): ListToolsResult {
             requireChangeIn: { type: 'array', items: { type: 'string' } },
             requireGitCommit: { type: 'boolean' },
             autoCommitOnDone: { type: 'boolean' },
-            autoCommitMessage: { type: 'string' }
+            autoCommitMessage: { type: 'string' },
           },
-          additionalProperties: false
-        }
+          additionalProperties: false,
+        },
       },
       {
         name: 'codex.status',
@@ -120,8 +138,8 @@ function toolsSpec(): ListToolsResult {
           type: 'object',
           properties: { jobId: { type: 'string' } },
           required: ['jobId'],
-          additionalProperties: false
-        }
+          additionalProperties: false,
+        },
       },
       {
         name: 'codex.stop',
@@ -130,13 +148,13 @@ function toolsSpec(): ListToolsResult {
           type: 'object',
           properties: { jobId: { type: 'string' }, force: { type: 'boolean' } },
           required: ['jobId'],
-          additionalProperties: false
-        }
+          additionalProperties: false,
+        },
       },
       {
         name: 'codex.list',
         description: 'List known jobs (runs/*).',
-        inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
       },
       {
         name: 'codex.logs',
@@ -151,20 +169,20 @@ function toolsSpec(): ListToolsResult {
             offsetLines: { type: 'integer' },
             limitLines: { type: 'integer' },
             tailLines: { type: 'integer' },
-            grep: { type: 'string' }
+            grep: { type: 'string' },
           },
           required: ['jobId'],
-          additionalProperties: false
-        }
-      }
-    ]
+          additionalProperties: false,
+        },
+      },
+    ],
   };
 }
 
 function toTomlValue(v: any): string {
   if (typeof v === 'boolean' || typeof v === 'number') return String(v);
   if (v === null || v === undefined) return '""';
-  const s = String(v).replace(/\\/g, "\\\\").replace(/\"/g, '\\"');
+  const s = String(v).replace(/\\/g, '\\\\').replace(/\"/g, '\\"');
   return `"${s}"`;
 }
 
@@ -222,7 +240,9 @@ async function handleCall(req: CallToolRequest) {
         const tag = p.tag ? String(p.tag) : '';
         const cwd = p.cwd ? String(p.cwd) : '';
         const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
-        const safeTag = tag ? tag.replace(/[^A-Za-z0-9_.-]/g, '-').replace(/^-+|-+$/g, '') : 'untagged';
+        const safeTag = tag
+          ? tag.replace(/[^A-Za-z0-9_.-]/g, '-').replace(/^-+|-+$/g, '')
+          : 'untagged';
         const baseDir = cwd || process.cwd();
         const sessionsRoot = path.resolve(baseDir, '.codex-father', 'sessions');
         const runId = `exec-${ts}-${safeTag}`;
@@ -239,25 +259,33 @@ async function handleCall(req: CallToolRequest) {
           CODEX_LOG_AGGREGATE: '1',
           CODEX_LOG_AGGREGATE_FILE: aggTxt,
           CODEX_LOG_AGGREGATE_JSONL_FILE: aggJsonl,
-          CODEX_LOG_SUBDIRS: '0'
+          CODEX_LOG_SUBDIRS: '0',
         } as NodeJS.ProcessEnv;
-        let code = 0; let stdout = ''; let stderr = '';
+        let code = 0;
+        let stdout = '';
+        let stderr = '';
         await new Promise<void>((resolve) => {
           const child = spawn(START_SH, pass, {
             stdio: ['ignore', 'pipe', 'pipe'],
             env,
-            cwd: cwd || undefined
+            cwd: cwd || undefined,
           });
           child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
           child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
-          child.on('close', (c: number | null) => { code = c ?? -1; resolve(); });
+          child.on('close', (c: number | null) => {
+            code = c ?? -1;
+            resolve();
+          });
         });
         const instrFile = logFile.replace(/\.log$/, '.instructions.md');
         const metaFile = logFile.replace(/\.log$/, '.meta.json');
         let lastMessageFile = '';
         try {
           const entries = fs.readdirSync(runDir).filter((f) => /\.last\.txt$/.test(f));
-          entries.sort((a, b) => fs.statSync(path.join(runDir, b)).mtimeMs - fs.statSync(path.join(runDir, a)).mtimeMs);
+          entries.sort(
+            (a, b) =>
+              fs.statSync(path.join(runDir, b)).mtimeMs - fs.statSync(path.join(runDir, a)).mtimeMs
+          );
           if (entries.length) lastMessageFile = path.join(runDir, entries[0]);
         } catch {}
         let exitCode = code;
@@ -273,13 +301,29 @@ async function handleCall(req: CallToolRequest) {
           }
         } catch {}
         const payload = {
-          runId, exitCode, cwd: cwd || process.cwd(), logFile,
-          instructionsFile: instrFile, metaFile, lastMessageFile, tag: safeTag
+          runId,
+          exitCode,
+          cwd: cwd || process.cwd(),
+          logFile,
+          instructionsFile: instrFile,
+          metaFile,
+          lastMessageFile,
+          tag: safeTag,
         };
         if (code !== 0 && !fs.existsSync(logFile)) {
-          return { content: [{ type: 'text', text: JSON.stringify({ ...payload, processExit: code, error: stderr.trim() }) }], isError: true };
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({ ...payload, processExit: code, error: stderr.trim() }),
+              },
+            ],
+            isError: true,
+          };
         }
-        return { content: [{ type: 'text', text: JSON.stringify({ ...payload, processExit: code }) }] };
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ ...payload, processExit: code }) }],
+        };
       }
       case 'codex.start': {
         const args: string[] = Array.isArray(p.args) ? p.args.map(String) : [];
@@ -288,7 +332,10 @@ async function handleCall(req: CallToolRequest) {
         if (isStub) {
           let outPath = '';
           for (let i = 0; i < args.length - 1; i++) {
-            if (args[i] === '--log-file') { outPath = String(args[i + 1]); break; }
+            if (args[i] === '--log-file') {
+              outPath = String(args[i + 1]);
+              break;
+            }
           }
           const directArgs = outPath ? [outPath, ...args] : args;
           const { code, stdout, stderr } = await run(START_SH, directArgs);
@@ -347,7 +394,11 @@ async function handleCall(req: CallToolRequest) {
           let lines = fs.readFileSync(logFile, 'utf8').split(/\r?\n/);
           if (grepRe) {
             let re: RegExp;
-            try { re = new RegExp(grepRe); } catch { re = /.*/; }
+            try {
+              re = new RegExp(grepRe);
+            } catch {
+              re = /.*/;
+            }
             lines = lines.filter((l: string) => re.test(l));
           }
           const total = lines.length;
@@ -366,7 +417,14 @@ async function handleCall(req: CallToolRequest) {
         let offset = Math.max(0, Number.isFinite(p.offset) ? Number(p.offset) : 0);
         const limit = Math.max(1, Number.isFinite(p.limit) ? Number(p.limit) : 4096);
         if (offset >= size) {
-          return { content: [{ type: 'text', text: JSON.stringify({ chunk: '', nextOffset: offset, eof: true, size }) }] };
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({ chunk: '', nextOffset: offset, eof: true, size }),
+              },
+            ],
+          };
         }
         const remain = size - offset;
         const count = Math.min(limit, remain);
@@ -377,18 +435,26 @@ async function handleCall(req: CallToolRequest) {
         const chunk = buf.toString('utf8');
         const nextOffset = offset + count;
         const eof = nextOffset >= size;
-        return { content: [{ type: 'text', text: JSON.stringify({ chunk, nextOffset, eof, size }) }] };
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ chunk, nextOffset, eof, size }) }],
+        };
       }
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
   } catch (e: any) {
-    return { content: [{ type: 'text', text: `ERROR: ${e?.message || String(e)}` }], isError: true };
+    return {
+      content: [{ type: 'text', text: `ERROR: ${e?.message || String(e)}` }],
+      isError: true,
+    };
   }
 }
 
 async function main() {
-  const server = new Server({ name: 'codex-father-mcp', version: '0.1.0' }, { capabilities: { tools: {} } });
+  const server = new Server(
+    { name: 'codex-father-mcp', version: '0.1.0' },
+    { capabilities: { tools: {} } }
+  );
   server.setRequestHandler(ListToolsRequestSchema, async () => toolsSpec());
   server.setRequestHandler(CallToolRequestSchema, async (req) => handleCall(req));
   const transport = new StdioServerTransport();

@@ -12,13 +12,9 @@ describe('CLI Error Handling (T007)', () => {
     command = new Command();
     parser = new CLIParser(command);
 
-    parser.registerCommand(
-      'explode',
-      'Command that throws an error',
-      async () => {
-        throw new Error('Explosion occurred');
-      }
-    );
+    parser.registerCommand('explode', 'Command that throws an error', async () => {
+      throw new Error('Explosion occurred');
+    });
 
     parser.registerCommand(
       'json-error',
@@ -42,9 +38,9 @@ describe('CLI Error Handling (T007)', () => {
 
     await parser.parse(['node', 'codex-father', 'unknown-cmd']);
 
-    const output = errorSpy.mock.calls.map(call => call[0]).join('\n');
+    const output = errorSpy.mock.calls.map((call) => call[0]).join('\n');
     expect(output).toContain('Unknown command');
-    expect(output).toContain('Run \'codex-father --help\' for available commands.');
+    expect(output).toContain("Run 'codex-father --help' for available commands.");
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
@@ -54,7 +50,7 @@ describe('CLI Error Handling (T007)', () => {
 
     await parser.parse(['node', 'codex-father', 'explode']);
 
-    const errors = errorSpy.mock.calls.map(call => call[0]).join('\n');
+    const errors = errorSpy.mock.calls.map((call) => call[0]).join('\n');
     expect(errors).toContain('Explosion occurred');
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
@@ -79,9 +75,11 @@ describe('CLI Error Handling (T007)', () => {
 
     await parser.parse(['node', 'codex-father', '--verbose', 'explode']);
 
-    const messages = errorSpy.mock.calls.map(call => call[0]);
+    const messages = errorSpy.mock.calls.map((call) => call[0]);
     expect(messages[0]).toContain('Explosion occurred');
-    expect(messages.some(msg => typeof msg === 'string' && msg.includes('Error: Explosion occurred'))).toBe(true);
+    expect(
+      messages.some((msg) => typeof msg === 'string' && msg.includes('Error: Explosion occurred'))
+    ).toBe(true);
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 });

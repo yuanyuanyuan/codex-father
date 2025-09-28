@@ -25,14 +25,25 @@ describe('MCP error codes and handling (T030)', () => {
   });
 
   it('models common error flows with proper codes', () => {
-    const toolNotFound = { code: MCP_ERROR_CODES.TOOL_NOT_FOUND, message: 'Tool not found', data: { name: 'x' } };
+    const toolNotFound = {
+      code: MCP_ERROR_CODES.TOOL_NOT_FOUND,
+      message: 'Tool not found',
+      data: { name: 'x' },
+    };
     expect(toolNotFound.code).toBe(-32000);
 
-    const invalidParams = { code: MCP_ERROR_CODES.INVALID_PARAMS, message: 'Invalid params', data: { field: 'id' } };
+    const invalidParams = {
+      code: MCP_ERROR_CODES.INVALID_PARAMS,
+      message: 'Invalid params',
+      data: { field: 'id' },
+    };
     expect(invalidParams.code).toBe(-32602);
 
-    const containerError = { code: MCP_ERROR_CODES.CONTAINER_ERROR, message: 'Failed to run container', data: { id: 'c1' } };
+    const containerError = {
+      code: MCP_ERROR_CODES.CONTAINER_ERROR,
+      message: 'Failed to run container',
+      data: { id: 'c1' },
+    };
     expect(containerError.code).toBe(-33004);
   });
 });
-

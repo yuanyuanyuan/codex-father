@@ -100,11 +100,13 @@ describe('Queue Configuration Contract (T018)', () => {
     });
 
     expect(result.valid).toBe(false);
-    expect(result.errors).toEqual(expect.arrayContaining([
-      'baseDirectory must be a non-empty string',
-      'maxQueueSize must be >= 0',
-      'defaultTimeout must be > 0',
-    ]));
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        'baseDirectory must be a non-empty string',
+        'maxQueueSize must be >= 0',
+        'defaultTimeout must be > 0',
+      ])
+    );
   });
 
   it('exposes immutable default configuration snapshot', () => {

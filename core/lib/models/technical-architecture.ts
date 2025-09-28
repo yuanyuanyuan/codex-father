@@ -54,12 +54,16 @@ export interface TechnicalArchitectureSpec {
 
 export function isSemver(v: string): boolean {
   // Accepts X.Y.Z with optional pre-release/build
-  return /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-.]+)?(?:\+[0-9A-Za-z-.]+)?$/.test(v);
+  return /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-.]+)?(?:\+[0-9A-Za-z-.]+)?$/.test(
+    v
+  );
 }
 
 export function detectModuleCircularDependencies(mods: ModuleDefinition[]): string[][] {
   const graph = new Map<string, string[]>();
-  for (const m of mods) graph.set(m.name, [...m.dependencies]);
+  for (const m of mods) {
+    graph.set(m.name, [...m.dependencies]);
+  }
 
   const visited = new Set<string>();
   const stack = new Set<string>();
@@ -71,15 +75,21 @@ export function detectModuleCircularDependencies(mods: ModuleDefinition[]): stri
       cycles.push(path.slice(idx).concat(node));
       return;
     }
-    if (visited.has(node)) return;
+    if (visited.has(node)) {
+      return;
+    }
     visited.add(node);
     stack.add(node);
     const next = graph.get(node) || [];
-    for (const n of next) dfs(n, path.concat(n));
+    for (const n of next) {
+      dfs(n, path.concat(n));
+    }
     stack.delete(node);
   }
 
-  for (const key of graph.keys()) dfs(key, [key]);
+  for (const key of graph.keys()) {
+    dfs(key, [key]);
+  }
   return cycles;
 }
 
@@ -96,14 +106,18 @@ export function validateTechnicalArchitectureSpec(
   }
 
   if (!isSemver(spec.version)) {
-    errors.push({ field: 'version', message: `version '${spec.version}' is not semver`, code: 'TA_VERSION_SEMVER' });
+    errors.push({
+      field: 'version',
+      message: `version '${spec.version}' is not semver`,
+      code: 'TA_VERSION_SEMVER',
+    });
   }
 
   const cycles = detectModuleCircularDependencies(spec.modules);
   if (cycles.length > 0) {
     errors.push({
       field: 'modules',
-      message: `circular dependencies detected: ${cycles.map(c => c.join(' -> ')).join(' | ')}`,
+      message: `circular dependencies detected: ${cycles.map((c) => c.join(' -> ')).join(' | ')}`,
       code: 'TA_MODULE_CYCLE',
     });
   }
@@ -111,10 +125,13 @@ export function validateTechnicalArchitectureSpec(
   // simple interface version checks
   for (const iface of spec.interfaces) {
     if (!isSemver(iface.version)) {
-      errors.push({ field: `interfaces.${iface.name}.version`, message: 'invalid semver', code: 'TA_IFACE_SEMVER' });
+      errors.push({
+        field: `interfaces.${iface.name}.version`,
+        message: 'invalid semver',
+        code: 'TA_IFACE_SEMVER',
+      });
     }
   }
 
   return { valid: errors.length === 0, errors, warnings: [] };
 }
-

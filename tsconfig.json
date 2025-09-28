@@ -33,20 +33,18 @@
       "@mcp/*": ["core/mcp/*"],
       "@phases/*": ["phases/*"],
       "@tests/*": ["tests/*"],
-      "@config/*": ["config/*"]
+      "@config/*": ["config/*"],
+      "@src/*": ["src/*"],
+      "@models/*": ["src/models/*"],
+      "@services/*": ["src/services/*"],
+      "@prd-cli/*": ["src/cli/*"],
+      "@prd-lib/*": ["src/lib/*"]
     }
   },
-  "include": [
-    "core/**/*",
-    "phases/**/*",
-    "tests/**/*",
-    "config/**/*"
-  ],
+  "include": ["core/**/*", "phases/**/*", "tests/**/*", "config/**/*", "src/**/*", "specs/**/*"],
   "exclude": [
     "node_modules",
     "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts",
     "mcp/codex-mcp-server/node_modules",
     "mcp/codex-mcp-server/dist",
     ".codex-father",

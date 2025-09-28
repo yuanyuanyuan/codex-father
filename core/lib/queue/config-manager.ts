@@ -42,4 +42,3 @@ export class QueueConfigManager {
     writeFileSync(this.configFile, JSON.stringify(cfg, null, 2), 'utf8');
   }
 }
-

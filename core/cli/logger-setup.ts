@@ -98,7 +98,8 @@ class TransportFactory {
   ): winston.transports.ConsoleTransportInstance {
     return new winston.transports.Console({
       level,
-      format: format === 'json' ? LogFormatter.createJsonFormat() : LogFormatter.createConsoleFormat(),
+      format:
+        format === 'json' ? LogFormatter.createJsonFormat() : LogFormatter.createConsoleFormat(),
       handleExceptions: true,
       handleRejections: true,
     });
@@ -153,7 +154,8 @@ class TransportFactory {
       const Syslog = require('winston-syslog').Syslog;
       return new Syslog({
         level,
-        format: format === 'json' ? LogFormatter.createJsonFormat() : LogFormatter.createTextFormat(),
+        format:
+          format === 'json' ? LogFormatter.createJsonFormat() : LogFormatter.createTextFormat(),
         facility: 'local0',
       });
     } catch (error) {

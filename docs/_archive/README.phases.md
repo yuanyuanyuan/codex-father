@@ -15,6 +15,8 @@
   - 设计：docs/design-stage3-container-integration.md
 
 相关现有文档（作为三阶段实施的基础指南，仍需与阶段文档配套阅读）：
+
 - 非交互模式指南：docs/codex-non-interactive.md（阶段一对齐行为的权威定义，描述三类沙箱模式与 YOLO 限制）
 - 使用说明：docs/usage.md（所有阶段的 CLI/MCP 通用用法与产物结构，应保持与实现同步）
-- DevContainer / Docker：docs/devcontainer.md（阶段三容器方案与脚本说明，指导在隔离环境中运行写盘类 E2E）
+- DevContainer /
+  Docker：docs/devcontainer.md（阶段三容器方案与脚本说明，指导在隔离环境中运行写盘类 E2E）

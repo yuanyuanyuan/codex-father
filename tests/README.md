@@ -7,20 +7,27 @@
 ### 测试分类
 
 #### 1. 单元测试 (`tests/unit/`)
+
 测试单独的功能模块，不依赖外部系统：
+
 - `test_start_sh_args.bats` - 参数解析功能测试
 - `test_common_helpers.bats` - 辅助函数测试
 - `test_job_sh_mgmt.bats` - 任务管理功能测试
 
 #### 2. 单元测试 + Codex (`tests/unit-codex/`)
+
 测试与 Codex CLI 的集成功能：
+
 - `test_codex_integration.bats` - Codex 集成测试
 
 #### 3. E2E 测试 (`tests/e2e/`)
+
 端到端完整流程测试，不包含 Codex：
+
 - `test_e2e_workflow.bats` - 完整工作流程测试
 
 #### 4. E2E 测试 + Codex (`tests/e2e-codex/`)
+
 包含真实 Codex 集成的端到端测试（待实现）
 
 ## 快速开始
@@ -90,6 +97,7 @@ create_test_markdown_files()  # 创建测试文档
 ### Mock 环境
 
 测试使用 Mock Codex 来模拟不同的执行场景：
+
 - `success` - 成功执行
 - `failure` - 执行失败
 - `timeout` - 执行超时
@@ -170,12 +178,14 @@ teardown() {
 ## 测试覆盖
 
 ### 当前覆盖率目标
+
 - **参数解析**: ~95% 路径覆盖
 - **指令组合**: ~90% 场景覆盖
 - **日志系统**: ~90% 功能覆盖
 - **错误处理**: ~85% 错误场景
 
 ### 测试金字塔分布
+
 - **单元测试**: 70% (快速反馈)
 - **集成测试**: 20% (组件协作)
 - **E2E 测试**: 10% (完整流程)
@@ -185,11 +195,13 @@ teardown() {
 ### 常见问题
 
 1. **BATS 未安装**
+
    ```bash
    npm install -g bats
    ```
 
 2. **权限错误**
+
    ```bash
    chmod +x run_tests.sh
    ```
@@ -222,4 +234,4 @@ bats --show-output-of-passing-tests tests/unit/
 
 ---
 
-*测试是代码质量的保证，让我们一起维护高质量的测试套件！* ＼(^o^)／
+_测试是代码质量的保证，让我们一起维护高质量的测试套件！_ ＼(^o^)／

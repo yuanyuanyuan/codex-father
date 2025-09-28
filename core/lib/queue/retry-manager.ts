@@ -24,7 +24,9 @@ export class RetryManager {
     let scheduled = 0;
     for (const t of [...failed, ...timeouts]) {
       const r = await this.ops.retryTask(t.id);
-      if (r.retryScheduled) scheduled += 1;
+      if (r.retryScheduled) {
+        scheduled += 1;
+      }
     }
     return { checked: failed.length + timeouts.length, scheduled };
   }
@@ -38,11 +40,14 @@ export class RetryManager {
     let delay = baseDelay;
     switch (strategy) {
       case 'fixed':
-        delay = baseDelay; break;
+        delay = baseDelay;
+        break;
       case 'linear':
-        delay = baseDelay * (attempts + 1); break;
+        delay = baseDelay * (attempts + 1);
+        break;
       default:
-        delay = baseDelay * Math.pow(2, attempts); break;
+        delay = baseDelay * Math.pow(2, attempts);
+        break;
     }
     return Math.min(delay, maxDelay);
   }

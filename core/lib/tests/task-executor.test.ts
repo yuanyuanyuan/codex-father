@@ -60,7 +60,7 @@ describe('Task Executor Contract (T014)', () => {
 
   it('executes tasks, tracks metrics, and reports capabilities', async () => {
     executor.registerTaskHandler('test:metrics', async (payload) => {
-      await new Promise(resolve => setTimeout(resolve, 75));
+      await new Promise((resolve) => setTimeout(resolve, 75));
       return { doubled: payload.value * 2 };
     });
 
@@ -89,14 +89,17 @@ describe('Task Executor Contract (T014)', () => {
     const stored = await queueOps.getTask(taskId);
     expect(stored?.status).toBe('completed');
     expect(stored?.result).toEqual({ doubled: 42 });
-    expect(new Date(stored?.startedAt ?? 0).getTime()).toBeGreaterThan(new Date(stored?.createdAt ?? 0).getTime());
-    expect(new Date(stored?.completedAt ?? 0).getTime()).toBeGreaterThanOrEqual(new Date(stored?.startedAt ?? 0).getTime());
+    expect(new Date(stored?.startedAt ?? 0).getTime()).toBeGreaterThan(
+      new Date(stored?.createdAt ?? 0).getTime()
+    );
+    expect(new Date(stored?.completedAt ?? 0).getTime()).toBeGreaterThanOrEqual(
+      new Date(stored?.startedAt ?? 0).getTime()
+    );
 
     const capabilities = executor.getCapabilities();
-    expect(capabilities.supportedTypes).toEqual(expect.arrayContaining([
-      'test:metrics',
-      ...Object.values(BUILT_IN_TASK_TYPES),
-    ]));
+    expect(capabilities.supportedTypes).toEqual(
+      expect.arrayContaining(['test:metrics', ...Object.values(BUILT_IN_TASK_TYPES)])
+    );
     expect(capabilities.maxConcurrency).toBe(3);
     expect(capabilities.averageExecutionTime).toBeGreaterThanOrEqual(result.executionTime);
     expect(capabilities.resourceRequirements).toEqual({
@@ -132,7 +135,9 @@ describe('Task Executor Contract (T014)', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('handler exploded');
     expect(result.metrics?.waitTimeMs).toBe(3_600_000);
-    expect(result.metrics?.durationMs).toBeGreaterThanOrEqual(result.metrics?.handlerLatencyMs ?? 0);
+    expect(result.metrics?.durationMs).toBeGreaterThanOrEqual(
+      result.metrics?.handlerLatencyMs ?? 0
+    );
 
     const stored = await queueOps.getTask(taskId);
     expect(stored?.status).toBe('failed');

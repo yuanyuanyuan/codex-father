@@ -19,7 +19,8 @@ function isMCPMessage(msg: any): msg is MCPMessage {
     (msg.method === undefined || typeof msg.method === 'string') &&
     (msg.params === undefined || typeof msg.params === 'object') &&
     (msg.result === undefined || true) &&
-    (msg.error === undefined || (typeof msg.error.code === 'number' && typeof msg.error.message === 'string'))
+    (msg.error === undefined ||
+      (typeof msg.error.code === 'number' && typeof msg.error.message === 'string'))
   );
 }
 
@@ -74,4 +75,3 @@ describe('MCP Protocol basics (T019)', () => {
     expect(caps.logging?.levels).toEqual(['debug', 'info', 'error']);
   });
 });
-

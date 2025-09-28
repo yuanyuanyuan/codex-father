@@ -1,5 +1,11 @@
 // Distinct model types to avoid clashing with existing queue types
-export type DMTaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'retrying' | 'cancelled';
+export type DMTaskStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'retrying'
+  | 'cancelled';
 
 export interface RetryPolicy {
   maxAttempts: number;
@@ -56,10 +62,15 @@ export function nextRetryDelay(policy: RetryPolicy, attempt: number): number {
   const a = Math.max(1, attempt);
   let delay = policy.baseDelay;
   switch (policy.backoffStrategy) {
-    case 'fixed': delay = policy.baseDelay; break;
-    case 'linear': delay = policy.baseDelay * a; break;
-    case 'exponential': delay = policy.baseDelay * Math.pow(2, a - 1); break;
+    case 'fixed':
+      delay = policy.baseDelay;
+      break;
+    case 'linear':
+      delay = policy.baseDelay * a;
+      break;
+    case 'exponential':
+      delay = policy.baseDelay * Math.pow(2, a - 1);
+      break;
   }
   return Math.min(delay, policy.maxDelay);
 }
-

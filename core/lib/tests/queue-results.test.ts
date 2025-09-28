@@ -84,7 +84,7 @@ describe('Queue Operation Results (T011)', () => {
         baseDelay: 1_000,
         maxDelay: 10_000,
         backoffStrategy: 'exponential',
-        retryableErrors: ['E_TEMP']
+        retryableErrors: ['E_TEMP'],
       },
     });
 

@@ -57,7 +57,13 @@ describe('TaskManagementTools (T022)', () => {
       handler: async (args): Promise<MCPToolResult> => {
         if (!args.type) return { content: [{ type: 'text', text: 'Missing type' }], isError: true };
         const id = `t_${Math.random().toString(36).slice(2, 8)}`;
-        const task: Task = { id, type: args.type, payload: args.payload ?? {}, status: 'queued', logs: [] };
+        const task: Task = {
+          id,
+          type: args.type,
+          payload: args.payload ?? {},
+          status: 'queued',
+          logs: [],
+        };
         tasks.set(id, task);
         return { content: [{ type: 'text', text: id }] };
       },
@@ -70,7 +76,9 @@ describe('TaskManagementTools (T022)', () => {
       description: 'List tasks',
       inputSchema: { type: 'object', properties: { status: { type: 'string' } } },
       handler: async (args): Promise<MCPToolResult> => {
-        const all = Array.from(tasks.values()).filter(t => (args?.status ? t.status === args.status : true));
+        const all = Array.from(tasks.values()).filter((t) =>
+          args?.status ? t.status === args.status : true
+        );
         return { content: [{ type: 'text', text: JSON.stringify(all) }] };
       },
       category: 'task',
@@ -112,7 +120,8 @@ describe('TaskManagementTools (T022)', () => {
       handler: async (args): Promise<MCPToolResult> => {
         const t = tasks.get(args.id);
         if (!t) return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
-        if (t.status !== 'failed' && t.status !== 'canceled') return { content: [{ type: 'text', text: 'INVALID_STATE' }], isError: true };
+        if (t.status !== 'failed' && t.status !== 'canceled')
+          return { content: [{ type: 'text', text: 'INVALID_STATE' }], isError: true };
         t.status = 'queued';
         t.logs.push('Retried');
         return { content: [{ type: 'text', text: 'OK' }] };
@@ -164,4 +173,3 @@ describe('TaskManagementTools (T022)', () => {
     expect(lines).toEqual(['Retried', 'Canceled']);
   });
 });
-

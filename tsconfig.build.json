@@ -14,10 +14,7 @@
     "incremental": true,
     "tsBuildInfoFile": ".tsbuildinfo.build"
   },
-  "include": [
-    "core/**/*",
-    "phases/**/*"
-  ],
+  "include": ["core/**/*", "phases/**/*"],
   "exclude": [
     "**/*.test.ts",
     "**/*.spec.ts",

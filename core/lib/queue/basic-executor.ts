@@ -23,8 +23,8 @@ export interface ExecutionOptions {
 
 export interface ResourceRequirements {
   memory: number; // bytes
-  cpu: number;    // percentage
-  disk: number;   // bytes
+  cpu: number; // percentage
+  disk: number; // bytes
 }
 
 export interface BasicTaskExecutorOptions {
@@ -179,7 +179,10 @@ export class BasicTaskExecutor {
   /**
    * 批量执行多个任务
    */
-  async executeTasks(taskIds: string[], options: ExecutionOptions = {}): Promise<ExecutionResult[]> {
+  async executeTasks(
+    taskIds: string[],
+    options: ExecutionOptions = {}
+  ): Promise<ExecutionResult[]> {
     const results: ExecutionResult[] = [];
 
     for (const taskId of taskIds) {
@@ -227,10 +230,9 @@ export class BasicTaskExecutor {
     successRate: number;
   } {
     const total = this.executionLog.length;
-    const successful = this.executionLog.filter(r => r.success).length;
-    const avgTime = total > 0
-      ? this.executionLog.reduce((sum, r) => sum + r.executionTime, 0) / total
-      : 0;
+    const successful = this.executionLog.filter((r) => r.success).length;
+    const avgTime =
+      total > 0 ? this.executionLog.reduce((sum, r) => sum + r.executionTime, 0) / total : 0;
 
     return {
       totalExecutions: total,
@@ -276,7 +278,8 @@ export class BasicTaskExecutor {
     const processingSnapshot = await this.queueOps.getTask(task.id);
     const attemptNumber = processingSnapshot?.attempts ?? context.attempt + 1;
     const startedAt = this.ensureDate(processingSnapshot?.startedAt) ?? context.startTime;
-    const effectiveWait = waitTimeFromContext ?? this.calculateWaitTime(processingSnapshot, startedAt);
+    const effectiveWait =
+      waitTimeFromContext ?? this.calculateWaitTime(processingSnapshot, startedAt);
 
     const handlerStart = performance.now();
 
@@ -355,11 +358,11 @@ export class BasicTaskExecutor {
       }, timeout);
 
       Promise.resolve(handler(payload))
-        .then(result => {
+        .then((result) => {
           clearTimeout(timeoutId);
           resolve(result);
         })
-        .catch(error => {
+        .catch((error) => {
           clearTimeout(timeoutId);
           reject(error);
         });

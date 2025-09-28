@@ -1,8 +1,10 @@
 # Codex Father 工具集（精简版）
 
-围绕 Codex CLI 的指令编排与异步运行工具，配套标准 MCP 服务器（TypeScript 实现）。本版本已清理不必要文件，仅保留核心能力、文档与 my-stark-scripts。
+围绕 Codex
+CLI 的指令编排与异步运行工具，配套标准 MCP 服务器（TypeScript 实现）。本版本已清理不必要文件，仅保留核心能力、文档与 my-stark-scripts。
 
 **核心模块**
+
 - `start.sh`：组合多源文本/文件为规范化指令，执行一次
 - `job.sh`：异步任务管理（start/status/logs/stop/list）
 - `mcp/server.sh`：MCP 服务器入口（Node >= 18，TypeScript 实现）
@@ -13,6 +15,7 @@
 - `refer-research/`：外部参考仓库（以 subtree 形式纳入）
 
 **系统要求**
+
 - Bash >= 5（运行脚本）
 - Node.js >= 18（运行 MCP 服务器）
 - Git（subtree 维护）
@@ -35,15 +38,19 @@
 ## 主要功能
 
 - 指令组合
-  - 基底：默认文件、`~/.codex/instructions.md`、`-F/--file-override`、`INSTRUCTIONS` 环境变量、STDIN（`-` 仅可出现一次）
-  - 叠加：`-f/--file`（多次、支持通配/目录/@列表）、`--docs` 简写（等价一组 -f）、`--docs-dir`、`-c/--content`（多次）
+  - 基底：默认文件、`~/.codex/instructions.md`、`-F/--file-override`、`INSTRUCTIONS`
+    环境变量、STDIN（`-` 仅可出现一次）
+  - 叠加：`-f/--file`（多次、支持通配/目录/@列表）、`--docs`
+    简写（等价一组 -f）、`--docs-dir`、`-c/--content`（多次）
   - 模板：`--prepend*` / `--append*`
   - 统一包裹 `<instructions-section type=...>`，便于复盘/解析
 - 执行控制
   - `--no-carry-context`、`--no-compress-context`、`--context-head`、`--context-grep`
   - 预设：`sprint` / `analysis` / `secure` / `fast`
 - 产物与日志
-  - `.codex-father/sessions/<job-id>/` 下产出：`job.log`、`*.instructions.md`、`*.meta.json`、（异步）`state.json` 等
+  - `.codex-father/sessions/<job-id>/`
+    下产出：`job.log`、`*.instructions.md`、`*.meta.json`、（异步）`state.json`
+    等
   - 会话内聚合：`aggregate.txt`、`aggregate.jsonl`
 - 脱敏与直通
   - `--redact`、`--redact-pattern <regex>`
@@ -52,17 +59,21 @@
     - 只读浏览（交互审批）：`--sandbox read-only --ask-for-approval on-request`
     - CI 只读（无审批）：`--sandbox read-only --ask-for-approval never`
     - 可改仓库（遇风险再问）：`--sandbox workspace-write --ask-for-approval on-request`
-    - 全自动（便捷）：`--full-auto`（等价 `--sandbox workspace-write` + `--ask-for-approval on-failure`）
-    - YOLO（不推荐）：`--dangerously-bypass-approvals-and-sandbox`（与 `--ask-for-approval`/`--full-auto` 互斥）
+    - 全自动（便捷）：`--full-auto`（等价 `--sandbox workspace-write` +
+      `--ask-for-approval on-failure`）
+    - YOLO（不推荐）：`--dangerously-bypass-approvals-and-sandbox`（与
+      `--ask-for-approval`/`--full-auto` 互斥）
 
 ## MCP 服务器（标准 SDK 实现）
 
 - 入口：`mcp/server.sh`（将启动 `mcp/codex-mcp-server/dist/index.js`）
 - 工具（tools）：`codex.exec`（同步）、`codex.start`、`codex.status`、`codex.logs`、`codex.stop`、`codex.list`
 - 详细文档：`readme.mcp.md`
- - 默认安全：未显式传入时，自动注入 `--sandbox workspace-write`（不再默认注入 `--approvals` 以提升兼容性）。
+- 默认安全：未显式传入时，自动注入 `--sandbox workspace-write`（不再默认注入
+  `--approvals` 以提升兼容性）。
 
 快速使用（stdio）：
+
 - 构建：`cd mcp/codex-mcp-server && npm install && npm run build`
 - 初始化 + 列表：
   - `printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"demo","version":"0.0.1"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | ./mcp/server.sh`
@@ -72,12 +83,14 @@
   - `printf '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"codex.start","arguments":{"args":["--task","Async via MCP","--dry-run"],"tag":"mcp-async"}}}\n' | ./mcp/server.sh`
 
 补丁模式（只输出改动，不改盘）
+
 - 加参：`--patch-mode`（自动注入 policy-note，提示模型仅输出补丁）
 - 常配：`--sandbox read-only --ask-for-approval never`
 - 最小交互（stdio）：
   - `printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"demo","version":"0.0.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | ./mcp/server.sh`
 
 构建运行（首次）
+
 - `cd mcp/codex-mcp-server && npm install && npm run build`
 
 ## 异步模式（job.sh）
@@ -97,7 +110,9 @@
 ## 设计与架构
 
 - 设计文档：`docs/DESIGN-async-mcp.md`
-- 核心思路：`job.sh` 将 `start.sh` 以“后台任务”封装，产物集中落盘；MCP 以标准 SDK 暴露工具，调用即刻返回 `jobId`，后续通过 `status/logs` 查询。
+- 核心思路：`job.sh` 将 `start.sh`
+  以“后台任务”封装，产物集中落盘；MCP 以标准 SDK 暴露工具，调用即刻返回
+  `jobId`，后续通过 `status/logs` 查询。
 
 ## refer-research 维护（Git Subtree）
 
@@ -122,7 +137,8 @@
   - 安装（需配置 `~/.npmrc`）：
     - `@yuanyuanyuan:registry=https://npm.pkg.github.com`
     - `//npm.pkg.github.com/:_authToken=<YOUR_GITHUB_TOKEN>`
-    - `npm i -g @yuanyuanyuan/codex-father-mcp-server` 或 `npx @yuanyuanyuan/codex-father-mcp-server`
+    - `npm i -g @yuanyuanyuan/codex-father-mcp-server` 或
+      `npx @yuanyuanyuan/codex-father-mcp-server`
 - npmjs（可选）：仓库配置了语义化发版工作流，设置 `NPM_TOKEN` 后自动同步。
 - 详见：`docs/publish.md`
 

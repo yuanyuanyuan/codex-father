@@ -15,10 +15,18 @@ import type {
 
 class InMemoryLogger implements MCPLogger {
   logs: Array<{ level: string; message: string; data?: any }> = [];
-  debug(message: string, data?: any): void { this.logs.push({ level: 'debug', message, data }); }
-  info(message: string, data?: any): void { this.logs.push({ level: 'info', message, data }); }
-  warn(message: string, data?: any): void { this.logs.push({ level: 'warn', message, data }); }
-  error(message: string, _error?: Error, data?: any): void { this.logs.push({ level: 'error', message, data }); }
+  debug(message: string, data?: any): void {
+    this.logs.push({ level: 'debug', message, data });
+  }
+  info(message: string, data?: any): void {
+    this.logs.push({ level: 'info', message, data });
+  }
+  warn(message: string, data?: any): void {
+    this.logs.push({ level: 'warn', message, data });
+  }
+  error(message: string, _error?: Error, data?: any): void {
+    this.logs.push({ level: 'error', message, data });
+  }
 }
 
 class FakeMCPServer implements MCPServer {
@@ -42,7 +50,7 @@ class FakeMCPServer implements MCPServer {
 
   async start(config: MCPServerConfig): Promise<void> {
     this.config = config;
-    this.tools = new Map(config.tools.map(t => [t.name, t]));
+    this.tools = new Map(config.tools.map((t) => [t.name, t]));
     this.startedAt = Date.now();
     this.status.running = true;
     this.status.pid = process.pid;
@@ -62,7 +70,9 @@ class FakeMCPServer implements MCPServer {
     return { ...this.status, uptime };
   }
 
-  async listTools() { return Array.from(this.tools.values()); }
+  async listTools() {
+    return Array.from(this.tools.values());
+  }
 
   async callTool(name: string, args?: Record<string, any>): Promise<MCPToolResult> {
     const tool = this.tools.get(name);
@@ -76,7 +86,11 @@ class FakeMCPServer implements MCPServer {
     const ctx: MCPToolContext = {
       requestId: `req_${Date.now()}`,
       clientInfo: { name: 'test-client', version: '1.0.0', capabilities: {} },
-      serverInfo: { name: this.config?.name ?? 'fake', version: this.config?.version ?? '0', capabilities: this.config?.capabilities ?? {} },
+      serverInfo: {
+        name: this.config?.name ?? 'fake',
+        version: this.config?.version ?? '0',
+        capabilities: this.config?.capabilities ?? {},
+      },
       logger: new InMemoryLogger(),
       workingDirectory: process.cwd(),
       permissions: {
@@ -92,14 +106,23 @@ class FakeMCPServer implements MCPServer {
     const result = await tool.handler(args ?? {}, ctx);
     // update metrics
     this.status.metrics.totalRequests += 1;
-    if (result.isError) this.status.metrics.failedRequests += 1; else this.status.metrics.successfulRequests += 1;
+    if (result.isError) this.status.metrics.failedRequests += 1;
+    else this.status.metrics.successfulRequests += 1;
     return result;
   }
 
-  async listResources() { return []; }
-  async readResource(_uri: string) { throw new Error('not implemented in fake'); }
-  async listPrompts() { return []; }
-  async getPrompt(_name: string) { throw new Error('not implemented in fake'); }
+  async listResources() {
+    return [];
+  }
+  async readResource(_uri: string) {
+    throw new Error('not implemented in fake');
+  }
+  async listPrompts() {
+    return [];
+  }
+  async getPrompt(_name: string) {
+    throw new Error('not implemented in fake');
+  }
 }
 
 describe('MCP Server interface (T020)', () => {
@@ -137,7 +160,7 @@ describe('MCP Server interface (T020)', () => {
     expect(status1.pid).toBeDefined();
 
     const tools = await server.listTools();
-    expect(tools.map(t => t.name)).toContain('echo');
+    expect(tools.map((t) => t.name)).toContain('echo');
 
     const ok = await server.callTool('echo', { text: 'hello' });
     expect(ok.isError).toBeFalsy();
@@ -152,4 +175,3 @@ describe('MCP Server interface (T020)', () => {
     expect(status2.uptime).toBeGreaterThanOrEqual(0);
   });
 });
-

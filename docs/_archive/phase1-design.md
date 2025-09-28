@@ -3,15 +3,20 @@
 ## 1. 设计概述
 
 ### 1.1 系统架构目标
-本阶段设计的核心目标是在现有 Codex Father 架构基础上，新增 Git 工作流管理能力和增强的任务状态追踪系统，同时扩展 MCP 服务器功能以支持与 Claude Code 的深度集成。
+
+本阶段设计的核心目标是在现有 Codex
+Father 架构基础上，新增 Git 工作流管理能力和增强的任务状态追踪系统，同时扩展 MCP 服务器功能以支持与 Claude
+Code 的深度集成。
 
 ### 1.2 设计原则
+
 - **向后兼容**: 保持现有 CLI 和 MCP 接口的完全兼容性
 - **模块化设计**: 新增功能以独立模块形式实现，便于测试和维护
 - **错误恢复**: 所有 Git 操作支持失败回滚和状态一致性
 - **安全优先**: 严格限制 Git 操作范围，防止意外修改
 
 ### 1.3 技术栈
+
 - **核心**: Bash 5+ (现有脚本扩展)
 - **MCP 服务器**: TypeScript + Node.js 18+
 - **Git 集成**: 原生 Git 命令 + GitHub CLI
@@ -469,33 +474,39 @@ export const gitBranchTool: Tool = {
       action: {
         type: 'string',
         enum: ['create', 'delete', 'list', 'status'],
-        description: '操作类型'
+        description: '操作类型',
       },
       taskId: {
         type: 'string',
-        description: '任务ID（创建和删除时必需）'
+        description: '任务ID（创建和删除时必需）',
       },
       baseBranch: {
         type: 'string',
         default: 'main',
-        description: '基础分支名称'
+        description: '基础分支名称',
       },
       description: {
         type: 'string',
-        description: '分支描述'
+        description: '分支描述',
       },
       force: {
         type: 'boolean',
         default: false,
-        description: '强制删除分支'
-      }
+        description: '强制删除分支',
+      },
     },
-    required: ['action']
-  }
+    required: ['action'],
+  },
 };
 
 export async function handleGitBranch(args: any): Promise<any> {
-  const { action, taskId, baseBranch = 'main', description, force = false } = args;
+  const {
+    action,
+    taskId,
+    baseBranch = 'main',
+    description,
+    force = false,
+  } = args;
 
   try {
     switch (action) {
@@ -527,12 +538,16 @@ export async function handleGitBranch(args: any): Promise<any> {
     return {
       success: false,
       error: error instanceof Error ? error.message : '未知错误',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 }
 
-async function createFeatureBranch(taskId: string, description: string, baseBranch: string) {
+async function createFeatureBranch(
+  taskId: string,
+  description: string,
+  baseBranch: string
+) {
   const branchName = `feature/codex-task-${taskId}`;
 
   // 调用bash脚本
@@ -550,7 +565,7 @@ async function createFeatureBranch(taskId: string, description: string, baseBran
     baseBranch,
     taskId,
     timestamp: new Date().toISOString(),
-    message: `成功创建功能分支: ${branchName}`
+    message: `成功创建功能分支: ${branchName}`,
   };
 }
 
@@ -568,7 +583,7 @@ async function deleteFeatureBranch(taskId: string, force: boolean) {
     taskId,
     force,
     timestamp: new Date().toISOString(),
-    message: `成功删除任务分支: ${taskId}`
+    message: `成功删除任务分支: ${taskId}`,
   };
 }
 ```
@@ -586,37 +601,37 @@ export const taskCreateTool: Tool = {
     properties: {
       description: {
         type: 'string',
-        description: '任务描述'
+        description: '任务描述',
       },
       enableGitWorkflow: {
         type: 'boolean',
         default: false,
-        description: '是否启用Git工作流'
+        description: '是否启用Git工作流',
       },
       baseBranch: {
         type: 'string',
         default: 'main',
-        description: '基础分支'
+        description: '基础分支',
       },
       autoCreatePR: {
         type: 'boolean',
         default: true,
-        description: '完成后自动创建PR'
+        description: '完成后自动创建PR',
       },
       args: {
         type: 'array',
         items: { type: 'string' },
-        description: '传递给codex的参数'
+        description: '传递给codex的参数',
       },
       priority: {
         type: 'string',
         enum: ['low', 'normal', 'high'],
         default: 'normal',
-        description: '任务优先级'
-      }
+        description: '任务优先级',
+      },
     },
-    required: ['description']
-  }
+    required: ['description'],
+  },
 };
 
 export async function handleTaskCreate(args: any): Promise<any> {
@@ -626,7 +641,7 @@ export async function handleTaskCreate(args: any): Promise<any> {
     baseBranch = 'main',
     autoCreatePR = true,
     args: codexArgs = [],
-    priority = 'normal'
+    priority = 'normal',
   } = args;
 
   try {
@@ -639,7 +654,7 @@ export async function handleTaskCreate(args: any): Promise<any> {
       return {
         success: false,
         error: '任务队列已满，请稍后重试',
-        queueStatus
+        queueStatus,
       };
     }
 
@@ -652,14 +667,14 @@ export async function handleTaskCreate(args: any): Promise<any> {
         enabled: enableGitWorkflow,
         baseBranch,
         autoCreatePR,
-        branchName: enableGitWorkflow ? `feature/codex-task-${taskId}` : null
+        branchName: enableGitWorkflow ? `feature/codex-task-${taskId}` : null,
       },
       execution: {
         args: [...codexArgs, '--task', description],
         sessionDir: `.codex-father/sessions/${taskId}`,
-        status: 'created'
+        status: 'created',
       },
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
 
     // 如果启用Git工作流，先创建分支
@@ -668,7 +683,7 @@ export async function handleTaskCreate(args: any): Promise<any> {
         action: 'create',
         taskId,
         description,
-        baseBranch
+        baseBranch,
       });
 
       if (!branchResult.success) {
@@ -690,14 +705,13 @@ export async function handleTaskCreate(args: any): Promise<any> {
       gitWorkflow: taskSpec.gitWorkflow,
       queuePosition: await getQueuePosition(taskId),
       estimatedStartTime: await estimateStartTime(taskId),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
-
   } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? error.message : '任务创建失败',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 }
@@ -781,7 +795,14 @@ export async function handleTaskCreate(args: any): Promise<any> {
       "required": ["createdAt", "updatedAt"]
     }
   },
-  "required": ["id", "description", "status", "gitWorkflow", "execution", "timestamps"]
+  "required": [
+    "id",
+    "description",
+    "status",
+    "gitWorkflow",
+    "execution",
+    "timestamps"
+  ]
 }
 ```
 
@@ -807,7 +828,14 @@ export async function handleTaskCreate(args: any): Promise<any> {
     },
     "status": {
       "type": "string",
-      "enum": ["created", "committed", "pushed", "pr_created", "merged", "deleted"]
+      "enum": [
+        "created",
+        "committed",
+        "pushed",
+        "pr_created",
+        "merged",
+        "deleted"
+      ]
     },
     "commits": {
       "type": "array",
@@ -827,7 +855,10 @@ export async function handleTaskCreate(args: any): Promise<any> {
         "url": { "type": "string", "format": "uri" },
         "number": { "type": "number" },
         "title": { "type": "string" },
-        "status": { "type": "string", "enum": ["draft", "open", "merged", "closed"] }
+        "status": {
+          "type": "string",
+          "enum": ["draft", "open", "merged", "closed"]
+        }
       }
     },
     "timestamps": {
@@ -874,7 +905,7 @@ interface GitBranchResponse {
 interface GitCommitRequest {
   taskId: string;
   message: string;
-  files?: string[];  // 可选：指定要提交的文件
+  files?: string[]; // 可选：指定要提交的文件
 }
 
 interface GitCommitResponse {
@@ -1294,7 +1325,5 @@ check_phase1_requirements
 
 ---
 
-**文档版本**: v1.0
-**创建日期**: 2025-09-26
-**负责人**: Claude Code 集成项目组
+**文档版本**: v1.0 **创建日期**: 2025-09-26 **负责人**: Claude Code 集成项目组
 **审批状态**: 待审批

@@ -11,14 +11,14 @@ export default defineConfig({
     include: [
       'core/**/*.{test,spec}.ts',
       'phases/**/*.{test,spec}.ts',
-      'tests/**/*.{test,spec}.ts'
+      'tests/**/*.{test,spec}.ts',
     ],
     exclude: [
       'node_modules/**',
       'dist/**',
       'mcp/codex-mcp-server/**',
       'refer-research/**',
-      '**/*.bench.ts'
+      '**/*.bench.ts',
     ],
 
     // Test execution
@@ -50,29 +50,29 @@ export default defineConfig({
           branches: 80,
           functions: 80,
           lines: 80,
-          statements: 80
+          statements: 80,
         },
         // 关键路径要求100%覆盖率
         './core/lib/**': {
           branches: 100,
           functions: 100,
           lines: 100,
-          statements: 100
+          statements: 100,
         },
         './core/cli/**': {
           branches: 90,
           functions: 90,
           lines: 90,
-          statements: 90
-        }
-      }
+          statements: 90,
+        },
+      },
     },
 
     // Reporters
     reporter: ['verbose', 'json', 'html'],
     outputFile: {
       json: './test-results/results.json',
-      html: './test-results/report.html'
+      html: './test-results/report.html',
     },
 
     // Setup files
@@ -95,8 +95,8 @@ export default defineConfig({
       threads: {
         singleThread: false,
         isolate: true,
-      }
-    }
+      },
+    },
   },
 
   // Benchmark configuration
@@ -104,7 +104,7 @@ export default defineConfig({
     include: ['**/*.{bench,benchmark}.ts'],
     exclude: ['node_modules/**', 'dist/**'],
     reporter: ['verbose', 'json'],
-    outputFile: './benchmark-results/results.json'
+    outputFile: './benchmark-results/results.json',
   },
 
   // Path resolution

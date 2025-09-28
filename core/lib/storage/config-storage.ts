@@ -46,4 +46,3 @@ export class ConfigStorage {
     return this.fs.backup(this.map(category));
   }
 }
-

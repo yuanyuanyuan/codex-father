@@ -67,15 +67,25 @@ export class BasicQueueOperations {
 
     // 验证必要的目录结构
     const requiredDirs = [
-      'pending/tasks', 'pending/metadata',
-      'scheduled/tasks', 'scheduled/metadata',
-      'running/tasks', 'running/metadata',
-      'retrying/tasks', 'retrying/metadata',
-      'completed/tasks', 'completed/metadata',
-      'failed/tasks', 'failed/metadata',
-      'timeout/tasks', 'timeout/metadata',
-      'cancelled/tasks', 'cancelled/metadata',
-      'locks', 'logs', 'tmp'
+      'pending/tasks',
+      'pending/metadata',
+      'scheduled/tasks',
+      'scheduled/metadata',
+      'running/tasks',
+      'running/metadata',
+      'retrying/tasks',
+      'retrying/metadata',
+      'completed/tasks',
+      'completed/metadata',
+      'failed/tasks',
+      'failed/metadata',
+      'timeout/tasks',
+      'timeout/metadata',
+      'cancelled/tasks',
+      'cancelled/metadata',
+      'locks',
+      'logs',
+      'tmp',
     ];
 
     for (const dir of requiredDirs) {
@@ -117,7 +127,7 @@ export class BasicQueueOperations {
       const queuePosition = task.status === 'pending' ? this.countTasks('pending') : undefined;
       const estimatedStartTime =
         task.status === 'scheduled'
-          ? task.scheduledAt ?? new Date(createdAt.getTime())
+          ? (task.scheduledAt ?? new Date(createdAt.getTime()))
           : new Date(createdAt.getTime());
 
       return {
@@ -127,7 +137,9 @@ export class BasicQueueOperations {
         scheduledAt: task.scheduledAt,
       };
     } catch (error) {
-      throw new Error(`Failed to enqueue task: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to enqueue task: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -144,7 +156,7 @@ export class BasicQueueOperations {
       }
 
       // 获取第一个JSON文件
-      const taskFile = files.find(f => f.endsWith('.json'));
+      const taskFile = files.find((f) => f.endsWith('.json'));
       if (!taskFile) {
         return null;
       }
@@ -389,7 +401,7 @@ export class BasicQueueOperations {
 
     try {
       const files = readdirSync(tasksDir);
-      return files.filter(file => file.endsWith('.json')).length;
+      return files.filter((file) => file.endsWith('.json')).length;
     } catch {
       return 0;
     }
@@ -417,7 +429,7 @@ export class BasicQueueOperations {
       try {
         if (existsSync(tasksDir)) {
           const files = readdirSync(tasksDir);
-          stats[status] = files.filter(f => f.endsWith('.json')).length;
+          stats[status] = files.filter((f) => f.endsWith('.json')).length;
         }
       } catch (error) {
         console.error(`Error reading ${status} tasks directory:`, error);
@@ -432,7 +444,7 @@ export class BasicQueueOperations {
    */
   async listTasks(status?: TaskStatus): Promise<Task[]> {
     const tasks: Task[] = [];
-    const statusesToCheck = status ? [status] : Object.keys(STATUS_DIR_MAP) as TaskStatus[];
+    const statusesToCheck = status ? [status] : (Object.keys(STATUS_DIR_MAP) as TaskStatus[]);
 
     for (const taskStatus of statusesToCheck) {
       const statusDir = STATUS_DIR_MAP[taskStatus];

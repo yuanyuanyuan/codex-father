@@ -21,7 +21,9 @@ function cloneDetails<T>(details: T): T {
   }
 }
 
-function normalizeTimestamp(value: QueueEventData['timestamp'] | Date | string | number | undefined): Date {
+function normalizeTimestamp(
+  value: QueueEventData['timestamp'] | Date | string | number | undefined
+): Date {
   if (!value) {
     return new Date();
   }

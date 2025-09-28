@@ -1,10 +1,22 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { CorruptionIssue, IntegrityCheckResult, QueueStatusDirectory, Task } from '../types.js';
+import type {
+  CorruptionIssue,
+  IntegrityCheckResult,
+  QueueStatusDirectory,
+  Task,
+} from '../types.js';
 import { ensureQueueStructure, readJSONSafe } from './tools.js';
 
 const STATUS_DIRS: QueueStatusDirectory[] = [
-  'pending', 'scheduled', 'processing', 'retrying', 'completed', 'failed', 'timeout', 'cancelled'
+  'pending',
+  'scheduled',
+  'processing',
+  'retrying',
+  'completed',
+  'failed',
+  'timeout',
+  'cancelled',
 ];
 
 export class QueueIntegrityChecker {
@@ -28,20 +40,34 @@ export class QueueIntegrityChecker {
       const dirName = status === 'processing' ? 'running' : status;
       const tasksDir = join(structure.base, dirName, 'tasks');
       const metaDir = join(structure.base, dirName, 'metadata');
-      const taskFiles = existsSync(tasksDir) ? readdirSync(tasksDir).filter(f => f.endsWith('.json')) : [];
-      const metaFiles = existsSync(metaDir) ? readdirSync(metaDir).filter(f => f.endsWith('.json')) : [];
+      const taskFiles = existsSync(tasksDir)
+        ? readdirSync(tasksDir).filter((f) => f.endsWith('.json'))
+        : [];
+      const metaFiles = existsSync(metaDir)
+        ? readdirSync(metaDir).filter((f) => f.endsWith('.json'))
+        : [];
 
       for (const f of taskFiles) {
         checkedFiles += 1;
         const fp = join(tasksDir, f);
         const parsed = readJSONSafe<Task>(fp);
         if (!parsed.ok) {
-          issues.push(this.issue('invalid_json', 'high', fp, parsed.error || 'invalid_json', false));
+          issues.push(
+            this.issue('invalid_json', 'high', fp, parsed.error || 'invalid_json', false)
+          );
           continue;
         }
         const t = parsed.value;
         if (t.status !== status) {
-          issues.push(this.issue('inconsistent_status', 'medium', fp, `Task status ${t.status} != dir ${status}`, false));
+          issues.push(
+            this.issue(
+              'inconsistent_status',
+              'medium',
+              fp,
+              `Task status ${t.status} != dir ${status}`,
+              false
+            )
+          );
         }
         const metaPath = join(metaDir, f);
         if (!existsSync(metaPath)) {
@@ -65,7 +91,7 @@ export class QueueIntegrityChecker {
     return {
       valid,
       issues,
-      recommendations: issues.map(i => i.recommendation),
+      recommendations: issues.map((i) => i.recommendation),
       checkedFiles,
       corruptedFiles: issues.length,
       orphanedFiles,
@@ -73,15 +99,22 @@ export class QueueIntegrityChecker {
     };
   }
 
-  private issue(type: CorruptionIssue['type'], severity: CorruptionIssue['severity'], path: string, description: string, fixable: boolean): CorruptionIssue {
+  private issue(
+    type: CorruptionIssue['type'],
+    severity: CorruptionIssue['severity'],
+    path: string,
+    description: string,
+    fixable: boolean
+  ): CorruptionIssue {
     return {
       type,
       severity,
       path,
       description,
       autoFixable: fixable,
-      recommendation: fixable ? 'Run repair to fix automatically.' : 'Investigate and repair manually.',
+      recommendation: fixable
+        ? 'Run repair to fix automatically.'
+        : 'Investigate and repair manually.',
     };
   }
 }
-

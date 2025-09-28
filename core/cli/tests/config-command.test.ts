@@ -94,7 +94,11 @@ describe('Config Command Interface (T003)', () => {
       },
       {
         arguments: [
-          { name: 'action', description: 'Config action (get|set|list|validate|init)', required: true },
+          {
+            name: 'action',
+            description: 'Config action (get|set|list|validate|init)',
+            required: true,
+          },
           { name: 'key', description: 'Configuration key (for get/set)', required: false },
         ],
         options: [
@@ -114,7 +118,7 @@ describe('Config Command Interface (T003)', () => {
   });
 
   it('registers config command with expected arguments and options', () => {
-    const configCommand = command.commands.find(cmd => cmd.name() === 'config');
+    const configCommand = command.commands.find((cmd) => cmd.name() === 'config');
 
     expect(configCommand).toBeDefined();
     expect(configCommand?.description()).toContain('Configuration management');
@@ -124,14 +128,9 @@ describe('Config Command Interface (T003)', () => {
     );
     expect(argNames).toEqual(['action', 'key']);
 
-    const optionFlags = configCommand?.options.map(opt => opt.flags) ?? [];
+    const optionFlags = configCommand?.options.map((opt) => opt.flags) ?? [];
     expect(optionFlags).toEqual(
-      expect.arrayContaining([
-        '--environment <env>',
-        '--env <env>',
-        '--secure',
-        '--reveal',
-      ])
+      expect.arrayContaining(['--environment <env>', '--env <env>', '--secure', '--reveal'])
     );
   });
 
@@ -204,13 +203,7 @@ describe('Config Command Interface (T003)', () => {
   it('lists configuration entries and environments', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await parser.parse([
-      'node',
-      'codex-father',
-      '--json',
-      'config',
-      'list',
-    ]);
+    await parser.parse(['node', 'codex-father', '--json', 'config', 'list']);
 
     const context = handledContexts.at(-1);
     expect(context?.args?.[0]).toBe('list');
@@ -229,13 +222,7 @@ describe('Config Command Interface (T003)', () => {
   it('validates configuration using schema and emits report paths', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await parser.parse([
-      'node',
-      'codex-father',
-      '--json',
-      'config',
-      'validate',
-    ]);
+    await parser.parse(['node', 'codex-father', '--json', 'config', 'validate']);
 
     const context = handledContexts.at(-1);
     expect(context?.args?.[0]).toBe('validate');

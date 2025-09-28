@@ -16,7 +16,9 @@ export class ParameterValidatorLib {
 
   static validateEnum(value: string, allowedValues: string[], name: string): void {
     if (!allowedValues.includes(value)) {
-      throw new Error(`Parameter '${name}' must be one of: ${allowedValues.join(', ')}, got '${value}'`);
+      throw new Error(
+        `Parameter '${name}' must be one of: ${allowedValues.join(', ')}, got '${value}'`
+      );
     }
   }
 
@@ -32,4 +34,3 @@ export class ParameterValidatorLib {
     }
   }
 }
-

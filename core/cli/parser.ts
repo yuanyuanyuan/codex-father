@@ -58,7 +58,9 @@ export class CLIParser {
   private setupGlobalOptions(): void {
     this.command
       .name('codex-father')
-      .description('TypeScript-based CLI tool for project management with task queues and MCP integration')
+      .description(
+        'TypeScript-based CLI tool for project management with task queues and MCP integration'
+      )
       .version('1.0.0', '-v, --version', 'Display version information')
       .helpOption('-h, --help', 'Display help information');
 
@@ -69,7 +71,11 @@ export class CLIParser {
       .option('--json', 'Output in JSON format', false)
       .option('--config <path>', 'Specify config file path')
       .option('--cwd <path>', 'Change working directory', process.cwd())
-      .option('--log-level <level>', 'Set log level (debug|info|warn|error)', this.globalOptions.logLevel);
+      .option(
+        '--log-level <level>',
+        'Set log level (debug|info|warn|error)',
+        this.globalOptions.logLevel
+      );
 
     // 全局选项处理钩子
     this.command.hook('preAction', (thisCommand) => {
@@ -88,7 +94,11 @@ export class CLIParser {
         try {
           process.chdir(this.globalOptions.workingDirectory);
         } catch (error) {
-          this.handleError(new Error(`Failed to change directory to ${this.globalOptions.workingDirectory}: ${error}`));
+          this.handleError(
+            new Error(
+              `Failed to change directory to ${this.globalOptions.workingDirectory}: ${error}`
+            )
+          );
           process.exit(1);
         }
       }
@@ -129,7 +139,7 @@ export class CLIParser {
         const suggestions = CommandDiscovery.getCommandSuggestions(unknownCommand);
         if (suggestions.length > 0) {
           console.error(chalk.yellow(`\n💡 Did you mean one of these?`));
-          suggestions.forEach(suggestion => {
+          suggestions.forEach((suggestion) => {
             console.error(chalk.yellow(`   ${suggestion}`));
           });
         }
@@ -176,18 +186,16 @@ export class CLIParser {
       options?: Array<{ flags: string; description: string; defaultValue?: any }>;
     }
   ): void {
-    const subCommand = this.command
-      .command(name)
-      .description(description);
+    const subCommand = this.command.command(name).description(description);
 
     // 添加别名
     if (options?.aliases) {
-      options.aliases.forEach(alias => subCommand.alias(alias));
+      options.aliases.forEach((alias) => subCommand.alias(alias));
     }
 
     // 添加参数
     if (options?.arguments) {
-      options.arguments.forEach(arg => {
+      options.arguments.forEach((arg) => {
         const argString = arg.required ? `<${arg.name}>` : `[${arg.name}]`;
         subCommand.argument(argString, arg.description);
       });
@@ -195,7 +203,7 @@ export class CLIParser {
 
     // 添加选项
     if (options?.options) {
-      options.options.forEach(opt => {
+      options.options.forEach((opt) => {
         subCommand.option(opt.flags, opt.description, opt.defaultValue);
       });
     }
@@ -240,7 +248,10 @@ export class CLIParser {
     }
 
     // 前面的参数是命令参数
-    const commandArgs = args.slice(0, command && typeof command.opts === 'function' ? -1 : args.length);
+    const commandArgs = args.slice(
+      0,
+      command && typeof command.opts === 'function' ? -1 : args.length
+    );
 
     return {
       args: commandArgs,
@@ -286,14 +297,14 @@ export class CLIParser {
 
     // 显示警告
     if (result.warnings && result.warnings.length > 0) {
-      result.warnings.forEach(warning => {
+      result.warnings.forEach((warning) => {
         console.warn(chalk.yellow(`⚠️  ${warning}`));
       });
     }
 
     // 显示错误
     if (result.errors && result.errors.length > 0) {
-      result.errors.forEach(error => {
+      result.errors.forEach((error) => {
         console.error(chalk.red(`❌ ${error}`));
       });
     }
@@ -385,9 +396,11 @@ export class CLIParser {
     }
 
     const normalized = String(level).toLowerCase();
-    return (allowedLevels.has(normalized)
-      ? normalized
-      : 'info') as 'debug' | 'info' | 'warn' | 'error';
+    return (allowedLevels.has(normalized) ? normalized : 'info') as
+      | 'debug'
+      | 'info'
+      | 'warn'
+      | 'error';
   }
 }
 
@@ -435,7 +448,9 @@ export class ParameterValidator {
    */
   static validateEnum(value: string, allowedValues: string[], name: string): void {
     if (!allowedValues.includes(value)) {
-      throw new Error(`Parameter '${name}' must be one of: ${allowedValues.join(', ')}, got '${value}'`);
+      throw new Error(
+        `Parameter '${name}' must be one of: ${allowedValues.join(', ')}, got '${value}'`
+      );
     }
   }
 

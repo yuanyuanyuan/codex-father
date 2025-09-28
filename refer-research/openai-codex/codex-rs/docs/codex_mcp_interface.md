@@ -100,19 +100,40 @@ For ChatGPT or API‑key based auth flows, the server exposes helpers:
 ## Example: start and send a message
 
 ```json
-{ "jsonrpc": "2.0", "id": 1, "method": "newConversation", "params": { "model": "gpt-5", "approvalPolicy": "on-request" } }
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "newConversation",
+  "params": { "model": "gpt-5", "approvalPolicy": "on-request" }
+}
 ```
 
 Server responds:
 
 ```json
-{ "jsonrpc": "2.0", "id": 1, "result": { "conversationId": "c7b0…", "model": "gpt-5", "rolloutPath": "/path/to/rollout.jsonl" } }
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "conversationId": "c7b0…",
+    "model": "gpt-5",
+    "rolloutPath": "/path/to/rollout.jsonl"
+  }
+}
 ```
 
 Then send input:
 
 ```json
-{ "jsonrpc": "2.0", "id": 2, "method": "sendUserMessage", "params": { "conversationId": "c7b0…", "items": [{ "type": "text", "text": "Hello Codex" }] } }
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "sendUserMessage",
+  "params": {
+    "conversationId": "c7b0…",
+    "items": [{ "type": "text", "text": "Hello Codex" }]
+  }
+}
 ```
 
 While processing, the server emits `codex/event` notifications containing agent output, approvals, and status updates.

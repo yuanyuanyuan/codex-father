@@ -7,8 +7,12 @@ import { QueueConfigManager } from '../queue/config-manager.js';
 
 describe('QueueConfigManager (T069 config manager)', () => {
   let base: string;
-  beforeEach(() => { base = mkdtempSync(join(tmpdir(), 'queue-cfg-')); });
-  afterEach(() => { rmSync(base, { recursive: true, force: true }); });
+  beforeEach(() => {
+    base = mkdtempSync(join(tmpdir(), 'queue-cfg-'));
+  });
+  afterEach(() => {
+    rmSync(base, { recursive: true, force: true });
+  });
 
   it('creates, loads, updates and validates configuration', () => {
     const cm = new QueueConfigManager(base);

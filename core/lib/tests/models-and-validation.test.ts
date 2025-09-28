@@ -1,11 +1,33 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { isSemver as isSemverTA, validateTechnicalArchitectureSpec, detectModuleCircularDependencies } from '../models/technical-architecture.js';
-import { canTransitionDirectoryStatus, validateDirectoryArchitecture, type DirectoryArchitectureStandard } from '../models/directory-architecture.js';
-import { evaluateQualityGates, validateCodeQualityStandard, type CodeQualityStandard } from '../models/code-quality.js';
-import { validateTestFramework, type TestArchitectureFramework } from '../models/test-architecture.js';
-import { canTransitionStatus as canTransitionTask, nextRetryDelay, type TaskQueueSystem } from '../models/task-queue-system.js';
+import {
+  isSemver as isSemverTA,
+  validateTechnicalArchitectureSpec,
+  detectModuleCircularDependencies,
+} from '../models/technical-architecture.js';
+import {
+  canTransitionDirectoryStatus,
+  validateDirectoryArchitecture,
+  type DirectoryArchitectureStandard,
+} from '../models/directory-architecture.js';
+import {
+  evaluateQualityGates,
+  validateCodeQualityStandard,
+  type CodeQualityStandard,
+} from '../models/code-quality.js';
+import {
+  validateTestFramework,
+  type TestArchitectureFramework,
+} from '../models/test-architecture.js';
+import {
+  canTransitionStatus as canTransitionTask,
+  nextRetryDelay,
+  type TaskQueueSystem,
+} from '../models/task-queue-system.js';
 import { validateConfiguration, type ConfigurationManagement } from '../models/configuration.js';
-import { validateSecurityCompliance, type SecurityComplianceFramework } from '../models/security-compliance.js';
+import {
+  validateSecurityCompliance,
+  type SecurityComplianceFramework,
+} from '../models/security-compliance.js';
 import { DataValidator } from '../validation/data-validator.js';
 import { ParameterValidatorLib } from '../validation/parameter-validator.js';
 import { LogStorage } from '../storage/log-storage.js';
@@ -43,12 +65,16 @@ describe('Data Models and Validation (T031-T045)', () => {
       updatedAt: new Date(),
     };
     expect(validateTechnicalArchitectureSpec(spec).valid).toBe(true);
-    const bad = { ...spec, version: 'not-a-semver', interfaces: [{ name: 'I', version: 'x', methods: [] }] };
+    const bad = {
+      ...spec,
+      version: 'not-a-semver',
+      interfaces: [{ name: 'I', version: 'x', methods: [] }],
+    };
     const result = validateTechnicalArchitectureSpec(bad, new Set(['arch-1']));
     expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.code === 'TA_ID_UNIQUE')).toBe(true);
-    expect(result.errors.some(e => e.code === 'TA_VERSION_SEMVER')).toBe(true);
-    expect(result.errors.some(e => e.code === 'TA_IFACE_SEMVER')).toBe(true);
+    expect(result.errors.some((e) => e.code === 'TA_ID_UNIQUE')).toBe(true);
+    expect(result.errors.some((e) => e.code === 'TA_VERSION_SEMVER')).toBe(true);
+    expect(result.errors.some((e) => e.code === 'TA_IFACE_SEMVER')).toBe(true);
   });
 
   it('directory-architecture: status transition and validation', () => {
@@ -58,8 +84,16 @@ describe('Data Models and Validation (T031-T045)', () => {
     const standard: DirectoryArchitectureStandard = {
       id: 'dir-1',
       name: 'Dirs',
-      structure: { name: 'root', type: 'directory', description: '', purpose: 'root', owner: 'team' },
-      namingConventions: [{ scope: 'file', pattern: '^[a-z]+\\.ts$', examples: ['a.ts'], exceptions: [] }],
+      structure: {
+        name: 'root',
+        type: 'directory',
+        description: '',
+        purpose: 'root',
+        owner: 'team',
+      },
+      namingConventions: [
+        { scope: 'file', pattern: '^[a-z]+\\.ts$', examples: ['a.ts'], exceptions: [] },
+      ],
       layeringStrategy: [
         { layer: 'core', canDependOn: [] },
         { layer: 'app', canDependOn: ['infra'] }, // invalid upward
@@ -70,12 +104,16 @@ describe('Data Models and Validation (T031-T045)', () => {
     };
     const res = validateDirectoryArchitecture(standard);
     expect(res.valid).toBe(false);
-    expect(res.errors.some(e => e.code === 'DA_LAYER_ORDER')).toBe(true);
+    expect(res.errors.some((e) => e.code === 'DA_LAYER_ORDER')).toBe(true);
 
     // invalid regex
-    const res2 = validateDirectoryArchitecture({ ...standard, layeringStrategy: [{ layer: 'core', canDependOn: [] }], namingConventions: [{ scope: 'file', pattern: '[', examples: [], exceptions: [] }] });
+    const res2 = validateDirectoryArchitecture({
+      ...standard,
+      layeringStrategy: [{ layer: 'core', canDependOn: [] }],
+      namingConventions: [{ scope: 'file', pattern: '[', examples: [], exceptions: [] }],
+    });
     expect(res2.valid).toBe(false);
-    expect(res2.errors.some(e => e.code === 'DA_REGEX_INVALID')).toBe(true);
+    expect(res2.errors.some((e) => e.code === 'DA_REGEX_INVALID')).toBe(true);
   });
 
   it('code-quality: gates evaluation and validation', () => {
@@ -98,19 +136,41 @@ describe('Data Models and Validation (T031-T045)', () => {
     expect(pass).toBe(true);
     expect(failed).toHaveLength(0);
 
-    const invalid = validateCodeQualityStandard({ ...std, linting: { ...std.linting, configFile: '' } });
+    const invalid = validateCodeQualityStandard({
+      ...std,
+      linting: { ...std.linting, configFile: '' },
+    });
     expect(invalid.valid).toBe(false);
   });
 
   it('test-architecture: validation of layers and coverage', () => {
     const good: TestArchitectureFramework = {
-      id: 't', framework: 'vitest', layers: [{ name: 'unit', directory: 'core', patterns: ['**/*.test.ts'], tools: ['vitest'], parallelExecution: true, timeout: 10 }],
-      coverageRequirements: [{ scope: 'overall', type: 'line', threshold: 80, enforcement: 'strict' }],
+      id: 't',
+      framework: 'vitest',
+      layers: [
+        {
+          name: 'unit',
+          directory: 'core',
+          patterns: ['**/*.test.ts'],
+          tools: ['vitest'],
+          parallelExecution: true,
+          timeout: 10,
+        },
+      ],
+      coverageRequirements: [
+        { scope: 'overall', type: 'line', threshold: 80, enforcement: 'strict' },
+      ],
       automationStrategy: { ciProvider: 'github-actions', triggers: ['pr'] },
       containerizedTesting: { enabled: false },
     };
     expect(validateTestFramework(good).valid).toBe(true);
-    const bad = { ...good, id: '', coverageRequirements: [{ scope: 'core', type: 'branch', threshold: 120, enforcement: 'warning' }] };
+    const bad = {
+      ...good,
+      id: '',
+      coverageRequirements: [
+        { scope: 'core', type: 'branch', threshold: 120, enforcement: 'warning' },
+      ],
+    };
     const res = validateTestFramework(bad);
     expect(res.valid).toBe(false);
   });
@@ -118,10 +178,30 @@ describe('Data Models and Validation (T031-T045)', () => {
   it('task-queue-system: transitions and backoff', () => {
     expect(canTransitionTask('pending', 'processing')).toBe(true);
     expect(canTransitionTask('completed', 'pending')).toBe(false);
-    expect(nextRetryDelay({ baseDelay: 100, maxDelay: 5000, backoffStrategy: 'fixed', maxAttempts: 3 }, 2)).toBe(100);
-    expect(nextRetryDelay({ baseDelay: 100, maxDelay: 5000, backoffStrategy: 'linear', maxAttempts: 3 }, 3)).toBe(300);
-    expect(nextRetryDelay({ baseDelay: 100, maxDelay: 5000, backoffStrategy: 'exponential', maxAttempts: 3 }, 3)).toBe(400);
-    expect(nextRetryDelay({ baseDelay: 10_000, maxDelay: 1000, backoffStrategy: 'exponential', maxAttempts: 3 }, 5)).toBe(1000);
+    expect(
+      nextRetryDelay(
+        { baseDelay: 100, maxDelay: 5000, backoffStrategy: 'fixed', maxAttempts: 3 },
+        2
+      )
+    ).toBe(100);
+    expect(
+      nextRetryDelay(
+        { baseDelay: 100, maxDelay: 5000, backoffStrategy: 'linear', maxAttempts: 3 },
+        3
+      )
+    ).toBe(300);
+    expect(
+      nextRetryDelay(
+        { baseDelay: 100, maxDelay: 5000, backoffStrategy: 'exponential', maxAttempts: 3 },
+        3
+      )
+    ).toBe(400);
+    expect(
+      nextRetryDelay(
+        { baseDelay: 10_000, maxDelay: 1000, backoffStrategy: 'exponential', maxAttempts: 3 },
+        5
+      )
+    ).toBe(1000);
   });
 
   it('configuration: schema + custom rules', () => {
@@ -130,7 +210,13 @@ describe('Data Models and Validation (T031-T045)', () => {
       configFiles: [],
       environments: [],
       schema: { fields: { name: { type: 'string', required: true }, count: { type: 'number' } } },
-      validation: [{ field: 'name', validator: (v) => typeof v === 'string' && v.length > 1, message: 'name too short' }],
+      validation: [
+        {
+          field: 'name',
+          validator: (v) => typeof v === 'string' && v.length > 1,
+          message: 'name too short',
+        },
+      ],
     };
     const ok = validateConfiguration(cfg, { name: 'ok', count: 1 });
     expect(ok.valid).toBe(true);
@@ -140,8 +226,17 @@ describe('Data Models and Validation (T031-T045)', () => {
 
   it('security-compliance: audit outputs required when enabled', () => {
     const s: SecurityComplianceFramework = {
-      id: 'sec', sandboxStrategies: [], dataProtection: [], complianceChecks: [],
-      auditLogging: { enabled: true, logLevel: 'info', retention: 7, sensitiveDataHandling: 'redact', outputs: [{ type: 'console' }] },
+      id: 'sec',
+      sandboxStrategies: [],
+      dataProtection: [],
+      complianceChecks: [],
+      auditLogging: {
+        enabled: true,
+        logLevel: 'info',
+        retention: 7,
+        sensitiveDataHandling: 'redact',
+        outputs: [{ type: 'console' }],
+      },
     };
     expect(validateSecurityCompliance(s).valid).toBe(true);
     const s2 = { ...s, auditLogging: { ...s.auditLogging, outputs: [] } };
@@ -153,9 +248,24 @@ describe('Data Models and Validation (T031-T045)', () => {
     expect(DataValidator.validateSemver('1').valid).toBe(false);
     expect(DataValidator.validateUniqueId('a', new Set(['b'])).valid).toBe(true);
     expect(DataValidator.validateUniqueId('a', new Set(['a'])).valid).toBe(false);
-    const cyc = DataValidator.detectCycles(['a', 'b', 'c'], [['a', 'b'], ['b', 'c'], ['c', 'a']]);
+    const cyc = DataValidator.detectCycles(
+      ['a', 'b', 'c'],
+      [
+        ['a', 'b'],
+        ['b', 'c'],
+        ['c', 'a'],
+      ]
+    );
     expect(cyc.length).toBe(1);
-    const schemaRes = DataValidator.validateAgainstSchema({ s: 'x', n: 1, b: true, a: [] }, { s: { type: 'string', required: true }, n: { type: 'number' }, b: { type: 'boolean' }, a: { type: 'array' } });
+    const schemaRes = DataValidator.validateAgainstSchema(
+      { s: 'x', n: 1, b: true, a: [] },
+      {
+        s: { type: 'string', required: true },
+        n: { type: 'number' },
+        b: { type: 'boolean' },
+        a: { type: 'array' },
+      }
+    );
     expect(schemaRes.valid).toBe(true);
   });
 
@@ -224,4 +334,3 @@ describe('Data Models and Validation (T031-T045)', () => {
     });
   });
 });
-

@@ -50,11 +50,21 @@ export function canTransitionDirectoryStatus(
   return order.indexOf(next) - order.indexOf(current) === 1;
 }
 
-export function validateDirectoryArchitecture(standard: DirectoryArchitectureStandard): ValidationResult {
+export function validateDirectoryArchitecture(
+  standard: DirectoryArchitectureStandard
+): ValidationResult {
   const errors: ValidationError[] = [];
 
-  if (!standard.id) errors.push({ field: 'id', message: 'id is required', code: 'DA_ID_REQUIRED' });
-  if (!standard.structure) errors.push({ field: 'structure', message: 'structure required', code: 'DA_STRUCTURE_REQUIRED' });
+  if (!standard.id) {
+    errors.push({ field: 'id', message: 'id is required', code: 'DA_ID_REQUIRED' });
+  }
+  if (!standard.structure) {
+    errors.push({
+      field: 'structure',
+      message: 'structure required',
+      code: 'DA_STRUCTURE_REQUIRED',
+    });
+  }
 
   // Validate regex patterns are compilable
   for (const conv of standard.namingConventions) {
@@ -62,7 +72,11 @@ export function validateDirectoryArchitecture(standard: DirectoryArchitectureSta
       // eslint-disable-next-line no-new
       new RegExp(conv.pattern);
     } catch {
-      errors.push({ field: `namingConventions.${conv.scope}`, message: 'invalid regex pattern', code: 'DA_REGEX_INVALID' });
+      errors.push({
+        field: `namingConventions.${conv.scope}`,
+        message: 'invalid regex pattern',
+        code: 'DA_REGEX_INVALID',
+      });
     }
   }
 
@@ -72,11 +86,14 @@ export function validateDirectoryArchitecture(standard: DirectoryArchitectureSta
   for (const l of standard.layeringStrategy) {
     for (const dep of l.canDependOn) {
       if ((layerIndex.get(dep) ?? Infinity) > (layerIndex.get(l.layer) ?? -Infinity)) {
-        errors.push({ field: 'layeringStrategy', message: `layer '${l.layer}' cannot depend upward on '${dep}'`, code: 'DA_LAYER_ORDER' });
+        errors.push({
+          field: 'layeringStrategy',
+          message: `layer '${l.layer}' cannot depend upward on '${dep}'`,
+          code: 'DA_LAYER_ORDER',
+        });
       }
     }
   }
 
   return { valid: errors.length === 0, errors, warnings: [] };
 }
-

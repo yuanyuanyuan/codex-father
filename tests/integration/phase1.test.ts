@@ -21,11 +21,14 @@ const TEST_CONFIG = {
 /**
  * CLI 命令执行辅助函数
  */
-async function execCLI(args: string[], options: {
-  cwd?: string;
-  timeout?: number;
-  expectError?: boolean;
-} = {}): Promise<{
+async function execCLI(
+  args: string[],
+  options: {
+    cwd?: string;
+    timeout?: number;
+    expectError?: boolean;
+  } = {}
+): Promise<{
   stdout: string;
   stderr: string;
   exitCode: number;
@@ -217,10 +220,14 @@ describe('Phase 1 Integration Tests', () => {
   describe('3. Task Queue System', () => {
     it('should create a test task', async () => {
       const result = await execCLI([
-        'task', 'create',
-        '--type', 'test',
-        '--priority', '5',
-        '--payload', '{"message":"hello world"}'
+        'task',
+        'create',
+        '--type',
+        'test',
+        '--priority',
+        '5',
+        '--payload',
+        '{"message":"hello world"}',
       ]);
 
       // 任务创建测试
@@ -273,11 +280,10 @@ describe('Phase 1 Integration Tests', () => {
 
   describe('5. Error Handling and Edge Cases', () => {
     it('should handle invalid JSON payloads gracefully', async () => {
-      const result = await execCLI([
-        'task', 'create',
-        '--type', 'test',
-        '--payload', '{"invalid":json}'
-      ], { expectError: true });
+      const result = await execCLI(
+        ['task', 'create', '--type', 'test', '--payload', '{"invalid":json}'],
+        { expectError: true }
+      );
 
       // 应该能优雅地处理无效 JSON
       expect(result.stderr).not.toContain('Cannot read property');
@@ -309,13 +315,11 @@ describe('Phase 1 Integration Tests', () => {
     });
 
     it('should handle multiple concurrent commands', async () => {
-      const promises = Array.from({ length: 3 }, () =>
-        execCLI(['--version'], { timeout: 5000 })
-      );
+      const promises = Array.from({ length: 3 }, () => execCLI(['--version'], { timeout: 5000 }));
 
       const results = await Promise.all(promises);
 
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result.success).toBe(true);
       });
     });
@@ -325,9 +329,12 @@ describe('Phase 1 Integration Tests', () => {
     it('should support end-to-end task workflow', async () => {
       // 创建任务
       const createResult = await execCLI([
-        'task', 'create',
-        '--type', 'validation',
-        '--payload', '{"data":"test"}'
+        'task',
+        'create',
+        '--type',
+        'validation',
+        '--payload',
+        '{"data":"test"}',
       ]);
 
       // 列出任务

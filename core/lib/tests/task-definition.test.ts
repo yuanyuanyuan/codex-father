@@ -104,9 +104,9 @@ describe('Task Definition Contract (T010)', () => {
 
     // ensure transition map includes every status from definition
     const allStatuses = new Set<TaskStatus>();
-    TASK_STATUS_TRANSITIONS.forEach(entry => {
+    TASK_STATUS_TRANSITIONS.forEach((entry) => {
       allStatuses.add(entry.from);
-      entry.to.forEach(status => allStatuses.add(status));
+      entry.to.forEach((status) => allStatuses.add(status));
     });
 
     expect(allStatuses.has('pending')).toBe(true);

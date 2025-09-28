@@ -37,7 +37,9 @@ describe('MCP Tool and handler (T021)', () => {
       description: 'Uppercase input text',
       inputSchema: {
         type: 'object',
-        properties: { text: { type: 'string', minLength: 1, description: 'Text to uppercase' } as any },
+        properties: {
+          text: { type: 'string', minLength: 1, description: 'Text to uppercase' } as any,
+        },
         required: ['text'],
       },
       handler: async (args): Promise<MCPToolResult> => {
@@ -49,7 +51,12 @@ describe('MCP Tool and handler (T021)', () => {
       category: 'string',
       version: '1.0.0',
       examples: [
-        { name: 'hello', description: 'Uppercase hello', arguments: { text: 'hello' }, expectedResult: 'HELLO' },
+        {
+          name: 'hello',
+          description: 'Uppercase hello',
+          arguments: { text: 'hello' },
+          expectedResult: 'HELLO',
+        },
       ],
     };
 
@@ -61,4 +68,3 @@ describe('MCP Tool and handler (T021)', () => {
     expect(bad.isError).toBe(true);
   });
 });
-

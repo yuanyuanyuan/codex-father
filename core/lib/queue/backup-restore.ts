@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync, readFileSync, copyFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+  readFileSync,
+  copyFileSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import type { BackupResult, RestoreResult } from '../types.js';
 import { ensureQueueStructure } from './tools.js';
@@ -40,7 +48,8 @@ export class QueueBackupManager {
       const src = resolve(raw.source);
       const dest = resolve(targetDir ?? this.base);
       mkdirSync(dest, { recursive: true });
-      let restoredFiles = 0; let skippedFiles = 0;
+      let restoredFiles = 0;
+      let skippedFiles = 0;
       const copy = (dir: string, rel = '') => {
         const entries = readdirSync(dir, { withFileTypes: true });
         for (const e of entries) {
@@ -51,30 +60,55 @@ export class QueueBackupManager {
             mkdirSync(d, { recursive: true });
             copy(p, r);
           } else {
-            try { copyFileSync(p, d); restoredFiles += 1; } catch { skippedFiles += 1; }
+            try {
+              copyFileSync(p, d);
+              restoredFiles += 1;
+            } catch {
+              skippedFiles += 1;
+            }
           }
         }
       };
-      if (existsSync(src)) copy(src);
-      return { success: true, restoredFiles, skippedFiles, errors: [], duration: Date.now() - started };
+      if (existsSync(src)) {
+        copy(src);
+      }
+      return {
+        success: true,
+        restoredFiles,
+        skippedFiles,
+        errors: [],
+        duration: Date.now() - started,
+      };
     } catch (err: any) {
-      return { success: false, restoredFiles: 0, skippedFiles: 0, errors: [String(err?.message || err)], duration: Date.now() - started };
+      return {
+        success: false,
+        restoredFiles: 0,
+        skippedFiles: 0,
+        errors: [String(err?.message || err)],
+        duration: Date.now() - started,
+      };
     }
   }
 
   private scan(dir: string): { fileCount: number; totalSize: number } {
-    if (!existsSync(dir)) return { fileCount: 0, totalSize: 0 };
-    let fileCount = 0; let totalSize = 0;
+    if (!existsSync(dir)) {
+      return { fileCount: 0, totalSize: 0 };
+    }
+    let fileCount = 0;
+    let totalSize = 0;
     const walk = (p: string) => {
       const entries = readdirSync(p, { withFileTypes: true });
       for (const e of entries) {
         const fp = join(p, e.name);
-        if (e.isDirectory()) walk(fp);
-        else { fileCount += 1; totalSize += statSync(fp).size; }
+        if (e.isDirectory()) {
+          walk(fp);
+        } else {
+          fileCount += 1;
+          totalSize += statSync(fp).size;
+        }
       }
     };
     walk(dir);
     return { fileCount, totalSize };
   }
 }
-

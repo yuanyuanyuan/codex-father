@@ -66,11 +66,9 @@ describe('Main Command Interface (T001)', () => {
   });
 
   it('executes command within performance threshold', async () => {
-    const exitSpy = vi
-      .spyOn(process, 'exit')
-      .mockImplementation(((code?: number) => {
-        throw new Error(`process.exit:${code ?? 0}`);
-      }) as any);
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`process.exit:${code ?? 0}`);
+    }) as any);
 
     const startTime = Date.now();
     await parser.parse(['node', 'codex-father', 'status']);

@@ -39,7 +39,9 @@ const defaultConfig: QueueConfiguration = deepFreeze({
   },
 });
 
-export const DEFAULT_QUEUE_CONFIGURATION: QueueConfiguration = deepFreeze(structuredClone(defaultConfig));
+export const DEFAULT_QUEUE_CONFIGURATION: QueueConfiguration = deepFreeze(
+  structuredClone(defaultConfig)
+);
 
 export interface QueueConfigurationValidationResult {
   valid: boolean;
@@ -55,7 +57,9 @@ export function createQueueConfiguration(
   return sanitized;
 }
 
-export function validateQueueConfiguration(config: QueueConfiguration): QueueConfigurationValidationResult {
+export function validateQueueConfiguration(
+  config: QueueConfiguration
+): QueueConfigurationValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -98,7 +102,10 @@ export function validateQueueConfiguration(config: QueueConfiguration): QueueCon
     errors.push('monitoring.logLevel must be one of debug|info|warn|error');
   }
 
-  if (!Number.isFinite(config.monitoring.metricsInterval) || config.monitoring.metricsInterval < 1_000) {
+  if (
+    !Number.isFinite(config.monitoring.metricsInterval) ||
+    config.monitoring.metricsInterval < 1_000
+  ) {
     errors.push('monitoring.metricsInterval must be >= 1000');
   }
 
@@ -106,13 +113,21 @@ export function validateQueueConfiguration(config: QueueConfiguration): QueueCon
   if (!Number.isFinite(thresholds.queueDepth) || thresholds.queueDepth < 0) {
     errors.push('monitoring.alertThresholds.queueDepth must be >= 0');
   }
-  if (!Number.isFinite(thresholds.failureRate) || thresholds.failureRate < 0 || thresholds.failureRate > 100) {
+  if (
+    !Number.isFinite(thresholds.failureRate) ||
+    thresholds.failureRate < 0 ||
+    thresholds.failureRate > 100
+  ) {
     errors.push('monitoring.alertThresholds.failureRate must be between 0 and 100');
   }
   if (!Number.isFinite(thresholds.averageWaitTime) || thresholds.averageWaitTime < 0) {
     errors.push('monitoring.alertThresholds.averageWaitTime must be >= 0');
   }
-  if (!Number.isFinite(thresholds.diskUsage) || thresholds.diskUsage < 0 || thresholds.diskUsage > 100) {
+  if (
+    !Number.isFinite(thresholds.diskUsage) ||
+    thresholds.diskUsage < 0 ||
+    thresholds.diskUsage > 100
+  ) {
     errors.push('monitoring.alertThresholds.diskUsage must be between 0 and 100');
   }
 
@@ -122,7 +137,10 @@ export function validateQueueConfiguration(config: QueueConfiguration): QueueCon
   if (!Number.isFinite(config.performance.batchSize) || config.performance.batchSize < 1) {
     errors.push('performance.batchSize must be >= 1');
   }
-  if (!Number.isFinite(config.performance.processingInterval) || config.performance.processingInterval < 1) {
+  if (
+    !Number.isFinite(config.performance.processingInterval) ||
+    config.performance.processingInterval < 1
+  ) {
     errors.push('performance.processingInterval must be >= 1');
   }
   if (!Number.isFinite(config.performance.cacheSize) || config.performance.cacheSize < 0) {

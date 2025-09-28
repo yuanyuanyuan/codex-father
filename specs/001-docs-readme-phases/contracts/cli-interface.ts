@@ -292,6 +292,6 @@ export interface PerformanceMetrics {
 
 export interface PerformanceThresholds {
   maxExecutionTime: number; // milliseconds
-  maxMemoryUsage: number;   // bytes
+  maxMemoryUsage: number; // bytes
   maxFileOperations: number;
 }

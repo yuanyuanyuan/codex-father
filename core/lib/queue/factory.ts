@@ -30,4 +30,3 @@ export function createQueueSystem(queuePath?: string): QueueSystem {
     config: new QueueConfigManager(queuePath),
   };
 }
-

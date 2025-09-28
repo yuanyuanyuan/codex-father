@@ -27,8 +27,11 @@ export class QueueOptimizer {
       const entries = readdirSync(dir, { withFileTypes: true });
       for (const e of entries) {
         const p = join(dir, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (p.endsWith('.json')) count += 1;
+        if (e.isDirectory()) {
+          walk(p);
+        } else if (p.endsWith('.json')) {
+          count += 1;
+        }
       }
     };
     walk(this.base);
@@ -38,7 +41,8 @@ export class QueueOptimizer {
   async pruneArchived(olderThanDays: number): Promise<{ count: number; saved: number }> {
     // Not deleting files in tests; just calculate potential savings
     const archived = join(this.base, 'archived');
-    let count = 0; let saved = 0;
+    let count = 0;
+    let saved = 0;
     try {
       const entries = readdirSync(archived, { withFileTypes: true });
       const cutoff = Date.now() - Math.max(olderThanDays, 0) * 24 * 60 * 60 * 1000;
@@ -46,11 +50,13 @@ export class QueueOptimizer {
         if (e.isFile()) {
           const p = join(archived, e.name);
           const st = statSync(p);
-          if (st.mtimeMs < cutoff) { count += 1; saved += st.size; }
+          if (st.mtimeMs < cutoff) {
+            count += 1;
+            saved += st.size;
+          }
         }
       }
     } catch {}
     return { count, saved };
   }
 }
-

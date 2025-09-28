@@ -3,9 +3,11 @@
 ## 1. 设计概述
 
 ### 1.1 架构设计目标
+
 构建本地容器化部署体系，实现开发、测试环境的一致性，建立高效的 CI/CD 流水线和完善的本地监控运维体系，确保系统的稳定性、可维护性和易用性。
 
 ### 1.2 设计原则
+
 - **本地优先**: 容器化、本地自动化运维、开发友好
 - **环境一致性**: 开发、测试环境配置和行为一致
 - **自动化优先**: 最大化自动化程度，减少人工干预
@@ -13,6 +15,7 @@
 - **安全内建**: 安全措施内嵌到设计和实现的每个环节
 
 ### 1.3 技术栈选型
+
 - **容器化**: Docker + Docker Compose
 - **CI/CD**: GitHub Actions + 自定义流水线工具
 - **监控**: Prometheus + Grafana + 自定义指标收集
@@ -571,11 +574,7 @@ main "$@"
       "INSTALL_ZSH": "true"
     }
   },
-  "runArgs": [
-    "--init",
-    "--privileged",
-    "--network=host"
-  ],
+  "runArgs": ["--init", "--privileged", "--network=host"],
   "containerEnv": {
     "CODEX_HOME": "/workspace/.codex",
     "CODEX_SESSIONS_ROOT": "/workspace/.codex-father/sessions",
@@ -616,21 +615,13 @@ main "$@"
       "installDockerBuildx": true
     }
   },
-  "onCreateCommand": [
-    "bash",
-    "-c",
-    "scripts/devcontainer-setup.sh"
-  ],
+  "onCreateCommand": ["bash", "-c", "scripts/devcontainer-setup.sh"],
   "postCreateCommand": [
     "bash",
     "-c",
     "cd mcp/codex-mcp-server && npm install && npm run build"
   ],
-  "postStartCommand": [
-    "bash",
-    "-c",
-    "scripts/devcontainer-health-check.sh"
-  ],
+  "postStartCommand": ["bash", "-c", "scripts/devcontainer-health-check.sh"],
   "customizations": {
     "vscode": {
       "settings": {
@@ -665,11 +656,7 @@ main "$@"
       ]
     }
   },
-  "forwardPorts": [
-    3000,
-    9090,
-    3001
-  ],
+  "forwardPorts": [3000, 9090, 3001],
   "portsAttributes": {
     "3000": {
       "label": "MCP Server",
@@ -997,12 +984,12 @@ name: Complete CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop, feature/* ]
+    branches: [main, develop, feature/*]
     paths-ignore:
       - 'docs/**'
       - '*.md'
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
   release:
     types: [published]
   schedule:
@@ -1047,7 +1034,9 @@ jobs:
   code-quality:
     runs-on: ubuntu-latest
     needs: detect-changes
-    if: needs.detect-changes.outputs.core-changed == 'true' || needs.detect-changes.outputs.mcp-changed == 'true'
+    if:
+      needs.detect-changes.outputs.core-changed == 'true' ||
+      needs.detect-changes.outputs.mcp-changed == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -1211,7 +1200,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.test-type }}-node${{ matrix.node-version }}
+          name:
+            test-results-${{ matrix.test-type }}-node${{ matrix.node-version }}
           path: |
             tests/results/
             tests/reports/
@@ -1228,7 +1218,10 @@ jobs:
   build-image:
     runs-on: ubuntu-latest
     needs: [detect-changes, code-quality, security-scan]
-    if: success() && (needs.detect-changes.outputs.core-changed == 'true' || needs.detect-changes.outputs.mcp-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true')
+    if:
+      success() && (needs.detect-changes.outputs.core-changed == 'true' ||
+      needs.detect-changes.outputs.mcp-changed == 'true' ||
+      needs.detect-changes.outputs.docker-changed == 'true')
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
       image-digest: ${{ steps.build.outputs.digest }}
@@ -1291,7 +1284,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: [test-suite, build-image]
-    if: success() && (github.ref == 'refs/heads/main' || github.event_name == 'release')
+    if:
+      success() && (github.ref == 'refs/heads/main' || github.event_name ==
+      'release')
     environment:
       name: ${{ github.ref == 'refs/heads/main' && 'staging' || 'production' }}
       url: ${{ steps.deploy.outputs.url }}
@@ -2545,8 +2540,10 @@ groups:
           severity: warning
           service: codex-father
         annotations:
-          summary: "Codex Father CPU usage is high"
-          description: "CPU usage has been above 80% for more than 5 minutes. Current value: {{ $value }}%"
+          summary: 'Codex Father CPU usage is high'
+          description:
+            'CPU usage has been above 80% for more than 5 minutes. Current
+            value: {{ $value }}%'
 
       - alert: HighMemoryUsage
         expr: codex_memory_usage_bytes / 1024 / 1024 > 1024
@@ -2555,8 +2552,10 @@ groups:
           severity: warning
           service: codex-father
         annotations:
-          summary: "Codex Father memory usage is high"
-          description: "Memory usage has been above 1GB for more than 5 minutes. Current value: {{ $value }}MB"
+          summary: 'Codex Father memory usage is high'
+          description:
+            'Memory usage has been above 1GB for more than 5 minutes. Current
+            value: {{ $value }}MB'
 
       - alert: DiskSpaceRunningOut
         expr: codex_disk_usage_bytes / 1024 / 1024 / 1024 > 10
@@ -2565,19 +2564,24 @@ groups:
           severity: critical
           service: codex-father
         annotations:
-          summary: "Codex Father disk space is running out"
-          description: "Disk usage has exceeded 10GB. Current value: {{ $value }}GB"
+          summary: 'Codex Father disk space is running out'
+          description:
+            'Disk usage has exceeded 10GB. Current value: {{ $value }}GB'
 
       # 应用性能告警
       - alert: HighTaskFailureRate
-        expr: rate(codex_failed_tasks_total[5m]) / rate(codex_completed_tasks_total[5m]) > 0.1
+        expr:
+          rate(codex_failed_tasks_total[5m]) /
+          rate(codex_completed_tasks_total[5m]) > 0.1
         for: 2m
         labels:
           severity: warning
           service: codex-father
         annotations:
-          summary: "High task failure rate detected"
-          description: "Task failure rate is above 10% for the last 5 minutes. Current rate: {{ $value | humanizePercentage }}"
+          summary: 'High task failure rate detected'
+          description:
+            'Task failure rate is above 10% for the last 5 minutes. Current
+            rate: {{ $value | humanizePercentage }}'
 
       - alert: NoTasksCompleted
         expr: increase(codex_completed_tasks_total[10m]) == 0
@@ -2586,8 +2590,8 @@ groups:
           severity: warning
           service: codex-father
         annotations:
-          summary: "No tasks completed recently"
-          description: "No tasks have been completed in the last 10 minutes"
+          summary: 'No tasks completed recently'
+          description: 'No tasks have been completed in the last 10 minutes'
 
       - alert: TaskQueueBacklog
         expr: codex_active_tasks_total > 50
@@ -2596,29 +2600,37 @@ groups:
           severity: warning
           service: codex-father
         annotations:
-          summary: "Task queue has significant backlog"
-          description: "There are {{ $value }} active tasks in the queue"
+          summary: 'Task queue has significant backlog'
+          description: 'There are {{ $value }} active tasks in the queue'
 
       # MCP 服务告警
       - alert: MCPHighErrorRate
-        expr: rate(codex_mcp_errors_total[5m]) / rate(codex_mcp_requests_total[5m]) > 0.05
+        expr:
+          rate(codex_mcp_errors_total[5m]) / rate(codex_mcp_requests_total[5m])
+          > 0.05
         for: 2m
         labels:
           severity: warning
           service: codex-father-mcp
         annotations:
-          summary: "MCP server has high error rate"
-          description: "MCP error rate is above 5% for the last 5 minutes. Current rate: {{ $value | humanizePercentage }}"
+          summary: 'MCP server has high error rate'
+          description:
+            'MCP error rate is above 5% for the last 5 minutes. Current rate: {{
+            $value | humanizePercentage }}'
 
       - alert: MCPSlowResponse
-        expr: rate(codex_mcp_request_duration_seconds_sum[5m]) / rate(codex_mcp_request_duration_seconds_count[5m]) > 2
+        expr:
+          rate(codex_mcp_request_duration_seconds_sum[5m]) /
+          rate(codex_mcp_request_duration_seconds_count[5m]) > 2
         for: 3m
         labels:
           severity: warning
           service: codex-father-mcp
         annotations:
-          summary: "MCP server response time is slow"
-          description: "Average MCP response time is above 2 seconds. Current average: {{ $value }}s"
+          summary: 'MCP server response time is slow'
+          description:
+            'Average MCP response time is above 2 seconds. Current average: {{
+            $value }}s'
 
       - alert: MCPNoRequests
         expr: rate(codex_mcp_requests_total[5m]) == 0
@@ -2627,19 +2639,23 @@ groups:
           severity: warning
           service: codex-father-mcp
         annotations:
-          summary: "MCP server is not receiving requests"
-          description: "No MCP requests received in the last 5 minutes"
+          summary: 'MCP server is not receiving requests'
+          description: 'No MCP requests received in the last 5 minutes'
 
       # Git 操作告警
       - alert: GitHighFailureRate
-        expr: rate(codex_git_failures_total[5m]) / rate(codex_git_operations_total[5m]) > 0.1
+        expr:
+          rate(codex_git_failures_total[5m]) /
+          rate(codex_git_operations_total[5m]) > 0.1
         for: 2m
         labels:
           severity: warning
           service: codex-father-git
         annotations:
-          summary: "High Git operation failure rate"
-          description: "Git failure rate is above 10% for the last 5 minutes. Current rate: {{ $value | humanizePercentage }}"
+          summary: 'High Git operation failure rate'
+          description:
+            'Git failure rate is above 10% for the last 5 minutes. Current rate:
+            {{ $value | humanizePercentage }}'
 
       # 服务可用性告警
       - alert: ServiceDown
@@ -2649,8 +2665,9 @@ groups:
           severity: critical
           service: codex-father
         annotations:
-          summary: "Codex Father service is down"
-          description: "Codex Father service has been down for more than 1 minute"
+          summary: 'Codex Father service is down'
+          description:
+            'Codex Father service has been down for more than 1 minute'
 
       - alert: ServiceRestarted
         expr: changes(codex_uptime_seconds[5m]) > 0
@@ -2659,8 +2676,8 @@ groups:
           severity: info
           service: codex-father
         annotations:
-          summary: "Codex Father service has restarted"
-          description: "Codex Father service has been restarted"
+          summary: 'Codex Father service has restarted'
+          description: 'Codex Father service has been restarted'
 ```
 
 #### 4.4.2 AlertManager 配置
@@ -3159,11 +3176,10 @@ Phase 3 的设计涵盖了完整的容器化部署体系和 CI/CD 流程，主�
 3. **完整文档**: 详细的操作手册和故障排除指南
 4. **自动化运维**: 减少人工干预，提高运维效率
 
-通过 Phase 3 的实施，Codex Father 将具备生产级别的容器化部署能力和完善的 CI/CD 体系，为项目的长期稳定运行提供坚实保障。
+通过 Phase 3 的实施，Codex
+Father 将具备生产级别的容器化部署能力和完善的 CI/CD 体系，为项目的长期稳定运行提供坚实保障。
 
 ---
 
-**文档版本**: v1.0
-**创建日期**: 2025-09-26
-**负责人**: Claude Code 集成项目组
+**文档版本**: v1.0 **创建日期**: 2025-09-26 **负责人**: Claude Code 集成项目组
 **审批状态**: 待审批

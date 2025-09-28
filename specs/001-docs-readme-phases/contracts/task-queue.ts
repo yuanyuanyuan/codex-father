@@ -55,14 +55,14 @@ export interface Task {
 }
 
 export type TaskStatus =
-  | 'pending'     // 等待执行
-  | 'scheduled'   // 已调度但未到执行时间
-  | 'processing'  // 正在执行
-  | 'completed'   // 执行成功
-  | 'failed'      // 执行失败（已达最大重试次数）
-  | 'retrying'    // 准备重试
-  | 'cancelled'   // 已取消
-  | 'timeout';    // 执行超时
+  | 'pending' // 等待执行
+  | 'scheduled' // 已调度但未到执行时间
+  | 'processing' // 正在执行
+  | 'completed' // 执行成功
+  | 'failed' // 执行失败（已达最大重试次数）
+  | 'retrying' // 准备重试
+  | 'cancelled' // 已取消
+  | 'timeout'; // 执行超时
 
 export interface TaskMetadata {
   source: string;
@@ -77,7 +77,7 @@ export interface TaskMetadata {
 export interface TaskRetryPolicy {
   maxAttempts: number;
   baseDelay: number; // milliseconds
-  maxDelay: number;  // milliseconds
+  maxDelay: number; // milliseconds
   backoffStrategy: 'linear' | 'exponential' | 'fixed';
   retryableErrors?: string[]; // error codes that allow retry
 }
@@ -186,8 +186,8 @@ export interface TaskExecutorCapabilities {
   averageExecutionTime: number; // milliseconds
   resourceRequirements: {
     memory: number; // bytes
-    cpu: number;    // percentage
-    disk: number;   // bytes
+    cpu: number; // percentage
+    disk: number; // bytes
   };
 }
 
@@ -196,7 +196,7 @@ export interface TaskExecutionMetrics {
   endTime: Date;
   duration: number; // milliseconds
   memoryUsed: number; // bytes
-  cpuUsed: number;    // percentage
+  cpuUsed: number; // percentage
   diskIO: {
     bytesRead: number;
     bytesWritten: number;
@@ -294,7 +294,12 @@ export interface IntegrityCheckResult {
 }
 
 export interface CorruptionIssue {
-  type: 'missing_file' | 'invalid_json' | 'inconsistent_status' | 'orphaned_file' | 'permission_error';
+  type:
+    | 'missing_file'
+    | 'invalid_json'
+    | 'inconsistent_status'
+    | 'orphaned_file'
+    | 'permission_error';
   severity: 'low' | 'medium' | 'high' | 'critical';
   path: string;
   description: string;
@@ -316,7 +321,7 @@ export interface BackupResult {
   backupPath: string;
   fileCount: number;
   totalSize: number; // bytes
-  duration: number;  // milliseconds
+  duration: number; // milliseconds
   compression: number; // ratio
 }
 

@@ -1,9 +1,6 @@
 import type { CLIParser } from '../parser.js';
 import type { CommandContext, CommandResult } from '../../lib/types.js';
-import {
-  ConfigAccess,
-  summarise,
-} from '../handlers/config-access.js';
+import { ConfigAccess, summarise } from '../handlers/config-access.js';
 
 interface CommandOptions {
   environment?: string;
@@ -33,9 +30,21 @@ export function registerConfigCommand(parser: CLIParser): void {
           case 'init':
             return renderInit(access, environment, warnings, context, startedAt);
           case 'set':
-            return renderSet(access, { key, value, environment, secure: Boolean(options.secure) }, warnings, context, startedAt);
+            return renderSet(
+              access,
+              { key, value, environment, secure: Boolean(options.secure) },
+              warnings,
+              context,
+              startedAt
+            );
           case 'get':
-            return renderGet(access, { key, environment, reveal: Boolean(options.reveal) }, warnings, context, startedAt);
+            return renderGet(
+              access,
+              { key, environment, reveal: Boolean(options.reveal) },
+              warnings,
+              context,
+              startedAt
+            );
           case 'list':
             return renderList(access, warnings, context, startedAt);
           case 'validate':
@@ -67,15 +76,25 @@ export function registerConfigCommand(parser: CLIParser): void {
     },
     {
       arguments: [
-        { name: 'action', description: 'Config action (init|get|set|list|validate)', required: true },
+        {
+          name: 'action',
+          description: 'Config action (init|get|set|list|validate)',
+          required: true,
+        },
         { name: 'key', description: 'Configuration key (dot notation)', required: false },
         { name: 'value', description: 'Configuration value for set action', required: false },
       ],
       options: [
-        { flags: '--environment <env>', description: 'Target environment (development|testing|production)' },
+        {
+          flags: '--environment <env>',
+          description: 'Target environment (development|testing|production)',
+        },
         { flags: '--env <env>', description: 'Alias of --environment' },
         { flags: '--secure', description: 'Encrypt value at rest when setting configuration' },
-        { flags: '--reveal', description: 'Reveal decrypted value when reading encrypted configuration' },
+        {
+          flags: '--reveal',
+          description: 'Reveal decrypted value when reading encrypted configuration',
+        },
         { flags: '--json', description: 'Output in JSON format' },
       ],
     }
@@ -188,7 +207,11 @@ function renderGet(
     };
   }
 
-  const outcome = access.get({ key: params.key, environment: params.environment, reveal: params.reveal });
+  const outcome = access.get({
+    key: params.key,
+    environment: params.environment,
+    reveal: params.reveal,
+  });
 
   if (outcome.value === undefined) {
     return {
@@ -214,9 +237,10 @@ function renderGet(
     };
   }
 
-  const valueText = Array.isArray(outcome.value) || typeof outcome.value === 'object'
-    ? JSON.stringify(outcome.value)
-    : String(outcome.value);
+  const valueText =
+    Array.isArray(outcome.value) || typeof outcome.value === 'object'
+      ? JSON.stringify(outcome.value)
+      : String(outcome.value);
 
   return {
     success: true,
@@ -259,4 +283,3 @@ function renderList(
     executionTime: Date.now() - startedAt,
   };
 }
-

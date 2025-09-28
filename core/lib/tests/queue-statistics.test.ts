@@ -130,7 +130,11 @@ describe('Queue Statistics (T013)', () => {
 
     expect(stats.storage.fileCount).toBeGreaterThan(0);
     expect(stats.storage.diskUsage).toBeGreaterThan(0);
-    expect(stats.storage.oldestTask?.toISOString()).toBe(new Date('2025-01-01T00:00:00.000Z').toISOString());
-    expect(stats.storage.newestTask?.toISOString()).toBe(new Date('2025-01-01T01:00:00.000Z').toISOString());
+    expect(stats.storage.oldestTask?.toISOString()).toBe(
+      new Date('2025-01-01T00:00:00.000Z').toISOString()
+    );
+    expect(stats.storage.newestTask?.toISOString()).toBe(
+      new Date('2025-01-01T01:00:00.000Z').toISOString()
+    );
   });
 });
