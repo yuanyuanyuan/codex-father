@@ -1,580 +1,509 @@
-/**
- * T014: Version 数据模型
- *
- * 版本历史实体，记录文档的变更历史
- * 支持增量存储、内容快照、变更追踪和版本对比
- */
+import { createHash } from 'crypto';
 
-// 变更类型枚举
-export type ChangeType =
-  | 'create' // 创建 - 初始文档创建
-  | 'edit' // 编辑 - 内容修改
-  | 'review' // 审查 - 审查状态变更
-  | 'approve' // 批准 - 审查通过
-  | 'reject' // 拒绝 - 审查拒绝
-  | 'restore' // 恢复 - 版本回滚
-  | 'merge' // 合并 - 分支合并
-  | 'branch'; // 分支 - 创建分支
+/** Allowed change types recorded in a version */
+export type VersionChangeType = 'create' | 'update' | 'delete' | 'move' | 'rename';
 
-// 操作类型枚举
-export type OperationType =
-  | 'add' // 添加 - 新增内容
-  | 'remove' // 删除 - 移除内容
-  | 'replace' // 替换 - 修改内容
-  | 'move'; // 移动 - 调整位置
-
-// 变更来源枚举
-export type ChangeSource =
-  | 'user' // 用户操作
-  | 'auto' // 自动操作（如自动保存）
-  | 'import' // 导入操作
-  | 'merge' // 合并操作
-  | 'system'; // 系统操作
-
-// 版本变更详情接口
+/** Single change entry recorded in a version */
 export interface VersionChange {
-  path: string; // 变更路径，如 "sections.0.content", "metadata.title"
-  operation: OperationType; // 操作类型
-  oldValue?: any; // 原值（删除和替换操作）
-  newValue?: any; // 新值（添加和替换操作）
-  diffSize: number; // 变更大小（字符数）
-  changeDescription?: string; // 变更描述
-  lineStart?: number; // 起始行号
-  lineEnd?: number; // 结束行号
-  columnStart?: number; // 起始列号
-  columnEnd?: number; // 结束列号
+  type: VersionChangeType;
+  section: string;
+  description: string;
+  before?: string;
+  after?: string;
+  from?: string;
+  to?: string;
+  oldName?: string;
+  newName?: string;
+  lineNumber?: number;
+  author?: string;
 }
 
-// 版本元数据接口
-export interface VersionMetadata {
-  source: ChangeSource; // 变更来源
-  userAgent?: string; // 用户代理字符串
-  sessionId?: string; // 会话ID
-  parentVersions: string[]; // 父版本ID列表（合并场景下可能有多个）
-  tags: string[]; // 版本标签
-  branch?: string; // 分支名称
-  mergeInfo?: MergeInfo; // 合并信息
-  statistics: VersionStatistics; // 版本统计信息
-  checksum: string; // 内容校验和
+/** Snapshot of document state associated with a version */
+export interface VersionSnapshot {
+  content: Record<string, unknown>;
+  metadata: Record<string, unknown>;
 }
 
-// 合并信息接口
-export interface MergeInfo {
-  strategy: 'auto' | 'manual' | 'ours' | 'theirs'; // 合并策略
-  conflicts: ConflictInfo[]; // 冲突信息
-  resolvedBy?: string; // 冲突解决者
-  resolvedAt?: Date; // 冲突解决时间
-}
-
-// 冲突信息接口
-export interface ConflictInfo {
-  path: string; // 冲突路径
-  ourValue: any; // 我们的值
-  theirValue: any; // 他们的值
-  resolution: any; // 解决方案
-  resolvedManually: boolean; // 是否手动解决
-}
-
-// 版本统计信息接口
-export interface VersionStatistics {
-  addedLines: number; // 新增行数
-  deletedLines: number; // 删除行数
-  modifiedLines: number; // 修改行数
-  addedChars: number; // 新增字符数
-  deletedChars: number; // 删除字符数
-  sectionsAdded: number; // 新增章节数
-  sectionsDeleted: number; // 删除章节数
-  sectionsModified: number; // 修改章节数
-  imagesAdded: number; // 新增图片数
-  diagramsAdded: number; // 新增图表数
-}
-
-// 版本接口
+/** Core version entity */
 export interface Version {
-  id: string; // 版本ID
-  draftId: string; // 关联文档ID
-  versionNumber: number; // 版本号（自动递增）
-  changeType: ChangeType; // 变更类型
-  changes: VersionChange[]; // 具体变更内容列表
-  createdAt: Date; // 创建时间
-  createdBy: string; // 变更作者ID
-  createdByName: string; // 变更作者名称
-  commitMessage?: string; // 变更说明
-  contentSnapshot: string; // 内容快照（压缩存储）
-  contentSize: number; // 内容大小（字节）
-  metadata: VersionMetadata; // 版本元数据
-  isSnapshot: boolean; // 是否为快照版本（重要版本标记）
-  expiresAt?: Date; // 过期时间（临时版本）
+  id: string;
+  draftId: string;
+  version: string;
+  message: string;
+  changes: VersionChange[];
+  author: string;
+  createdAt: Date;
+  snapshot?: VersionSnapshot;
+  size?: number;
+  checksum?: string;
+  tags?: string[];
 }
 
-// 版本对比结果接口
-export interface VersionDiff {
-  fromVersion: number; // 起始版本
-  toVersion: number; // 目标版本
-  summary: DiffSummary; // 对比摘要
-  changes: DiffChange[]; // 详细变更
-  statistics: DiffStatistics; // 对比统计
-  generatedAt: Date; // 生成时间
+export interface ValidationError {
+  field: string;
+  message: string;
+  code: string;
 }
 
-// 对比摘要接口
-export interface DiffSummary {
-  totalChanges: number; // 总变更数
-  sectionsChanged: string[]; // 变更的章节
-  majorChanges: string[]; // 重大变更描述
-  contributors: string[]; // 贡献者列表
-  timeSpan: number; // 时间跨度（毫秒）
+export interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
 }
 
-// 对比变更接口
-export interface DiffChange {
-  path: string; // 变更路径
-  type: 'added' | 'removed' | 'modified'; // 变更类型
-  oldContent?: string; // 原内容
-  newContent?: string; // 新内容
-  context?: string; // 上下文
-  significance: 'minor' | 'major' | 'critical'; // 重要性
+export interface ParsedVersion {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease?: string;
+  build?: string;
 }
 
-// 对比统计接口
-export interface DiffStatistics {
-  addedContent: number; // 新增内容量（字符）
-  removedContent: number; // 删除内容量（字符）
-  modifiedContent: number; // 修改内容量（字符）
-  netChange: number; // 净变更量（字符）
-  changeRatio: number; // 变更比例（0-1）
+export interface CreateVersionInput {
+  draftId: string;
+  message: string;
+  changes: VersionChange[];
+  author: string;
+  version?: string;
+  content?: Record<string, unknown>;
+  snapshotMetadata?: Record<string, unknown>;
+  tags?: string[];
 }
 
-// 版本查询选项接口
-export interface VersionQueryOptions {
-  limit?: number; // 限制数量
-  offset?: number; // 偏移量
-  since?: Date; // 起始时间
-  until?: Date; // 结束时间
-  author?: string; // 作者筛选
-  changeType?: ChangeType; // 变更类型筛选
-  tags?: string[]; // 标签筛选
-  includeContent?: boolean; // 是否包含内容
-  includeStatistics?: boolean; // 是否包含统计信息
-}
+const VERSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,160}$/;
+const DRAFT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+const MESSAGE_MAX_LENGTH = 500;
+const DESCRIPTION_MIN_LENGTH = 4;
+const DESCRIPTION_MAX_LENGTH = 1000;
+const VERSION_PATTERN =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/;
+const CHECKSUM_PATTERN = /^(sha256|sha1|md5|crc32):[a-z0-9]{4,}$/;
+const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+let idCounter = 0;
+const GENERIC_DESCRIPTION_PATTERNS = [
+  /^change$/i,
+  /^changes?$/i,
+  /^update$/i,
+  /^updated?$/i,
+  /^modify$/i,
+  /^modified?$/i,
+  /^修改了一些东西$/,
+  /^修改一些东西$/,
+  /^缺少章节名$/,
+  /^!+$/,
+];
 
-// 版本恢复选项接口
-export interface RestoreOptions {
-  createBackup: boolean; // 是否创建备份
-  skipValidation: boolean; // 是否跳过验证
-  preserveMetadata: boolean; // 是否保留元数据
-  notifyUsers: boolean; // 是否通知用户
-  reason?: string; // 恢复原因
-}
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
-// Version 工具类
-export class VersionManager {
-  /**
-   * 创建新版本
-   */
-  static createVersion(
-    draftId: string,
-    versionNumber: number,
-    changeType: ChangeType,
-    changes: VersionChange[],
-    contentSnapshot: string,
-    createdBy: string,
-    createdByName: string,
-    commitMessage?: string
-  ): Version {
-    const now = new Date();
-    const statistics = this.calculateStatistics(changes);
+const isDate = (value: unknown): value is Date =>
+  value instanceof Date && !Number.isNaN(value.valueOf());
 
-    return {
-      id: `version-${draftId}-${versionNumber}`,
-      draftId,
-      versionNumber,
-      changeType,
-      changes,
-      createdAt: now,
-      createdBy,
-      createdByName,
-      commitMessage,
-      contentSnapshot: this.compressContent(contentSnapshot),
-      contentSize: contentSnapshot.length,
-      metadata: {
-        source: 'user',
-        parentVersions: versionNumber > 1 ? [`version-${draftId}-${versionNumber - 1}`] : [],
-        tags: [],
-        statistics,
-        checksum: this.calculateChecksum(contentSnapshot),
-      },
-      isSnapshot: this.isSnapshotVersion(changeType),
-      expiresAt: this.calculateExpiryDate(changeType),
-    };
+const isPositiveInteger = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value > 0;
+
+const generateId = (): string => {
+  idCounter = (idCounter + 1) % 1000;
+  return `version-${Date.now()}${idCounter.toString().padStart(3, '0')}`;
+};
+
+const pushError = (
+  errors: ValidationError[],
+  field: string,
+  message: string,
+  code: string
+): void => {
+  errors.push({ field, message, code });
+};
+
+const validateString = (
+  value: unknown,
+  field: string,
+  errors: ValidationError[],
+  { min = 1, max = Infinity, pattern }: { min?: number; max?: number; pattern?: RegExp } = {}
+): void => {
+  if (typeof value !== 'string') {
+    pushError(errors, field, `${field} must be a string`, 'invalid_type');
+    return;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length < min) {
+    pushError(errors, field, `${field} must be at least ${min} characters`, 'too_short');
+  }
+  if (trimmed.length > max) {
+    pushError(errors, field, `${field} must be at most ${max} characters`, 'too_long');
+  }
+  if (pattern && trimmed.length > 0 && !pattern.test(trimmed)) {
+    pushError(errors, field, `${field} format is invalid`, 'invalid_format');
+  }
+};
+
+const validateDescriptionQuality = (
+  description: string,
+  errors: ValidationError[],
+  field: string
+): void => {
+  const trimmed = description.trim();
+  validateString(trimmed, field, errors, {
+    min: DESCRIPTION_MIN_LENGTH,
+    max: DESCRIPTION_MAX_LENGTH,
+  });
+  if (!/[A-Za-z0-9\u4e00-\u9fa5]/u.test(trimmed)) {
+    pushError(errors, field, `${field} must contain descriptive characters`, 'invalid_value');
+  }
+  if (trimmed.length > 0 && GENERIC_DESCRIPTION_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+    pushError(errors, field, `${field} is too generic`, 'generic_description');
+  }
+};
+
+const validateChange = (change: unknown, index: number, errors: ValidationError[]): void => {
+  if (!isPlainObject(change)) {
+    pushError(errors, `changes[${index}]`, 'change must be an object', 'invalid_type');
+    return;
   }
 
-  /**
-   * 计算变更统计
-   */
-  private static calculateStatistics(changes: VersionChange[]): VersionStatistics {
-    const stats: VersionStatistics = {
-      addedLines: 0,
-      deletedLines: 0,
-      modifiedLines: 0,
-      addedChars: 0,
-      deletedChars: 0,
-      sectionsAdded: 0,
-      sectionsDeleted: 0,
-      sectionsModified: 0,
-      imagesAdded: 0,
-      diagramsAdded: 0,
-    };
+  const changeErrors: ValidationError[] = [];
+  const entry = change as VersionChange;
 
-    for (const change of changes) {
-      // 统计字符变更
-      if (change.operation === 'add' && change.newValue) {
-        stats.addedChars += this.getContentLength(change.newValue);
-      } else if (change.operation === 'remove' && change.oldValue) {
-        stats.deletedChars += this.getContentLength(change.oldValue);
-      } else if (change.operation === 'replace') {
-        if (change.oldValue) {
-          stats.deletedChars += this.getContentLength(change.oldValue);
-        }
-        if (change.newValue) {
-          stats.addedChars += this.getContentLength(change.newValue);
-        }
-      }
+  if (!['create', 'update', 'delete', 'move', 'rename'].includes(entry.type as string)) {
+    pushError(
+      changeErrors,
+      'type',
+      'type must be one of create, update, delete, move, rename',
+      'invalid_value'
+    );
+  }
 
-      // 统计章节变更
-      if (change.path.startsWith('sections.')) {
-        if (change.operation === 'add') {
-          stats.sectionsAdded++;
-        } else if (change.operation === 'remove') {
-          stats.sectionsDeleted++;
-        } else if (change.operation === 'replace') {
-          stats.sectionsModified++;
-        }
-      }
+  const hasSectionProp = Object.prototype.hasOwnProperty.call(change, 'section');
+  if (!hasSectionProp) {
+    pushError(changeErrors, 'section', 'section is required', 'required');
+  }
+  validateString(entry.section, 'section', changeErrors, { min: 1, max: 120 });
+  if (entry.section && entry.section.trim().length === 0) {
+    pushError(changeErrors, 'section', 'section must not be empty', 'too_short');
+  }
 
-      // 统计图表和图片
-      if (change.path.includes('diagram') && change.operation === 'add') {
-        stats.diagramsAdded++;
-      }
-      if (change.path.includes('image') && change.operation === 'add') {
-        stats.imagesAdded++;
-      }
+  if (typeof entry.description !== 'string') {
+    pushError(changeErrors, 'description', 'description is required', 'required');
+  } else {
+    validateDescriptionQuality(entry.description, changeErrors, 'description');
+  }
+
+  if (entry.lineNumber !== undefined && !isPositiveInteger(entry.lineNumber)) {
+    pushError(changeErrors, 'lineNumber', 'lineNumber must be a positive integer', 'invalid_value');
+  }
+
+  if (entry.author !== undefined) {
+    validateString(entry.author, 'author', changeErrors, { min: 1, max: 120 });
+  }
+
+  if (entry.type === 'update') {
+    if (typeof entry.before !== 'string' || typeof entry.after !== 'string') {
+      pushError(
+        changeErrors,
+        'beforeAfter',
+        'update change must include before and after strings',
+        'missing_fields'
+      );
     }
-
-    return stats;
+  }
+  if (entry.type === 'move') {
+    const hasFrom = typeof entry.from === 'string' && entry.from.trim().length > 0;
+    const hasTo = typeof entry.to === 'string' && entry.to.trim().length > 0;
+    if ((hasFrom && !hasTo) || (!hasFrom && hasTo)) {
+      pushError(
+        changeErrors,
+        'fromTo',
+        'move change must include both from and to when specified',
+        'missing_fields'
+      );
+    }
+  }
+  if (entry.type === 'rename') {
+    const hasOld = typeof entry.oldName === 'string' && entry.oldName.trim().length > 0;
+    const hasNew = typeof entry.newName === 'string' && entry.newName.trim().length > 0;
+    if ((hasOld && !hasNew) || (!hasOld && hasNew)) {
+      pushError(
+        changeErrors,
+        'rename',
+        'rename change must include both oldName and newName when specified',
+        'missing_fields'
+      );
+    }
   }
 
-  /**
-   * 获取内容长度
-   */
-  private static getContentLength(content: any): number {
-    if (typeof content === 'string') {
-      return content.length;
-    } else if (content && typeof content === 'object') {
-      return JSON.stringify(content).length;
+  changeErrors.forEach((err) => {
+    errors.push({ field: `changes[${index}].${err.field}`, message: err.message, code: err.code });
+  });
+};
+
+const validateSnapshot = (snapshot: unknown, errors: ValidationError[]): void => {
+  if (snapshot === undefined) {
+    return;
+  }
+  if (!isPlainObject(snapshot)) {
+    pushError(errors, 'snapshot', 'snapshot must be an object', 'invalid_type');
+    return;
+  }
+  const keys = Object.keys(snapshot);
+  if (keys.some((key) => key !== 'content' && key !== 'metadata')) {
+    pushError(
+      errors,
+      'snapshot',
+      'snapshot can only contain content and metadata',
+      'invalid_structure'
+    );
+  }
+
+  const { content, metadata } = snapshot as VersionSnapshot;
+  if (content !== undefined && !isPlainObject(content)) {
+    pushError(errors, 'snapshot.content', 'snapshot.content must be an object', 'invalid_type');
+  }
+  if (metadata !== undefined && !isPlainObject(metadata)) {
+    pushError(errors, 'snapshot.metadata', 'snapshot.metadata must be an object', 'invalid_type');
+  }
+};
+
+const validateTags = (tags: unknown, errors: ValidationError[]): void => {
+  if (tags === undefined) {
+    return;
+  }
+  if (!Array.isArray(tags)) {
+    pushError(errors, 'tags', 'tags must be an array', 'invalid_type');
+    return;
+  }
+  if (tags.length > 20) {
+    pushError(errors, 'tags', 'tags cannot exceed 20 entries', 'too_many');
+  }
+  const seen = new Set<string>();
+  tags.forEach((tag, index) => {
+    if (typeof tag !== 'string') {
+      pushError(errors, `tags[${index}]`, 'tag must be a string', 'invalid_type');
+      return;
+    }
+    const trimmed = tag.trim();
+    if (trimmed.length === 0) {
+      pushError(errors, `tags[${index}]`, 'tag cannot be empty', 'too_short');
+    }
+    if (seen.has(trimmed)) {
+      pushError(errors, `tags[${index}]`, 'duplicate tag', 'duplicate');
+    }
+    seen.add(trimmed);
+  });
+};
+
+export const validateVersion = (value: unknown): ValidationResult => {
+  if (!isPlainObject(value)) {
+    return {
+      valid: false,
+      errors: [{ field: 'version', message: 'Version must be an object', code: 'invalid_type' }],
+    };
+  }
+
+  const errors: ValidationError[] = [];
+  const version = value as Version;
+
+  if (version.id === undefined) {
+    pushError(errors, 'id', 'id is required', 'required');
+  } else {
+    validateString(version.id, 'id', errors, { min: 3, max: 160, pattern: VERSION_ID_PATTERN });
+  }
+
+  validateString(version.draftId, 'draftId', errors, {
+    min: 1,
+    max: 128,
+    pattern: DRAFT_ID_PATTERN,
+  });
+
+  if (typeof version.version !== 'string' || !VERSION_PATTERN.test(version.version)) {
+    pushError(errors, 'version', 'version must follow semantic versioning', 'invalid_format');
+  }
+
+  validateString(version.message, 'message', errors, { min: 3, max: MESSAGE_MAX_LENGTH });
+
+  if (!Array.isArray(version.changes)) {
+    pushError(errors, 'changes', 'changes must be an array', 'invalid_type');
+  } else {
+    version.changes.forEach((change, index) => validateChange(change, index, errors));
+  }
+
+  validateString(version.author, 'author', errors, { min: 1, max: 120 });
+
+  if (!isDate(version.createdAt)) {
+    pushError(errors, 'createdAt', 'createdAt must be a Date', 'invalid_type');
+  }
+
+  validateSnapshot(version.snapshot, errors);
+
+  if (version.size !== undefined) {
+    if (
+      typeof version.size !== 'number' ||
+      Number.isNaN(version.size) ||
+      version.size < 0 ||
+      version.size > MAX_SIZE_BYTES
+    ) {
+      pushError(errors, 'size', 'size must be a number between 0 and 10MB', 'invalid_value');
+    }
+  }
+
+  if (version.checksum !== undefined) {
+    if (typeof version.checksum !== 'string' || !CHECKSUM_PATTERN.test(version.checksum)) {
+      pushError(errors, 'checksum', 'checksum must follow algorithm:hex pattern', 'invalid_format');
+    }
+  }
+
+  validateTags(version.tags, errors);
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+};
+
+export const isVersion = (value: unknown): value is Version => validateVersion(value).valid;
+
+export const parseVersion = (input: string): ParsedVersion => {
+  const match = VERSION_PATTERN.exec(input);
+  if (!match) {
+    throw new Error(`Invalid version string: ${input}`);
+  }
+  const [, major, minor, patch, prerelease, build] = match;
+  return {
+    major: Number(major),
+    minor: Number(minor),
+    patch: Number(patch),
+    prerelease: prerelease || undefined,
+    build: build || undefined,
+  };
+};
+
+const compareIdentifiers = (a: string, b: string): number => {
+  const numericA = /^\d+$/.test(a);
+  const numericB = /^\d+$/.test(b);
+
+  if (numericA && numericB) {
+    const diff = Number(a) - Number(b);
+    if (diff < 0) {
+      return -1;
+    }
+    if (diff > 0) {
+      return 1;
     }
     return 0;
   }
 
-  /**
-   * 判断是否为快照版本
-   */
-  private static isSnapshotVersion(changeType: ChangeType): boolean {
-    return ['create', 'approve', 'restore', 'merge'].includes(changeType);
+  if (numericA && !numericB) {
+    return -1;
+  }
+  if (!numericA && numericB) {
+    return 1;
   }
 
-  /**
-   * 计算过期时间
-   */
-  private static calculateExpiryDate(changeType: ChangeType): Date | undefined {
-    // 只有自动保存的版本有过期时间
-    if (changeType === 'edit') {
-      const expires = new Date();
-      expires.setDate(expires.getDate() + 30); // 30天后过期
-      return expires;
+  if (a < b) {
+    return -1;
+  }
+  if (a > b) {
+    return 1;
+  }
+  return 0;
+};
+
+export const compareVersions = (a: string, b: string): number => {
+  const parsedA = parseVersion(a);
+  const parsedB = parseVersion(b);
+
+  if (parsedA.major !== parsedB.major) {
+    return parsedA.major < parsedB.major ? -1 : 1;
+  }
+  if (parsedA.minor !== parsedB.minor) {
+    return parsedA.minor < parsedB.minor ? -1 : 1;
+  }
+  if (parsedA.patch !== parsedB.patch) {
+    return parsedA.patch < parsedB.patch ? -1 : 1;
+  }
+
+  const preA = parsedA.prerelease;
+  const preB = parsedB.prerelease;
+
+  if (preA === preB) {
+    return 0;
+  }
+
+  if (!preA) {
+    return 1;
+  }
+  if (!preB) {
+    return -1;
+  }
+
+  const segmentsA = preA.split('.');
+  const segmentsB = preB.split('.');
+  const length = Math.max(segmentsA.length, segmentsB.length);
+
+  for (let i = 0; i < length; i += 1) {
+    const identA = segmentsA[i];
+    const identB = segmentsB[i];
+    if (identA === undefined) {
+      return -1;
     }
-    return undefined;
-  }
-
-  /**
-   * 压缩内容
-   */
-  private static compressContent(content: string): string {
-    // 简化的压缩实现，实际项目中应使用专业压缩库
-    // 这里只是示例，返回base64编码
-    return Buffer.from(content, 'utf8').toString('base64');
-  }
-
-  /**
-   * 解压内容
-   */
-  static decompressContent(compressedContent: string): string {
-    try {
-      return Buffer.from(compressedContent, 'base64').toString('utf8');
-    } catch (error) {
-      throw new Error('Failed to decompress content');
+    if (identB === undefined) {
+      return 1;
+    }
+    const diff = compareIdentifiers(identA, identB);
+    if (diff !== 0) {
+      return diff;
     }
   }
 
-  /**
-   * 计算内容校验和
-   */
-  private static calculateChecksum(content: string): string {
-    // 简化的校验和实现，实际项目中应使用专业哈希算法
-    let hash = 0;
-    for (let i = 0; i < content.length; i++) {
-      const char = content.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash; // 转为32位整数
-    }
-    return hash.toString(16);
-  }
+  return 0;
+};
 
-  /**
-   * 对比两个版本
-   */
-  static compareVersions(
-    fromVersion: Version,
-    toVersion: Version,
-    includeContent = true
-  ): VersionDiff {
-    const fromContent = this.decompressContent(fromVersion.contentSnapshot);
-    const toContent = this.decompressContent(toVersion.contentSnapshot);
+export const createVersion = (input: CreateVersionInput): Version => {
+  const {
+    draftId,
+    message,
+    changes,
+    author,
+    version = '1.0.0',
+    content,
+    snapshotMetadata,
+    tags,
+  } = input;
 
-    const changes: DiffChange[] = [];
-
-    if (includeContent) {
-      // 简化的内容对比实现
-      if (fromContent !== toContent) {
-        changes.push({
-          path: 'content',
-          type: 'modified',
-          oldContent: fromContent,
-          newContent: toContent,
-          significance: this.assessChangeSignificance(fromContent, toContent),
-        });
+  const baseSnapshot: VersionSnapshot | undefined = content
+    ? {
+        content,
+        metadata: {
+          ...(snapshotMetadata ?? {}),
+          generatedAt: new Date().toISOString(),
+        },
       }
-    }
+    : undefined;
 
-    // 合并两个版本之间的所有变更
-    const allChanges = this.collectChangesBetweenVersions(fromVersion, toVersion);
-    const statistics = this.calculateDiffStatistics(fromContent, toContent);
+  const serializedContent = baseSnapshot ? JSON.stringify(baseSnapshot.content) : '';
+  const size = baseSnapshot ? Buffer.byteLength(serializedContent, 'utf8') : undefined;
+  const checksum = baseSnapshot
+    ? `sha256:${createHash('sha256').update(serializedContent, 'utf8').digest('hex')}`
+    : undefined;
 
-    return {
-      fromVersion: fromVersion.versionNumber,
-      toVersion: toVersion.versionNumber,
-      summary: {
-        totalChanges: allChanges.length,
-        sectionsChanged: this.extractChangedSections(allChanges),
-        majorChanges: this.extractMajorChanges(allChanges),
-        contributors: this.extractContributors(fromVersion, toVersion),
-        timeSpan: toVersion.createdAt.getTime() - fromVersion.createdAt.getTime(),
-      },
-      changes,
-      statistics,
-      generatedAt: new Date(),
-    };
+  const versionObject: Version = {
+    id: generateId(),
+    draftId,
+    version,
+    message,
+    changes,
+    author,
+    createdAt: new Date(),
+    snapshot: baseSnapshot,
+    size,
+    checksum,
+    tags,
+  };
+
+  const result = validateVersion(versionObject);
+  if (!result.valid) {
+    const messageSummary = result.errors.map((err) => `${err.field}: ${err.message}`).join('; ');
+    throw new Error(`Failed to create Version: ${messageSummary}`);
   }
 
-  /**
-   * 评估变更重要性
-   */
-  private static assessChangeSignificance(
-    oldContent: string,
-    newContent: string
-  ): 'minor' | 'major' | 'critical' {
-    const oldLength = oldContent.length;
-    const newLength = newContent.length;
-    const changeRatio = Math.abs(newLength - oldLength) / Math.max(oldLength, 1);
-
-    if (changeRatio > 0.5) {
-      return 'critical';
-    }
-    if (changeRatio > 0.2) {
-      return 'major';
-    }
-    return 'minor';
-  }
-
-  /**
-   * 收集版本之间的变更
-   */
-  private static collectChangesBetweenVersions(
-    fromVersion: Version,
-    toVersion: Version
-  ): VersionChange[] {
-    // 实际实现应该收集从fromVersion到toVersion之间所有版本的变更
-    return toVersion.changes;
-  }
-
-  /**
-   * 提取变更的章节
-   */
-  private static extractChangedSections(changes: VersionChange[]): string[] {
-    const sections = new Set<string>();
-    for (const change of changes) {
-      if (change.path.startsWith('sections.')) {
-        const sectionMatch = change.path.match(/sections\.(\d+)/);
-        if (sectionMatch) {
-          sections.add(`section-${sectionMatch[1]}`);
-        }
-      }
-    }
-    return Array.from(sections);
-  }
-
-  /**
-   * 提取重大变更
-   */
-  private static extractMajorChanges(changes: VersionChange[]): string[] {
-    return changes
-      .filter((change) => change.diffSize > 1000) // 大于1000字符的变更
-      .map((change) => change.changeDescription || `${change.operation} at ${change.path}`)
-      .slice(0, 5); // 最多5个重大变更
-  }
-
-  /**
-   * 提取贡献者
-   */
-  private static extractContributors(fromVersion: Version, toVersion: Version): string[] {
-    const contributors = new Set<string>();
-    contributors.add(fromVersion.createdByName);
-    contributors.add(toVersion.createdByName);
-    return Array.from(contributors);
-  }
-
-  /**
-   * 计算对比统计
-   */
-  private static calculateDiffStatistics(oldContent: string, newContent: string): DiffStatistics {
-    const oldLength = oldContent.length;
-    const newLength = newContent.length;
-
-    return {
-      addedContent: Math.max(0, newLength - oldLength),
-      removedContent: Math.max(0, oldLength - newLength),
-      modifiedContent: Math.min(oldLength, newLength),
-      netChange: newLength - oldLength,
-      changeRatio: Math.abs(newLength - oldLength) / Math.max(oldLength, 1),
-    };
-  }
-
-  /**
-   * 恢复到指定版本
-   */
-  static restoreToVersion(
-    currentVersion: Version,
-    targetVersion: Version,
-    restoredBy: string,
-    restoredByName: string,
-    options: RestoreOptions = {
-      createBackup: true,
-      skipValidation: false,
-      preserveMetadata: false,
-      notifyUsers: true,
-    }
-  ): Version {
-    const targetContent = this.decompressContent(targetVersion.contentSnapshot);
-
-    // 创建恢复变更记录
-    const restoreChanges: VersionChange[] = [
-      {
-        path: 'content',
-        operation: 'replace',
-        oldValue: this.decompressContent(currentVersion.contentSnapshot),
-        newValue: targetContent,
-        diffSize: Math.abs(targetContent.length - currentVersion.contentSize),
-        changeDescription: `Restored to version ${targetVersion.versionNumber}`,
-      },
-    ];
-
-    // 创建新版本
-    const newVersion = this.createVersion(
-      currentVersion.draftId,
-      currentVersion.versionNumber + 1,
-      'restore',
-      restoreChanges,
-      targetContent,
-      restoredBy,
-      restoredByName,
-      options.reason || `Restored to version ${targetVersion.versionNumber}`
-    );
-
-    // 添加恢复元数据
-    newVersion.metadata.parentVersions = [currentVersion.id];
-    newVersion.metadata.tags.push('restore', `from-v${targetVersion.versionNumber}`);
-
-    return newVersion;
-  }
-
-  /**
-   * 验证版本数据
-   */
-  static validateVersion(version: Partial<Version>): string[] {
-    const errors: string[] = [];
-
-    if (!version.draftId) {
-      errors.push('关联文档ID不能为空');
-    }
-
-    if (!version.versionNumber || version.versionNumber < 1) {
-      errors.push('版本号必须为正整数');
-    }
-
-    if (!version.changes || version.changes.length === 0) {
-      errors.push('版本变更记录不能为空');
-    }
-
-    if (!version.contentSnapshot) {
-      errors.push('内容快照不能为空');
-    }
-
-    if (version.commitMessage && version.commitMessage.length > 500) {
-      errors.push('提交信息不能超过500字符');
-    }
-
-    if (version.expiresAt && version.expiresAt <= new Date()) {
-      errors.push('过期时间不能早于当前时间');
-    }
-
-    return errors;
-  }
-
-  /**
-   * 清理过期版本
-   */
-  static findExpiredVersions(versions: Version[]): Version[] {
-    const now = new Date();
-    return versions.filter((version) => version.expiresAt && version.expiresAt <= now);
-  }
-
-  /**
-   * 获取版本摘要信息
-   */
-  static getVersionSummary(version: Version): string {
-    const { statistics } = version.metadata;
-    const parts: string[] = [];
-
-    if (statistics.sectionsAdded > 0) {
-      parts.push(`+${statistics.sectionsAdded} 章节`);
-    }
-    if (statistics.sectionsDeleted > 0) {
-      parts.push(`-${statistics.sectionsDeleted} 章节`);
-    }
-    if (statistics.sectionsModified > 0) {
-      parts.push(`~${statistics.sectionsModified} 章节`);
-    }
-    if (statistics.diagramsAdded > 0) {
-      parts.push(`+${statistics.diagramsAdded} 图表`);
-    }
-
-    const charChange = statistics.addedChars - statistics.deletedChars;
-    if (charChange > 0) {
-      parts.push(`+${charChange} 字符`);
-    } else if (charChange < 0) {
-      parts.push(`${charChange} 字符`);
-    }
-
-    return parts.length > 0 ? parts.join(', ') : '无变更';
-  }
-}
+  return versionObject;
+};
