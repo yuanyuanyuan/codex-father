@@ -121,12 +121,12 @@ plan.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅, quickstart.md �
   - [x] Test concurrent editing scenarios and conflict detection
   - [x] Validate rollback and recovery mechanisms
 
-- [ ] **T009** [P] Create template system integration test at
-      `tests/integration/template.test.ts`
-  - Test template creation, validation, and usage
-  - Verify hierarchical document structure generation
-  - Test decision table rendering and customization
-  - Validate template inheritance and field validation
+- [x] **T009** [P] Create template system integration test at
+      `tests/integration/template.test.ts` ✅ COMPLETED
+  - [x] Test template creation, validation, and usage
+  - [x] Verify hierarchical document structure generation
+  - [x] Test decision table rendering and customization
+  - [x] Validate template inheritance and field validation
 
 - [ ] **T010** [P] Create diagram rendering integration test at
       `tests/integration/diagram.test.ts`
