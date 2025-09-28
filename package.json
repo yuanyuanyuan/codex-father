@@ -42,6 +42,7 @@
     "clean": "rimraf dist .tsbuildinfo .tsbuildinfo.build",
     "lint": "eslint . --fix",
     "lint:check": "eslint .",
+    "lint-staged": "lint-staged",
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,js,json,md}\"",
     "test": "vitest",
@@ -64,17 +65,20 @@
     "release": "semantic-release"
   },
   "dependencies": {
-    "commander": "^12.0.0",
     "chalk": "^5.3.0",
+    "chokidar": "^4.0.3",
+    "commander": "^12.0.0",
     "fs-extra": "^11.2.0",
-    "zod": "^3.22.4",
-    "yaml": "^2.3.4",
+    "marked": "^16.3.0",
+    "mermaid": "^11.12.0",
+    "tslib": "^2.6.0",
     "winston": "^3.11.0",
-    "tslib": "^2.6.0"
+    "yaml": "^2.3.4",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
     "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.10.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "@vitest/coverage-v8": "^1.0.0",
@@ -90,8 +94,8 @@
     "tsx": "^4.6.0",
     "typedoc": "^0.25.4",
     "typescript": "^5.3.0",
-    "vitest": "^1.0.0",
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0"
   },
   "lint-staged": {
     "*.{ts,js}": [
