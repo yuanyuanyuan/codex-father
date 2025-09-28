@@ -74,16 +74,17 @@ plan.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅, quickstart.md �
 
 ### Contract Tests (API & CLI)
 
-- [ ] **T004** [P] Create PRD API contract tests at
-      `tests/contract/prd-api.test.ts`
-  - Test all 17 API endpoints from contracts/prd-api.yaml
-  - Verify request/response schemas for listDrafts, createDraft, getDraft,
-    updateDraft, deleteDraft
-  - Test version management endpoints: listVersions, getVersion, restoreVersion
-  - Test review workflow: getReviewStatus, submitForReview, submitReview
-  - Test template system: listTemplates, createTemplate, getTemplate
-  - Test user management: listUsers, getCurrentUser, updateCurrentUser
-  - All tests MUST fail initially (Red phase of TDD)
+- [x] **T004** [P] Create PRD API contract tests at
+      `tests/contract/prd-api.test.ts` ✅ COMPLETED
+  - [x] Test all 17 API endpoints from contracts/prd-api.yaml
+  - [x] Verify request/response schemas for listDrafts, createDraft, getDraft,
+        updateDraft, deleteDraft
+  - [x] Test version management endpoints: listVersions, getVersion,
+        restoreVersion
+  - [x] Test review workflow: getReviewStatus, submitForReview, submitReview
+  - [x] Test template system: listTemplates, createTemplate, getTemplate
+  - [x] Test user management: listUsers, getCurrentUser, updateCurrentUser
+  - [x] All tests MUST fail initially (Red phase of TDD)
 
 - [ ] **T005** [P] Create CLI commands contract tests at
       `tests/contract/cli-commands.test.ts`
