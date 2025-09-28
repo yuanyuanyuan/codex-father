@@ -17,7 +17,12 @@ export type ReviewStage =
   | 'rejected'
   | 'revision_required';
 export type ReviewDecision = 'approve' | 'reject' | 'request_changes';
-export type ReviewOverallStatus = 'pending' | 'in_progress' | 'approved' | 'rejected' | 'changes_requested';
+export type ReviewOverallStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'approved'
+  | 'rejected'
+  | 'changes_requested';
 
 export interface ReviewDecisionEntry {
   reviewerId: string;
@@ -115,7 +120,7 @@ const GENERIC_COMMENTS = [
   /^修改了一些东西$/,
   /^修改一些东西$/,
   /^缺少章节名$/,
-  /^!+$/
+  /^!+$/,
 ];
 
 const STAGE_TRANSITIONS: Record<ReviewStage, ReviewStage[]> = {
@@ -126,16 +131,19 @@ const STAGE_TRANSITIONS: Record<ReviewStage, ReviewStage[]> = {
   final_review: ['approved', 'revision_required', 'rejected'],
   approved: [],
   rejected: [],
-  revision_required: ['technical_review', 'business_review', 'final_review']
+  revision_required: ['technical_review', 'business_review', 'final_review'],
 };
 
-const OVERALL_TRANSITIONS: Record<ReviewOverallStatus | 'published', (ReviewOverallStatus | 'published')[]> = {
+const OVERALL_TRANSITIONS: Record<
+  ReviewOverallStatus | 'published',
+  (ReviewOverallStatus | 'published')[]
+> = {
   pending: ['in_progress'],
   in_progress: ['approved', 'rejected', 'changes_requested'],
   approved: ['published'],
   rejected: [],
   changes_requested: ['in_progress', 'rejected'],
-  published: []
+  published: [],
 };
 
 let reviewIdCounter = 0;
@@ -148,7 +156,8 @@ const generateId = (): string => {
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const isDate = (value: unknown): value is Date => value instanceof Date && !Number.isNaN(value.valueOf());
+const isDate = (value: unknown): value is Date =>
+  value instanceof Date && !Number.isNaN(value.valueOf());
 
 const validateString = (
   value: unknown,
@@ -162,7 +171,11 @@ const validateString = (
   }
   const trimmed = value.trim();
   if (trimmed.length < min) {
-    errors.push({ field, message: `${field} must be at least ${min} characters`, code: 'too_short' });
+    errors.push({
+      field,
+      message: `${field} must be at least ${min} characters`,
+      code: 'too_short',
+    });
   }
   if (trimmed.length > max) {
     errors.push({ field, message: `${field} must be at most ${max} characters`, code: 'too_long' });
@@ -174,23 +187,35 @@ const validateString = (
 
 const validateReviewers = (reviewers: unknown, errors: ValidationError[]): void => {
   if (!Array.isArray(reviewers)) {
-    errors.push({ field: 'reviewers', message: 'reviewers must be an array', code: 'invalid_type' });
+    errors.push({
+      field: 'reviewers',
+      message: 'reviewers must be an array',
+      code: 'invalid_type',
+    });
     return;
   }
   if (reviewers.length > MAX_REVIEWERS) {
-    errors.push({ field: 'reviewers', message: `reviewers cannot exceed ${MAX_REVIEWERS}`, code: 'too_many' });
+    errors.push({
+      field: 'reviewers',
+      message: `reviewers cannot exceed ${MAX_REVIEWERS}`,
+      code: 'too_many',
+    });
   }
   const seen = new Set<string>();
   reviewers.forEach((reviewer, index) => {
     validateString(reviewer, `reviewers[${index}]`, errors, {
       min: 1,
       max: 120,
-      pattern: REVIEWER_ID_PATTERN
+      pattern: REVIEWER_ID_PATTERN,
     });
     if (typeof reviewer === 'string') {
       const key = reviewer.trim();
       if (seen.has(key)) {
-        errors.push({ field: `reviewers[${index}]`, message: 'duplicate reviewer', code: 'duplicate' });
+        errors.push({
+          field: `reviewers[${index}]`,
+          message: 'duplicate reviewer',
+          code: 'duplicate',
+        });
       }
       seen.add(key);
     }
@@ -199,29 +224,52 @@ const validateReviewers = (reviewers: unknown, errors: ValidationError[]): void 
 
 const validateDecisions = (decisions: unknown, errors: ValidationError[]): void => {
   if (!Array.isArray(decisions)) {
-    errors.push({ field: 'decisions', message: 'decisions must be an array', code: 'invalid_type' });
+    errors.push({
+      field: 'decisions',
+      message: 'decisions must be an array',
+      code: 'invalid_type',
+    });
     return;
   }
   decisions.forEach((entry, idx) => {
     if (!isPlainObject(entry)) {
-      errors.push({ field: `decisions[${idx}]`, message: 'decision must be an object', code: 'invalid_type' });
+      errors.push({
+        field: `decisions[${idx}]`,
+        message: 'decision must be an object',
+        code: 'invalid_type',
+      });
       return;
     }
     const decision = entry as ReviewDecisionEntry;
     validateString(decision.reviewerId, `decisions[${idx}].reviewerId`, errors, {
       min: 1,
       max: 120,
-      pattern: REVIEWER_ID_PATTERN
+      pattern: REVIEWER_ID_PATTERN,
     });
     if (!VALID_DECISIONS.includes(decision.decision)) {
-      errors.push({ field: `decisions[${idx}].decision`, message: 'invalid decision value', code: 'invalid_value' });
+      errors.push({
+        field: `decisions[${idx}].decision`,
+        message: 'invalid decision value',
+        code: 'invalid_value',
+      });
     }
     validateString(decision.comments, `decisions[${idx}].comments`, errors, { min: 3, max: 1000 });
-    if (typeof decision.comments === 'string' && GENERIC_COMMENTS.some((pattern) => pattern.test(decision.comments.trim()))) {
-      errors.push({ field: `decisions[${idx}].comments`, message: 'comments too generic', code: 'generic_comment' });
+    if (
+      typeof decision.comments === 'string' &&
+      GENERIC_COMMENTS.some((pattern) => pattern.test(decision.comments.trim()))
+    ) {
+      errors.push({
+        field: `decisions[${idx}].comments`,
+        message: 'comments too generic',
+        code: 'generic_comment',
+      });
     }
     if (!isDate(decision.timestamp)) {
-      errors.push({ field: `decisions[${idx}].timestamp`, message: 'timestamp must be a Date', code: 'invalid_type' });
+      errors.push({
+        field: `decisions[${idx}].timestamp`,
+        message: 'timestamp must be a Date',
+        code: 'invalid_type',
+      });
     }
   });
 };
@@ -234,17 +282,33 @@ const validateTimeline = (timeline: unknown, errors: ValidationError[]): void =>
   let previous: Date | undefined;
   timeline.forEach((entry, idx) => {
     if (!isPlainObject(entry)) {
-      errors.push({ field: `timeline[${idx}]`, message: 'timeline entry must be an object', code: 'invalid_type' });
+      errors.push({
+        field: `timeline[${idx}]`,
+        message: 'timeline entry must be an object',
+        code: 'invalid_type',
+      });
       return;
     }
     const cast = entry as ReviewTimelineEntry;
     if (!VALID_STAGES.includes(cast.stage)) {
-      errors.push({ field: `timeline[${idx}].stage`, message: 'invalid stage', code: 'invalid_value' });
+      errors.push({
+        field: `timeline[${idx}].stage`,
+        message: 'invalid stage',
+        code: 'invalid_value',
+      });
     }
     if (!isDate(cast.timestamp)) {
-      errors.push({ field: `timeline[${idx}].timestamp`, message: 'timestamp must be a Date', code: 'invalid_type' });
+      errors.push({
+        field: `timeline[${idx}].timestamp`,
+        message: 'timestamp must be a Date',
+        code: 'invalid_type',
+      });
     } else if (previous && cast.timestamp < previous) {
-      errors.push({ field: `timeline[${idx}].timestamp`, message: 'timeline timestamps must be non-decreasing', code: 'invalid_order' });
+      errors.push({
+        field: `timeline[${idx}].timestamp`,
+        message: 'timeline timestamps must be non-decreasing',
+        code: 'invalid_order',
+      });
     }
     validateString(cast.actor, `timeline[${idx}].actor`, errors, { min: 1, max: 120 });
     validateString(cast.description, `timeline[${idx}].description`, errors, { min: 1, max: 500 });
@@ -264,26 +328,54 @@ const validateProgress = (progress: unknown, errors: ValidationError[]): void =>
   }
   const { completed, total, percentage } = progress as ReviewProgress;
   if (typeof completed !== 'number' || completed < 0) {
-    errors.push({ field: 'progress.completed', message: 'completed must be a non-negative number', code: 'invalid_value' });
+    errors.push({
+      field: 'progress.completed',
+      message: 'completed must be a non-negative number',
+      code: 'invalid_value',
+    });
   }
   if (typeof total !== 'number' || total < 0) {
-    errors.push({ field: 'progress.total', message: 'total must be a non-negative number', code: 'invalid_value' });
+    errors.push({
+      field: 'progress.total',
+      message: 'total must be a non-negative number',
+      code: 'invalid_value',
+    });
   }
   if (typeof percentage !== 'number' || percentage < 0 || percentage > 100) {
-    errors.push({ field: 'progress.percentage', message: 'percentage must be between 0 and 100', code: 'invalid_value' });
+    errors.push({
+      field: 'progress.percentage',
+      message: 'percentage must be between 0 and 100',
+      code: 'invalid_value',
+    });
   }
-  if (typeof completed === 'number' && typeof total === 'number' && typeof percentage === 'number') {
+  if (
+    typeof completed === 'number' &&
+    typeof total === 'number' &&
+    typeof percentage === 'number'
+  ) {
     if (total === 0) {
       if (completed !== 0 || percentage !== 0) {
-        errors.push({ field: 'progress', message: 'When total is 0, completed and percentage must be 0', code: 'invalid_value' });
+        errors.push({
+          field: 'progress',
+          message: 'When total is 0, completed and percentage must be 0',
+          code: 'invalid_value',
+        });
       }
     } else {
       const expected = Math.round((completed / total) * 100);
       if (Math.abs(expected - percentage) > 1) {
-        errors.push({ field: 'progress.percentage', message: 'percentage does not match completed/total', code: 'invalid_value' });
+        errors.push({
+          field: 'progress.percentage',
+          message: 'percentage does not match completed/total',
+          code: 'invalid_value',
+        });
       }
       if (completed > total) {
-        errors.push({ field: 'progress.completed', message: 'completed cannot exceed total', code: 'invalid_value' });
+        errors.push({
+          field: 'progress.completed',
+          message: 'completed cannot exceed total',
+          code: 'invalid_value',
+        });
       }
     }
   }
@@ -306,7 +398,9 @@ export const validateReviewStatus = (value: unknown): ValidationResult => {
   if (!isPlainObject(value)) {
     return {
       valid: false,
-      errors: [{ field: 'reviewStatus', message: 'ReviewStatus must be an object', code: 'invalid_type' }]
+      errors: [
+        { field: 'reviewStatus', message: 'ReviewStatus must be an object', code: 'invalid_type' },
+      ],
     };
   }
 
@@ -314,10 +408,18 @@ export const validateReviewStatus = (value: unknown): ValidationResult => {
   const status = value as ReviewStatus;
 
   validateString(status.id, 'id', errors, { min: 1, max: 120, pattern: REVIEW_ID_PATTERN });
-  validateString(status.draftId, 'draftId', errors, { min: 1, max: 128, pattern: DRAFT_ID_PATTERN });
+  validateString(status.draftId, 'draftId', errors, {
+    min: 1,
+    max: 128,
+    pattern: DRAFT_ID_PATTERN,
+  });
   validateString(status.submittedBy, 'submittedBy', errors, { min: 1, max: 120 });
   if (!isDate(status.submittedAt)) {
-    errors.push({ field: 'submittedAt', message: 'submittedAt must be a Date', code: 'invalid_type' });
+    errors.push({
+      field: 'submittedAt',
+      message: 'submittedAt must be a Date',
+      code: 'invalid_type',
+    });
   }
   validateReviewers(status.reviewers, errors);
   if (!VALID_STAGES.includes(status.currentStage)) {
@@ -333,11 +435,23 @@ export const validateReviewStatus = (value: unknown): ValidationResult => {
     errors.push({ field: 'deadline', message: 'deadline must be a Date', code: 'invalid_type' });
   }
   if (status.deadline && isDate(status.submittedAt) && status.deadline < status.submittedAt) {
-    errors.push({ field: 'deadline', message: 'deadline cannot be earlier than submittedAt', code: 'invalid_value' });
+    errors.push({
+      field: 'deadline',
+      message: 'deadline cannot be earlier than submittedAt',
+      code: 'invalid_value',
+    });
   }
   validateDecisions(status.decisions, errors);
-  if (!['pending', 'in_progress', 'approved', 'rejected', 'changes_requested'].includes(status.overallStatus)) {
-    errors.push({ field: 'overallStatus', message: 'invalid overallStatus value', code: 'invalid_value' });
+  if (
+    !['pending', 'in_progress', 'approved', 'rejected', 'changes_requested'].includes(
+      status.overallStatus
+    )
+  ) {
+    errors.push({
+      field: 'overallStatus',
+      message: 'invalid overallStatus value',
+      code: 'invalid_value',
+    });
   }
   validateTimeline(status.timeline, errors);
   if (!isDate(status.createdAt)) {
@@ -346,18 +460,37 @@ export const validateReviewStatus = (value: unknown): ValidationResult => {
   if (!isDate(status.updatedAt)) {
     errors.push({ field: 'updatedAt', message: 'updatedAt must be a Date', code: 'invalid_type' });
   }
-  if (status.deadline && status.overallStatus !== 'approved' && status.overallStatus !== 'rejected') {
+  if (
+    status.deadline &&
+    status.overallStatus !== 'approved' &&
+    status.overallStatus !== 'rejected'
+  ) {
     const now = new Date();
     if (status.deadline < now) {
-      errors.push({ field: 'deadline', message: 'deadline has passed for active review', code: 'deadline_expired' });
+      errors.push({
+        field: 'deadline',
+        message: 'deadline has passed for active review',
+        code: 'deadline_expired',
+      });
     }
   }
   if (status.metadata) {
     if (!isPlainObject(status.metadata)) {
-      errors.push({ field: 'metadata', message: 'metadata must be an object', code: 'invalid_type' });
+      errors.push({
+        field: 'metadata',
+        message: 'metadata must be an object',
+        code: 'invalid_type',
+      });
     } else {
-      if (typeof status.metadata.estimatedDuration === 'number' && status.metadata.estimatedDuration < 0) {
-        errors.push({ field: 'metadata.estimatedDuration', message: 'estimatedDuration must be positive', code: 'invalid_value' });
+      if (
+        typeof status.metadata.estimatedDuration === 'number' &&
+        status.metadata.estimatedDuration < 0
+      ) {
+        errors.push({
+          field: 'metadata.estimatedDuration',
+          message: 'estimatedDuration must be positive',
+          code: 'invalid_value',
+        });
       }
       validateTags(status.metadata.tags, errors);
     }
@@ -368,22 +501,24 @@ export const validateReviewStatus = (value: unknown): ValidationResult => {
   const uniqueDecisionReviewers = new Set(decisionsArray.map((decision) => decision.reviewerId));
   const computedTotal = reviewersArray.length;
   const computedCompleted = uniqueDecisionReviewers.size;
-  const computedPercentage = computedTotal === 0 ? 0 : Math.round((computedCompleted / computedTotal) * 100);
+  const computedPercentage =
+    computedTotal === 0 ? 0 : Math.round((computedCompleted / computedTotal) * 100);
   const computedProgress: ReviewProgress = {
     completed: computedCompleted,
     total: computedTotal,
-    percentage: computedPercentage
+    percentage: computedPercentage,
   };
   status.progress = computedProgress;
   validateProgress(status.progress, errors);
 
   return {
     valid: errors.length === 0,
-    errors
+    errors,
   };
 };
 
-export const isReviewStatus = (value: unknown): value is ReviewStatus => validateReviewStatus(value).valid;
+export const isReviewStatus = (value: unknown): value is ReviewStatus =>
+  validateReviewStatus(value).valid;
 
 export const calculateOverallStatus = (
   decisions: ReviewDecisionEntry[],
@@ -431,7 +566,7 @@ export const createReviewStatus = (input: CreateReviewStatusInput): ReviewStatus
     id = generateId(),
     currentStage = 'submitted',
     deadline,
-    metadata
+    metadata,
   } = input;
 
   if (!Array.isArray(reviewers) || reviewers.length === 0) {
@@ -455,19 +590,19 @@ export const createReviewStatus = (input: CreateReviewStatusInput): ReviewStatus
     progress: {
       completed: 0,
       total: reviewers.length,
-      percentage: reviewers.length === 0 ? 0 : Math.round((0 / reviewers.length) * 100)
+      percentage: reviewers.length === 0 ? 0 : Math.round((0 / reviewers.length) * 100),
     },
     timeline: [
       {
         stage: 'submitted',
         timestamp: now,
         actor: submittedBy,
-        description: 'Review submitted'
-      }
+        description: 'Review submitted',
+      },
     ],
     metadata,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
 
   const result = validateReviewStatus(status);
