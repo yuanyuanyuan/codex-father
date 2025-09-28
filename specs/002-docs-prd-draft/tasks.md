@@ -106,13 +106,13 @@ plan.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅, quickstart.md �
   - [x] Test error handling and recovery scenarios
   - [x] Validate performance requirements (< 100ms document loading)
 
-- [ ] **T007** [P] Create permission system integration test at
-      `tests/integration/permission.test.ts`
-  - Test role-based access control for architect, product_manager, developer,
-    tester
-  - Verify section-level editing permissions
-  - Test review workflow permissions and assignment
-  - Validate security constraints and audit logging
+- [x] **T007** [P] Create permission system integration test at
+      `tests/integration/permission.test.ts` ✅ COMPLETED
+  - [x] Test role-based access control for architect, product_manager,
+        developer, tester, viewer
+  - [x] Verify section-level editing permissions
+  - [x] Test review workflow permissions and assignment
+  - [x] Validate security constraints and audit logging
 
 - [ ] **T008** [P] Create version management integration test at
       `tests/integration/version.test.ts`
