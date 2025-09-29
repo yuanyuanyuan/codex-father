@@ -6,23 +6,104 @@
  * the TDD contract used by the unit tests.
  */
 
+import type { RoleType } from './user-role.js';
+
 export type ReviewPriority = 'low' | 'normal' | 'high' | 'urgent';
-export type ReviewStage =
-  | 'submitted'
-  | 'assigned'
-  | 'technical_review'
-  | 'business_review'
-  | 'final_review'
-  | 'approved'
-  | 'rejected'
-  | 'revision_required';
+
+export const ReviewPhase = {
+  Submitted: 'submitted',
+  Assigned: 'assigned',
+  TechnicalReview: 'technical_review',
+  BusinessReview: 'business_review',
+  FinalReview: 'final_review',
+  Approved: 'approved',
+  Rejected: 'rejected',
+  RevisionRequired: 'revision_required',
+} as const;
+
+export type ReviewPhase = (typeof ReviewPhase)[keyof typeof ReviewPhase];
+
+export type ReviewStage = ReviewPhase;
+
+export const StatusType = {
+  Pending: 'pending',
+  InProgress: 'in_progress',
+  Approved: 'approved',
+  Rejected: 'rejected',
+  ChangesRequested: 'changes_requested',
+} as const;
+
+export type StatusType = (typeof StatusType)[keyof typeof StatusType];
+
 export type ReviewDecision = 'approve' | 'reject' | 'request_changes';
-export type ReviewOverallStatus =
-  | 'pending'
-  | 'in_progress'
-  | 'approved'
-  | 'rejected'
-  | 'changes_requested';
+export type ReviewOverallStatus = StatusType;
+
+export interface ReviewAssignee {
+  userId: string;
+  role: RoleType | 'external';
+  specialty?: string[];
+  assignedAt: Date;
+  dueAt?: Date;
+  loadFactor?: number;
+  isPrimary?: boolean;
+}
+
+export interface ReviewComment {
+  id: string;
+  authorId: string;
+  role: RoleType | 'external';
+  message: string;
+  createdAt: Date;
+  section?: string;
+  resolvesCommentId?: string;
+  isResolved?: boolean;
+  attachments?: string[];
+}
+
+export interface Review {
+  id: string;
+  phase: ReviewPhase;
+  assigneeId: string;
+  startedAt: Date;
+  completedAt?: Date;
+  decision?: ReviewDecisionEntry;
+  comments: ReviewComment[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface ReviewPhaseState {
+  phase: ReviewPhase;
+  status: ReviewOverallStatus;
+  startedAt: Date;
+  completedAt?: Date;
+  assigneeIds?: string[];
+  notes?: string;
+}
+
+export interface ReviewWorkflowSettings {
+  requireAllApprovals: boolean;
+  allowSelfReview: boolean;
+  autoMerge: boolean;
+  requiredReviewers: number;
+  escalation?: {
+    enabled: boolean;
+    timeoutHours: number;
+    notifyRoles: (RoleType | 'external')[];
+  };
+  reminders?: {
+    intervalHours: number;
+    maxReminders: number;
+  };
+}
+
+export interface ReviewWorkflowStatistics {
+  totalReviews: number;
+  approvedReviews: number;
+  rejectedReviews: number;
+  averageReviewTime: number;
+  currentPhaseProgress: number;
+  lastUpdated?: Date;
+}
 
 export interface ReviewDecisionEntry {
   reviewerId: string;
@@ -68,6 +149,11 @@ export interface ReviewStatus {
   progress?: ReviewProgress;
   timeline: ReviewTimelineEntry[];
   metadata?: ReviewMetadata;
+  assignees?: ReviewAssignee[];
+  phases?: ReviewPhaseState[];
+  reviews?: Review[];
+  settings?: ReviewWorkflowSettings;
+  statistics?: ReviewWorkflowStatistics;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -98,6 +184,7 @@ export interface CreateReviewStatusInput {
 const REVIEW_ID_PATTERN = /^[A-Za-z0-9_-]{1,120}$/;
 const DRAFT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const REVIEWER_ID_PATTERN = /^[A-Za-z0-9_-]{1,120}$/;
+const COMMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,160}$/;
 const MESSAGE_MAX_LENGTH = 1000;
 const MAX_REVIEWERS = 20;
 const VALID_PRIORITIES: ReviewPriority[] = ['low', 'normal', 'high', 'urgent'];
@@ -112,6 +199,15 @@ const VALID_STAGES: ReviewStage[] = [
   'revision_required',
 ];
 const VALID_DECISIONS: ReviewDecision[] = ['approve', 'reject', 'request_changes'];
+const ASSIGNEE_ROLES: (RoleType | 'external')[] = [
+  'architect',
+  'product_manager',
+  'developer',
+  'tester',
+  'reviewer',
+  'viewer',
+  'external',
+];
 const GENERIC_COMMENTS = [
   /^change$/i,
   /^changes?$/i,
@@ -125,9 +221,15 @@ const GENERIC_COMMENTS = [
 
 const STAGE_TRANSITIONS: Record<ReviewStage, ReviewStage[]> = {
   submitted: ['assigned', 'technical_review'],
-  assigned: ['technical_review', 'business_review', 'final_review'],
-  technical_review: ['business_review', 'final_review', 'revision_required', 'rejected'],
-  business_review: ['final_review', 'revision_required', 'rejected'],
+  assigned: ['technical_review', 'business_review', 'final_review', 'approved'],
+  technical_review: [
+    'business_review',
+    'final_review',
+    'revision_required',
+    'rejected',
+    'approved',
+  ],
+  business_review: ['final_review', 'revision_required', 'rejected', 'approved'],
   final_review: ['approved', 'revision_required', 'rejected'],
   approved: [],
   rejected: [],
@@ -394,6 +496,453 @@ const validateTags = (tags: unknown, errors: ValidationError[]): void => {
   });
 };
 
+const validateAssignees = (assignees: unknown, errors: ValidationError[]): void => {
+  if (assignees === undefined) {
+    return;
+  }
+  if (!Array.isArray(assignees)) {
+    errors.push({
+      field: 'assignees',
+      message: 'assignees must be an array',
+      code: 'invalid_type',
+    });
+    return;
+  }
+  const seen = new Set<string>();
+  assignees.forEach((entry, idx) => {
+    if (!isPlainObject(entry)) {
+      errors.push({
+        field: `assignees[${idx}]`,
+        message: 'assignee must be an object',
+        code: 'invalid_type',
+      });
+      return;
+    }
+    const cast = entry as ReviewAssignee;
+    validateString(cast.userId, `assignees[${idx}].userId`, errors, {
+      min: 1,
+      max: 120,
+      pattern: REVIEWER_ID_PATTERN,
+    });
+    if (typeof cast.userId === 'string') {
+      const key = cast.userId.trim();
+      if (seen.has(key)) {
+        errors.push({
+          field: `assignees[${idx}].userId`,
+          message: 'duplicate assignee userId',
+          code: 'duplicate',
+        });
+      }
+      seen.add(key);
+    }
+    if (!ASSIGNEE_ROLES.includes(cast.role)) {
+      errors.push({
+        field: `assignees[${idx}].role`,
+        message: 'invalid role',
+        code: 'invalid_value',
+      });
+    }
+    if (!isDate(cast.assignedAt)) {
+      errors.push({
+        field: `assignees[${idx}].assignedAt`,
+        message: 'assignedAt must be a Date',
+        code: 'invalid_type',
+      });
+    }
+    if (cast.dueAt && !isDate(cast.dueAt)) {
+      errors.push({
+        field: `assignees[${idx}].dueAt`,
+        message: 'dueAt must be a Date',
+        code: 'invalid_type',
+      });
+    }
+    if (typeof cast.loadFactor !== 'undefined') {
+      if (typeof cast.loadFactor !== 'number' || cast.loadFactor < 0 || cast.loadFactor > 1) {
+        errors.push({
+          field: `assignees[${idx}].loadFactor`,
+          message: 'loadFactor must be between 0 and 1',
+          code: 'invalid_value',
+        });
+      }
+    }
+  });
+};
+
+const validateReviewComments = (
+  comments: unknown,
+  baseField: string,
+  errors: ValidationError[]
+): void => {
+  if (!Array.isArray(comments)) {
+    errors.push({ field: baseField, message: 'comments must be an array', code: 'invalid_type' });
+    return;
+  }
+  comments.forEach((comment, idx) => {
+    if (!isPlainObject(comment)) {
+      errors.push({
+        field: `${baseField}[${idx}]`,
+        message: 'comment must be an object',
+        code: 'invalid_type',
+      });
+      return;
+    }
+    const cast = comment as ReviewComment;
+    validateString(cast.id, `${baseField}[${idx}].id`, errors, {
+      min: 1,
+      max: 160,
+      pattern: COMMENT_ID_PATTERN,
+    });
+    validateString(cast.authorId, `${baseField}[${idx}].authorId`, errors, {
+      min: 1,
+      max: 120,
+      pattern: REVIEWER_ID_PATTERN,
+    });
+    if (!ASSIGNEE_ROLES.includes(cast.role)) {
+      errors.push({
+        field: `${baseField}[${idx}].role`,
+        message: 'invalid role',
+        code: 'invalid_value',
+      });
+    }
+    validateString(cast.message, `${baseField}[${idx}].message`, errors, { min: 1, max: 2000 });
+    if (!isDate(cast.createdAt)) {
+      errors.push({
+        field: `${baseField}[${idx}].createdAt`,
+        message: 'createdAt must be a Date',
+        code: 'invalid_type',
+      });
+    }
+    if (cast.resolvesCommentId !== undefined) {
+      validateString(cast.resolvesCommentId, `${baseField}[${idx}].resolvesCommentId`, errors, {
+        min: 1,
+        max: 160,
+        pattern: COMMENT_ID_PATTERN,
+      });
+    }
+    if (cast.isResolved !== undefined && typeof cast.isResolved !== 'boolean') {
+      errors.push({
+        field: `${baseField}[${idx}].isResolved`,
+        message: 'isResolved must be a boolean',
+        code: 'invalid_type',
+      });
+    }
+    if (cast.attachments) {
+      if (!Array.isArray(cast.attachments)) {
+        errors.push({
+          field: `${baseField}[${idx}].attachments`,
+          message: 'attachments must be an array',
+          code: 'invalid_type',
+        });
+      } else if (cast.attachments.some((attachment) => typeof attachment !== 'string')) {
+        errors.push({
+          field: `${baseField}[${idx}].attachments`,
+          message: 'attachments must contain only strings',
+          code: 'invalid_value',
+        });
+      }
+    }
+  });
+};
+
+const validateReviewsDetail = (reviews: unknown, errors: ValidationError[]): void => {
+  if (reviews === undefined) {
+    return;
+  }
+  if (!Array.isArray(reviews)) {
+    errors.push({ field: 'reviews', message: 'reviews must be an array', code: 'invalid_type' });
+    return;
+  }
+  reviews.forEach((review, idx) => {
+    if (!isPlainObject(review)) {
+      errors.push({
+        field: `reviews[${idx}]`,
+        message: 'review must be an object',
+        code: 'invalid_type',
+      });
+      return;
+    }
+    const cast = review as Review;
+    validateString(cast.id, `reviews[${idx}].id`, errors, {
+      min: 1,
+      max: 120,
+      pattern: REVIEW_ID_PATTERN,
+    });
+    if (!VALID_STAGES.includes(cast.phase)) {
+      errors.push({
+        field: `reviews[${idx}].phase`,
+        message: 'invalid review phase',
+        code: 'invalid_value',
+      });
+    }
+    validateString(cast.assigneeId, `reviews[${idx}].assigneeId`, errors, {
+      min: 1,
+      max: 120,
+      pattern: REVIEWER_ID_PATTERN,
+    });
+    if (!isDate(cast.startedAt)) {
+      errors.push({
+        field: `reviews[${idx}].startedAt`,
+        message: 'startedAt must be a Date',
+        code: 'invalid_type',
+      });
+    }
+    if (cast.completedAt) {
+      if (!isDate(cast.completedAt)) {
+        errors.push({
+          field: `reviews[${idx}].completedAt`,
+          message: 'completedAt must be a Date',
+          code: 'invalid_type',
+        });
+      } else if (isDate(cast.startedAt) && cast.completedAt < cast.startedAt) {
+        errors.push({
+          field: `reviews[${idx}].completedAt`,
+          message: 'completedAt cannot be earlier than startedAt',
+          code: 'invalid_value',
+        });
+      }
+    }
+    if (cast.decision) {
+      validateDecisions([cast.decision], errors);
+    }
+    if (!Array.isArray(cast.comments)) {
+      errors.push({
+        field: `reviews[${idx}].comments`,
+        message: 'comments must be provided as an array',
+        code: 'invalid_type',
+      });
+    } else {
+      validateReviewComments(cast.comments, `reviews[${idx}].comments`, errors);
+    }
+  });
+};
+
+const validatePhases = (phases: unknown, errors: ValidationError[]): void => {
+  if (phases === undefined) {
+    return;
+  }
+  if (!Array.isArray(phases)) {
+    errors.push({ field: 'phases', message: 'phases must be an array', code: 'invalid_type' });
+    return;
+  }
+  let previousPhase: ReviewStage | undefined;
+  phases.forEach((phase, idx) => {
+    if (!isPlainObject(phase)) {
+      errors.push({
+        field: `phases[${idx}]`,
+        message: 'phase entry must be an object',
+        code: 'invalid_type',
+      });
+      return;
+    }
+    const cast = phase as ReviewPhaseState;
+    if (!VALID_STAGES.includes(cast.phase)) {
+      errors.push({
+        field: `phases[${idx}].phase`,
+        message: 'invalid phase',
+        code: 'invalid_value',
+      });
+    }
+    if (
+      cast.status &&
+      !['pending', 'in_progress', 'approved', 'rejected', 'changes_requested'].includes(cast.status)
+    ) {
+      errors.push({
+        field: `phases[${idx}].status`,
+        message: 'invalid status',
+        code: 'invalid_value',
+      });
+    }
+    if (cast.phase && previousPhase && !isValidPhaseTransition(previousPhase, cast.phase)) {
+      errors.push({
+        field: `phases[${idx}].phase`,
+        message: `invalid transition from ${previousPhase} to ${cast.phase}`,
+        code: 'invalid_transition',
+      });
+    }
+    if (!isDate(cast.startedAt)) {
+      errors.push({
+        field: `phases[${idx}].startedAt`,
+        message: 'startedAt must be a Date',
+        code: 'invalid_type',
+      });
+    }
+    if (cast.completedAt) {
+      if (!isDate(cast.completedAt)) {
+        errors.push({
+          field: `phases[${idx}].completedAt`,
+          message: 'completedAt must be a Date',
+          code: 'invalid_type',
+        });
+      } else if (isDate(cast.startedAt) && cast.completedAt < cast.startedAt) {
+        errors.push({
+          field: `phases[${idx}].completedAt`,
+          message: 'completedAt cannot be earlier than startedAt',
+          code: 'invalid_value',
+        });
+      }
+    }
+    if (
+      cast.assigneeIds &&
+      (!Array.isArray(cast.assigneeIds) || cast.assigneeIds.some((id) => typeof id !== 'string'))
+    ) {
+      errors.push({
+        field: `phases[${idx}].assigneeIds`,
+        message: 'assigneeIds must be an array of strings',
+        code: 'invalid_type',
+      });
+    }
+    previousPhase = cast.phase;
+  });
+};
+
+const validateSettings = (settings: unknown, errors: ValidationError[]): void => {
+  if (settings === undefined) {
+    return;
+  }
+  if (!isPlainObject(settings)) {
+    errors.push({ field: 'settings', message: 'settings must be an object', code: 'invalid_type' });
+    return;
+  }
+  const cast = settings as ReviewWorkflowSettings;
+  if (typeof cast.requireAllApprovals !== 'boolean') {
+    errors.push({
+      field: 'settings.requireAllApprovals',
+      message: 'requireAllApprovals must be a boolean',
+      code: 'invalid_type',
+    });
+  }
+  if (typeof cast.allowSelfReview !== 'boolean') {
+    errors.push({
+      field: 'settings.allowSelfReview',
+      message: 'allowSelfReview must be a boolean',
+      code: 'invalid_type',
+    });
+  }
+  if (typeof cast.autoMerge !== 'boolean') {
+    errors.push({
+      field: 'settings.autoMerge',
+      message: 'autoMerge must be a boolean',
+      code: 'invalid_type',
+    });
+  }
+  if (
+    typeof cast.requiredReviewers !== 'number' ||
+    Number.isNaN(cast.requiredReviewers) ||
+    cast.requiredReviewers < 0
+  ) {
+    errors.push({
+      field: 'settings.requiredReviewers',
+      message: 'requiredReviewers must be a non-negative number',
+      code: 'invalid_value',
+    });
+  }
+  if (cast.escalation) {
+    if (!isPlainObject(cast.escalation)) {
+      errors.push({
+        field: 'settings.escalation',
+        message: 'escalation must be an object',
+        code: 'invalid_type',
+      });
+    } else {
+      if (typeof cast.escalation.enabled !== 'boolean') {
+        errors.push({
+          field: 'settings.escalation.enabled',
+          message: 'enabled must be a boolean',
+          code: 'invalid_type',
+        });
+      }
+      if (typeof cast.escalation.timeoutHours !== 'number' || cast.escalation.timeoutHours <= 0) {
+        errors.push({
+          field: 'settings.escalation.timeoutHours',
+          message: 'timeoutHours must be a positive number',
+          code: 'invalid_value',
+        });
+      }
+      if (
+        cast.escalation.notifyRoles &&
+        (!Array.isArray(cast.escalation.notifyRoles) ||
+          cast.escalation.notifyRoles.some((role) => !ASSIGNEE_ROLES.includes(role)))
+      ) {
+        errors.push({
+          field: 'settings.escalation.notifyRoles',
+          message: 'notifyRoles must be an array of valid roles',
+          code: 'invalid_value',
+        });
+      }
+    }
+  }
+  if (cast.reminders) {
+    if (!isPlainObject(cast.reminders)) {
+      errors.push({
+        field: 'settings.reminders',
+        message: 'reminders must be an object',
+        code: 'invalid_type',
+      });
+    } else {
+      if (typeof cast.reminders.intervalHours !== 'number' || cast.reminders.intervalHours <= 0) {
+        errors.push({
+          field: 'settings.reminders.intervalHours',
+          message: 'intervalHours must be a positive number',
+          code: 'invalid_value',
+        });
+      }
+      if (typeof cast.reminders.maxReminders !== 'number' || cast.reminders.maxReminders < 0) {
+        errors.push({
+          field: 'settings.reminders.maxReminders',
+          message: 'maxReminders must be a non-negative number',
+          code: 'invalid_value',
+        });
+      }
+    }
+  }
+};
+
+const validateStatistics = (stats: unknown, errors: ValidationError[]): void => {
+  if (stats === undefined) {
+    return;
+  }
+  if (!isPlainObject(stats)) {
+    errors.push({
+      field: 'statistics',
+      message: 'statistics must be an object',
+      code: 'invalid_type',
+    });
+    return;
+  }
+  const cast = stats as ReviewWorkflowStatistics;
+  const numericFields: (keyof ReviewWorkflowStatistics)[] = [
+    'totalReviews',
+    'approvedReviews',
+    'rejectedReviews',
+    'averageReviewTime',
+    'currentPhaseProgress',
+  ];
+  numericFields.forEach((field) => {
+    const value = cast[field];
+    if (typeof value !== 'number' || Number.isNaN(value) || value < 0) {
+      errors.push({
+        field: `statistics.${field.toString()}`,
+        message: `${field.toString()} must be a non-negative number`,
+        code: 'invalid_value',
+      });
+    }
+  });
+  if (cast.currentPhaseProgress > 100) {
+    errors.push({
+      field: 'statistics.currentPhaseProgress',
+      message: 'currentPhaseProgress cannot exceed 100',
+      code: 'invalid_value',
+    });
+  }
+  if (cast.lastUpdated && !isDate(cast.lastUpdated)) {
+    errors.push({
+      field: 'statistics.lastUpdated',
+      message: 'lastUpdated must be a Date',
+      code: 'invalid_type',
+    });
+  }
+};
+
 export const validateReviewStatus = (value: unknown): ValidationResult => {
   if (!isPlainObject(value)) {
     return {
@@ -441,6 +990,16 @@ export const validateReviewStatus = (value: unknown): ValidationResult => {
       code: 'invalid_value',
     });
   }
+  if (status.deadline && status.overallStatus === 'pending') {
+    const now = new Date();
+    if (status.deadline < now) {
+      errors.push({
+        field: 'deadline',
+        message: 'deadline has passed for pending review',
+        code: 'deadline_expired',
+      });
+    }
+  }
   validateDecisions(status.decisions, errors);
   if (
     !['pending', 'in_progress', 'approved', 'rejected', 'changes_requested'].includes(
@@ -459,20 +1018,6 @@ export const validateReviewStatus = (value: unknown): ValidationResult => {
   }
   if (!isDate(status.updatedAt)) {
     errors.push({ field: 'updatedAt', message: 'updatedAt must be a Date', code: 'invalid_type' });
-  }
-  if (
-    status.deadline &&
-    status.overallStatus !== 'approved' &&
-    status.overallStatus !== 'rejected'
-  ) {
-    const now = new Date();
-    if (status.deadline < now) {
-      errors.push({
-        field: 'deadline',
-        message: 'deadline has passed for active review',
-        code: 'deadline_expired',
-      });
-    }
   }
   if (status.metadata) {
     if (!isPlainObject(status.metadata)) {
@@ -496,11 +1041,18 @@ export const validateReviewStatus = (value: unknown): ValidationResult => {
     }
   }
 
+  validateAssignees(status.assignees, errors);
+  validatePhases(status.phases, errors);
+  validateReviewsDetail(status.reviews, errors);
+  validateSettings(status.settings, errors);
+  validateStatistics(status.statistics, errors);
+
   const decisionsArray = Array.isArray(status.decisions) ? status.decisions : [];
   const reviewersArray = Array.isArray(status.reviewers) ? status.reviewers : [];
   const uniqueDecisionReviewers = new Set(decisionsArray.map((decision) => decision.reviewerId));
   const computedTotal = reviewersArray.length;
-  const computedCompleted = uniqueDecisionReviewers.size;
+  const computedCompleted =
+    computedTotal === 0 ? 0 : Math.min(uniqueDecisionReviewers.size, computedTotal);
   const computedPercentage =
     computedTotal === 0 ? 0 : Math.round((computedCompleted / computedTotal) * 100);
   const computedProgress: ReviewProgress = {
@@ -508,8 +1060,11 @@ export const validateReviewStatus = (value: unknown): ValidationResult => {
     total: computedTotal,
     percentage: computedPercentage,
   };
+  const hadProgress = status.progress !== undefined;
+  if (hadProgress) {
+    validateProgress(status.progress, errors);
+  }
   status.progress = computedProgress;
-  validateProgress(status.progress, errors);
 
   return {
     valid: errors.length === 0,
@@ -546,6 +1101,17 @@ export const calculateOverallStatus = (
     return 'approved';
   }
   return 'in_progress';
+};
+
+export const isValidPhaseTransition = (from: ReviewStage, to: ReviewStage): boolean => {
+  if (!VALID_STAGES.includes(from) || !VALID_STAGES.includes(to)) {
+    return false;
+  }
+  if (from === to) {
+    return true;
+  }
+  const allowed = STAGE_TRANSITIONS[from] ?? [];
+  return allowed.includes(to);
 };
 
 export const isValidStatusTransition = (
@@ -601,6 +1167,44 @@ export const createReviewStatus = (input: CreateReviewStatusInput): ReviewStatus
       },
     ],
     metadata,
+    assignees: reviewers.map((userId, index) => ({
+      userId,
+      role: 'reviewer',
+      assignedAt: now,
+      isPrimary: index === 0,
+    })),
+    phases: [
+      {
+        phase: 'submitted',
+        status: 'pending',
+        startedAt: now,
+        assigneeIds: reviewers,
+      },
+    ],
+    reviews: [],
+    settings: {
+      requireAllApprovals: reviewers.length > 1,
+      allowSelfReview: false,
+      autoMerge: false,
+      requiredReviewers: Math.max(1, reviewers.length),
+      reminders: {
+        intervalHours: 24,
+        maxReminders: 3,
+      },
+      escalation: {
+        enabled: reviewers.length > 3,
+        timeoutHours: 48,
+        notifyRoles: ['architect', 'product_manager'],
+      },
+    },
+    statistics: {
+      totalReviews: 0,
+      approvedReviews: 0,
+      rejectedReviews: 0,
+      averageReviewTime: 0,
+      currentPhaseProgress: reviewers.length === 0 ? 0 : Math.round((0 / reviewers.length) * 100),
+      lastUpdated: now,
+    },
     createdAt: now,
     updatedAt: now,
   };
