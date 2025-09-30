@@ -42,18 +42,18 @@ Single project structure at repository root:
 
 ## Phase 3.1: Setup
 
-- [ ] **T001** 创建项目结构
+- [x] **T001** 创建项目结构 ✅
   - 创建 `core/mcp/`, `core/process/`, `core/approval/`, `core/session/` 目录
   - 创建 `tests/contract/`, `tests/integration/` 目录
   - 创建 `.codex-father/sessions/` 运行时目录（.gitignore）
 
-- [ ] **T002** 安装依赖
+- [x] **T002** 安装依赖 ✅
   - 安装 `@modelcontextprotocol/sdk`（MCP 官方 SDK）
   - 安装 `inquirer@^9.x`（终端交互 UI）
   - 验证现有依赖：`winston`, `zod`, `fs-extra`, `commander`, `chalk`, `yaml`
   - 更新 `package.json` devDependencies（如需）
 
-- [ ] **T003** [P] 配置 linting 和格式化
+- [x] **T003** [P] 配置 linting 和格式化 ✅
   - 验证 ESLint 和 Prettier 配置适用于新模块
   - 添加 MCP 和审批相关的类型检查规则
   - 运行 `npm run lint:check` 确保无错误
@@ -66,7 +66,7 @@ Single project structure at repository root:
 
 ### 契约测试（并行执行）
 
-- [ ] **T004** [P] MCP initialize 契约测试
+- [x] **T004** [P] MCP initialize 契约测试 ✅
   - 文件：`tests/contract/mcp-initialize.test.ts`
   - 验证：
     - `initialize` 请求/响应格式符合 `contracts/mcp-protocol.yaml:14-98`
@@ -75,7 +75,7 @@ Single project structure at repository root:
     - serverInfo.name = 'codex-father'
   - **期望**：测试失败（未实现服务端）
 
-- [ ] **T005** [P] MCP tools/list 契约测试
+- [x] **T005** [P] MCP tools/list 契约测试 ✅
   - 文件：`tests/contract/mcp-tools-list.test.ts`
   - 验证：
     - `tools/list` 响应格式符合 `contracts/mcp-protocol.yaml:100-163`
@@ -83,7 +83,7 @@ Single project structure at repository root:
     - 每个工具的 inputSchema 完整性（required 字段）
   - **期望**：测试失败（工具未定义）
 
-- [ ] **T006** [P] MCP tools/call 契约测试
+- [x] **T006** [P] MCP tools/call 契约测试 ✅
   - 文件：`tests/contract/mcp-tools-call.test.ts`
   - 验证：
     - `tools/call` 快速返回（< 500ms）符合 `contracts/mcp-protocol.yaml:165-235`
@@ -92,7 +92,7 @@ Single project structure at repository root:
     - 通知包含正确的 jobId 关联
   - **期望**：测试失败（桥接层未实现）
 
-- [ ] **T007** [P] Codex JSON-RPC 契约测试
+- [x] **T007** [P] Codex JSON-RPC 契约测试 ✅
   - 文件：`tests/contract/codex-jsonrpc.test.ts`
   - 验证：
     - `newConversation` 请求/响应符合 `contracts/codex-jsonrpc.yaml:15-94`
@@ -107,7 +107,7 @@ Single project structure at repository root:
 
 ### 第一层：基础设施（无外部依赖，可并行）
 
-- [ ] **T008** [P] 类型定义和 Schema
+- [x] **T008** [P] 类型定义和 Schema ✅
   - 文件：`core/lib/types.ts`
   - 实现：
     - 定义 Job, JobStatus, JobMetrics（参考 `data-model.md:63-101`）
@@ -117,24 +117,24 @@ Single project structure at repository root:
     - 使用 Zod 定义验证 schema（JobSchema, SessionSchema 等）
   - **验收**：TypeScript 编译通过，所有类型可被其他模块引用
 
-- [ ] **T009** [P] 事件日志记录器
+- [x] **T009** [P] 事件日志记录器 ✅
   - 文件：`core/session/event-logger.ts`
   - 实现（参考 `data-model.md:269-322`）：
     - JSONL 格式事件日志写入（`events.jsonl`）
     - 流式写入，避免内存缓存
     - 日志脱敏功能（FR-029：屏蔽敏感信息如密钥、令牌）
     - 方法：`logEvent(event: Event): Promise<void>`
-  - **验收**：单元测试通过（T015）
+  - **验收**：单元测试通过（T021）
 
-- [ ] **T010** [P] 配置持久化器
+- [x] **T010** [P] 配置持久化器 ✅
   - 文件：`core/session/config-persister.ts`
   - 实现（参考 `data-model.md:135-183`）：
     - 会话配置 JSON 持久化（`config.json`）
     - rollout-ref.txt 写入和读取
     - 方法：`saveConfig(config: SessionConfig): Promise<void>`, `loadConfig(sessionDir: string): Promise<SessionConfig>`
-  - **验收**：单元测试通过（T016）
+  - **验收**：单元测试通过（T022）
 
-- [ ] **T011** [P] 审批策略引擎
+- [x] **T011** [P] 审批策略引擎 ✅
   - 文件：`core/approval/policy-engine.ts`
   - 实现（参考 `data-model.md:355-423`）：
     - 白名单规则匹配（支持正则表达式 pattern）
@@ -142,11 +142,11 @@ Single project structure at repository root:
     - 配置文件加载（YAML 格式，参考 `quickstart.md:43-63`）
     - 方法：`evaluate(request: ApprovalRequest): Promise<'allow' | 'deny' | 'require-manual'>`
   - **注意**：默认白名单仅包含只读命令（`git status`, `git diff`, `git log`, `ls`, `cat`），npm install 已移除
-  - **验收**：单元测试通过（T017）
+  - **验收**：单元测试通过（T023）
 
 ### 第二层：核心组件（依赖第一层）
 
-- [ ] **T012** MCP 协议类型定义
+- [x] **T012** MCP 协议类型定义 ✅
   - 文件：`core/mcp/protocol/types.ts`
   - 实现：
     - MCP 协议类型（InitializeRequest, InitializeResponse, ToolsListResponse, ToolsCallRequest 等）
@@ -155,7 +155,7 @@ Single project structure at repository root:
     - 兼容 @modelcontextprotocol/sdk 类型
   - **验收**：TypeScript 编译通过，T004-T006 测试使用这些类型
 
-- [ ] **T013** Codex JSON-RPC 客户端
+- [x] **T013** Codex JSON-RPC 客户端 ✅
   - 文件：`core/mcp/codex-client.ts`
   - 实现（参考 `research.md:82-133`）：
     - child_process.spawn 封装（`codex mcp`）
@@ -163,7 +163,7 @@ Single project structure at repository root:
     - JSON-RPC 请求/响应映射（`request_id → Promise`）
     - 通知处理（EventEmitter）
     - 方法：`newConversation()`, `sendUserTurn()`, `interruptConversation()`
-  - **验收**：单元测试通过（T018），T007 契约测试通过
+  - **验收**：单元测试通过（T024），T007 契约测试通过
 
 - [ ] **T014** 审批终端 UI
   - 文件：`core/approval/terminal-ui.ts`
