@@ -6,13 +6,13 @@ import type {
   MCPToolContext,
   MCPToolResult,
   MCPLogger,
-} from '../../../specs/001-docs-readme-phases/contracts/mcp-service.ts';
+} from '../../../specs/_archived/001-docs-readme-phases/contracts/mcp-service.js';
 
 class NoopLogger implements MCPLogger {
-  debug(): void {}
-  info(): void {}
-  warn(): void {}
-  error(): void {}
+  debug(): void { }
+  info(): void { }
+  warn(): void { }
+  error(): void { }
 }
 
 describe('ContainerManagementTools (T026)', () => {

@@ -1,0 +1,611 @@
+# Codex JSON-RPC Contract
+# 定义 Codex 自定义 JSON-RPC 方法的契约
+# 参考：refer-research/openai-codex/codex-rs/docs/codex_mcp_interface.md
+
+openapi: 3.1.0
+info:
+  title: Codex JSON-RPC Interface
+  version: experimental
+  description: |
+    Codex 的实验性 JSON-RPC 接口契约。
+    传输方式：stdio (JSON-RPC 2.0 over line-delimited JSON)
+    启动命令：codex mcp (MVP1) 或 codex exec --json (MVP2)
+
+paths:
+  /newConversation:
+    post:
+      summary: 创建新会话
+      description: |
+        启动一个新的 Codex 会话。
+        JSON-RPC 方法名：newConversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ['2.0']
+                id:
+                  type: [string, number]
+                method:
+                  type: string
+                  enum: ['newConversation']
+                params:
+                  type: object
+                  properties:
+                    model:
+                      type: string
+                      example: 'gpt-5'
+                    profile:
+                      type: string
+                      description: '命名配置文件'
+                    cwd:
+                      type: string
+                      description: '工作目录'
+                    approvalPolicy:
+                      type: string
+                      enum: ['untrusted', 'on-request', 'on-failure', 'never']
+                    sandbox:
+                      type: string
+                      enum: ['read-only', 'workspace-write', 'danger-full-access']
+                    config:
+                      type: object
+                      additionalProperties: true
+                      description: '额外配置覆盖'
+                    baseInstructions:
+                      type: string
+                      description: '指令覆盖'
+                    includePlanTool:
+                      type: boolean
+                    includeApplyPatchTool:
+                      type: boolean
+              required: [jsonrpc, id, method, params]
+      responses:
+        '200':
+          description: 会话创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                    enum: ['2.0']
+                  id:
+                    type: [string, number]
+                  result:
+                    type: object
+                    properties:
+                      conversationId:
+                        type: string
+                        format: uuid
+                      model:
+                        type: string
+                      reasoningEffort:
+                        type: string
+                        nullable: true
+                      rolloutPath:
+                        type: string
+                        description: 'Rollout 文件路径（如 /path/to/rollout.jsonl）'
+                    required: [conversationId, model, rolloutPath]
+                required: [jsonrpc, id, result]
+
+  /sendUserMessage:
+    post:
+      summary: 发送用户消息（简化版）
+      description: |
+        向会话发送用户输入（简化接口）。
+        JSON-RPC 方法名：sendUserMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ['2.0']
+                id:
+                  type: [string, number]
+                method:
+                  type: string
+                  enum: ['sendUserMessage']
+                params:
+                  type: object
+                  properties:
+                    conversationId:
+                      type: string
+                      format: uuid
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum: [text, image]
+                          text:
+                            type: string
+                          imageUrl:
+                            type: string
+                  required: [conversationId, items]
+              required: [jsonrpc, id, method, params]
+      responses:
+        '200':
+          description: 消息已接收
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                    enum: ['2.0']
+                  id:
+                    type: [string, number]
+                  result:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: 'accepted'
+                required: [jsonrpc, id, result]
+
+  /sendUserTurn:
+    post:
+      summary: 发送用户 Turn（完整版）
+      description: |
+        向会话发送结构化 Turn，支持更多控制参数。
+        JSON-RPC 方法名：sendUserTurn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ['2.0']
+                id:
+                  type: [string, number]
+                method:
+                  type: string
+                  enum: ['sendUserTurn']
+                params:
+                  type: object
+                  properties:
+                    conversationId:
+                      type: string
+                      format: uuid
+                    cwd:
+                      type: string
+                    approvalPolicy:
+                      type: string
+                      enum: ['untrusted', 'on-request', 'on-failure', 'never']
+                    sandboxPolicy:
+                      type: string
+                      enum: ['read-only', 'workspace-write', 'danger-full-access']
+                    model:
+                      type: string
+                    effort:
+                      type: string
+                    summary:
+                      type: string
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum: [text, image]
+                          text:
+                            type: string
+                          imageUrl:
+                            type: string
+                  required: [conversationId, items]
+              required: [jsonrpc, id, method, params]
+      responses:
+        '200':
+          description: Turn 已接收
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                    enum: ['2.0']
+                  id:
+                    type: [string, number]
+                  result:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: 'accepted'
+                required: [jsonrpc, id, result]
+
+  /interruptConversation:
+    post:
+      summary: 中断会话
+      description: |
+        停止当前正在执行的 turn。
+        JSON-RPC 方法名：interruptConversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ['2.0']
+                id:
+                  type: [string, number]
+                method:
+                  type: string
+                  enum: ['interruptConversation']
+                params:
+                  type: object
+                  properties:
+                    conversationId:
+                      type: string
+                      format: uuid
+                  required: [conversationId]
+              required: [jsonrpc, id, method, params]
+      responses:
+        '200':
+          description: 中断请求已接受
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                    enum: ['2.0']
+                  id:
+                    type: [string, number]
+                  result:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: 'interrupted'
+                required: [jsonrpc, id, result]
+
+  /listConversations:
+    post:
+      summary: 列出所有会话
+      description: |
+        查询当前存在的所有会话。
+        JSON-RPC 方法名：listConversations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ['2.0']
+                id:
+                  type: [string, number]
+                method:
+                  type: string
+                  enum: ['listConversations']
+                params:
+                  type: object
+                  nullable: true
+              required: [jsonrpc, id, method]
+      responses:
+        '200':
+          description: 会话列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                    enum: ['2.0']
+                  id:
+                    type: [string, number]
+                  result:
+                    type: object
+                    properties:
+                      conversations:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            conversationId:
+                              type: string
+                            model:
+                              type: string
+                            createdAt:
+                              type: string
+                              format: date-time
+                required: [jsonrpc, id, result]
+
+  /resumeConversation:
+    post:
+      summary: 恢复会话
+      description: |
+        基于 rollout 文件恢复会话。
+        JSON-RPC 方法名：resumeConversation
+        注意：MVP2 使用 CLI 命令 'codex exec resume <session-id>' 替代
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ['2.0']
+                id:
+                  type: [string, number]
+                method:
+                  type: string
+                  enum: ['resumeConversation']
+                params:
+                  type: object
+                  properties:
+                    conversationId:
+                      type: string
+                      format: uuid
+                  required: [conversationId]
+              required: [jsonrpc, id, method, params]
+      responses:
+        '200':
+          description: 恢复成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                    enum: ['2.0']
+                  id:
+                    type: [string, number]
+                  result:
+                    type: object
+                    properties:
+                      conversationId:
+                        type: string
+                      status:
+                        type: string
+                        example: 'resumed'
+                required: [jsonrpc, id, result]
+
+  /codex/event:
+    post:
+      summary: Codex 事件通知（服务端 → 客户端）
+      description: |
+        Codex 发送的事件流，包含任务执行过程中的各类通知。
+        JSON-RPC 通知（无 id 字段）
+
+        常见事件类型：
+        - TaskStarted: 任务开始
+        - AgentMessage: Agent 输出消息
+        - TaskComplete: 任务完成
+        - TaskError: 任务错误
+
+        重要：codex-father 需要将这些事件映射为 MCP 的 codex-father/progress 通知。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ['2.0']
+                method:
+                  type: string
+                  enum: ['codex/event']
+                params:
+                  type: object
+                  additionalProperties: true
+                  description: '事件数据（依赖于具体事件类型）'
+              required: [jsonrpc, method, params]
+            examples:
+              TaskStarted:
+                value:
+                  jsonrpc: '2.0'
+                  method: 'codex/event'
+                  params:
+                    type: 'TaskStarted'
+                    conversationId: 'c7b0...'
+                    taskId: 't123'
+                    timestamp: '2025-09-30T10:00:00Z'
+              AgentMessage:
+                value:
+                  jsonrpc: '2.0'
+                  method: 'codex/event'
+                  params:
+                    type: 'AgentMessage'
+                    conversationId: 'c7b0...'
+                    message: 'Processing your request...'
+                    role: 'assistant'
+              TaskComplete:
+                value:
+                  jsonrpc: '2.0'
+                  method: 'codex/event'
+                  params:
+                    type: 'TaskComplete'
+                    conversationId: 'c7b0...'
+                    taskId: 't123'
+                    result: 'Bug fixed successfully'
+                    timestamp: '2025-09-30T10:05:00Z'
+      responses:
+        '204':
+          description: 通知不需要响应
+
+  /applyPatchApproval:
+    post:
+      summary: 文件变更审批请求（Codex → codex-father）
+      description: |
+        Codex 请求审批文件变更。
+        JSON-RPC 请求（Codex 作为客户端，codex-father 作为服务端）
+
+        codex-father 必须通过策略引擎或人工审批返回决策。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ['2.0']
+                id:
+                  type: [string, number]
+                method:
+                  type: string
+                  enum: ['applyPatchApproval']
+                params:
+                  type: object
+                  properties:
+                    conversationId:
+                      type: string
+                      format: uuid
+                    callId:
+                      type: string
+                    fileChanges:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          path:
+                            type: string
+                          type:
+                            type: string
+                            enum: [create, modify, delete]
+                          diff:
+                            type: string
+                    reason:
+                      type: string
+                    grantRoot:
+                      type: boolean
+                  required: [conversationId, callId, fileChanges]
+              required: [jsonrpc, id, method, params]
+      responses:
+        '200':
+          description: 审批决策
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                    enum: ['2.0']
+                  id:
+                    type: [string, number]
+                  result:
+                    type: object
+                    properties:
+                      decision:
+                        type: string
+                        enum: [allow, deny]
+                    required: [decision]
+                required: [jsonrpc, id, result]
+
+  /execCommandApproval:
+    post:
+      summary: 命令执行审批请求（Codex → codex-father）
+      description: |
+        Codex 请求审批命令执行。
+        JSON-RPC 请求（Codex 作为客户端，codex-father 作为服务端）
+
+        codex-father 必须通过策略引擎或人工审批返回决策。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ['2.0']
+                id:
+                  type: [string, number]
+                method:
+                  type: string
+                  enum: ['execCommandApproval']
+                params:
+                  type: object
+                  properties:
+                    conversationId:
+                      type: string
+                      format: uuid
+                    callId:
+                      type: string
+                    command:
+                      type: string
+                      example: 'rm -rf build'
+                    cwd:
+                      type: string
+                    reason:
+                      type: string
+                  required: [conversationId, callId, command, cwd]
+              required: [jsonrpc, id, method, params]
+      responses:
+        '200':
+          description: 审批决策
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                    enum: ['2.0']
+                  id:
+                    type: [string, number]
+                  result:
+                    type: object
+                    properties:
+                      decision:
+                        type: string
+                        enum: [allow, deny]
+                    required: [decision]
+                required: [jsonrpc, id, result]
+
+components:
+  schemas:
+    JSONRPCError:
+      type: object
+      properties:
+        jsonrpc:
+          type: string
+          enum: ['2.0']
+        id:
+          type: [string, number, 'null']
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+            message:
+              type: string
+            data:
+              type: object
+              additionalProperties: true
+          required: [code, message]
+      required: [jsonrpc, id, error]

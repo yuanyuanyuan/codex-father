@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2025-09-27
 
 ## Active Technologies
+- TypeScript 5.3+ with Node.js 18+ (005-docs-prd-draft)
+- 文件系统（JSONL 事件日志、JSON 配置、Codex 原生 rollout 文件引用） (005-docs-prd-draft)
 
 - TypeScript 5.x + Node.js 18+ (统一技术栈) (001-docs-readme-phases)
 - 文件系统 - JSON/YAML配置文件 + 结构化文本日志 (001-docs-readme-phases)
@@ -29,12 +31,7 @@ TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLOGIES] npm run lint
 TypeScript 5.x + Node.js 18+ (统一技术栈): Follow standard conventions
 
 ## Recent Changes
-
-- 002-docs-prd-draft: Added TypeScript 5.x + Node.js 18+
-  (统一技术栈，符合项目现有规范) + Markdown parser/renderer,
-  Mermaid图表库, 文件系统操作, 权限管理框架
-- 001-docs-readme-phases: Added 文件系统 - JSON/YAML配置文件 + 结构化文本日志
-- 001-docs-readme-phases: Added TypeScript 5.x + Node.js 18+ (统一技术栈)
+- 005-docs-prd-draft: Added TypeScript 5.3+ with Node.js 18+
 
 <!-- MANUAL ADDITIONS START -->
 

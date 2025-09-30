@@ -11,7 +11,7 @@ import type {
   MCPClientInfo,
   MCPServerInfo,
   LogLevel,
-} from '../../../specs/001-docs-readme-phases/contracts/mcp-service.ts';
+} from '../../../specs/_archived/001-docs-readme-phases/contracts/mcp-service.js';
 
 class InMemoryLogger implements MCPLogger {
   logs: Array<{ level: string; message: string; data?: any }> = [];

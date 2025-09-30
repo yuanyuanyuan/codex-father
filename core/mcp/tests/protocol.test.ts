@@ -9,7 +9,7 @@ import type {
   PromptsCapability,
   LoggingCapability,
   LogLevel,
-} from '../../../specs/001-docs-readme-phases/contracts/mcp-service.ts';
+} from '../../../specs/_archived/001-docs-readme-phases/contracts/mcp-service.js';
 
 function isMCPMessage(msg: any): msg is MCPMessage {
   return (
