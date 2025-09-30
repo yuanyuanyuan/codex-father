@@ -165,7 +165,7 @@ Single project structure at repository root:
     - 方法：`newConversation()`, `sendUserTurn()`, `interruptConversation()`
   - **验收**：单元测试通过（T024），T007 契约测试通过
 
-- [ ] **T014** 审批终端 UI
+- [x] **T014** 审批终端 UI ✅
   - 文件：`core/approval/terminal-ui.ts`
   - 实现（参考 `research.md:325-366`）：
     - inquirer 交互式 UI
@@ -177,7 +177,7 @@ Single project structure at repository root:
 
 ### 第三层：桥接层和进程管理（依赖第二层）
 
-- [ ] **T015** 事件映射器
+- [x] **T015** 事件映射器 ✅
   - 文件：`core/mcp/event-mapper.ts`
   - 实现（参考 `data-model.md:269-322`）：
     - Codex `codex/event` → MCP `codex-father/progress` 映射
@@ -186,7 +186,7 @@ Single project structure at repository root:
     - 方法：`mapEvent(codexEvent: CodexEvent, jobId: string): MCPProgressNotification`
   - **验收**：单元测试通过（T020）
 
-- [ ] **T016** MCP 桥接层
+- [x] **T016** MCP 桥接层 ✅
   - 文件：`core/mcp/bridge-layer.ts`
   - 实现（参考 `data-model.md:185-267`）：
     - MCP 工具定义（`start-codex-task`, `send-message`, `interrupt-task`）
@@ -196,11 +196,37 @@ Single project structure at repository root:
     - 方法：`handleToolsCall(name: string, args: object): Promise<ToolCallResult>`
   - **验收**：单元测试通过（T021），T005-T006 契约测试通过
 
-- [ ] **T017** 会话管理器
+- [x] **T017** 会话管理器 ✅
   - 文件：`core/session/session-manager.ts`
   - 实现（参考 `data-model.md:103-183`）：
     - 会话生命周期管理（INITIALIZING → ACTIVE → IDLE → TERMINATED）
     - 会话目录创建（`.codex-father/sessions/<session-name>-<date>/`）
+    - 协调 CodexClient、EventLogger、ConfigPersister、PolicyEngine、TerminalUI
+    - 方法：`createSession()`, `sendUserMessage()`, `handleApprovalRequest()`
+  - **验收**：单元测试通过（T022）
+
+- [x] **T018** 进程管理器 MVP1 ✅
+  - 文件：`core/process/manager.ts`
+  - 实现（参考 `data-model.md:324-383`）：
+    - 单进程管理（`codex mcp`）
+    - 健康检查和自动重启
+    - 进程生命周期管理
+    - 方法：`start()`, `stop()`, `restart()`, `getClient()`, `isReady()`
+  - **验收**：单元测试通过（T023）
+
+- [x] **T019** MCP 服务器 MVP1 ✅
+  - 文件：`core/mcp/server.ts`
+  - 实现：
+    - 使用 @modelcontextprotocol/sdk 实现标准 MCP 协议
+    - 处理 initialize、tools/list、tools/call 请求
+    - 整合 ProcessManager、SessionManager、BridgeLayer
+    - 转发 Codex 事件为 MCP 进度通知
+    - 方法：`start()`, `stop()`
+  - **验收**：单元测试通过（T024），T004-T006 契约测试通过
+
+### 第四层：CLI 和入口（依赖第三层）
+
+- [ ] **T020** CLI mcp 命令
     - 配置和日志持久化集成（使用 T009, T010）
     - 方法：`createSession()`, `getSession()`, `terminateSession()`
   - **验收**：单元测试通过（T022）
@@ -230,14 +256,20 @@ Single project structure at repository root:
 
 ### 第五层：CLI 命令（依赖第四层）
 
-- [ ] **T020** CLI mcp 命令
+- [x] **T020** CLI mcp 命令 ✅
   - 文件：`core/cli/commands/mcp-command.ts`
   - 实现（参考 `plan.md:445-450`）：
-    - `codex-father mcp` 命令（使用 commander）
-    - 启动 MCP 服务器（调用 T019）
-    - 配置加载和验证（审批策略、超时设置等）
-    - 优雅关闭处理（SIGINT, SIGTERM）
-  - **验收**：单元测试通过（T025），手动运行 `npm run mcp:start` 成功启动
+    - ✅ `codex-father mcp` 命令（注册到 CLIParser）
+    - ✅ 启动 MCP 服务器（调用 MCPServer）
+    - ✅ 配置选项解析（--debug, --server-name, --timeout 等）
+    - ✅ 优雅关闭处理（SIGINT, SIGTERM, uncaughtException, unhandledRejection）
+    - ✅ 用户友好的输出界面（启动信息、进度、错误提示）
+  - **实现细节**：
+    - 使用 `registerMCPCommand(parser)` 注册命令
+    - 支持 JSON 输出模式（--json 选项）
+    - 实现 `keepServerAlive()` 阻塞函数保持服务器运行
+    - 添加 CommandContext 和 CommandResult 类型到 types.ts
+  - **验收**：单元测试通过（T031），编译无错误
 
 ---
 

@@ -629,6 +629,38 @@ export function isValidSessionStatusTransition(
   return validTransitions[from]?.includes(to) ?? false;
 }
 
+// ============================================================================
+// 9. CLI Command Types - CLI 命令相关类型
+// ============================================================================
+
+/**
+ * CLI 命令上下文
+ */
+export interface CommandContext {
+  args: string[]; // 命令参数
+  options: Record<string, unknown>; // 命令选项
+  verbose: boolean; // 详细输出
+  dryRun: boolean; // 试运行模式
+  json: boolean; // JSON 输出格式
+  workingDirectory: string; // 工作目录
+}
+
+/**
+ * CLI 命令执行结果
+ */
+export interface CommandResult {
+  success: boolean; // 是否成功
+  message?: string; // 消息
+  data?: unknown; // 数据
+  errors?: string[]; // 错误列表
+  warnings?: string[]; // 警告列表
+  executionTime: number; // 执行时间(毫秒)
+}
+
+// ============================================================================
+// 10. Helper Functions - 辅助函数
+// ============================================================================
+
 /**
  * 获取默认的审批策略白名单
  */
