@@ -1,9 +1,7 @@
 # Feature Specification: Codex Father MCP Integration
 
-**Feature Branch**: `003-codex-mcp-integration`
-**Created**: 2025-09-30
-**Status**: Draft
-**Input**: 基于 docs/prd-draft.md 的 codex 二次封装需求
+**Feature Branch**: `003-codex-mcp-integration` **Created**: 2025-09-30
+**Status**: Draft **Input**: 基于 docs/prd-draft.md 的 codex 二次封装需求
 
 ## 执行流程概览
 
@@ -32,6 +30,7 @@
 ### 主要用户故事
 
 作为开发团队，我们需要一个 codex 的管理层，能够：
+
 1. 并发执行多个 codex 任务而不互相干扰
 2. 统一管理任务队列、超时、取消、重试
 3. 采集和归档所有任务的事件日志
@@ -39,11 +38,16 @@
 
 ### 验收场景
 
-1. **Given** 外部工具需要调用 codex，**When** 通过 MCP 协议发送请求，**Then** codex-father 路由到内部 codex-mcp 实例并返回结果
-2. **Given** 多个并发任务，**When** 同时提交到 father，**Then** 系统在 codex-mcp 进程内多路复用，无阻塞
-3. **Given** 长时间运行的任务，**When** 需要可恢复执行，**Then** 系统切换到 exec 模式并支持 resume
-4. **Given** 任务执行中，**When** 需要取消，**Then** MCP 模式发送 Cancelled，exec 模式 kill 进程
-5. **Given** 任务完成，**When** 查看执行记录，**Then** 所有事件、日志、元数据已归档到 `.codex-father/sessions/<job-id>/`
+1. **Given** 外部工具需要调用 codex，**When** 通过 MCP 协议发送请求，**Then**
+   codex-father 路由到内部 codex-mcp 实例并返回结果
+2. **Given** 多个并发任务，**When** 同时提交到 father，**Then**
+   系统在 codex-mcp 进程内多路复用，无阻塞
+3. **Given** 长时间运行的任务，**When** 需要可恢复执行，**Then**
+   系统切换到 exec 模式并支持 resume
+4. **Given** 任务执行中，**When** 需要取消，**Then**
+   MCP 模式发送 Cancelled，exec 模式 kill 进程
+5. **Given** 任务完成，**When** 查看执行记录，**Then**
+   所有事件、日志、元数据已归档到 `.codex-father/sessions/<job-id>/`
 
 ### 边界情况
 
@@ -59,48 +63,62 @@
 ### 功能需求
 
 #### FR-001: MCP 服务器实现
+
 系统必须实现标准 MCP 服务器，对外提供统一协议接口：
+
 - 支持 tools/call 调用 codex 工具
 - 接收 prompt、model、approval-policy、sandbox、cwd 等参数
 - 返回 JSON-RPC 格式的结果和事件通知
 
 #### FR-002: MCP 客户端集成
+
 系统必须作为 MCP 客户端连接到常驻的 `codex mcp` 进程：
+
 - 维护 requestId ↔ conversationId 映射
 - 支持并发多会话（进程内多路复用）
 - 处理 CancelledNotification 取消请求
 - 接收并落盘 JSON-RPC Notification 事件流
 
 #### FR-003: Exec 执行器实现
+
 系统必须支持 `codex exec` 模式作为备用执行器：
+
 - 按需派生独立子进程执行任务
 - 使用 --json 采集事件到 events.jsonl
 - 支持 resume 续写会话
 - 进程级隔离（CPU/内存/cgroup 可选）
 
 #### FR-004: 任务队列管理
+
 系统必须实现基于文件系统的任务队列：
+
 - 复用现有 `.codex-father/sessions/<job-id>/` 目录结构
 - 支持任务状态：queued → running → succeeded/failed/aborted
 - 支持优先级调度和重试机制
 - 原子操作（临时文件 + rename）和锁机制（flock）
 
 #### FR-005: 会话生命周期管理
+
 系统必须管理完整的会话生命周期：
+
 - 创建：生成 job-id，初始化工作目录
 - 执行：选择 MCP/Exec 后端，启动任务
 - 监控：心跳检测、进度追踪、超时控制
 - 结束：归档日志、更新状态、清理资源
 
 #### FR-006: 事件日志采集
+
 系统必须统一采集和归档事件日志：
+
 - MCP 模式：JSON-RPC Notification → events.jsonl
 - Exec 模式：--json 输出 → events.jsonl
 - 元数据：backend、flags、start/end时间、退出码、conversationId
 - 产物规范：stdout.log、events.jsonl、.meta.json、.instructions.md
 
 #### FR-007: 策略与安全控制
+
 系统必须实现安全策略控制：
+
 - 默认不启用 --yolo
 - MCP 工具入参：approval-policy (on-request/on-failure/never)
 - 沙箱策略：workspace-write / read-only / 容器全权限
@@ -108,21 +126,27 @@
 - 审批流程：ElicitRequest → ExecApprovalResponse
 
 #### FR-008: 取消与超时机制
+
 系统必须支持任务取消和超时控制：
+
 - MCP 模式：发送 CancelledNotification → Interrupt
 - Exec 模式：软超时（SIGTERM）→ 硬超时（SIGKILL）
 - 全局超时：10-20分钟可配置
 - 工具超时：tool_timeout_sec 配置
 
 #### FR-009: 并发控制与背压
+
 系统必须实现并发控制和队列背压：
+
 - MCP 模式：单进程多路复用，father 层统一调度
 - Exec 模式：固定工作器池（按核数）
 - 全局并发限制（配额管理）
 - 队列积压时拒绝新请求或降级处理
 
 #### FR-010: 观测与调试
+
 系统必须提供观测和调试能力：
+
 - 日志级别：RUST_LOG 控制 tracing 输出
 - 健康检查：liveness、进程状态、队列深度
 - 性能指标：任务耗时、资源占用、成功率
@@ -133,7 +157,9 @@
 ### 关键实体
 
 #### JobSpec（任务规格）
+
 任务提交的输入参数：
+
 - prompt: 任务提示词
 - model: 使用的模型（如 "o3"）
 - profile: 配置档案
@@ -144,12 +170,16 @@
 - attachments: 附件文件
 
 #### Backend（执行后端）
+
 任务执行的后端类型：
+
 - mcp: 使用 codex-mcp（常驻进程，多会话）
 - exec: 使用 codex exec（独立进程，可恢复）
 
 #### Session（会话）
+
 任务执行的会话实例：
+
 - jobId: 任务唯一标识
 - backend: 执行后端类型
 - conversationId: codex 会话ID（MCP模式）
@@ -160,7 +190,9 @@
 - exitCode: 退出码
 
 #### TaskQueue（任务队列）
+
 基于文件系统的队列：
+
 - pending/: 待执行任务
 - running/: 执行中任务
 - completed/: 成功任务
@@ -168,7 +200,9 @@
 - 锁机制：flock 防并发冲突
 
 #### EventLog（事件日志）
+
 任务执行的事件记录：
+
 - events.jsonl: JSONL 格式事件流
 - stdout.log: 标准输出
 - .meta.json: 元数据
@@ -232,30 +266,35 @@ core/
 ## 实施计划概要
 
 ### Phase 1: MCP 客户端集成（优先）
+
 1. 实现 MCP 客户端连接 codex-mcp
 2. 实现 requestId ↔ conversationId 映射
 3. 实现事件流采集和落盘
 4. 实现取消机制
 
 ### Phase 2: 任务队列系统
+
 1. 基于文件系统实现队列
 2. 实现任务调度器
 3. 实现并发控制
 4. 实现重试机制
 
 ### Phase 3: Exec 执行器（备用）
+
 1. 实现 exec 子进程管理
 2. 实现 --json 事件解析
 3. 实现 resume 支持
 4. 实现进程隔离和限制
 
 ### Phase 4: MCP 服务器对外
+
 1. 实现标准 MCP 服务器
 2. 实现路由逻辑（MCP vs Exec）
 3. 实现统一的 tools/call 接口
 4. 集成审批流程
 
 ### Phase 5: 观测与治理
+
 1. 实现健康检查
 2. 实现性能指标采集
 3. 实现日志聚合
@@ -266,6 +305,7 @@ core/
 ## 验收标准
 
 ### 基础功能
+
 - [ ] 能够通过 MCP 协议提交 codex 任务
 - [ ] MCP 模式下多个任务可并发执行
 - [ ] Exec 模式下任务可独立隔离
@@ -273,18 +313,21 @@ core/
 - [ ] 所有任务事件和日志正确归档
 
 ### 性能要求
+
 - [ ] 单 codex-mcp 实例支持 10+ 并发会话
 - [ ] 任务提交响应时间 < 100ms
 - [ ] 事件日志延迟 < 1s
 - [ ] 队列吞吐量 > 100 任务/小时
 
 ### 可靠性
+
 - [ ] codex-mcp 崩溃自动重启
 - [ ] 任务失败自动重试（可配置）
 - [ ] 僵尸进程清理机制
 - [ ] 数据不丢失（原子写入）
 
 ### 安全性
+
 - [ ] 默认启用沙箱策略
 - [ ] 审批流程正常工作
 - [ ] 网络访问默认禁用
