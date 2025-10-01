@@ -9,10 +9,10 @@ import type {
 } from '../../../specs/_archived/001-docs-readme-phases/contracts/mcp-service.js';
 
 class NoopLogger implements MCPLogger {
-  debug(): void { }
-  info(): void { }
-  warn(): void { }
-  error(): void { }
+  debug(): void {}
+  info(): void {}
+  warn(): void {}
+  error(): void {}
 }
 
 describe('ContainerManagementTools (T026)', () => {
@@ -78,7 +78,9 @@ describe('ContainerManagementTools (T026)', () => {
       inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
       handler: async (args) => {
         const c = containers.get(args.id);
-        if (!c) return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        if (!c) {
+          return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        }
         c.running = false;
         c.logs.push('stopped');
         return { content: [{ type: 'text', text: 'OK' }] };
@@ -106,7 +108,9 @@ describe('ContainerManagementTools (T026)', () => {
       inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
       handler: async (args) => {
         const c = containers.get(args.id);
-        if (!c) return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        if (!c) {
+          return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        }
         return { content: [{ type: 'text', text: JSON.stringify(c.logs) }] };
       },
       category: 'container',
@@ -123,7 +127,9 @@ describe('ContainerManagementTools (T026)', () => {
       },
       handler: async (args) => {
         const c = containers.get(args.id);
-        if (!c) return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        if (!c) {
+          return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        }
         c.logs.push(`exec:${args.cmd}`);
         return { content: [{ type: 'text', text: JSON.stringify({ code: 0, stdout: 'ok' }) }] };
       },

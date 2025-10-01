@@ -150,13 +150,8 @@ export class CodexClient extends EventEmitter {
    * @param params 新会话参数
    * @returns 新会话结果
    */
-  async newConversation(
-    params: CodexNewConversationParams
-  ): Promise<CodexNewConversationResult> {
-    const result = await this.request<CodexNewConversationResult>(
-      'newConversation',
-      params
-    );
+  async newConversation(params: CodexNewConversationParams): Promise<CodexNewConversationResult> {
+    const result = await this.request<CodexNewConversationResult>('newConversation', params);
     return result;
   }
 
@@ -166,13 +161,8 @@ export class CodexClient extends EventEmitter {
    * @param params 发送消息参数
    * @returns 发送结果
    */
-  async sendUserMessage(
-    params: CodexSendUserMessageParams
-  ): Promise<CodexSendUserMessageResult> {
-    const result = await this.request<CodexSendUserMessageResult>(
-      'sendUserMessage',
-      params
-    );
+  async sendUserMessage(params: CodexSendUserMessageParams): Promise<CodexSendUserMessageResult> {
+    const result = await this.request<CodexSendUserMessageResult>('sendUserMessage', params);
     return result;
   }
 
@@ -246,7 +236,9 @@ export class CodexClient extends EventEmitter {
    * 关闭客户端
    */
   close(): void {
-    if (this.closed) return;
+    if (this.closed) {
+      return;
+    }
 
     this.closed = true;
 
@@ -327,9 +319,7 @@ export class CodexClient extends EventEmitter {
     // 检查是否为错误响应
     if (response.error) {
       pending.reject(
-        new Error(
-          `JSON-RPC error (code: ${response.error.code}): ${response.error.message}`
-        )
+        new Error(`JSON-RPC error (code: ${response.error.code}): ${response.error.message}`)
       );
       return;
     }

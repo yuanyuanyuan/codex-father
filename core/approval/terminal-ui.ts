@@ -119,9 +119,7 @@ export class TerminalUI {
    * @param requests 审批请求数组
    * @returns 决策数组
    */
-  async promptBatchApproval(
-    requests: ApprovalRequest[]
-  ): Promise<ApprovalDecision[]> {
+  async promptBatchApproval(requests: ApprovalRequest[]): Promise<ApprovalDecision[]> {
     const decisions: ApprovalDecision[] = [];
 
     for (const request of requests) {
@@ -151,22 +149,17 @@ export class TerminalUI {
   /**
    * 收集用户决策（带超时）
    *
-   * @param request 审批请求
+   * @param _request 审批请求 (保留参数以保持接口一致性)
    * @returns 用户决策
    */
-  private async collectDecisionWithTimeout(
-    request: ApprovalRequest
-  ): Promise<ApprovalDecision> {
+  private async collectDecisionWithTimeout(_request: ApprovalRequest): Promise<ApprovalDecision> {
     // 如果没有超时限制,直接收集决策
     if (!this.config.timeout) {
       return this.collectDecision();
     }
 
     // 使用 Promise.race 实现超时
-    return Promise.race([
-      this.collectDecision(),
-      this.createTimeoutPromise(this.config.timeout),
-    ]);
+    return Promise.race([this.collectDecision(), this.createTimeoutPromise(this.config.timeout)]);
   }
 
   /**
@@ -281,9 +274,7 @@ export function createTerminalUI(config?: TerminalUIConfig): TerminalUI {
  * @param request 审批请求
  * @returns 用户决策
  */
-export async function promptApproval(
-  request: ApprovalRequest
-): Promise<ApprovalDecision> {
+export async function promptApproval(request: ApprovalRequest): Promise<ApprovalDecision> {
   const ui = createTerminalUI();
   return ui.promptApproval(request);
 }

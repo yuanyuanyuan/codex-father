@@ -21,10 +21,10 @@ import type {
 } from '../../../specs/_archived/001-docs-readme-phases/contracts/mcp-service.js';
 
 class NoopLogger implements MCPLogger {
-  debug(): void { }
-  info(): void { }
-  warn(): void { }
-  error(): void { }
+  debug(): void {}
+  info(): void {}
+  warn(): void {}
+  error(): void {}
 }
 
 describe('FileSystemTools (T024)', () => {
@@ -55,8 +55,9 @@ describe('FileSystemTools (T024)', () => {
       description: 'Read a file',
       inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
       handler: async (args) => {
-        if (!ctx.permissions.readFileSystem)
+        if (!ctx.permissions.readFileSystem) {
           return { content: [{ type: 'text', text: 'PERMISSION_DENIED' }], isError: true };
+        }
         const p = join(ctx.workingDirectory, args.path);
         const text = readFileSync(p, 'utf8');
         return { content: [{ type: 'text', text }] };
@@ -74,8 +75,9 @@ describe('FileSystemTools (T024)', () => {
         required: ['path', 'content'],
       },
       handler: async (args) => {
-        if (!ctx.permissions.writeFileSystem)
+        if (!ctx.permissions.writeFileSystem) {
           return { content: [{ type: 'text', text: 'PERMISSION_DENIED' }], isError: true };
+        }
         const p = join(ctx.workingDirectory, args.path);
         writeFileSync(p, args.content);
         return { content: [{ type: 'text', text: 'OK' }] };

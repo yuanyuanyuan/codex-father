@@ -17,10 +17,7 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { SingleProcessManager, createProcessManager } from '../process/manager.js';
 import { SessionManager, createSessionManager } from '../session/session-manager.js';
 import { BridgeLayer, createBridgeLayer } from './bridge-layer.js';
@@ -114,9 +111,7 @@ export class MCPServer {
     await this.server.connect(this.transport);
 
     if (this.config.debug) {
-      console.log(
-        `[MCPServer] Started: ${this.config.serverName} v${this.config.serverVersion}`
-      );
+      console.log(`[MCPServer] Started: ${this.config.serverName} v${this.config.serverVersion}`);
     }
   }
 

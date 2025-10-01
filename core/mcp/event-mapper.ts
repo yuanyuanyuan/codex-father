@@ -86,10 +86,7 @@ export class EventMapper {
    * @param jobId 关联的作业 ID
    * @returns MCP 进度通知参数
    */
-  private createProgressParams(
-    event: Event,
-    jobId: string
-  ): MCPProgressNotificationParams {
+  private createProgressParams(event: Event, jobId: string): MCPProgressNotificationParams {
     // 基础参数
     const baseParams: MCPProgressNotificationParams = {
       jobId,

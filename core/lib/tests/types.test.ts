@@ -256,56 +256,36 @@ describe('Event 类型定义', () => {
 describe('状态转换验证', () => {
   it('应验证合法的 Job 状态转换', () => {
     expect(isValidJobStatusTransition(JobStatus.PENDING, JobStatus.RUNNING)).toBe(true);
-    expect(
-      isValidJobStatusTransition(JobStatus.RUNNING, JobStatus.COMPLETED)
-    ).toBe(true);
+    expect(isValidJobStatusTransition(JobStatus.RUNNING, JobStatus.COMPLETED)).toBe(true);
     expect(isValidJobStatusTransition(JobStatus.RUNNING, JobStatus.FAILED)).toBe(true);
-    expect(
-      isValidJobStatusTransition(JobStatus.RUNNING, JobStatus.CANCELLED)
-    ).toBe(true);
+    expect(isValidJobStatusTransition(JobStatus.RUNNING, JobStatus.CANCELLED)).toBe(true);
     expect(isValidJobStatusTransition(JobStatus.RUNNING, JobStatus.TIMEOUT)).toBe(true);
   });
 
   it('应拒绝非法的 Job 状态转换', () => {
-    expect(
-      isValidJobStatusTransition(JobStatus.COMPLETED, JobStatus.RUNNING)
-    ).toBe(false);
-    expect(isValidJobStatusTransition(JobStatus.FAILED, JobStatus.PENDING)).toBe(
-      false
-    );
-    expect(isValidJobStatusTransition(JobStatus.PENDING, JobStatus.COMPLETED)).toBe(
-      false
-    );
+    expect(isValidJobStatusTransition(JobStatus.COMPLETED, JobStatus.RUNNING)).toBe(false);
+    expect(isValidJobStatusTransition(JobStatus.FAILED, JobStatus.PENDING)).toBe(false);
+    expect(isValidJobStatusTransition(JobStatus.PENDING, JobStatus.COMPLETED)).toBe(false);
   });
 
   it('应验证合法的 Session 状态转换', () => {
-    expect(
-      isValidSessionStatusTransition(SessionStatus.INITIALIZING, SessionStatus.ACTIVE)
-    ).toBe(true);
-    expect(
-      isValidSessionStatusTransition(SessionStatus.ACTIVE, SessionStatus.IDLE)
-    ).toBe(true);
-    expect(
-      isValidSessionStatusTransition(SessionStatus.IDLE, SessionStatus.ACTIVE)
-    ).toBe(true);
-    expect(
-      isValidSessionStatusTransition(
-        SessionStatus.ACTIVE,
-        SessionStatus.TERMINATED
-      )
-    ).toBe(true);
+    expect(isValidSessionStatusTransition(SessionStatus.INITIALIZING, SessionStatus.ACTIVE)).toBe(
+      true
+    );
+    expect(isValidSessionStatusTransition(SessionStatus.ACTIVE, SessionStatus.IDLE)).toBe(true);
+    expect(isValidSessionStatusTransition(SessionStatus.IDLE, SessionStatus.ACTIVE)).toBe(true);
+    expect(isValidSessionStatusTransition(SessionStatus.ACTIVE, SessionStatus.TERMINATED)).toBe(
+      true
+    );
   });
 
   it('应拒绝非法的 Session 状态转换', () => {
-    expect(
-      isValidSessionStatusTransition(SessionStatus.TERMINATED, SessionStatus.ACTIVE)
-    ).toBe(false);
-    expect(
-      isValidSessionStatusTransition(
-        SessionStatus.INITIALIZING,
-        SessionStatus.IDLE
-      )
-    ).toBe(false);
+    expect(isValidSessionStatusTransition(SessionStatus.TERMINATED, SessionStatus.ACTIVE)).toBe(
+      false
+    );
+    expect(isValidSessionStatusTransition(SessionStatus.INITIALIZING, SessionStatus.IDLE)).toBe(
+      false
+    );
   });
 });
 

@@ -16,12 +16,7 @@
  * - never: 从不审批(危险)
  */
 
-import {
-  ApprovalMode,
-  ApprovalPolicy,
-  WhitelistRule,
-  getDefaultWhitelist,
-} from '../lib/types.js';
+import { ApprovalMode, ApprovalPolicy, WhitelistRule, getDefaultWhitelist } from '../lib/types.js';
 
 /**
  * 审批决策结果
@@ -213,10 +208,7 @@ export class PolicyEngine {
           );
         }
         // 非严格模式下忽略无效规则
-        console.warn(
-          `Skipping invalid regex pattern in whitelist: "${rule.pattern}"`,
-          error
-        );
+        console.warn(`Skipping invalid regex pattern in whitelist: "${rule.pattern}"`, error);
       }
     }
 
@@ -268,9 +260,7 @@ export class PolicyEngine {
    */
   removeWhitelistRule(pattern: string): boolean {
     const initialLength = this.policy.whitelist.length;
-    this.policy.whitelist = this.policy.whitelist.filter(
-      (rule) => rule.pattern !== pattern
-    );
+    this.policy.whitelist = this.policy.whitelist.filter((rule) => rule.pattern !== pattern);
 
     if (this.policy.whitelist.length < initialLength) {
       // 重新编译白名单

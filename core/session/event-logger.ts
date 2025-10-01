@@ -79,9 +79,7 @@ export class EventLogger {
     if (this.config.validateEvents && !options?.skipValidation) {
       const result = EventSchema.safeParse(fullEvent);
       if (!result.success) {
-        throw new Error(
-          `Invalid event format: ${JSON.stringify(result.error.errors)}`
-        );
+        throw new Error(`Invalid event format: ${JSON.stringify(result.error.errors)}`);
       }
     }
 
@@ -119,7 +117,10 @@ export class EventLogger {
   async readAllEvents(): Promise<Event[]> {
     try {
       const content = await fs.readFile(this.logFilePath, 'utf-8');
-      const lines = content.trim().split('\n').filter((line) => line.length > 0);
+      const lines = content
+        .trim()
+        .split('\n')
+        .filter((line) => line.length > 0);
 
       return lines.map((line) => {
         const parsed = JSON.parse(line);
@@ -168,7 +169,10 @@ export class EventLogger {
   async getEventCount(): Promise<number> {
     try {
       const content = await fs.readFile(this.logFilePath, 'utf-8');
-      const lines = content.trim().split('\n').filter((line) => line.length > 0);
+      const lines = content
+        .trim()
+        .split('\n')
+        .filter((line) => line.length > 0);
       return lines.length;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {

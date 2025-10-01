@@ -105,8 +105,7 @@ export class BridgeLayer {
       sessionManager: config.sessionManager,
       defaultModel: config.defaultModel ?? 'gpt-5',
       defaultApprovalMode: config.defaultApprovalMode ?? ApprovalMode.ON_REQUEST,
-      defaultSandboxPolicy:
-        config.defaultSandboxPolicy ?? SandboxPolicy.WORKSPACE_WRITE,
+      defaultSandboxPolicy: config.defaultSandboxPolicy ?? SandboxPolicy.WORKSPACE_WRITE,
       defaultTimeout: config.defaultTimeout ?? 300000, // 5 分钟
     };
 
@@ -227,19 +226,17 @@ export class BridgeLayer {
 
     // 创建会话
     const sessionName =
-      typedParams.sessionName ||
-      `task-${new Date().toISOString().split('T')[0]}-${Date.now()}`;
+      typedParams.sessionName || `task-${new Date().toISOString().split('T')[0]}-${Date.now()}`;
 
     try {
-      const { conversationId, jobId, rolloutPath } =
-        await this.sessionManager.createSession({
-          sessionName,
-          model: typedParams.model || this.config.defaultModel,
-          cwd: typedParams.cwd || process.cwd(),
-          approvalMode: typedParams.approvalPolicy || this.config.defaultApprovalMode,
-          sandboxPolicy: typedParams.sandbox || this.config.defaultSandboxPolicy,
-          timeout: typedParams.timeout || this.config.defaultTimeout,
-        });
+      const { conversationId, jobId, rolloutPath } = await this.sessionManager.createSession({
+        sessionName,
+        model: typedParams.model || this.config.defaultModel,
+        cwd: typedParams.cwd || process.cwd(),
+        approvalMode: typedParams.approvalPolicy || this.config.defaultApprovalMode,
+        sandboxPolicy: typedParams.sandbox || this.config.defaultSandboxPolicy,
+        timeout: typedParams.timeout || this.config.defaultTimeout,
+      });
 
       // 发送用户消息
       await this.sessionManager.sendUserMessage(conversationId, typedParams.prompt);

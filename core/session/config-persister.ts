@@ -74,10 +74,7 @@ export class ConfigPersister {
       atomicWrite: config.atomicWrite ?? true,
     };
 
-    this.configFilePath = path.join(
-      this.config.sessionDir,
-      this.config.configFileName
-    );
+    this.configFilePath = path.join(this.config.sessionDir, this.config.configFileName);
   }
 
   /**
@@ -90,9 +87,7 @@ export class ConfigPersister {
     if (this.config.validateConfig) {
       const result = SessionSchema.safeParse(session);
       if (!result.success) {
-        throw new Error(
-          `Invalid session config format: ${JSON.stringify(result.error.errors)}`
-        );
+        throw new Error(`Invalid session config format: ${JSON.stringify(result.error.errors)}`);
       }
     }
 
@@ -147,9 +142,7 @@ export class ConfigPersister {
       if (this.config.validateConfig) {
         const result = SessionSchema.safeParse(session);
         if (!result.success) {
-          throw new Error(
-            `Invalid session config format: ${JSON.stringify(result.error.errors)}`
-          );
+          throw new Error(`Invalid session config format: ${JSON.stringify(result.error.errors)}`);
         }
       }
 
@@ -211,10 +204,7 @@ export class ConfigPersister {
    * 使用临时文件+重命名确保写入的原子性
    * 即使写入过程中断,也不会损坏原有文件
    */
-  private async atomicWriteFile(
-    filePath: string,
-    content: string
-  ): Promise<void> {
+  private async atomicWriteFile(filePath: string, content: string): Promise<void> {
     const tempFilePath = `${filePath}.tmp.${Date.now()}`;
 
     try {
@@ -264,9 +254,7 @@ export class ConfigPersister {
  * @param config 配置对象
  * @returns ConfigPersister 实例
  */
-export function createConfigPersister(
-  config: ConfigPersisterConfig
-): ConfigPersister {
+export function createConfigPersister(config: ConfigPersisterConfig): ConfigPersister {
   return new ConfigPersister(config);
 }
 
@@ -276,10 +264,7 @@ export function createConfigPersister(
  * 用途: 记录 Codex 原生 rollout 文件路径,用于会话恢复 (MVP2)
  * 路径: sessions/<session-name>-<date>/rollout-ref.txt
  */
-export async function saveRolloutRef(
-  sessionDir: string,
-  rolloutPath: string
-): Promise<void> {
+export async function saveRolloutRef(sessionDir: string, rolloutPath: string): Promise<void> {
   const rolloutRefPath = path.join(sessionDir, 'rollout-ref.txt');
 
   // 确保目录存在

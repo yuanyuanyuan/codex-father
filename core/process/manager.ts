@@ -168,9 +168,7 @@ export class SingleProcessManager extends EventEmitter {
    */
   async restart(): Promise<void> {
     if (this.restartAttempts >= this.config.maxRestartAttempts) {
-      const error = new Error(
-        `Max restart attempts (${this.config.maxRestartAttempts}) reached`
-      );
+      const error = new Error(`Max restart attempts (${this.config.maxRestartAttempts}) reached`);
       this.emit('error', error);
       throw error;
     }
@@ -362,8 +360,6 @@ export class SingleProcessManager extends EventEmitter {
  * @param config 配置对象
  * @returns SingleProcessManager 实例
  */
-export function createProcessManager(
-  config?: ProcessManagerConfig
-): SingleProcessManager {
+export function createProcessManager(config?: ProcessManagerConfig): SingleProcessManager {
   return new SingleProcessManager(config);
 }

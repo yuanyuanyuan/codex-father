@@ -9,10 +9,10 @@ import type {
 } from '../../../specs/_archived/001-docs-readme-phases/contracts/mcp-service.js';
 
 class NoopLogger implements MCPLogger {
-  debug(): void { }
-  info(): void { }
-  warn(): void { }
-  error(): void { }
+  debug(): void {}
+  info(): void {}
+  warn(): void {}
+  error(): void {}
 }
 
 describe('GitOperationTools (T025)', () => {
@@ -96,8 +96,9 @@ describe('GitOperationTools (T025)', () => {
         required: ['action'],
       },
       handler: async (args) => {
-        if (args.action === 'list')
+        if (args.action === 'list') {
           return { content: [{ type: 'text', text: JSON.stringify(Array.from(repo.branches)) }] };
+        }
         if (args.action === 'create' && args.name) {
           repo.branches.add(args.name);
           return { content: [{ type: 'text', text: 'OK' }] };

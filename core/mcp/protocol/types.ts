@@ -353,14 +353,12 @@ export type MCPToolsCallResponse = JSONRPCResponse<MCPToolsCallResult>;
 /**
  * MCP 进度通知 (服务端 → 客户端)
  */
-export type MCPProgressNotification =
-  JSONRPCNotification<MCPProgressNotificationParams>;
+export type MCPProgressNotification = JSONRPCNotification<MCPProgressNotificationParams>;
 
 /**
  * MCP 取消通知 (客户端 → 服务端)
  */
-export type MCPCancelNotification =
-  JSONRPCNotification<MCPCancelNotificationParams>;
+export type MCPCancelNotification = JSONRPCNotification<MCPCancelNotificationParams>;
 
 // ========== 辅助类型 ==========
 
@@ -409,10 +407,7 @@ export function createJSONRPCRequest<T>(
 /**
  * 创建 JSON-RPC 响应
  */
-export function createJSONRPCResponse<T>(
-  id: JSONRPCId,
-  result: T
-): JSONRPCResponse<T> {
+export function createJSONRPCResponse<T>(id: JSONRPCId, result: T): JSONRPCResponse<T> {
   return {
     jsonrpc: '2.0',
     id,
@@ -423,10 +418,7 @@ export function createJSONRPCResponse<T>(
 /**
  * 创建 JSON-RPC 错误响应
  */
-export function createJSONRPCErrorResponse(
-  id: JSONRPCId,
-  error: JSONRPCError
-): JSONRPCResponse {
+export function createJSONRPCErrorResponse(id: JSONRPCId, error: JSONRPCError): JSONRPCResponse {
   return {
     jsonrpc: '2.0',
     id,
@@ -437,10 +429,7 @@ export function createJSONRPCErrorResponse(
 /**
  * 创建 JSON-RPC 通知
  */
-export function createJSONRPCNotification<T>(
-  method: string,
-  params?: T
-): JSONRPCNotification<T> {
+export function createJSONRPCNotification<T>(method: string, params?: T): JSONRPCNotification<T> {
   return {
     jsonrpc: '2.0',
     method,
@@ -475,6 +464,8 @@ export function isJSONRPCNotification(msg: unknown): msg is JSONRPCNotification 
  * 检查是否为 JSON-RPC 错误响应
  */
 export function isJSONRPCError(msg: unknown): boolean {
-  if (!isJSONRPCResponse(msg)) return false;
+  if (!isJSONRPCResponse(msg)) {
+    return false;
+  }
   return msg.error !== undefined;
 }

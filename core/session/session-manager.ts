@@ -313,8 +313,7 @@ export class SessionManager {
         // 需要人工审批
         terminalDecision = await this.terminalUI.promptApproval(request);
         decision = terminalDecision === 'allow' ? 'allow' : 'deny';
-        request.status =
-          decision === 'allow' ? ApprovalStatus.APPROVED : ApprovalStatus.DENIED;
+        request.status = decision === 'allow' ? ApprovalStatus.APPROVED : ApprovalStatus.DENIED;
       }
     } else if (request.type === 'apply-patch') {
       // apply-patch 默认需要人工审批

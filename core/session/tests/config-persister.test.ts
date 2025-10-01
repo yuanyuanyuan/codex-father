@@ -267,9 +267,7 @@ describe('ConfigPersister', () => {
       await fs.writeFile(configPath, JSON.stringify(invalidConfig, null, 2), 'utf-8');
 
       // 应该抛出验证错误
-      await expect(persister.loadConfig()).rejects.toThrow(
-        'Invalid session config format'
-      );
+      await expect(persister.loadConfig()).rejects.toThrow('Invalid session config format');
     });
 
     it('应该允许跳过验证以提高性能', async () => {
@@ -418,9 +416,7 @@ describe('ConfigPersister', () => {
     });
 
     it('应该处理不存在的 rollout 引用文件', async () => {
-      await expect(loadRolloutRef(sessionDir)).rejects.toThrow(
-        'Rollout reference file not found'
-      );
+      await expect(loadRolloutRef(sessionDir)).rejects.toThrow('Rollout reference file not found');
     });
   });
 

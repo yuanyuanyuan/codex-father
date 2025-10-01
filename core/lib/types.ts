@@ -570,9 +570,7 @@ export function parseSession(data: unknown): z.infer<typeof SessionSchema> {
 /**
  * 验证并解析 ApprovalRequest 数据
  */
-export function parseApprovalRequest(
-  data: unknown
-): z.infer<typeof ApprovalRequestSchema> {
+export function parseApprovalRequest(data: unknown): z.infer<typeof ApprovalRequestSchema> {
   return ApprovalRequestSchema.parse(data);
 }
 
@@ -586,10 +584,7 @@ export function parseEvent(data: unknown): z.infer<typeof EventSchema> {
 /**
  * 验证 Job 状态转换是否合法
  */
-export function isValidJobStatusTransition(
-  from: JobStatus,
-  to: JobStatus
-): boolean {
+export function isValidJobStatusTransition(from: JobStatus, to: JobStatus): boolean {
   const validTransitions: Record<JobStatus, JobStatus[]> = {
     [JobStatus.PENDING]: [JobStatus.RUNNING, JobStatus.CANCELLED],
     [JobStatus.RUNNING]: [
@@ -610,10 +605,7 @@ export function isValidJobStatusTransition(
 /**
  * 验证 Session 状态转换是否合法
  */
-export function isValidSessionStatusTransition(
-  from: SessionStatus,
-  to: SessionStatus
-): boolean {
+export function isValidSessionStatusTransition(from: SessionStatus, to: SessionStatus): boolean {
   const validTransitions: Record<SessionStatus, SessionStatus[]> = {
     [SessionStatus.INITIALIZING]: [SessionStatus.ACTIVE, SessionStatus.TERMINATED],
     [SessionStatus.ACTIVE]: [
@@ -693,8 +685,7 @@ export function getDefaultWhitelist(): WhitelistRule[] {
     },
     {
       pattern: '^npm install$',
-      reason:
-        'Dependency installation (HIGH RISK: can run arbitrary postinstall scripts)',
+      reason: 'Dependency installation (HIGH RISK: can run arbitrary postinstall scripts)',
       enabled: false, // 默认禁用,需用户显式启用
     },
   ];
