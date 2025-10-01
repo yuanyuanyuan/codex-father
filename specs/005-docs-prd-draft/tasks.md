@@ -1,7 +1,8 @@
 # Tasks: 架构调整 - MCP 模式优先实现
 
 **Input**: Design documents from `/data/codex-father/specs/005-docs-prd-draft/`
-**Prerequisites**: plan.md (✓), research.md (✓), data-model.md (✓), contracts/ (✓), quickstart.md (✓)
+**Prerequisites**: plan.md (✓), research.md (✓), data-model.md (✓), contracts/
+(✓), quickstart.md (✓)
 
 ## Execution Flow (main)
 
@@ -35,6 +36,7 @@
 ## Path Conventions
 
 Single project structure at repository root:
+
 - **Source**: `core/mcp/`, `core/process/`, `core/approval/`, `core/session/`
 - **Tests**: `tests/contract/`, `tests/integration/`, module-level `*/tests/`
 
@@ -62,7 +64,8 @@ Single project structure at repository root:
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 
-**CRITICAL: These tests MUST be written and MUST FAIL before ANY implementation**
+**CRITICAL: These tests MUST be written and MUST FAIL before ANY
+implementation**
 
 ### 契约测试（并行执行）
 
@@ -97,7 +100,8 @@ Single project structure at repository root:
   - 验证：
     - `newConversation` 请求/响应符合 `contracts/codex-jsonrpc.yaml:15-94`
     - `sendUserTurn` 请求/响应符合 `contracts/codex-jsonrpc.yaml:158-232`
-    - `interruptConversation` 请求/响应符合 `contracts/codex-jsonrpc.yaml:234-282`
+    - `interruptConversation` 请求/响应符合
+      `contracts/codex-jsonrpc.yaml:234-282`
     - 审批请求处理（`applyPatchApproval`, `execCommandApproval`）
   - **期望**：测试失败（Codex 客户端未实现）
 
@@ -131,7 +135,8 @@ Single project structure at repository root:
   - 实现（参考 `data-model.md:135-183`）：
     - 会话配置 JSON 持久化（`config.json`）
     - rollout-ref.txt 写入和读取
-    - 方法：`saveConfig(config: SessionConfig): Promise<void>`, `loadConfig(sessionDir: string): Promise<SessionConfig>`
+    - 方法：`saveConfig(config: SessionConfig): Promise<void>`,
+      `loadConfig(sessionDir: string): Promise<SessionConfig>`
   - **验收**：单元测试通过（T022）
 
 - [x] **T011** [P] 审批策略引擎 ✅
@@ -141,7 +146,8 @@ Single project structure at repository root:
     - 审批决策逻辑（auto-approve vs manual）
     - 配置文件加载（YAML 格式，参考 `quickstart.md:43-63`）
     - 方法：`evaluate(request: ApprovalRequest): Promise<'allow' | 'deny' | 'require-manual'>`
-  - **注意**：默认白名单仅包含只读命令（`git status`, `git diff`, `git log`, `ls`, `cat`），npm install 已移除
+  - **注意**：默认白名单仅包含只读命令（`git status`, `git diff`, `git log`,
+    `ls`, `cat`），npm install 已移除
   - **验收**：单元测试通过（T023）
 
 ### 第二层：核心组件（依赖第一层）
@@ -149,7 +155,8 @@ Single project structure at repository root:
 - [x] **T012** MCP 协议类型定义 ✅
   - 文件：`core/mcp/protocol/types.ts`
   - 实现：
-    - MCP 协议类型（InitializeRequest, InitializeResponse, ToolsListResponse, ToolsCallRequest 等）
+    - MCP 协议类型（InitializeRequest, InitializeResponse, ToolsListResponse,
+      ToolsCallRequest 等）
     - 基于 `contracts/mcp-protocol.yaml` 定义
     - 使用 Zod schema 验证
     - 兼容 @modelcontextprotocol/sdk 类型
@@ -192,7 +199,8 @@ Single project structure at repository root:
     - MCP 工具定义（`start-codex-task`, `send-message`, `interrupt-task`）
     - tools/call 快速返回逻辑（< 500ms）
     - Codex JSON-RPC 方法调用封装
-    - 审批请求转发（`applyPatchApproval`, `execCommandApproval` → policy-engine → terminal-ui）
+    - 审批请求转发（`applyPatchApproval`, `execCommandApproval` → policy-engine
+      → terminal-ui）
     - 方法：`handleToolsCall(name: string, args: object): Promise<ToolCallResult>`
   - **验收**：单元测试通过（T021），T005-T006 契约测试通过
 
@@ -227,8 +235,8 @@ Single project structure at repository root:
 ### 第四层：CLI 和入口（依赖第三层）
 
 - [ ] **T020** CLI mcp 命令
-    - 配置和日志持久化集成（使用 T009, T010）
-    - 方法：`createSession()`, `getSession()`, `terminateSession()`
+  - 配置和日志持久化集成（使用 T009, T010）
+  - 方法：`createSession()`, `getSession()`, `terminateSession()`
   - **验收**：单元测试通过（T022）
 
 - [ ] **T018** 进程管理器（MVP1 单进程）
@@ -399,10 +407,12 @@ Single project structure at repository root:
 ## Dependencies
 
 **TDD 约束**：
+
 - T004-T007（契约测试）必须在 T008-T020（实现）之前完成
 - T021-T031（单元测试）必须在对应实现任务完成后立即执行
 
 **实现依赖**：
+
 - T008 (types) → T009-T011 (第一层)
 - T009-T011 (第一层) → T012-T014 (第二层)
 - T012-T014 (第二层) → T015-T018 (第三层)
@@ -410,6 +420,7 @@ Single project structure at repository root:
 - T019 (第四层) → T020 (第五层)
 
 **测试依赖**：
+
 - T032-T033（集成测试）必须在 T020（CLI 命令）完成后执行
 - T034-T038（Polish）必须在所有实现和测试完成后执行
 
@@ -418,6 +429,7 @@ Single project structure at repository root:
 ## Parallel Execution Guidance
 
 ### 阶段 1: 契约测试（全部并行）
+
 ```bash
 # 同时启动 4 个契约测试任务
 npm run test -- tests/contract/mcp-initialize.test.ts &
@@ -428,6 +440,7 @@ wait
 ```
 
 ### 阶段 2: 第一层实现 + 类型定义（并行）
+
 ```bash
 # T008-T011 可并行（不同文件，无依赖）
 # 实现 core/lib/types.ts
@@ -437,6 +450,7 @@ wait
 ```
 
 ### 阶段 3: 第一层单元测试（并行）
+
 ```bash
 # T021-T023 可并行
 npm run test -- core/session/tests/event-logger.test.ts &
@@ -446,12 +460,14 @@ wait
 ```
 
 ### 阶段 4-7: 串行执行
+
 ```bash
 # T012-T020, T024-T031, T032-T033 必须串行（依赖关系）
 # 每个实现完成后立即运行对应单元测试
 ```
 
 ### 阶段 8: Polish（部分并行）
+
 ```bash
 # T034-T036 可并行（不同文件）
 npm run benchmark &
@@ -488,6 +504,7 @@ _验证任务完整性_
 ---
 
 **Total Tasks**: 38 tasks
+
 - Setup: 3 tasks (T001-T003)
 - Contract Tests: 4 tasks (T004-T007, all [P])
 - Type Definition: 1 task (T008, [P])
@@ -497,8 +514,10 @@ _验证任务完整性_
 - Integration Tests: 2 tasks (T032-T033 serial)
 - Polish: 5 tasks (T034-T036 [P], T037-T038 serial)
 
-**Parallel Opportunities**: ~10 tasks can run in parallel (契约测试 4 个 + 类型/第一层 4 个 + Polish 部分 3 个)
+**Parallel Opportunities**: ~10 tasks can run in parallel
+(契约测试 4 个 + 类型/第一层 4 个 + Polish 部分 3 个)
 
 **Estimated MVP1 Duration**:
+
 - Sequential path: ~30 tasks (假设每任务 2-4 小时) = 60-120 小时
 - With parallelization: ~50-80 小时（基于 10 个并行任务的加速）

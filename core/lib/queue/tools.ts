@@ -26,35 +26,42 @@ export function ensureQueueStructure(basePath?: string): QueueDirectoryStructure
     mkdirSync(base, { recursive: true });
   }
 
-  const statuses = STATUS_DIRECTORIES.reduce<Record<QueueStatusDirectory, string>>((acc, s) => {
-    acc[s] = join(base, s === 'processing' ? 'running' : s);
-    return acc;
-  }, {} as any);
-
-  const tasks = STATUS_DIRECTORIES.reduce<Record<QueueStatusDirectory, string>>((acc, s) => {
-    acc[s] = join(statuses[s], 'tasks');
-    if (!existsSync(acc[s])) {
-      mkdirSync(acc[s], { recursive: true });
+  const statuses = {} as Record<QueueStatusDirectory, string>;
+  for (const status of STATUS_DIRECTORIES) {
+    const dirName = status === 'processing' ? 'running' : status;
+    const dirPath = join(base, dirName);
+    if (!existsSync(dirPath)) {
+      mkdirSync(dirPath, { recursive: true });
     }
-    return acc;
-  }, {} as any);
+    statuses[status] = dirPath;
+  }
 
-  const metadata = STATUS_DIRECTORIES.reduce<Record<QueueStatusDirectory, string>>((acc, s) => {
-    acc[s] = join(statuses[s], 'metadata');
-    if (!existsSync(acc[s])) {
-      mkdirSync(acc[s], { recursive: true });
+  const tasks = {} as Record<QueueStatusDirectory, string>;
+  for (const status of STATUS_DIRECTORIES) {
+    const taskDir = join(statuses[status], 'tasks');
+    if (!existsSync(taskDir)) {
+      mkdirSync(taskDir, { recursive: true });
     }
-    return acc;
-  }, {} as any);
+    tasks[status] = taskDir;
+  }
 
-  const extras = EXTRA_DIRS.reduce<Record<(typeof EXTRA_DIRS)[number], string>>((acc, d) => {
-    const p = join(base, d);
-    if (!existsSync(p)) {
-      mkdirSync(p, { recursive: true });
+  const metadata = {} as Record<QueueStatusDirectory, string>;
+  for (const status of STATUS_DIRECTORIES) {
+    const metadataDir = join(statuses[status], 'metadata');
+    if (!existsSync(metadataDir)) {
+      mkdirSync(metadataDir, { recursive: true });
     }
-    acc[d] = p;
-    return acc;
-  }, {} as any);
+    metadata[status] = metadataDir;
+  }
+
+  const extras = {} as Record<(typeof EXTRA_DIRS)[number], string>;
+  for (const dir of EXTRA_DIRS) {
+    const dirPath = join(base, dir);
+    if (!existsSync(dirPath)) {
+      mkdirSync(dirPath, { recursive: true });
+    }
+    extras[dir] = dirPath;
+  }
 
   const all = [
     base,

@@ -1,7 +1,8 @@
 # Implementation Plan: 架构调整 - MCP 模式优先实现
 
-**Branch**: `005-docs-prd-draft` | **Date**: 2025-09-30 | **Spec**: [spec.md](./spec.md)
-**Input**: Feature specification from `/data/codex-father/specs/005-docs-prd-draft/spec.md`
+**Branch**: `005-docs-prd-draft` | **Date**: 2025-09-30 | **Spec**:
+[spec.md](./spec.md) **Input**: Feature specification from
+`/data/codex-father/specs/005-docs-prd-draft/spec.md`
 
 ## Execution Flow (/plan command scope)
 
@@ -37,13 +38,18 @@ other commands:
 本特性将 codex-father 项目的开发方向从"CLI 优先"调整为"MCP 协议优先"，以实现更好的外部生态集成和多任务并行能力。
 
 **核心需求**：
-- **对外协议层**：统一使用 MCP（Model Context Protocol）作为主协议，确保与 IDE、AI 工具链的兼容性
+
+- **对外协议层**：统一使用 MCP（Model Context
+  Protocol）作为主协议，确保与 IDE、AI 工具链的兼容性
 - **对内引擎层**：分两个 MVP 阶段实现
-  - **MVP1**：管理单个 `codex mcp` 进程，支持多会话排队执行（前端不阻塞，后端串行）
-  - **MVP2**：管理多个 `codex exec --json` 进程，实现真正并行执行（多任务同时运行）
+  - **MVP1**：管理单个 `codex mcp`
+    进程，支持多会话排队执行（前端不阻塞，后端串行）
+  - **MVP2**：管理多个 `codex exec --json`
+    进程，实现真正并行执行（多任务同时运行）
 - **架构扩展性**：设计支持未来接入其他 agent CLI（如 `claude code`）
 
 **技术方法**：
+
 - 实现 MCP 协议桥接层，将标准 MCP 工具调用转换为 Codex 自定义 JSON-RPC 方法
 - 采用异步响应机制：`tools/call` 快速返回 + 事件通知推送，避免阻塞客户端
 - 基于 Codex 原生 rollout 文件实现会话恢复机制（MVP2）
@@ -51,8 +57,8 @@ other commands:
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.3+ with Node.js 18+
-**Primary Dependencies**:
+**Language/Version**: TypeScript 5.3+ with Node.js 18+ **Primary Dependencies**:
+
 - MCP 协议库（@modelcontextprotocol/sdk 或自研实现）
 - Node.js 进程管理（child_process, process monitoring）
 - JSON-RPC 2.0 库（用于 Codex 自定义方法调用）
@@ -62,22 +68,24 @@ other commands:
 - existing: commander, chalk, yaml
 
 **Storage**: 文件系统（JSONL 事件日志、JSON 配置、Codex 原生 rollout 文件引用）
-**Testing**: vitest（单元测试、集成测试、契约测试）
-**Target Platform**: Linux server / macOS / Docker containers / VSCode Devcontainer
-**Project Type**: single（CLI + MCP Server 架构，统一代码库）
-**Performance Goals**:
+**Testing**: vitest（单元测试、集成测试、契约测试） **Target Platform**: Linux
+server / macOS / Docker containers / VSCode Devcontainer **Project Type**:
+single（CLI + MCP Server 架构，统一代码库） **Performance Goals**:
+
 - MCP 工具响应 < 500ms（constitution 要求）
 - CLI 命令启动时间 < 1s（constitution 要求）
 - 事件通知延迟 < 100ms
 - 支持并发会话数：MVP1 单进程排队，MVP2 根据 CPU 核数（默认 4-8 个进程）
 
 **Constraints**:
+
 - Codex 单会话限制：同一时间只能运行一个 turn（MVP1 限制）
 - 会话恢复依赖：必须使用 Codex 原生 rollout 文件（`CODEX_HOME/sessions/*.jsonl`）
 - 内存占用：MCP 服务器 < 200MB（constitution 要求）
 - 沙箱限制：容器环境下 Codex 原生沙箱（Landlock/seccomp）可能不可用
 
 **Scale/Scope**:
+
 - MVP1：单用户、低并发场景（1 个进程，排队执行）
 - MVP2：多用户/高并发场景（N 个进程，真正并行，N 由配置或 CPU 核数决定）
 - 单个任务超时：默认 1 小时
@@ -165,7 +173,8 @@ _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
   - MVP1: FR-005~FR-010（单进程管理，排队执行）
   - MVP2: FR-011~FR-018（进程池管理，真正并行）
 - [x] 会话恢复基于后端原生持久化
-  - FR-015, FR-017: 依赖 Codex 原生 rollout 文件（`CODEX_HOME/sessions/*.jsonl`）
+  - FR-015,
+    FR-017: 依赖 Codex 原生 rollout 文件（`CODEX_HOME/sessions/*.jsonl`）
   - FR-031: codex-father 的日志仅用于监控和审计，不用于恢复
 - [x] 架构支持多 agent 扩展
   - FR-018: 配置文件定义 agent 启动命令、通信协议、事件解析规则
@@ -268,10 +277,13 @@ tests/                            # 根级测试（新增）
 **Structure Decision**:
 
 选择 **Option 1: Single project**，因为：
+
 1. **项目类型**：CLI + MCP Server 统一架构，不涉及前后端分离或移动端
-2. **代码组织**：按功能模块分层（`core/mcp/`, `core/process/`, `core/approval/`, `core/session/`）
+2. **代码组织**：按功能模块分层（`core/mcp/`, `core/process/`, `core/approval/`,
+   `core/session/`）
 3. **现有结构兼容**：保留 `core/lib/` 和 `core/cli/`，确保向后兼容
-4. **测试分层**：单元测试在模块内（`*/tests/`），契约/集成/E2E 测试在根级 `tests/`
+4. **测试分层**：单元测试在模块内（`*/tests/`），契约/集成/E2E 测试在根级
+   `tests/`
 5. **扩展性**：新增模块清晰独立，易于 MVP2 扩展（如 `process/pool-manager.ts`）
 
 ## Phase 0: Outline & Research
@@ -340,16 +352,20 @@ _This section describes what the /tasks command will do - DO NOT execute during
 ### Task Generation Strategy
 
 **输入来源**：
+
 1. **contracts/**：MCP 协议契约和 Codex JSON-RPC 契约
-2. **data-model.md**：核心实体定义（Job, Session, MCPBridgeLayer, ProcessManager 等）
+2. **data-model.md**：核心实体定义（Job, Session, MCPBridgeLayer,
+   ProcessManager 等）
 3. **quickstart.md**：4 个验收场景（MVP1 基本流程、审批机制、MVP2 并行执行、会话恢复）
-4. **Project Structure**：代码目录结构（core/mcp/, core/process/, core/approval/, core/session/）
+4. **Project Structure**：代码目录结构（core/mcp/, core/process/,
+   core/approval/, core/session/）
 
 ### Task Generation Rules
 
 #### 1. 契约测试任务（优先级最高，TDD 基础）
 
 **MCP 协议契约测试**（来自 `contracts/mcp-protocol.yaml`）：
+
 - Task: 编写 `tests/contract/mcp-initialize.test.ts` [P]
   - 验证 `initialize` 请求/响应格式
   - 验证协议版本协商
@@ -364,6 +380,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
   - 验证异步通知接收（`codex-father/progress`）
 
 **Codex JSON-RPC 契约测试**（来自 `contracts/codex-jsonrpc.yaml`）：
+
 - Task: 编写 `tests/contract/codex-jsonrpc.test.ts` [P]
   - 验证 `newConversation` 请求/响应
   - 验证 `sendUserTurn` 请求/响应
@@ -375,6 +392,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
 #### 2. 实体创建任务（基于 data-model.md）
 
 **核心类型定义**（来自 data-model.md）：
+
 - Task: 创建 `core/lib/types.ts` [P]
   - 定义 Job, JobStatus, JobMetrics
   - 定义 Session, SessionStatus
@@ -387,6 +405,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
 #### 3. 模块实现任务（按依赖顺序）
 
 **第一层：基础设施（无外部依赖，可并行）**：
+
 - Task: 实现 `core/session/event-logger.ts` [P]
   - JSONL 格式事件日志写入
   - 流式写入，避免内存缓存
@@ -400,6 +419,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
   - 配置文件加载（YAML）
 
 **第二层：核心组件（依赖第一层）**：
+
 - Task: 实现 `core/mcp/protocol/types.ts`
   - MCP 协议类型定义（InitializeRequest, ToolsListResponse 等）
   - Zod schema 验证
@@ -415,6 +435,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
   - 快捷操作支持
 
 **第三层：桥接层和进程管理（依赖第二层）**：
+
 - Task: 实现 `core/mcp/event-mapper.ts`
   - Codex `codex/event` → MCP `codex-father/progress` 映射
   - jobId 关联逻辑
@@ -435,6 +456,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
   - 自动重启逻辑
 
 **第四层：MCP 服务器（依赖第三层）**：
+
 - Task: 实现 `core/mcp/server.ts` (MVP1)
   - MCP 协议服务端实现（使用 @modelcontextprotocol/sdk）
   - stdio 传输
@@ -443,6 +465,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
   - 通知推送（`codex-father/progress`）
 
 **第五层：CLI 命令（依赖第四层）**：
+
 - Task: 实现 `core/cli/commands/mcp-command.ts`
   - `codex-father mcp` 命令
   - 启动 MCP 服务器
@@ -454,6 +477,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
 #### 4. 单元测试任务（与实现任务配对）
 
 每个实现任务后立即创建对应的单元测试任务：
+
 - Task: 编写 `core/session/tests/event-logger.test.ts`
 - Task: 编写 `core/session/tests/config-persister.test.ts`
 - Task: 编写 `core/approval/tests/policy-engine.test.ts`
@@ -471,6 +495,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
 #### 5. 集成测试任务（基于 quickstart.md）
 
 **场景 1: MVP1 单进程基本流程**：
+
 - Task: 编写 `tests/integration/mvp1-single-process.test.ts`
   - MCP 连接和初始化
   - tools/call 快速返回验证（< 500ms）
@@ -478,6 +503,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
   - 日志文件创建和格式验证
 
 **场景 2: 审批机制验证**：
+
 - Task: 编写 `tests/integration/approval-flow.test.ts`
   - 白名单自动批准验证
   - 非白名单触发审批（使用 mock 输入）
@@ -489,6 +515,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
 #### 6. MVP2 任务（可选，作为后续迭代）
 
 **进程池管理**（仅描述，不在 MVP1 tasks.md 中生成）：
+
 - 实现 `core/process/pool-manager.ts`
 - 实现 `core/process/session-recovery.ts`
 - 编写集成测试（mvp2-process-pool.test.ts, session-recovery.test.ts）
@@ -498,6 +525,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
 ### Ordering Strategy
 
 **TDD 顺序**：
+
 1. **契约测试优先**（4 个任务，全部 [P]）：定义接口规范，测试必须失败
 2. **类型定义**（1 个任务，[P]）：为实现提供类型基础
 3. **实现 + 单元测试配对**（23 个任务，按依赖层次）：
@@ -509,11 +537,13 @@ _This section describes what the /tasks command will do - DO NOT execute during
 4. **集成测试**（2 个任务，串行）：验证完整流程
 
 **依赖管理**：
+
 - [P] 标记可并行执行的任务（同层且无依赖）
 - 不同层之间必须串行（等待上层完成）
 - 单元测试必须在实现任务完成后立即执行
 
 **任务编号规则**：
+
 - T001-T004: 契约测试（[P]）
 - T005: 类型定义（[P]）
 - T006-T016: 第一、二层实现 + 测试
@@ -525,6 +555,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
 ### Estimated Output
 
 **MVP1 总任务数**：30 个任务
+
 - 契约测试：4 个（全部 [P]）
 - 类型定义：1 个（[P]）
 - 实现任务：12 个（第一层 3 个 [P]，其余串行）
@@ -537,10 +568,11 @@ _This section describes what the /tasks command will do - DO NOT execute during
 
 ### IMPORTANT Reminder
 
-**此 Phase 2 描述由 `/plan` 命令生成，仅用于规划。**
-**实际的 tasks.md 文件由 `/tasks` 命令生成。**
+**此 Phase 2 描述由 `/plan` 命令生成，仅用于规划。** **实际的 tasks.md 文件由
+`/tasks` 命令生成。**
 
 执行 `/tasks` 命令时：
+
 1. 加载 `.specify/templates/tasks-template.md` 作为基础
 2. 根据上述策略生成 30 个具体任务
 3. 每个任务包含：任务编号、任务描述、依赖关系、并行标记 [P]、验收标准
@@ -572,8 +604,10 @@ _This checklist is updated during execution flow_
 **Phase Status**:
 
 - [x] Phase 0: Research complete (/plan command) - ✓ research.md generated
-- [x] Phase 1: Design complete (/plan command) - ✓ data-model.md, contracts/, quickstart.md, CLAUDE.md generated
-- [x] Phase 2: Task planning complete (/plan command - describe approach only) - ✓ See below
+- [x] Phase 1: Design complete (/plan command) - ✓ data-model.md, contracts/,
+      quickstart.md, CLAUDE.md generated
+- [x] Phase 2: Task planning complete (/plan command - describe approach only) -
+      ✓ See below
 - [ ] Phase 3: Tasks generated (/tasks command) - Ready for `/tasks` command
 - [ ] Phase 4: Implementation complete
 - [ ] Phase 5: Validation passed
@@ -583,7 +617,8 @@ _This checklist is updated during execution flow_
 - [x] Initial Constitution Check: PASS - All items checked, no violations
 - [x] Post-Design Constitution Check: PASS - Phase 1 design符合所有宪章原则
 - [x] All NEEDS CLARIFICATION resolved - Technical Context 无未解决问题
-- [x] Complexity deviations documented - No deviations, design follows KISS/YAGNI
+- [x] Complexity deviations documented - No deviations, design follows
+      KISS/YAGNI
 
 ---
 

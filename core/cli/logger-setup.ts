@@ -41,7 +41,10 @@ class LogFormatter {
       winston.format.timestamp(),
       winston.format.errors({ stack: true }),
       winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
-        const ts = new Date(timestamp).toISOString();
+        const ts =
+          typeof timestamp === 'string' || timestamp instanceof Date
+            ? new Date(timestamp).toISOString()
+            : new Date().toISOString();
         const metaStr = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : '';
 
         if (stack) {
@@ -74,12 +77,13 @@ class LogFormatter {
       winston.format.colorize({ colors: COLORS }),
       winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
         const metaStr = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : '';
+        const ts = typeof timestamp === 'string' ? timestamp : new Date().toLocaleTimeString();
 
         if (stack) {
-          return `${timestamp} ${level}: ${message}\n${stack}${metaStr}`;
+          return `${ts} ${level}: ${message}\n${stack}${metaStr}`;
         }
 
-        return `${timestamp} ${level}: ${message}${metaStr}`;
+        return `${ts} ${level}: ${message}${metaStr}`;
       })
     );
   }
@@ -144,10 +148,7 @@ class TransportFactory {
   /**
    * 创建系统日志传输器
    */
-  static createSyslogTransport(
-    level: string,
-    format: 'text' | 'json'
-  ): winston.transports.SyslogTransportInstance {
+  static createSyslogTransport(level: string, format: 'text' | 'json'): winston.transport {
     // 注意：需要安装 winston-syslog 包
     // 这里提供基本实现框架
     try {
@@ -181,8 +182,14 @@ class TransportFactory {
       throw new Error(`Invalid size format: ${sizeStr}`);
     }
 
-    const [, size, unit] = match;
-    return parseInt(size, 10) * units[unit.toUpperCase() as keyof typeof units];
+    const size = match[1];
+    const unitRaw = match[2];
+    if (!size || !unitRaw) {
+      throw new Error(`Invalid size format: ${sizeStr}`);
+    }
+
+    const unit = unitRaw.toUpperCase() as keyof typeof units;
+    return parseInt(size, 10) * units[unit];
   }
 }
 
@@ -263,7 +270,8 @@ export class LoggerManager {
 
         transports.push(transport);
       } catch (error) {
-        console.warn(`Failed to create log transport for ${output.type}: ${error.message}`);
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(`Failed to create log transport for ${output.type}: ${reason}`);
       }
     }
 
@@ -334,7 +342,9 @@ export class LogPathFactory {
    * 获取默认日志目录
    */
   static getDefaultLogDir(): string {
-    const baseDir = getConfigValue('logging.baseDir') || process.cwd();
+    const configured = getConfigValue('logging.baseDir');
+    const baseDir =
+      typeof configured === 'string' && configured.trim() ? configured : process.cwd();
     return join(baseDir, '.codex-father', 'logs');
   }
 

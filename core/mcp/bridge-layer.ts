@@ -15,13 +15,7 @@
  * 3. 处理 Codex 审批请求并返回决策
  */
 
-import {
-  MCPTool,
-  MCPToolsCallResult,
-  createJSONRPCResponse,
-  createJSONRPCErrorResponse,
-  JSONRPCErrorCode,
-} from './protocol/types.js';
+import { MCPTool, MCPToolsCallResult } from './protocol/types.js';
 import {
   ApprovalRequest,
   ApprovalType,
@@ -266,21 +260,44 @@ export class BridgeLayer {
    * @returns JSON-RPC 响应对象
    */
   async handleApplyPatchApproval(
-    requestId: string | number,
+    requestId: string,
     params: unknown
   ): Promise<{ decision: 'allow' | 'deny' }> {
-    // 验证参数
+    if (typeof requestId !== 'string' || requestId.length === 0) {
+      throw new Error('Invalid approval request parameters');
+    }
+
     if (!params || typeof params !== 'object') {
       throw new Error('Invalid approval request parameters');
     }
 
     const typedParams = params as {
-      conversationId: string;
-      callId: string;
-      fileChanges: Array<{ path: string; type: 'create' | 'modify' | 'delete'; diff: string }>;
+      conversationId?: string;
+      callId?: string;
+      fileChanges?: Array<{ path: string; type: 'create' | 'modify' | 'delete'; diff: string }>;
       reason?: string;
       grantRoot?: boolean;
     };
+
+    if (
+      !typedParams.conversationId ||
+      !typedParams.callId ||
+      !Array.isArray(typedParams.fileChanges)
+    ) {
+      throw new Error('Invalid approval request parameters');
+    }
+
+    const fileChanges = typedParams.fileChanges.map((change) => {
+      if (
+        !change ||
+        typeof change.path !== 'string' ||
+        !['create', 'modify', 'delete'].includes(change.type) ||
+        typeof change.diff !== 'string'
+      ) {
+        throw new Error('Invalid approval request parameters');
+      }
+      return change;
+    });
 
     // 构造审批请求
     const approvalRequest: ApprovalRequest = {
@@ -288,7 +305,7 @@ export class BridgeLayer {
       jobId: typedParams.conversationId, // MVP1: 使用 conversationId 作为 jobId
       type: ApprovalType.APPLY_PATCH,
       details: {
-        fileChanges: typedParams.fileChanges,
+        fileChanges,
         reason: typedParams.reason,
         grantRoot: typedParams.grantRoot,
       } as ApplyPatchApproval,
@@ -310,21 +327,35 @@ export class BridgeLayer {
    * @returns JSON-RPC 响应对象
    */
   async handleExecCommandApproval(
-    requestId: string | number,
+    requestId: string,
     params: unknown
   ): Promise<{ decision: 'allow' | 'deny' }> {
-    // 验证参数
+    if (typeof requestId !== 'string' || requestId.length === 0) {
+      throw new Error('Invalid approval request parameters');
+    }
+
     if (!params || typeof params !== 'object') {
       throw new Error('Invalid approval request parameters');
     }
 
     const typedParams = params as {
-      conversationId: string;
-      callId: string;
-      command: string;
-      cwd: string;
+      conversationId?: string;
+      callId?: string;
+      command?: string;
+      cwd?: string;
       reason?: string;
     };
+
+    if (
+      !typedParams.conversationId ||
+      !typedParams.callId ||
+      typeof typedParams.command !== 'string' ||
+      typedParams.command.length === 0 ||
+      typeof typedParams.cwd !== 'string' ||
+      typedParams.cwd.length === 0
+    ) {
+      throw new Error('Invalid approval request parameters');
+    }
 
     // 构造审批请求
     const approvalRequest: ApprovalRequest = {

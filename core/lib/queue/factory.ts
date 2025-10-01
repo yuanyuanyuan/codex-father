@@ -19,10 +19,11 @@ export interface QueueSystem {
 }
 
 export function createQueueSystem(queuePath?: string): QueueSystem {
+  const queuePathOption = queuePath ? { queuePath } : {};
   return {
     api: new TaskQueueAPI(queuePath),
-    scheduler: new TaskScheduler({ queuePath }),
-    retries: new RetryManager({ queuePath }),
+    scheduler: new TaskScheduler(queuePathOption),
+    retries: new RetryManager(queuePathOption),
     monitor: new QueueMonitor(queuePath),
     integrity: new QueueIntegrityChecker(queuePath),
     backup: new QueueBackupManager(queuePath),

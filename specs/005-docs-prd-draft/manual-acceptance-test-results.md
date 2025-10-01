@@ -1,15 +1,14 @@
 # Manual Acceptance Test Results - T037
 
-**Feature**: 005-docs-prd-draft
-**Test Date**: 2025-09-30
-**Tester**: AI Assistant (Automated Checks)
-**Status**: ⚠️ PARTIALLY COMPLETED
+**Feature**: 005-docs-prd-draft **Test Date**: 2025-09-30 **Tester**: AI
+Assistant (Automated Checks) **Status**: ⚠️ PARTIALLY COMPLETED
 
 ---
 
 ## Overview
 
-本文档记录 T037 手动验收测试的结果。由于某些测试需要真实的浏览器交互和 Codex CLI 环境，部分测试项标记为 **需要人工验证**。
+本文档记录 T037 手动验收测试的结果。由于某些测试需要真实的浏览器交互和 Codex
+CLI 环境，部分测试项标记为 **需要人工验证**。
 
 ---
 
@@ -68,7 +67,8 @@
 
 - [x] **T032: MVP1 Single Process Flow** - 12/12 tests passing
   - Process lifecycle management
-  - Tool invocation (codex-chat, codex-execute, codex-read-file, codex-apply-patch)
+  - Tool invocation (codex-chat, codex-execute, codex-read-file,
+    codex-apply-patch)
   - Event notification forwarding
   - Session management
   - Error handling and recovery
@@ -98,6 +98,7 @@ npx @modelcontextprotocol/inspector npm run mcp:start
 ```
 
 **Expected Behavior**:
+
 - MCP Inspector opens in browser automatically
 - Server status shows "Connected"
 - All 4 tools are listed with correct schemas
@@ -105,6 +106,7 @@ npx @modelcontextprotocol/inspector npm run mcp:start
 - Real-time progress updates visible in UI
 
 **Known Issues**:
+
 - TypeScript build has warnings (not blocking)
 - Codex CLI must be installed and logged in
 
@@ -141,7 +143,8 @@ npx @modelcontextprotocol/inspector npm run mcp:start
   - Whitelist auto-approval (git status, git diff, ls)
   - Non-whitelist trigger approval (rm, npm install)
   - Approval decision passing (allow → Codex, deny → Codex)
-  - Approval event logging (approval-required, approval-approved, approval-denied)
+  - Approval event logging (approval-required, approval-approved,
+    approval-denied)
   - Complete approval flow (detection → approval → execution)
 
 **Automated Test Coverage**: 132/132 tests (100%) ✅
@@ -158,20 +161,21 @@ npx @modelcontextprotocol/inspector npm run mcp:start
 # Create approval whitelist config
 # File: .codex-father/config/approval-policy.json
 {
-  "mode": "untrusted",
-  "whitelist": [
-    {
-      "pattern": "^git status",
-      "reason": "Read-only git command",
-      "enabled": true
-    },
-    {
-      "pattern": "^git diff",
-      "reason": "Read-only git diff",
-      "enabled": true
-    }
-  ],
-  "timeout": 60000
+  'mode': 'untrusted',
+  'whitelist':
+    [
+      {
+        'pattern': '^git status',
+        'reason': 'Read-only git command',
+        'enabled': true,
+      },
+      {
+        'pattern': '^git diff',
+        'reason': 'Read-only git diff',
+        'enabled': true,
+      },
+    ],
+  'timeout': 60000,
 }
 ```
 
@@ -208,6 +212,7 @@ cat .codex-father/sessions/latest/events.jsonl | grep approval
 ```
 
 **Expected Behavior**:
+
 - Whitelisted commands bypass approval
 - Non-whitelisted commands show terminal prompt
 - Terminal UI is clear and informative
@@ -215,6 +220,7 @@ cat .codex-father/sessions/latest/events.jsonl | grep approval
 - Events are logged in JSONL format
 
 **Known Issues**:
+
 - Requires interactive terminal
 - Cannot be fully automated
 
@@ -224,20 +230,20 @@ cat .codex-father/sessions/latest/events.jsonl | grep approval
 
 ### ✅ Automated Tests: PASSED
 
-| Category | Tests | Pass | Fail | Coverage |
-|----------|-------|------|------|----------|
-| Contract Tests | 19 | 19 | 0 | 100% |
-| Unit Tests (MVP1) | 147 | 147 | 0 | 100% |
-| Integration Tests | 30 | 30 | 0 | 100% |
-| **MVP1 Total** | **177** | **177** | **0** | **100%** |
-| Legacy Queue Tests | 335 | 326 | 3 | 97.3% |
-| **Overall Total** | **512** | **503** | **3** | **98.2%** |
+| Category           | Tests   | Pass    | Fail  | Coverage  |
+| ------------------ | ------- | ------- | ----- | --------- |
+| Contract Tests     | 19      | 19      | 0     | 100%      |
+| Unit Tests (MVP1)  | 147     | 147     | 0     | 100%      |
+| Integration Tests  | 30      | 30      | 0     | 100%      |
+| **MVP1 Total**     | **177** | **177** | **0** | **100%**  |
+| Legacy Queue Tests | 335     | 326     | 3     | 97.3%     |
+| **Overall Total**  | **512** | **503** | **3** | **98.2%** |
 
 ### 🔶 Manual Tests: REQUIRES HUMAN VERIFICATION
 
-| Scenario | Test Item | Status | Blocker |
-|----------|-----------|--------|---------|
-| Scenario 1 | MCP Inspector UI | ⚠️ Pending | Requires browser + Codex CLI |
+| Scenario   | Test Item               | Status     | Blocker                       |
+| ---------- | ----------------------- | ---------- | ----------------------------- |
+| Scenario 1 | MCP Inspector UI        | ⚠️ Pending | Requires browser + Codex CLI  |
 | Scenario 2 | Terminal UI Interaction | ⚠️ Pending | Requires interactive terminal |
 
 ---
@@ -247,15 +253,18 @@ cat .codex-father/sessions/latest/events.jsonl | grep approval
 ### MVP1 Core Modules Test Results
 
 #### 1. Approval System (114 tests)
+
 - PolicyEngine: 68/68 ✅
 - TerminalUI: 46/46 ✅
 
 #### 2. Session Management (53 tests)
+
 - EventLogger: 16/16 ✅
 - ConfigPersister: 17/17 ✅
 - SessionManager: 35/35 ✅ (includes 15 approval integration tests)
 
 #### 3. Process Management (32 tests)
+
 - ProcessManager: 32/32 ✅
   - Lifecycle management
   - Health monitoring
@@ -263,32 +272,38 @@ cat .codex-father/sessions/latest/events.jsonl | grep approval
   - Error recovery
 
 #### 4. MCP Protocol (40 tests)
+
 - Server: 20/20 ✅
 - BridgeLayer: 14/14 ✅
 - EventMapper: 12/12 ✅
 - CodexClient: 10/10 ✅
 
 #### 5. CLI (16 tests)
+
 - MCPCommand: 16/16 ✅
 
 #### 6. Integration (30 tests)
+
 - MVP1 Single Process: 12/12 ✅
 - Approval Flow: 18/18 ✅
 
 ### Code Quality Metrics
 
 #### Code Duplication ✅
+
 - **Duplication Rate**: 0.67% (Target: < 5%)
 - **Analysis Tool**: jscpd
 - **Files Analyzed**: 60
 - **Clones Found**: 7 (minor, acceptable)
 
 #### Test Coverage (Estimated)
+
 - **Unit Tests**: > 90% coverage
 - **Integration Tests**: Core flows covered
 - **Contract Tests**: MCP protocol 100% covered
 
 #### Linting Status ⚠️
+
 - **TypeScript Errors**: ~70 (mostly legacy code + strict mode)
 - **MVP1 Core**: Minimal errors (unused imports, type refinements)
 - **Functional Impact**: None (tests passing)
@@ -300,6 +315,7 @@ cat .codex-father/sessions/latest/events.jsonl | grep approval
 ### For MVP1 Release
 
 #### ✅ Ready for Release
+
 1. **Core Functionality**: All 177 MVP1 tests passing
 2. **Code Quality**: 0.67% duplication (excellent)
 3. **Documentation**: Complete (README.md, CLAUDE.md, mcp-integration.md)
@@ -352,6 +368,7 @@ npx @modelcontextprotocol/inspector npm run mcp:start
 ### Overall Assessment: ✅ PASS (with manual verification pending)
 
 **MVP1 Implementation Status**:
+
 - ✅ All core functionality implemented and tested
 - ✅ 177/177 MVP1 tests passing (100%)
 - ✅ Documentation complete and comprehensive
@@ -359,7 +376,8 @@ npx @modelcontextprotocol/inspector npm run mcp:start
 - ⚠️ Manual UI tests pending human verification
 - ⚠️ TypeScript build warnings (non-blocking)
 
-**Recommendation**: **APPROVE for MVP1 release** pending 15-minute manual verification by human tester.
+**Recommendation**: **APPROVE for MVP1 release** pending 15-minute manual
+verification by human tester.
 
 ### Acceptance Criteria
 
@@ -371,10 +389,10 @@ npx @modelcontextprotocol/inspector npm run mcp:start
 - [ ] Manual MCP Inspector test (pending)
 - [ ] Manual Terminal UI test (pending)
 
-**Final Status**: **7/7 criteria met** (automated), **2/2 criteria pending** (manual)
+**Final Status**: **7/7 criteria met** (automated), **2/2 criteria pending**
+(manual)
 
 ---
 
-**Report Generated**: 2025-09-30
-**Automated Test Duration**: ~95s
-**Next Steps**: Human tester verification of UI scenarios
+**Report Generated**: 2025-09-30 **Automated Test Duration**: ~95s **Next
+Steps**: Human tester verification of UI scenarios

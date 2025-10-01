@@ -30,8 +30,6 @@ import {
   SandboxPolicy,
   ApprovalRequest,
   ApprovalStatus,
-  ApprovalDecision,
-  Event,
   EventType,
 } from '../lib/types.js';
 import type { ApprovalDecision as TerminalUIDecision } from '../approval/terminal-ui.js';

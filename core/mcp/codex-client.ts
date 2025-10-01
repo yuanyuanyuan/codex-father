@@ -22,7 +22,6 @@ import {
   JSONRPCRequest,
   JSONRPCResponse,
   JSONRPCNotification,
-  JSONRPCErrorCode,
   isJSONRPCResponse,
   isJSONRPCNotification,
 } from './protocol/types.js';

@@ -29,22 +29,40 @@ export function registerConfigCommand(parser: CLIParser): void {
         switch (action) {
           case 'init':
             return renderInit(access, environment, warnings, context, startedAt);
-          case 'set':
-            return renderSet(
-              access,
-              { key, value, environment, secure: Boolean(options.secure) },
-              warnings,
-              context,
-              startedAt
-            );
-          case 'get':
-            return renderGet(
-              access,
-              { key, environment, reveal: Boolean(options.reveal) },
-              warnings,
-              context,
-              startedAt
-            );
+          case 'set': {
+            const setParams: {
+              key?: string;
+              value?: string;
+              environment?: string;
+              secure: boolean;
+            } = {
+              secure: Boolean(options.secure),
+            };
+            if (typeof key === 'string') {
+              setParams.key = key;
+            }
+            if (typeof value === 'string') {
+              setParams.value = value;
+            }
+            if (environment) {
+              setParams.environment = environment;
+            }
+
+            return renderSet(access, setParams, warnings, context, startedAt);
+          }
+          case 'get': {
+            const getParams: { key?: string; environment?: string; reveal: boolean } = {
+              reveal: Boolean(options.reveal),
+            };
+            if (typeof key === 'string') {
+              getParams.key = key;
+            }
+            if (environment) {
+              getParams.environment = environment;
+            }
+
+            return renderGet(access, getParams, warnings, context, startedAt);
+          }
           case 'list':
             return renderList(access, warnings, context, startedAt);
           case 'validate':
@@ -160,8 +178,8 @@ function renderSet(
   const outcome = access.set({
     key: params.key,
     value: params.value,
-    environment: params.environment,
     secure: params.secure,
+    ...(params.environment ? { environment: params.environment } : {}),
   });
 
   if (context.json) {
@@ -209,8 +227,8 @@ function renderGet(
 
   const outcome = access.get({
     key: params.key,
-    environment: params.environment,
     reveal: params.reveal,
+    ...(params.environment ? { environment: params.environment } : {}),
   });
 
   if (outcome.value === undefined) {

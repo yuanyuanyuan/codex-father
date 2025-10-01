@@ -3,7 +3,6 @@
  * 提供快速查询、过滤和搜索功能
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import type { Task, TaskStatus } from '../types.js';
 import { BasicQueueOperations } from './basic-operations.js';
@@ -218,19 +217,21 @@ export class TaskStatusQuery {
       }
     }
 
+    const completedCount = stats.completed ?? 0;
+    const failedCount = stats.failed ?? 0;
+    const cancelledCount = stats.cancelled ?? 0;
+    const successDenominator = completedCount + failedCount + cancelledCount;
     const successRate =
-      allTasks.length > 0
-        ? stats.completed / (stats.completed + stats.failed + stats.cancelled)
-        : 0;
+      allTasks.length > 0 && successDenominator > 0 ? completedCount / successDenominator : 0;
 
     return {
       total: allTasks.length,
       byStatus: stats,
       byType,
-      averageExecutionTime: executedTasks > 0 ? totalExecutionTime / executedTasks : undefined,
       successRate: Math.max(0, Math.min(1, successRate)), // 确保在0-1范围内
-      oldestTask,
-      newestTask,
+      ...(executedTasks > 0 ? { averageExecutionTime: totalExecutionTime / executedTasks } : {}),
+      ...(oldestTask ? { oldestTask } : {}),
+      ...(newestTask ? { newestTask } : {}),
     };
   }
 
@@ -249,12 +250,10 @@ export class TaskStatusQuery {
       if (taskTime >= cutoffTime) {
         const hourKey = taskTime.toISOString().substring(0, 13); // YYYY-MM-DDTHH
 
-        if (!timeline[hourKey]) {
-          timeline[hourKey] = { count: 0, statuses: new Set() };
-        }
-
-        timeline[hourKey].count++;
-        timeline[hourKey].statuses.add(task.status);
+        const bucket = timeline[hourKey] ?? { count: 0, statuses: new Set<TaskStatus>() };
+        bucket.count += 1;
+        bucket.statuses.add(task.status);
+        timeline[hourKey] = bucket;
       }
     }
 
@@ -296,14 +295,18 @@ export class TaskStatusQuery {
     }
 
     // 检查队列积压
-    if (stats.pending > 100) {
-      issues.push(`High number of pending tasks: ${stats.pending}`);
+    const pendingCount = stats.pending ?? 0;
+    if (pendingCount > 100) {
+      issues.push(`High number of pending tasks: ${pendingCount}`);
     }
 
     // 检查失败率
-    const totalProcessed = stats.completed + stats.failed + stats.cancelled;
-    if (totalProcessed > 0 && stats.failed / totalProcessed > 0.1) {
-      issues.push(`High failure rate: ${((stats.failed / totalProcessed) * 100).toFixed(1)}%`);
+    const completedCount = stats.completed ?? 0;
+    const failedCount = stats.failed ?? 0;
+    const cancelledCount = stats.cancelled ?? 0;
+    const totalProcessed = completedCount + failedCount + cancelledCount;
+    if (totalProcessed > 0 && failedCount / totalProcessed > 0.1) {
+      issues.push(`High failure rate: ${((failedCount / totalProcessed) * 100).toFixed(1)}%`);
     }
 
     // 计算最旧待处理任务的年龄
@@ -318,7 +321,7 @@ export class TaskStatusQuery {
     return {
       healthy: issues.length === 0,
       issues,
-      pendingTasks: stats.pending,
+      pendingTasks: pendingCount,
       stalledTasks: stalledTasks.length,
       oldestPendingAge,
     };

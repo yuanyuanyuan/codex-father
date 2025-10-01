@@ -203,7 +203,7 @@ export class EventLogger {
     await this.ensureLogDirExists();
 
     // 序列化为 JSON 字符串 (日期对象转换为 ISO 字符串)
-    const jsonLine = JSON.stringify(event, (key, value) => {
+    const jsonLine = JSON.stringify(event, (_key, value) => {
       if (value instanceof Date) {
         return value.toISOString();
       }

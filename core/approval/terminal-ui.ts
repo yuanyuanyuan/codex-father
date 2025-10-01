@@ -41,13 +41,13 @@ export interface TerminalUIConfig {
  * - 处理超时情况
  */
 export class TerminalUI {
-  private config: Required<TerminalUIConfig>;
+  private config: { showTimestamp: boolean; showCwd: boolean; timeout?: number };
 
   constructor(config?: TerminalUIConfig) {
     this.config = {
       showTimestamp: config?.showTimestamp ?? true,
       showCwd: config?.showCwd ?? true,
-      timeout: config?.timeout ?? undefined,
+      ...(typeof config?.timeout === 'number' ? { timeout: config.timeout } : {}),
     };
   }
 
@@ -154,7 +154,7 @@ export class TerminalUI {
    */
   private async collectDecisionWithTimeout(_request: ApprovalRequest): Promise<ApprovalDecision> {
     // 如果没有超时限制,直接收集决策
-    if (!this.config.timeout) {
+    if (typeof this.config.timeout !== 'number') {
       return this.collectDecision();
     }
 

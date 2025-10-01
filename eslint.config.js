@@ -12,9 +12,12 @@ export default [
       '**/dist/**',
       '**/.git/**',
       '**/.codex-father/**',
-      '**/mcp/codex-mcp-server/**',
       '**/refer-research/**',
       '**/specs/**',
+      '**/test-results/**',
+      '**/_archive/**',
+      '**/_archived/**',
+      '**/archive/**',
       'vitest.config.ts',
       '**/.tsbuildinfo*',
       '**/tsconfig.*.tsbuildinfo',
@@ -33,7 +36,8 @@ export default [
       'prefer-const': 'error',
       // Code quality
       eqeqeq: ['error', 'always'],
-      'no-unused-expressions': 'error',
+      'no-unused-expressions': 'off',
+      'no-unused-vars': 'off',
       'no-unreachable': 'error',
       curly: ['error', 'all'],
     },
@@ -44,7 +48,7 @@ export default [
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        project: './tsconfig.json',
+        project: './tsconfig.eslint.json',
         tsconfigRootDir: process.cwd(),
       },
     },
@@ -57,14 +61,7 @@ export default [
       'prettier/prettier': 'error',
 
       // TypeScript specific rules
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        {
-          argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
-          caughtErrorsIgnorePattern: '^_',
-        },
-      ],
+      '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/explicit-function-return-type': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
     },

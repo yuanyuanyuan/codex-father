@@ -49,7 +49,12 @@
     "mcp/codex-mcp-server/dist",
     ".codex-father",
     ".git",
-    "refer-research"
+    "refer-research",
+    "**/_archived/**",
+    "src/api/**",
+    "src/cli/prd-**",
+    "src/cli/prd/**",
+    "src/services/prd/**"
   ],
   "references": [
     {

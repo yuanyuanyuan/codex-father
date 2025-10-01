@@ -4,7 +4,7 @@
  */
 
 import { performance } from 'perf_hooks';
-import type { Task, TaskStatus } from '../types.js';
+import type { Task } from '../types.js';
 import { BasicQueueOperations } from './basic-operations.js';
 
 /**
@@ -102,7 +102,8 @@ export class BasicTaskExecutor {
     options: BasicTaskExecutorOptions = {}
   ) {
     const resolved = this.resolveOptions(queuePathOrOptions, options);
-    this.queueOps = new BasicQueueOperations({ queuePath: resolved.queuePath });
+    const queueConfig = resolved.queuePath ? { queuePath: resolved.queuePath } : {};
+    this.queueOps = new BasicQueueOperations(queueConfig);
     this.maxConcurrency = resolved.maxConcurrency ?? 1;
     this.resourceDefaults = {
       memory: resolved.resourceDefaults?.memory ?? 32 * 1024 * 1024,
@@ -291,9 +292,9 @@ export class BasicTaskExecutor {
       const handlerEnd = performance.now();
       const metrics: ExecutionMetrics = {
         durationMs: Math.max(handlerEnd - measurementStart, 0),
-        waitTimeMs: effectiveWait,
         handlerLatencyMs: Math.max(handlerEnd - handlerStart, 0),
-        memoryUsage: this.collectMemoryUsage ? process.memoryUsage() : undefined,
+        ...(effectiveWait !== undefined ? { waitTimeMs: effectiveWait } : {}),
+        ...(this.collectMemoryUsage ? { memoryUsage: process.memoryUsage() } : {}),
       };
 
       await this.queueOps.updateTaskStatus(task.id, 'completed', result);
@@ -321,9 +322,9 @@ export class BasicTaskExecutor {
 
       const metrics: ExecutionMetrics = {
         durationMs: Math.max(handlerEnd - measurementStart, 0),
-        waitTimeMs: effectiveWait,
         handlerLatencyMs: Math.max(handlerEnd - handlerStart, 0),
-        memoryUsage: this.collectMemoryUsage ? process.memoryUsage() : undefined,
+        ...(effectiveWait !== undefined ? { waitTimeMs: effectiveWait } : {}),
+        ...(this.collectMemoryUsage ? { memoryUsage: process.memoryUsage() } : {}),
       };
 
       const executionResult: ExecutionResult = {
@@ -436,7 +437,7 @@ export class BasicTaskExecutor {
   private registerBuiltInHandlers(): void {
     // Shell 命令执行器
     this.registerTaskHandler(BUILT_IN_TASK_TYPES.SHELL_COMMAND, async (payload) => {
-      const { command, args = [], options = {} } = payload;
+      const { command, args = [] } = payload;
       if (!command) {
         throw new Error('Shell command is required');
       }
@@ -454,7 +455,7 @@ export class BasicTaskExecutor {
 
     // 文件操作处理器
     this.registerTaskHandler(BUILT_IN_TASK_TYPES.FILE_OPERATION, async (payload) => {
-      const { operation, path, content, options = {} } = payload;
+      const { operation, path, content } = payload;
       if (!operation || !path) {
         throw new Error('File operation and path are required');
       }
@@ -466,6 +467,7 @@ export class BasicTaskExecutor {
         success: true,
         timestamp: new Date().toISOString(),
         message: `Mock ${operation} operation on ${path}`,
+        ...(content !== undefined ? { contentSnapshot: content } : {}),
       };
     });
 
@@ -484,13 +486,15 @@ export class BasicTaskExecutor {
         statusText: 'OK',
         data: `Mock response from ${method} ${url}`,
         headers: { 'content-type': 'application/json' },
+        requestHeaders: headers,
+        body,
         timestamp: new Date().toISOString(),
       };
     });
 
     // 数据处理器
     this.registerTaskHandler(BUILT_IN_TASK_TYPES.DATA_PROCESSING, async (payload) => {
-      const { data, operation, options = {} } = payload;
+      const { data, operation, options } = payload;
       if (!data || !operation) {
         throw new Error('Data and operation are required');
       }
@@ -501,6 +505,7 @@ export class BasicTaskExecutor {
         originalSize: Array.isArray(data) ? data.length : 1,
         processedData: `Processed data with operation: ${operation}`,
         timestamp: new Date().toISOString(),
+        ...(options ? { optionsUsed: options } : {}),
       };
     });
 
@@ -518,6 +523,7 @@ export class BasicTaskExecutor {
         appliedRules: rules,
         errors: [],
         warnings: [],
+        strict,
         timestamp: new Date().toISOString(),
       };
     });
@@ -537,6 +543,7 @@ export class BasicTaskExecutor {
         sent: true,
         messageId: `msg_${Date.now()}`,
         timestamp: new Date().toISOString(),
+        options,
       };
     });
   }

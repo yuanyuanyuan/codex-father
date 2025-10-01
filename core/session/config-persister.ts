@@ -101,8 +101,8 @@ export class ConfigPersister {
       jobId: session.jobId,
       createdAt: session.createdAt.toISOString(),
       rolloutRef: session.rolloutRef,
-      processId: session.processId,
       config: session.config,
+      ...(typeof session.processId === 'number' ? { processId: session.processId } : {}),
     };
 
     const jsonContent = JSON.stringify(configData, null, 2);
@@ -133,9 +133,9 @@ export class ConfigPersister {
         createdAt: new Date(parsed.createdAt),
         sessionDir: this.config.sessionDir,
         rolloutRef: parsed.rolloutRef,
-        processId: parsed.processId,
         status: this.inferSessionStatus(parsed),
         config: parsed.config,
+        ...(typeof parsed.processId === 'number' ? { processId: parsed.processId } : {}),
       };
 
       // 验证配置格式 (如果启用)
@@ -242,7 +242,7 @@ export class ConfigPersister {
    *
    * 注意: 实际状态应该从事件日志中恢复,这里只是提供一个默认值
    */
-  private inferSessionStatus(config: SessionConfig): Session['status'] {
+  private inferSessionStatus(_config: SessionConfig): Session['status'] {
     // 默认假设会话已终止 (实际状态需要从事件日志恢复)
     return SessionStatus.TERMINATED;
   }

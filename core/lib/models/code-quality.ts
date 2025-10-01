@@ -65,6 +65,13 @@ export function evaluateQualityGates(
   for (const gate of gates) {
     const value = metrics[gate.metric];
     let ok = false;
+
+    if (typeof value !== 'number') {
+      if (gate.required) {
+        failed.push(gate);
+      }
+      continue;
+    }
     switch (gate.operator) {
       case 'gt':
         ok = value > gate.threshold;

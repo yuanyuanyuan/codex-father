@@ -5,6 +5,7 @@ Auto-generated from all feature plans. Last updated: 2025-09-30
 ## Active Technologies
 
 ### MVP1 TypeScript MCP Server (005-docs-prd-draft - COMPLETED)
+
 - **TypeScript 5.3+** with Node.js 18+ (统一技术栈)
 - **@modelcontextprotocol/sdk** ^1.0.4 - MCP 协议 SDK
 - **inquirer** ^9.3.7 - 终端交互 UI（审批机制）
@@ -14,6 +15,7 @@ Auto-generated from all feature plans. Last updated: 2025-09-30
 - 文件系统（JSONL 事件日志、JSON 配置、Codex 原生 rollout 文件引用）
 
 ### Legacy Shell Scripts (旧实现，保留兼容)
+
 - TypeScript 5.x + Node.js 18+ (统一技术栈) (001-docs-readme-phases)
 - 文件系统 - JSON/YAML配置文件 + 结构化文本日志 (001-docs-readme-phases)
 - TypeScript 5.x + Node.js 18+ (统一技术栈，符合项目现有规范) + Markdown
@@ -48,6 +50,7 @@ codex-father/
 ## Commands
 
 ### Development
+
 ```bash
 npm run dev              # 开发模式（自动重载）
 npm run build            # 构建 TypeScript
@@ -60,6 +63,7 @@ npm run check:all        # 完整检查（typecheck + lint + format + test）
 ```
 
 ### Testing
+
 ```bash
 npm test                 # 运行所有测试
 npm run test:run         # 运行测试（无监听）
@@ -69,6 +73,7 @@ npm run benchmark        # 性能基准测试
 ```
 
 ### MCP Server
+
 ```bash
 npm run mcp:start        # 启动 MCP 服务器
 npm start                # 同 mcp:start
@@ -86,12 +91,14 @@ npx @modelcontextprotocol/inspector npm run mcp:start  # 使用 Inspector 调试
 ## Recent Changes
 
 ### 2025-09-30 - MVP1 Feature Complete
+
 - ✅ 完成 MCP 服务器 MVP1 实现 (T001-T033)
 - ✅ 147 个单元测试，30 个集成测试通过
 - ✅ 代码重复率 0.67% (目标 < 5%)
 - ✅ 更新文档 (README.md, CLAUDE.md, mcp-integration.md)
 
 ### 2025-09-27
+
 - 005-docs-prd-draft: Added TypeScript 5.3+ with Node.js 18+
 
 <!-- MANUAL ADDITIONS START -->

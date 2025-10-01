@@ -193,7 +193,8 @@ export class ConfigLoader {
         errors: [...this.errors],
       };
     } catch (error) {
-      this.errors.push(`Configuration loading failed: ${error.message}`);
+      const reason = error instanceof Error ? error.message : String(error);
+      this.errors.push(`Configuration loading failed: ${reason}`);
       return {
         config: DEFAULT_CONFIG,
         sources: {},
@@ -497,7 +498,6 @@ export class ConfigLoader {
  * 全局配置实例
  */
 let globalConfig: ProjectConfig | null = null;
-let _globalConfigLoader: ConfigLoader | null = null;
 
 /**
  * 获取全局配置
@@ -517,7 +517,6 @@ export async function getConfig(options?: {
     }
 
     globalConfig = result.config;
-    _globalConfigLoader = loader;
 
     // 在 verbose 模式下显示警告
     if (result.warnings.length > 0 && process.env.CODEX_VERBOSE) {

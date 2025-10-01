@@ -1,10 +1,9 @@
 # MCP Integration Guide - MCP 集成指南
 
-> 详细的 Model Context Protocol (MCP) 集成文档，说明 Codex Father MCP 服务器的架构、协议实现和使用方法
+> 详细的 Model Context Protocol (MCP) 集成文档，说明 Codex Father
+> MCP 服务器的架构、协议实现和使用方法
 
-**版本**: MVP1
-**日期**: 2025-09-30
-**MCP 协议版本**: 2024-11-05
+**版本**: MVP1 **日期**: 2025-09-30 **MCP 协议版本**: 2024-11-05
 
 ---
 
@@ -26,11 +25,13 @@
 
 ### 什么是 MCP?
 
-Model Context Protocol (MCP) 是一个开放协议，用于 AI 模型和外部工具之间的标准化通信。通过 MCP，AI 模型可以调用工具、读取资源和接收实时通知。
+Model Context Protocol
+(MCP) 是一个开放协议，用于 AI 模型和外部工具之间的标准化通信。通过 MCP，AI 模型可以调用工具、读取资源和接收实时通知。
 
 ### Codex Father MCP Server
 
-Codex Father MCP Server 是一个 TypeScript 实现的 MCP 服务器，它将 Codex CLI 的能力暴露为标准 MCP 工具。主要特性：
+Codex Father MCP Server 是一个 TypeScript 实现的 MCP 服务器，它将 Codex
+CLI 的能力暴露为标准 MCP 工具。主要特性：
 
 - **完整的 MCP 2024-11-05 协议支持**
 - **4 个核心工具**: chat, execute, read-file, apply-patch
@@ -287,23 +288,26 @@ Codex Father MCP Server 是一个 TypeScript 实现的 MCP 服务器，它将 Co
 **描述**: 发送消息到 Codex 对话
 
 **参数**:
+
 ```typescript
 interface CodexChatArgs {
-  message: string;           // 用户消息 (必需)
-  systemPrompt?: string;     // 系统提示 (可选)
+  message: string; // 用户消息 (必需)
+  systemPrompt?: string; // 系统提示 (可选)
 }
 ```
 
 **返回**:
+
 ```typescript
 {
-  jobId: string;             // 任务 ID
-  conversationId: string;    // 会话 ID
-  status: 'running'          // 状态
+  jobId: string; // 任务 ID
+  conversationId: string; // 会话 ID
+  status: 'running'; // 状态
 }
 ```
 
 **示例**:
+
 ```typescript
 {
   "name": "codex-chat",
@@ -321,22 +325,25 @@ interface CodexChatArgs {
 **描述**: 执行 Codex 命令
 
 **参数**:
+
 ```typescript
 interface CodexExecuteArgs {
-  args: string[];            // Codex CLI 参数数组 (必需)
+  args: string[]; // Codex CLI 参数数组 (必需)
 }
 ```
 
 **返回**:
+
 ```typescript
 {
-  jobId: string;             // 任务 ID
-  command: string;           // 执行的命令
-  cwd: string;               // 工作目录
+  jobId: string; // 任务 ID
+  command: string; // 执行的命令
+  cwd: string; // 工作目录
 }
 ```
 
 **示例**:
+
 ```typescript
 {
   "name": "codex-execute",
@@ -357,22 +364,25 @@ interface CodexExecuteArgs {
 **描述**: 读取文件内容
 
 **参数**:
+
 ```typescript
 interface CodexReadFileArgs {
-  path: string;              // 文件路径 (必需)
+  path: string; // 文件路径 (必需)
 }
 ```
 
 **返回**:
+
 ```typescript
 {
-  path: string;              // 文件路径
-  content: string;           // 文件内容
-  size: number;              // 文件大小 (bytes)
+  path: string; // 文件路径
+  content: string; // 文件内容
+  size: number; // 文件大小 (bytes)
 }
 ```
 
 **示例**:
+
 ```typescript
 {
   "name": "codex-read-file",
@@ -389,9 +399,10 @@ interface CodexReadFileArgs {
 **描述**: 应用代码补丁
 
 **参数**:
+
 ```typescript
 interface CodexApplyPatchArgs {
-  patch: string;             // Unified diff 格式补丁 (必需)
+  patch: string; // Unified diff 格式补丁 (必需)
   fileChanges: FileChange[]; // 文件变更列表 (必需)
 }
 
@@ -402,6 +413,7 @@ interface FileChange {
 ```
 
 **返回**:
+
 ```typescript
 {
   approvalId: string;        // 审批 ID
@@ -411,6 +423,7 @@ interface FileChange {
 ```
 
 **示例**:
+
 ```typescript
 {
   "name": "codex-apply-patch",
@@ -470,15 +483,15 @@ interface FileChange {
 
 ### 错误码
 
-| 错误码 | 含义 | 示例 |
-|--------|------|------|
-| -32700 | Parse error | 无效的 JSON |
-| -32600 | Invalid Request | 缺少必需字段 |
-| -32601 | Method not found | 工具不存在 |
-| -32602 | Invalid params | 参数类型错误 |
-| -32603 | Internal error | 服务器内部错误 |
+| 错误码 | 含义                 | 示例           |
+| ------ | -------------------- | -------------- |
+| -32700 | Parse error          | 无效的 JSON    |
+| -32600 | Invalid Request      | 缺少必需字段   |
+| -32601 | Method not found     | 工具不存在     |
+| -32602 | Invalid params       | 参数类型错误   |
+| -32603 | Internal error       | 服务器内部错误 |
 | -32000 | Tool execution error | Codex 执行失败 |
-| -32001 | Approval denied | 用户拒绝审批 |
+| -32001 | Approval denied      | 用户拒绝审批   |
 
 ### 错误响应格式
 
@@ -614,12 +627,15 @@ const transport = new StdioClientTransport({
   args: ['dist/core/cli/start.ts', 'mcp'],
 });
 
-const client = new Client({
-  name: 'my-custom-client',
-  version: '1.0.0',
-}, {
-  capabilities: {},
-});
+const client = new Client(
+  {
+    name: 'my-custom-client',
+    version: '1.0.0',
+  },
+  {
+    capabilities: {},
+  }
+);
 
 // 连接
 await client.connect(transport);
@@ -632,8 +648,8 @@ console.log(tools);
 const result = await client.callTool({
   name: 'codex-chat',
   arguments: {
-    message: 'Hello, Codex!'
-  }
+    message: 'Hello, Codex!',
+  },
 });
 console.log(result);
 
@@ -654,6 +670,7 @@ client.setNotificationHandler((notification) => {
 **症状**: `npm run mcp:start` 报错
 
 **检查**:
+
 ```bash
 # 1. 检查 Node.js 版本
 node --version  # 应该 >= 18.0.0
@@ -673,6 +690,7 @@ DEBUG=* npm run mcp:start
 **症状**: `tools/call` 返回错误
 
 **检查**:
+
 ```bash
 # 1. 验证参数格式
 # 使用 MCP Inspector 测试
@@ -689,6 +707,7 @@ cat .codex-father/config/approval-policy.json
 **症状**: 客户端没有收到 progress 通知
 
 **检查**:
+
 ```typescript
 // 1. 确保客户端注册了通知处理器
 client.setNotificationHandler((notification) => {
@@ -704,6 +723,7 @@ client.setNotificationHandler((notification) => {
 **症状**: 命令卡在等待审批
 
 **解决方案**:
+
 ```json
 // 增加超时时间
 {
@@ -769,5 +789,4 @@ open test-results/index.html
 
 ---
 
-**最后更新**: 2025-09-30
-**维护者**: Codex Father Team
+**最后更新**: 2025-09-30 **维护者**: Codex Father Team

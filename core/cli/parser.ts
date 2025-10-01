@@ -212,7 +212,7 @@ export class CLIParser {
     subCommand.action(async (...args) => {
       try {
         // 构建命令上下文
-        const context = this.buildCommandContext(name, args);
+        const context = this.buildCommandContext(args);
 
         // 执行命令处理器
         const result = await handler(context);
@@ -237,7 +237,7 @@ export class CLIParser {
   /**
    * 构建命令上下文
    */
-  private buildCommandContext(commandName: string, args: any[]): CommandContext {
+  private buildCommandContext(args: any[]): CommandContext {
     // 最后一个参数通常是 Command 实例和选项
     const command = args[args.length - 1];
     let options = {};
@@ -349,6 +349,10 @@ export class CLIParser {
 
       // 检查是否是元命令
       const command = args[2];
+      if (!command) {
+        this.command.help();
+        return;
+      }
       if (['--version', '-v', '--help', '-h'].includes(command)) {
         // 让 commander.js 处理
         await this.command.parseAsync(args);
@@ -356,7 +360,7 @@ export class CLIParser {
       }
 
       // 尝试处理元命令
-      const context = this.buildCommandContext(command, []);
+      const context = this.buildCommandContext([]);
       const metaResult = await handleMetaCommand(command, context);
 
       if (metaResult) {

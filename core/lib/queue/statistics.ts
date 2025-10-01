@@ -88,14 +88,35 @@ export class QueueStatisticsCollector {
   }
 
   private normalizeTask(task: Task): Task {
+    const createdAt = this.ensureDate(task.createdAt) ?? new Date(0);
+    const updatedAt = this.ensureDate(task.updatedAt) ?? createdAt;
+    const scheduledAt = this.ensureDate(task.scheduledAt);
+    const startedAt = this.ensureDate(task.startedAt);
+    const completedAt = this.ensureDate(task.completedAt);
+
     const clone: Task = {
       ...task,
-      createdAt: this.ensureDate(task.createdAt),
-      updatedAt: this.ensureDate(task.updatedAt),
-      scheduledAt: this.ensureDate(task.scheduledAt),
-      startedAt: this.ensureDate(task.startedAt),
-      completedAt: this.ensureDate(task.completedAt),
+      createdAt,
+      updatedAt,
     };
+
+    if (scheduledAt) {
+      clone.scheduledAt = scheduledAt;
+    } else {
+      delete (clone as Partial<Task>).scheduledAt;
+    }
+
+    if (startedAt) {
+      clone.startedAt = startedAt;
+    } else {
+      delete (clone as Partial<Task>).startedAt;
+    }
+
+    if (completedAt) {
+      clone.completedAt = completedAt;
+    } else {
+      delete (clone as Partial<Task>).completedAt;
+    }
     return clone;
   }
 
@@ -178,7 +199,13 @@ export class QueueStatisticsCollector {
       return 0;
     }
 
-    const windowMs = Math.max(completedTimes.at(-1)! - completedTimes[0], this.throughputWindowMs);
+    const first = completedTimes[0];
+    const last = completedTimes[completedTimes.length - 1];
+    if (first === undefined || last === undefined) {
+      return 0;
+    }
+
+    const windowMs = Math.max(last - first, this.throughputWindowMs);
     if (windowMs === 0) {
       return tasks.length * 1;
     }
@@ -215,11 +242,14 @@ export class QueueStatisticsCollector {
       (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
     );
 
+    const oldestCreated = sortedByCreation[0]?.createdAt;
+    const newestCreated = sortedByCreation[sortedByCreation.length - 1]?.createdAt;
+
     return {
       diskUsage,
       fileCount,
-      oldestTask: sortedByCreation[0]?.createdAt,
-      newestTask: sortedByCreation.at(-1)?.createdAt,
+      ...(oldestCreated ? { oldestTask: oldestCreated } : {}),
+      ...(newestCreated ? { newestTask: newestCreated } : {}),
     };
   }
 

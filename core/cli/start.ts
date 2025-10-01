@@ -7,7 +7,7 @@ import { ErrorBoundary, withErrorBoundary, createError } from './error-boundary.
 import { LoggerManager, setupDevelopmentLogging } from './logger-setup.js';
 import { getConfig } from './config-loader.js';
 import { parser } from './parser.js';
-import { LegacyCommandHandler, routeLegacyCommand } from './legacy-compatibility.js';
+import { LegacyCommandHandler } from './legacy-compatibility.js';
 import { registerTaskCommand } from './commands/task-command.js';
 import { registerConfigCommand } from './commands/config-command.js';
 import { registerQueueCommand } from './commands/queue-command.js';
@@ -280,7 +280,8 @@ class CodexFatherCLI {
         executionTime,
       };
     } catch (error) {
-      throw createError.internal('Failed to get status information', { error: error.message });
+      const cause = error instanceof Error ? error : new Error(String(error));
+      throw createError.internal('Failed to get status information', { error: cause.message });
     }
   }
 

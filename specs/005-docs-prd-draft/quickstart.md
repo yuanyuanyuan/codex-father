@@ -1,7 +1,6 @@
 # Quickstart: 架构调整 - MCP 模式优先实现
 
-**Feature**: 005-docs-prd-draft
-**Date**: 2025-09-30
+**Feature**: 005-docs-prd-draft **Date**: 2025-09-30
 **Purpose**: 快速验证 MCP 协议优先架构的核心功能
 
 ---
@@ -9,6 +8,7 @@
 ## 概述
 
 本快速开始指南演示如何验证 MCP 协议优先架构的关键场景。每个场景包含：
+
 1. **前置条件**：需要完成的实现和配置
 2. **执行步骤**：具体操作命令
 3. **预期结果**：验证成功的标准
@@ -44,20 +44,20 @@ npm run build
 
 ```yaml
 whitelist:
-  - pattern: "^git status"
-    reason: "Read-only git command"
+  - pattern: '^git status'
+    reason: 'Read-only git command'
     enabled: true
-  - pattern: "^git diff"
-    reason: "Read-only git command"
+  - pattern: '^git diff'
+    reason: 'Read-only git command'
     enabled: true
-  - pattern: "^git log"
-    reason: "Read-only git command"
+  - pattern: '^git log'
+    reason: 'Read-only git command'
     enabled: true
-  - pattern: "^ls "
-    reason: "Read-only file listing"
+  - pattern: '^ls '
+    reason: 'Read-only file listing'
     enabled: true
-  - pattern: "^cat "
-    reason: "Read-only file viewing"
+  - pattern: '^cat '
+    reason: 'Read-only file viewing'
     enabled: true
   # 注意：npm install 可执行任意 postinstall 脚本，默认不自动批准
 ```
@@ -69,6 +69,7 @@ whitelist:
 ### 目标
 
 验证 MCP 协议桥接层和单进程管理的核心功能：
+
 - MCP 客户端可以连接 codex-father
 - `tools/call` 快速返回（< 500ms）
 - 事件通知正确推送（`codex-father/progress`）
@@ -97,7 +98,8 @@ npx @modelcontextprotocol/inspector npm run mcp:start
 # 浏览器自动打开 http://localhost:5173
 ```
 
-**注意**：Inspector 会自动启动并连接服务器，无需手动在单独终端运行 `npm run mcp:start`。如果需要手动测试服务器，可以：
+**注意**：Inspector 会自动启动并连接服务器，无需手动在单独终端运行
+`npm run mcp:start`。如果需要手动测试服务器，可以：
 
 ```bash
 # 手动启动服务器（用于调试）
@@ -287,6 +289,7 @@ npm run test -- tests/integration/mvp1-single-process.test.ts
 ### 目标
 
 验证审批策略引擎和终端 UI：
+
 - 策略引擎正确匹配白名单
 - 非白名单命令触发人工审批
 - 终端 UI 显示审批详情
@@ -434,6 +437,7 @@ npm run test -- tests/integration/approval-flow.test.ts
 ### 目标
 
 验证进程池管理和真正并行执行：
+
 - 多个任务同时运行
 - 进程池正确分配和释放
 - 进程崩溃自动恢复
@@ -441,7 +445,8 @@ npm run test -- tests/integration/approval-flow.test.ts
 ### 前置条件
 
 - 场景 1, 2 完成
-- Phase 2 实现完成：`core/process/pool-manager.ts`, `core/process/session-recovery.ts`
+- Phase 2 实现完成：`core/process/pool-manager.ts`,
+  `core/process/session-recovery.ts`
 
 ### 执行步骤
 
@@ -450,7 +455,7 @@ npm run test -- tests/integration/approval-flow.test.ts
 创建配置文件：`.codex-father/config/process-pool.yaml`
 
 ```yaml
-maxProcesses: 3  # 限制最大进程数为 3
+maxProcesses: 3 # 限制最大进程数为 3
 ```
 
 #### 2. 启动 codex-father（MVP2 模式）
@@ -543,6 +548,7 @@ npm run test -- tests/integration/mvp2-process-pool.test.ts
 ### 目标
 
 验证基于 Codex 原生 rollout 文件的会话恢复：
+
 - 进程崩溃检测
 - rollout 文件引用读取
 - `codex exec resume` 恢复执行
@@ -702,10 +708,12 @@ npm run benchmark
 ### 问题 1: `tools/call` 响应超过 500ms
 
 **可能原因**：
+
 - Codex `newConversation` 调用阻塞
 - 日志写入阻塞
 
 **解决方案**：
+
 1. 检查 Codex 启动时间：`time codex exec --version`
 2. 使用异步日志写入（`winston` 异步传输）
 3. 优化数据验证（Zod parse 缓存）
@@ -713,10 +721,12 @@ npm run benchmark
 ### 问题 2: 通知丢失或延迟
 
 **可能原因**：
+
 - Codex 事件流解析错误
 - EventEmitter 监听器未注册
 
 **解决方案**：
+
 1. 检查 Codex 进程 stdout：`cat .codex-father/sessions/*/stdout.log`
 2. 验证 line-delimited JSON 解析逻辑
 3. 增加日志：`DEBUG=codex-father:events npm run mcp:start`
@@ -724,10 +734,12 @@ npm run benchmark
 ### 问题 3: 审批提示未显示
 
 **可能原因**：
+
 - 终端 UI 库（inquirer）未正确初始化
 - Approval 请求未被捕获
 
 **解决方案**：
+
 1. 检查 Codex 是否发送了 `applyPatchApproval` 或 `execCommandApproval`
 2. 验证 JSON-RPC 请求处理逻辑
 3. 测试 inquirer 独立工作：`node -e "require('inquirer').prompt([{type:'list',name:'test',choices:['A','B']}])"`
@@ -735,10 +747,12 @@ npm run benchmark
 ### 问题 4: 会话恢复失败
 
 **可能原因**：
+
 - rollout 文件不存在或路径错误
 - Codex 版本不兼容
 
 **解决方案**：
+
 1. 验证 `rollout-ref.txt` 内容：`cat .codex-father/sessions/*/rollout-ref.txt`
 2. 检查 rollout 文件存在：`ls -l $(cat rollout-ref.txt)`
 3. 验证 Codex 版本：`codex --version`（确保兼容 rollout 格式）
@@ -749,6 +763,7 @@ npm run benchmark
 ## 总结
 
 所有快速开始场景已定义，涵盖：
+
 - ✅ MVP1 核心流程（场景 1, 2）
 - ✅ MVP2 进程池并行（场景 3）
 - ✅ MVP2 会话恢复（场景 4）

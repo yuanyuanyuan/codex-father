@@ -1,6 +1,7 @@
 # Codex Father - TypeScript MCP Server (MVP1)
 
-> MCP (Model Context Protocol) 服务器，用于将 Codex CLI 暴露为标准 MCP 工具，支持单进程异步执行和审批机制。
+> MCP (Model Context Protocol) 服务器，用于将 Codex
+> CLI 暴露为标准 MCP 工具，支持单进程异步执行和审批机制。
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3%2B-blue)](https://www.typescriptlang.org/)
@@ -433,7 +434,8 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 - [Model Context Protocol](https://modelcontextprotocol.io/) - MCP 协议规范
 - [Codex CLI](https://github.com/anthropics/codex) - Anthropic Codex 命令行工具
 - [TypeScript](https://www.typescriptlang.org/) - 类型安全的 JavaScript 超集
-- [@modelcontextprotocol/sdk](https://www.npmjs.com/package/@modelcontextprotocol/sdk) - MCP TypeScript SDK
+- [@modelcontextprotocol/sdk](https://www.npmjs.com/package/@modelcontextprotocol/sdk) -
+  MCP TypeScript SDK
 
 ## 📮 联系
 

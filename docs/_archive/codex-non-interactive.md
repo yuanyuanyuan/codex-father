@@ -28,12 +28,14 @@ Container/Docker 中让 Codex 以“非交互模式（无需审批）”运行�
 
 - 目标：禁止写入与网络；以最小权限进行代码扫描、解释、问答。
 - 命令（非交互 + 无审批）：
+
   ```bash
   codex exec --sandbox read-only --ask-for-approval never "解释这个仓库的结构"
   ```
 
   - 依据：非交互入口 `exec`（`docs/getting-started.md:9`）；禁用审批
     `--ask-for-approval never`（`docs/sandbox.md:24`）；只读模式（`docs/sandbox.md:31`）。
+
 - 从标准输入提供任务（示例）：
   ```bash
   printf '%s' "列出存在安全风险的函数" | codex exec --sandbox read-only --ask-for-approval never
@@ -56,12 +58,14 @@ Container/Docker 中让 Codex 以“非交互模式（无需审批）”运行�
 
 - 目标：允许在工作区内进行修改（写文件/运行命令），并关闭审批弹窗。
 - 命令（非交互 + 无审批）：
+
   ```bash
   codex exec --sandbox workspace-write --ask-for-approval never "在 README 增补使用说明"
   ```
 
   - 依据：`workspace-write`
     模式（`refer-research/openai-codex/docs/sandbox.md:19`）；默认禁网（`docs/sandbox.md:36`）；无审批（`docs/sandbox.md:24`）。
+
 - 打开网络（可选，默认关闭）：
 
   ```toml
@@ -101,6 +105,7 @@ Container/Docker 中让 Codex 以“非交互模式（无需审批）”运行�
 
 - 凭据与配置路径
   - 在容器内设置 `CODEX_HOME` 到工作区挂载目录（确保可写）：
+
     ```bash
     export CODEX_HOME="/workspace/.codex"   # 例如 VS Code Dev Container 的挂载点
     mkdir -p "$CODEX_HOME"
@@ -108,10 +113,12 @@ Container/Docker 中让 Codex 以“非交互模式（无需审批）”运行�
 
     - 依据：配置文件与 `$CODEX_HOME`
       的定位（`refer-research/openai-codex/docs/config.md:15`）。
+
   - 无头认证：
     - 使用 API
       Key（无需浏览器）：`codex login --api-key "YOUR_API_KEY"`（`refer-research/openai-codex/docs/authentication.md:5`）
     - 或在本机完成登录后，复制 `~/.codex/auth.json` 到容器：
+
       ```bash
       CONTAINER_HOME=$(docker exec MY_CONTAINER printenv HOME)
       docker exec MY_CONTAINER mkdir -p "$CONTAINER_HOME/.codex"
@@ -121,6 +128,7 @@ Container/Docker 中让 Codex 以“非交互模式（无需审批）”运行�
       - 依据：`refer-research/openai-codex/docs/authentication.md:27`,
         `refer-research/openai-codex/docs/authentication.md:33`,
         `refer-research/openai-codex/docs/authentication.md:35`。
+
 - 内核/沙箱能力
   - 若容器/宿主不支持 Landlock/seccomp：让容器提供隔离，Codex 使用
     `danger-full-access` 或
@@ -143,6 +151,7 @@ Container/Docker 中让 Codex 以“非交互模式（无需审批）”运行�
   ```
 
 - macOS（Seatbelt）：
+
   ```bash
   codex debug seatbelt --full-auto -- bash -lc 'set -euo pipefail; t=.codex_write_check; echo ok > "$t"; ls -l "$t"; rm -f "$t"; echo WRITE_OK'
   ```

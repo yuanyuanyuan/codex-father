@@ -308,30 +308,34 @@ export class CommandDiscovery {
    * 计算编辑距离（用于命令建议）
    */
   private static levenshteinDistance(str1: string, str2: string): number {
-    const matrix = Array(str2.length + 1)
-      .fill(null)
-      .map(() => Array(str1.length + 1).fill(null));
-
-    for (let i = 0; i <= str1.length; i++) {
-      matrix[0][i] = i;
+    if (str1 === str2) {
+      return 0;
+    }
+    if (str1.length === 0) {
+      return str2.length;
+    }
+    if (str2.length === 0) {
+      return str1.length;
     }
 
-    for (let j = 0; j <= str2.length; j++) {
-      matrix[j][0] = j;
-    }
+    const previous: number[] = Array.from({ length: str1.length + 1 }, (_, i) => i);
+    const current: number[] = new Array<number>(str1.length + 1);
 
     for (let j = 1; j <= str2.length; j++) {
+      current[0] = j;
       for (let i = 1; i <= str1.length; i++) {
-        const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
-        matrix[j][i] = Math.min(
-          matrix[j][i - 1] + 1, // deletion
-          matrix[j - 1][i] + 1, // insertion
-          matrix[j - 1][i - 1] + indicator // substitution
-        );
+        const insertion = (previous[i] ?? Number.POSITIVE_INFINITY) + 1;
+        const deletion = (current[i - 1] ?? Number.POSITIVE_INFINITY) + 1;
+        const substitution =
+          (previous[i - 1] ?? Number.POSITIVE_INFINITY) + (str1[i - 1] === str2[j - 1] ? 0 : 1);
+        current[i] = Math.min(insertion, deletion, substitution);
+      }
+      for (let i = 0; i <= str1.length; i++) {
+        previous[i] = current[i] ?? Number.POSITIVE_INFINITY;
       }
     }
 
-    return matrix[str2.length][str1.length];
+    return previous[str1.length] ?? str1.length;
   }
 }
 

@@ -67,8 +67,8 @@ export class QueueEventEmitterImpl implements QueueEventEmitter {
     const basePayload: QueueEventData = {
       event,
       timestamp: normalizeTimestamp(data.timestamp),
-      taskId: data.taskId,
       details: cloneDetails(data.details ?? {}),
+      ...(data.taskId ? { taskId: data.taskId } : {}),
     };
 
     for (const listener of Array.from(listeners)) {
@@ -76,8 +76,8 @@ export class QueueEventEmitterImpl implements QueueEventEmitter {
         const payloadForListener: QueueEventData = {
           event: basePayload.event,
           timestamp: basePayload.timestamp,
-          taskId: basePayload.taskId,
           details: cloneDetails(basePayload.details),
+          ...(basePayload.taskId ? { taskId: basePayload.taskId } : {}),
         };
         listener(payloadForListener);
       } catch (error) {

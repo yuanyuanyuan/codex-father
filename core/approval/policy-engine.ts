@@ -309,7 +309,6 @@ export function createDefaultPolicyEngine(
     policy: {
       mode,
       whitelist: getDefaultWhitelist(),
-      timeout: undefined, // 无限等待
     },
     strictMode: true,
   });

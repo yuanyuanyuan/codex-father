@@ -396,12 +396,17 @@ export function createJSONRPCRequest<T>(
   method: string,
   params?: T
 ): JSONRPCRequest<T> {
-  return {
+  const request: JSONRPCRequest<T> = {
     jsonrpc: '2.0',
     id,
     method,
-    params,
   };
+
+  if (params !== undefined) {
+    request.params = params;
+  }
+
+  return request;
 }
 
 /**
@@ -430,11 +435,16 @@ export function createJSONRPCErrorResponse(id: JSONRPCId, error: JSONRPCError): 
  * 创建 JSON-RPC 通知
  */
 export function createJSONRPCNotification<T>(method: string, params?: T): JSONRPCNotification<T> {
-  return {
+  const notification: JSONRPCNotification<T> = {
     jsonrpc: '2.0',
     method,
-    params,
   };
+
+  if (params !== undefined) {
+    notification.params = params;
+  }
+
+  return notification;
 }
 
 // ========== 类型守卫 ==========
