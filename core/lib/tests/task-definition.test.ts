@@ -65,7 +65,10 @@ describe('Task Definition Contract (T010)', () => {
       timeout: 45_000,
     };
 
-    const task = createTaskFromDefinition(definition, { idGenerator: () => 'scheduled-id' });
+    const task = createTaskFromDefinition(definition, {
+      idGenerator: () => 'scheduled-id',
+      now: new Date('2025-09-27T00:00:00Z'),
+    });
 
     expect(task.id).toBe('scheduled-id');
     expect(task.status).toBe('scheduled');
@@ -75,6 +78,21 @@ describe('Task Definition Contract (T010)', () => {
     expect(task.metadata.source).toBe('scheduler');
     expect(task.metadata.tags).toEqual(['nightly', 'maintenance']);
     expect(task.timeout).toBe(45_000);
+  });
+
+  it('marks overdue scheduled tasks as pending when now is not provided', () => {
+    const pastScheduledAt = new Date(Date.now() - 60_000);
+    const definition: TaskDefinition = {
+      type: 'cleanup',
+      priority: 1,
+      payload: {},
+      scheduledAt: pastScheduledAt,
+    };
+
+    const task = createTaskFromDefinition(definition, { idGenerator: () => 'overdue-id' });
+
+    expect(task.status).toBe('pending');
+    expect(task.scheduledAt).toEqual(pastScheduledAt);
   });
 
   it('enforces allowed task status transitions', () => {

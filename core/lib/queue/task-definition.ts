@@ -76,20 +76,8 @@ function mergeMetadata(definition?: TaskMetadata, environmentOverride?: string):
   };
 }
 
-function resolveInitialStatus(
-  scheduledAt: Date | undefined,
-  now: Date,
-  respectCurrentTime: boolean
-): TaskStatus {
-  if (!scheduledAt) {
-    return 'pending';
-  }
-
-  if (!respectCurrentTime) {
-    return 'scheduled';
-  }
-
-  if (scheduledAt.getTime() >= now.getTime()) {
+function resolveInitialStatus(scheduledAt: Date | undefined, now: Date): TaskStatus {
+  if (scheduledAt && scheduledAt.getTime() >= now.getTime()) {
     return 'scheduled';
   }
 
@@ -115,12 +103,11 @@ export function createTaskFromDefinition(
   }
 
   const now = options.now ?? new Date();
-  const respectCurrentTime = options.now instanceof Date;
   const generateId = options.idGenerator ?? randomUUID;
   const retryPolicy = mergeRetryPolicy(definition.retryPolicy);
   const metadata = mergeMetadata(definition.metadata, options.environment);
   const timeout = resolveTimeout(definition.timeout);
-  const status = resolveInitialStatus(definition.scheduledAt, now, respectCurrentTime);
+  const status = resolveInitialStatus(definition.scheduledAt, now);
 
   const task: Task = {
     id: generateId(),

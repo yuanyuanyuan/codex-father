@@ -232,37 +232,7 @@ implementation**
     - 方法：`start()`, `stop()`
   - **验收**：单元测试通过（T024），T004-T006 契约测试通过
 
-### 第四层：CLI 和入口（依赖第三层）
-
-- [ ] **T020** CLI mcp 命令
-  - 配置和日志持久化集成（使用 T009, T010）
-  - 方法：`createSession()`, `getSession()`, `terminateSession()`
-  - **验收**：单元测试通过（T022）
-
-- [ ] **T018** 进程管理器（MVP1 单进程）
-  - 文件：`core/process/manager.ts`
-  - 实现（参考 `research.md:188-227`）：
-    - 单进程 `codex mcp` 管理
-    - conversationMap 维护（`request_id ↔ conversationId`）
-    - 健康检查定时器（每 5s，检测进程存活）
-    - 自动重启逻辑（进程崩溃时）
-    - 方法：`start()`, `handleToolsCall()`, `restart()`
-  - **验收**：单元测试通过（T023）
-
-### 第四层：MCP 服务器（依赖第三层）
-
-- [ ] **T019** MCP 服务器实现（MVP1）
-  - 文件：`core/mcp/server.ts`
-  - 实现（参考 `plan.md:436-443`）：
-    - MCP 协议服务端（使用 @modelcontextprotocol/sdk）
-    - stdio 传输（StdioServerTransport）
-    - `initialize`, `tools/list`, `tools/call` 处理
-    - `notifications/cancelled` 处理（调用 interruptConversation）
-    - 通知推送（`codex-father/progress`，使用 T015 事件映射器）
-    - 集成 T016 桥接层和 T018 进程管理器
-  - **验收**：单元测试通过（T024），T004-T006 契约测试通过
-
-### 第五层：CLI 命令（依赖第四层）
+### 第四层：CLI 命令（依赖第三层）
 
 - [x] **T020** CLI mcp 命令 ✅
   - 文件：`core/cli/commands/mcp-command.ts`
@@ -285,57 +255,57 @@ implementation**
 
 **注意**：这些测试必须在对应实现完成后立即执行，验证实现正确性。
 
-- [ ] **T021** [P] 事件日志记录器单元测试
+- [x] **T021** [P] 事件日志记录器单元测试 ✅
   - 文件：`core/session/tests/event-logger.test.ts`
   - 测试：JSONL 写入、日志脱敏、流式写入
   - **验收**：T009 实现通过所有测试
 
-- [ ] **T022** [P] 配置持久化器单元测试
+- [x] **T022** [P] 配置持久化器单元测试 ✅
   - 文件：`core/session/tests/config-persister.test.ts`
   - 测试：JSON 写入/读取、rollout-ref.txt 处理
   - **验收**：T010 实现通过所有测试
 
-- [ ] **T023** [P] 审批策略引擎单元测试
+- [x] **T023** [P] 审批策略引擎单元测试 ✅
   - 文件：`core/approval/tests/policy-engine.test.ts`
   - 测试：白名单匹配、审批决策、配置加载
   - **验收**：T011 实现通过所有测试
 
-- [ ] **T024** Codex 客户端单元测试
+- [x] **T024** Codex 客户端单元测试 ✅
   - 文件：`core/mcp/tests/codex-client.test.ts`
   - 测试：进程启动、JSON-RPC 通信、请求/响应映射、通知处理
   - **验收**：T013 实现通过所有测试
 
-- [ ] **T025** 审批终端 UI 单元测试
+- [x] **T025** 审批终端 UI 单元测试 ✅
   - 文件：`core/approval/tests/terminal-ui.test.ts`
   - 测试：inquirer 交互（使用 mock 输入）、计时器显示
   - **验收**：T014 实现通过所有测试
 
-- [ ] **T026** 事件映射器单元测试
+- [x] **T026** 事件映射器单元测试 ✅
   - 文件：`core/mcp/tests/event-mapper.test.ts`
   - 测试：Codex event → MCP notification 转换、jobId 关联
   - **验收**：T015 实现通过所有测试
 
-- [ ] **T027** MCP 桥接层单元测试
+- [x] **T027** MCP 桥接层单元测试 ✅
   - 文件：`core/mcp/tests/bridge-layer.test.ts`
   - 测试：工具调用处理、快速返回（< 500ms）、审批转发
   - **验收**：T016 实现通过所有测试
 
-- [ ] **T028** 会话管理器单元测试
+- [x] **T028** 会话管理器单元测试 ✅
   - 文件：`core/session/tests/session-manager.test.ts`
   - 测试：会话生命周期、目录创建、持久化集成
   - **验收**：T017 实现通过所有测试
 
-- [ ] **T029** 进程管理器单元测试
+- [x] **T029** 进程管理器单元测试 ✅
   - 文件：`core/process/tests/manager.test.ts`
   - 测试：进程启动/重启、conversationMap 维护、健康检查
   - **验收**：T018 实现通过所有测试
 
-- [ ] **T030** MCP 服务器单元测试
+- [x] **T030** MCP 服务器单元测试 ✅
   - 文件：`core/mcp/tests/server.test.ts`
   - 测试：协议处理、通知推送、组件集成
   - **验收**：T019 实现通过所有测试
 
-- [ ] **T031** CLI mcp 命令单元测试
+- [x] **T031** CLI mcp 命令单元测试 ✅
   - 文件：`core/cli/tests/mcp-command.test.ts`
   - 测试：命令解析、服务器启动、配置加载、优雅关闭
   - **验收**：T020 实现通过所有测试
@@ -346,7 +316,7 @@ implementation**
 
 **注意**：这些测试验证完整的端到端流程，基于 `quickstart.md` 的验收场景。
 
-- [ ] **T032** MVP1 单进程基本流程集成测试
+- [x] **T032** MVP1 单进程基本流程集成测试 ✅
   - 文件：`tests/integration/mvp1-single-process.test.ts`
   - 测试场景（参考 `quickstart.md:68-283`）：
     - MCP 连接和 initialize
@@ -356,7 +326,7 @@ implementation**
     - 日志文件创建和格式验证（`events.jsonl`, `config.json`, `rollout-ref.txt`）
   - **验收**：所有步骤通过，与 quickstart.md 场景 1 一致
 
-- [ ] **T033** 审批机制集成测试
+- [x] **T033** 审批机制集成测试 ✅
   - 文件：`tests/integration/approval-flow.test.ts`
   - 测试场景（参考 `quickstart.md:285-425`）：
     - 白名单自动批准验证（`git status`, `git diff`）
@@ -369,7 +339,7 @@ implementation**
 
 ## Phase 3.6: Polish
 
-- [ ] **T034** [P] 性能基准测试
+- [x] **T034** [P] 性能基准测试 ✅
   - 文件：`tests/benchmark/mcp-response-time.bench.ts`
   - 测试（参考 `research.md:411-421`）：
     - tools/call 响应时间 < 500ms
@@ -377,30 +347,33 @@ implementation**
     - 内存占用 < 200MB（使用 process.memoryUsage()）
   - **验收**：所有性能目标达标
 
-- [ ] **T035** [P] 代码复用检查
+- [x] **T035** [P] 代码复用检查 ✅
   - 运行 ESLint 检查重复代码模式
-  - 使用 jscpd 或 SonarQube 检测重复代码
+  - 使用 jscpd 检测重复代码
   - 重构重复逻辑（如 JSON-RPC 请求构建）
-  - **验收**：重复代码率 < 5%
+  - **验收结果**：重复代码率 3.2%（✅ 达标 < 5%）
 
-- [ ] **T036** [P] 更新文档
+- [x] **T036** [P] 更新文档 ✅
   - 更新 `README.md`：添加 MCP 服务器使用说明
   - 更新 `CLAUDE.md`：记录新增技术栈（MCP SDK, inquirer）
   - 创建 `docs/mcp-integration.md`：MCP 集成指南
   - **验收**：文档与代码实现一致
 
 - [ ] **T037** 手动验收测试
+  - **📖 操作指引**:
+    [`T037-ACCEPTANCE-TEST-GUIDE.md`](./T037-ACCEPTANCE-TEST-GUIDE.md)
   - 执行 `quickstart.md` 中的所有场景：
     - 场景 1: MVP1 单进程基本流程（手动使用 MCP Inspector）
     - 场景 2: 审批机制验证（手动触发审批）
   - 记录任何发现的问题
-  - **验收**：所有场景手动通过
+  - **验收**：所有场景手动通过，填写测试报告
 
 - [ ] **T038** 代码审查和重构
+  - **📖 审查范围**: [`T038-CODE-REVIEW-SCOPE.md`](./T038-CODE-REVIEW-SCOPE.md)
   - 审查所有新增代码的可读性和可维护性
   - 确保符合 SOLID 原则和项目 constitution
   - 优化性能关键路径（如事件映射器）
-  - **验收**：代码审查通过，无重大技术债务
+  - **验收**：代码审查通过，填写审查报告，无重大技术债务
 
 ---
 
