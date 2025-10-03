@@ -42,10 +42,11 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Configure npm for npmjs (if NPM_TOKEN present)
-        if: ${{ env.NPM_TOKEN != '' }}
+      - name: Configure npm for npmjs (conditional)
         run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPM_CONFIG_USERCONFIG"
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPM_CONFIG_USERCONFIG"
+          fi
 
       - name: Install dependencies (mcp package)
         working-directory: mcp/codex-mcp-server
