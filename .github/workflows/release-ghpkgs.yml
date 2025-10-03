@@ -7,8 +7,6 @@ on:
     paths:
       - 'mcp/**'
       - '.releaserc'
-    paths-ignore:
-      - '.github/workflows/**'
   workflow_dispatch: {}
 
 permissions:
@@ -21,6 +19,9 @@ jobs:
       group: release-${{ github.ref }}
       cancel-in-progress: true
     runs-on: ubuntu-latest
+    env:
+      # 将可选的 NPM_TOKEN 暴露为 env，便于 if 判断
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,11 +43,9 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure npm for npmjs (if NPM_TOKEN present)
-        if: ${{ secrets.NPM_TOKEN != '' }}
+        if: ${{ env.NPM_TOKEN != '' }}
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPM_CONFIG_USERCONFIG"
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Install dependencies (mcp package)
         working-directory: mcp/codex-mcp-server
