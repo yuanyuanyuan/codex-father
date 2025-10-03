@@ -111,7 +111,7 @@ export class ConfigPersister {
     if (this.config.atomicWrite) {
       await this.atomicWriteFile(this.configFilePath, jsonContent);
     } else {
-      await fs.writeFile(this.configFilePath, jsonContent, 'utf-8');
+      await fs.writeFile(this.configFilePath, jsonContent, { encoding: 'utf-8', mode: 0o600 });
     }
   }
 
@@ -209,10 +209,12 @@ export class ConfigPersister {
 
     try {
       // 写入临时文件
-      await fs.writeFile(tempFilePath, content, 'utf-8');
+      await fs.writeFile(tempFilePath, content, { encoding: 'utf-8', mode: 0o600 });
 
       // 重命名临时文件 (原子操作)
       await fs.rename(tempFilePath, filePath);
+      // 确保最终文件权限
+      await fs.chmod(filePath, 0o600).catch(() => {});
     } catch (error) {
       // 清理临时文件 (如果存在)
       try {
@@ -229,7 +231,8 @@ export class ConfigPersister {
    */
   private async ensureSessionDirExists(): Promise<void> {
     try {
-      await fs.mkdir(this.config.sessionDir, { recursive: true });
+      await fs.mkdir(this.config.sessionDir, { recursive: true, mode: 0o700 });
+      await fs.chmod(this.config.sessionDir, 0o700).catch(() => {});
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
         throw error;
@@ -268,10 +271,11 @@ export async function saveRolloutRef(sessionDir: string, rolloutPath: string): P
   const rolloutRefPath = path.join(sessionDir, 'rollout-ref.txt');
 
   // 确保目录存在
-  await fs.mkdir(sessionDir, { recursive: true });
+  await fs.mkdir(sessionDir, { recursive: true, mode: 0o700 });
+  await fs.chmod(sessionDir, 0o700).catch(() => {});
 
   // 写入 rollout 路径
-  await fs.writeFile(rolloutRefPath, rolloutPath, 'utf-8');
+  await fs.writeFile(rolloutRefPath, rolloutPath, { encoding: 'utf-8', mode: 0o600 });
 }
 
 /**

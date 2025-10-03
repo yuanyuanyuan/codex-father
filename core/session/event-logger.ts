@@ -25,6 +25,7 @@ export interface EventLoggerConfig {
   logFileName?: string; // 日志文件名 (默认: events.jsonl)
   autoFlush?: boolean; // 是否自动刷新到磁盘 (默认: true)
   validateEvents?: boolean; // 是否验证事件格式 (默认: true)
+  asyncWrite?: boolean; // 是否异步写入(默认: true)，启用后 logEvent 不等待磁盘完成
 }
 
 /**
@@ -53,6 +54,7 @@ export class EventLogger {
       logFileName: config.logFileName || 'events.jsonl',
       autoFlush: config.autoFlush ?? true,
       validateEvents: config.validateEvents ?? true,
+      asyncWrite: config.asyncWrite ?? true,
     };
 
     this.logFilePath = path.join(this.config.logDir, this.config.logFileName);
@@ -88,7 +90,10 @@ export class EventLogger {
       await this.writeEventToFile(fullEvent);
     });
 
-    await this.writeLock;
+    // 异步写入：不等待磁盘完成，直接返回 eventId
+    if (!this.config.asyncWrite) {
+      await this.writeLock;
+    }
 
     return fullEvent.eventId;
   }
@@ -211,7 +216,8 @@ export class EventLogger {
     });
 
     // 追加写入文件 (append mode)
-    await fs.appendFile(this.logFilePath, jsonLine + '\n', 'utf-8');
+    // 追加写入文件 (append mode)，首次创建文件使用 0600 权限
+    await fs.appendFile(this.logFilePath, jsonLine + '\n', { encoding: 'utf-8', mode: 0o600 });
   }
 
   /**
@@ -219,7 +225,9 @@ export class EventLogger {
    */
   private async ensureLogDirExists(): Promise<void> {
     try {
-      await fs.mkdir(this.config.logDir, { recursive: true });
+      await fs.mkdir(this.config.logDir, { recursive: true, mode: 0o700 });
+      // 再次强制设定目录权限（受 umask 影响时）
+      await fs.chmod(this.config.logDir, 0o700).catch(() => {});
     } catch (error) {
       // 目录已存在,忽略错误
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
@@ -233,6 +241,13 @@ export class EventLogger {
    */
   getLogFilePath(): string {
     return this.logFilePath;
+  }
+
+  /**
+   * 刷新：等待当前所有写入完成
+   */
+  async flush(): Promise<void> {
+    await this.writeLock;
   }
 }
 

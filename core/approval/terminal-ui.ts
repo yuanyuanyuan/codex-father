@@ -207,10 +207,11 @@ export class TerminalUI {
    * @returns 超时 Promise
    */
   private createTimeoutPromise(timeout: number): Promise<ApprovalDecision> {
-    return new Promise((_, reject) => {
+    return new Promise((resolve) => {
       setTimeout(() => {
         console.log(`\n⏱️  Approval timeout (${timeout}ms) - 自动拒绝\n`);
-        reject(new Error(`Approval timeout after ${timeout}ms`));
+        // 超时降级为拒绝，避免抛出异常中断上层流程
+        resolve('deny');
       }, timeout);
     });
   }

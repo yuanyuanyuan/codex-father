@@ -80,6 +80,7 @@ export interface SessionManagerConfig {
  */
 export interface CreateSessionOptions {
   sessionName: string;
+  jobId?: string;
   model?: string;
   cwd?: string;
   approvalMode?: ApprovalMode;
@@ -104,6 +105,7 @@ export class SessionManager {
   private configPersisters: Map<string, ConfigPersister>; // jobId → ConfigPersister
   private policyEngines: Map<string, PolicyEngine>; // jobId → PolicyEngine
   private terminalUI: TerminalUI;
+  private conversationToJob: Map<string, string>; // conversationId → jobId
 
   constructor(config: SessionManagerConfig) {
     this.processManager = config.processManager;
@@ -120,6 +122,7 @@ export class SessionManager {
     this.eventLoggers = new Map();
     this.configPersisters = new Map();
     this.policyEngines = new Map();
+    this.conversationToJob = new Map();
 
     // 创建终端 UI (共享实例)
     this.terminalUI = new TerminalUI();
@@ -139,8 +142,8 @@ export class SessionManager {
       await this.processManager.start();
     }
 
-    // 生成唯一 ID
-    const jobId = uuidv4();
+    // 使用外部提供的 jobId 或生成新 ID
+    const jobId = options.jobId || uuidv4();
     const sessionDir = path.join(
       this.config.sessionsDir,
       `${options.sessionName}-${new Date().toISOString().split('T')[0]}`
@@ -182,6 +185,8 @@ export class SessionManager {
 
     // 保存会话到内存
     this.sessions.set(result.conversationId, session);
+    // 维护 conversationId → jobId 映射
+    this.conversationToJob.set(result.conversationId, jobId);
 
     // 初始化事件日志记录器
     const eventLogger = new EventLogger({
@@ -308,16 +313,27 @@ export class SessionManager {
         decision = 'allow';
         request.status = ApprovalStatus.AUTO_APPROVED;
       } else {
-        // 需要人工审批
+        // 需要人工审批（带超时与异常降级）
+        try {
+          terminalDecision = await this.terminalUI.promptApproval(request);
+          decision = terminalDecision === 'allow' ? 'allow' : 'deny';
+          request.status = decision === 'allow' ? ApprovalStatus.APPROVED : ApprovalStatus.DENIED;
+        } catch (_e) {
+          // 任意异常（包括超时）均视为拒绝，保证流程可控
+          decision = 'deny';
+          request.status = ApprovalStatus.DENIED;
+        }
+      }
+    } else if (request.type === 'apply-patch') {
+      // apply-patch 默认需要人工审批（带超时与异常降级）
+      try {
         terminalDecision = await this.terminalUI.promptApproval(request);
         decision = terminalDecision === 'allow' ? 'allow' : 'deny';
         request.status = decision === 'allow' ? ApprovalStatus.APPROVED : ApprovalStatus.DENIED;
+      } catch (_e) {
+        decision = 'deny';
+        request.status = ApprovalStatus.DENIED;
       }
-    } else if (request.type === 'apply-patch') {
-      // apply-patch 默认需要人工审批
-      terminalDecision = await this.terminalUI.promptApproval(request);
-      decision = terminalDecision === 'allow' ? 'allow' : 'deny';
-      request.status = decision === 'allow' ? ApprovalStatus.APPROVED : ApprovalStatus.DENIED;
     } else {
       throw new Error(`Unknown approval type: ${request.type}`);
     }
@@ -402,6 +418,7 @@ export class SessionManager {
     // this.eventLoggers.delete(session.jobId);
     // this.configPersisters.delete(session.jobId);
     // this.policyEngines.delete(session.jobId);
+    // this.conversationToJob.delete(conversationId);
   }
 
   /**
@@ -417,6 +434,15 @@ export class SessionManager {
       await this.terminateSession(session.conversationId);
     }
 
+    // 刷新并落盘所有日志，确保退出前无丢失
+    const loggerFlushes: Promise<void>[] = [];
+    for (const logger of this.eventLoggers.values()) {
+      if (typeof (logger as any).flush === 'function') {
+        loggerFlushes.push((logger as unknown as { flush: () => Promise<void> }).flush());
+      }
+    }
+    await Promise.all(loggerFlushes);
+
     // 停止进程管理器
     await this.processManager.stop();
 
@@ -425,6 +451,14 @@ export class SessionManager {
     this.eventLoggers.clear();
     this.configPersisters.clear();
     this.policyEngines.clear();
+    this.conversationToJob.clear();
+  }
+
+  /**
+   * 通过 conversationId 获取 jobId（用于通知映射等场景）
+   */
+  getJobIdByConversationId(conversationId: string): string | undefined {
+    return this.conversationToJob.get(conversationId);
   }
 }
 

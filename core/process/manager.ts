@@ -41,6 +41,8 @@ export interface ProcessManagerConfig {
   restartDelay?: number; // 重启延迟(毫秒, 默认: 1000)
   timeout?: number; // 请求超时时间(毫秒, 默认: 30000)
   debug?: boolean; // 是否输出调试日志
+  // 轻量健康检查（非必需）
+  rpcHealthCheck?: boolean; // 是否通过客户端状态进行轻量探活（默认: false）
 }
 
 /**
@@ -71,6 +73,7 @@ export class SingleProcessManager extends EventEmitter {
       restartDelay: config.restartDelay || 1000,
       timeout: config.timeout || 30000,
       debug: config.debug || false,
+      rpcHealthCheck: config.rpcHealthCheck || false,
     };
 
     this.status = ProcessManagerStatus.STOPPED;
@@ -347,9 +350,17 @@ export class SingleProcessManager extends EventEmitter {
         console.error('[ProcessManager] Health check restart failed:', error);
       });
     } else {
-      if (this.config.debug) {
-        console.log('[ProcessManager] Health check passed');
+      // 可选：检查客户端连接状态
+      if (this.config.rpcHealthCheck && this.client && this.client.isClosed()) {
+        if (this.config.debug) {
+          console.warn('[ProcessManager] Client closed detected on health check, restarting');
+        }
+        this.restart().catch((error) => {
+          console.error('[ProcessManager] Client closed restart failed:', error);
+        });
+        return;
       }
+      if (this.config.debug) console.log('[ProcessManager] Health check passed');
     }
   }
 }

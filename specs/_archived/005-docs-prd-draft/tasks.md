@@ -359,7 +359,7 @@ implementation**
   - 创建 `docs/mcp-integration.md`：MCP 集成指南
   - **验收**：文档与代码实现一致
 
-- [ ] **T037** 手动验收测试
+- [x] **T037** 手动验收测试
   - **📖 操作指引**:
     [`T037-ACCEPTANCE-TEST-GUIDE.md`](./T037-ACCEPTANCE-TEST-GUIDE.md)
   - 执行 `quickstart.md` 中的所有场景：
@@ -368,7 +368,7 @@ implementation**
   - 记录任何发现的问题
   - **验收**：所有场景手动通过，填写测试报告
 
-- [ ] **T038** 代码审查和重构
+- [x] **T038** 代码审查和重构
   - **📖 审查范围**: [`T038-CODE-REVIEW-SCOPE.md`](./T038-CODE-REVIEW-SCOPE.md)
   - 审查所有新增代码的可读性和可维护性
   - 确保符合 SOLID 原则和项目 constitution

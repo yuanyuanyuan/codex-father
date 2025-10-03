@@ -112,6 +112,33 @@ export function registerMCPCommand(parser: CLIParser): void {
           serverConfig.debug = options.debug;
         }
 
+        // 透传进程管理相关选项
+        if (options.codexCommand) {
+          serverConfig.codexCommand = options.codexCommand;
+        }
+        if (options.codexArgs) {
+          // 逗号分隔字符串转数组，过滤空白
+          serverConfig.codexArgs = String(options.codexArgs)
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+        }
+        if (options.cwd) {
+          serverConfig.cwd = options.cwd;
+        }
+        if (typeof options.healthCheckInterval === 'number') {
+          serverConfig.healthCheckInterval = options.healthCheckInterval;
+        }
+        if (typeof options.maxRestartAttempts === 'number') {
+          serverConfig.maxRestartAttempts = options.maxRestartAttempts;
+        }
+        if (typeof options.restartDelay === 'number') {
+          serverConfig.restartDelay = options.restartDelay;
+        }
+        if (typeof options.timeout === 'number') {
+          serverConfig.timeout = options.timeout;
+        }
+
         const server = createMCPServer(serverConfig as Parameters<typeof createMCPServer>[0]);
 
         mcpServerInstance = server;

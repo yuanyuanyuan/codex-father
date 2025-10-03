@@ -30,6 +30,14 @@ export interface MCPServerConfig {
   serverName?: string; // 服务器名称 (默认: 'codex-father')
   serverVersion?: string; // 服务器版本
   debug?: boolean; // 是否输出调试日志
+  // 进程管理器配置透传
+  codexCommand?: string;
+  codexArgs?: string[];
+  cwd?: string;
+  healthCheckInterval?: number;
+  maxRestartAttempts?: number;
+  restartDelay?: number;
+  timeout?: number;
 }
 
 /**
@@ -47,7 +55,7 @@ export class MCPServer {
   private sessionManager: SessionManager;
   private bridgeLayer: BridgeLayer;
   private eventMapper: EventMapper;
-  private config: Required<MCPServerConfig>;
+  private config: MCPServerConfig;
 
   constructor(config: MCPServerConfig = {}) {
     this.config = {
@@ -55,12 +63,21 @@ export class MCPServer {
       serverVersion: config.serverVersion || '1.0.0-mvp1',
       debug: config.debug || false,
     };
+    if (config.codexCommand !== undefined) this.config.codexCommand = config.codexCommand;
+    if (config.codexArgs !== undefined) this.config.codexArgs = config.codexArgs;
+    if (config.cwd !== undefined) this.config.cwd = config.cwd;
+    if (config.healthCheckInterval !== undefined)
+      this.config.healthCheckInterval = config.healthCheckInterval;
+    if (config.maxRestartAttempts !== undefined)
+      this.config.maxRestartAttempts = config.maxRestartAttempts;
+    if (config.restartDelay !== undefined) this.config.restartDelay = config.restartDelay;
+    if (config.timeout !== undefined) this.config.timeout = config.timeout;
 
     // 创建 MCP Server
     this.server = new Server(
       {
-        name: this.config.serverName,
-        version: this.config.serverVersion,
+        name: this.config.serverName || 'codex-father',
+        version: this.config.serverVersion || '1.0.0-mvp1',
       },
       {
         capabilities: {
@@ -73,9 +90,20 @@ export class MCPServer {
     this.transport = new StdioServerTransport();
 
     // 创建进程管理器
-    this.processManager = createProcessManager({
-      debug: this.config.debug,
-    });
+    const pmConfig: import('../process/manager.js').ProcessManagerConfig = {
+      debug: !!this.config.debug,
+    };
+    if (this.config.codexCommand) pmConfig.codexCommand = this.config.codexCommand;
+    if (this.config.codexArgs) pmConfig.codexArgs = this.config.codexArgs;
+    if (this.config.cwd) pmConfig.cwd = this.config.cwd;
+    if (typeof this.config.healthCheckInterval === 'number')
+      pmConfig.healthCheckInterval = this.config.healthCheckInterval;
+    if (typeof this.config.maxRestartAttempts === 'number')
+      pmConfig.maxRestartAttempts = this.config.maxRestartAttempts;
+    if (typeof this.config.restartDelay === 'number') pmConfig.restartDelay = this.config.restartDelay;
+    if (typeof this.config.timeout === 'number') pmConfig.timeout = this.config.timeout;
+
+    this.processManager = createProcessManager(pmConfig);
 
     // 创建会话管理器
     this.sessionManager = createSessionManager({
@@ -89,7 +117,7 @@ export class MCPServer {
 
     // 创建事件映射器
     this.eventMapper = createEventMapper({
-      debug: this.config.debug,
+      debug: !!this.config.debug,
     });
 
     // 注册 MCP 协议处理器
@@ -203,18 +231,41 @@ export class MCPServer {
         console.log('[MCPServer] Received Codex notification:', notification.method);
       }
 
-      // TODO: 从通知中提取 jobId (需要维护 conversationId → jobId 映射)
-      // 这里暂时使用占位符
-      const jobId = 'placeholder-job-id';
+      // 优先从 Codex 通知参数中提取 conversationId → 解析 jobId
+      const params: unknown = notification.params;
+      let conversationId: string | undefined;
+      if (params && typeof params === 'object' && 'conversationId' in (params as Record<string, unknown>)) {
+        const cid = (params as Record<string, unknown>)['conversationId'];
+        if (typeof cid === 'string' && cid.length > 0) {
+          conversationId = cid;
+        }
+      }
+
+      if (!conversationId) {
+        if (this.config.debug) {
+          console.warn('[MCPServer] Codex notification missing conversationId; skip progress relay');
+        }
+        return;
+      }
+
+      const jobId = this.sessionManager.getJobIdByConversationId(conversationId);
+      if (!jobId) {
+        if (this.config.debug) {
+          console.warn(
+            `[MCPServer] No jobId mapping for conversationId=${conversationId}; skip progress relay`
+          );
+        }
+        return;
+      }
 
       // 映射事件
       const mcpNotification = this.eventMapper.mapEvent(
         {
-          eventId: notification.params?.eventId || 'unknown',
+          eventId: (notification.params as any)?.eventId || 'unknown',
           timestamp: new Date(),
           jobId,
-          type: notification.params?.type || 'unknown',
-          data: notification.params || {},
+          type: (notification.params as any)?.type || 'unknown',
+          data: (notification.params as any) || {},
         },
         jobId
       );
@@ -236,8 +287,8 @@ export class MCPServer {
    */
   getServerInfo(): { name: string; version: string } {
     return {
-      name: this.config.serverName,
-      version: this.config.serverVersion,
+      name: this.config.serverName || 'codex-father',
+      version: this.config.serverVersion || '1.0.0-mvp1',
     };
   }
 }

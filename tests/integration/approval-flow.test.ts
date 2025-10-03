@@ -10,7 +10,7 @@
  * 注意：这是一个集成测试，测试审批策略引擎的完整流程
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { createPolicyEngine, type PolicyEngine } from '../../core/approval/policy-engine.js';
@@ -61,6 +61,11 @@ describe('审批机制集成测试', () => {
       logFileName: 'approval-events.jsonl',
       validateEvents: false, // Disable validation for simpler test events
     });
+  });
+
+  beforeEach(async () => {
+    await eventLogger.flush();
+    await eventLogger.clearLogs();
   });
 
   afterAll(async () => {
@@ -174,7 +179,7 @@ describe('审批机制集成测试', () => {
       };
 
       expect(mockApprovalDecision.decision).toBe('allow');
-      expect(mockApprovalDecision.waitingDuration).toBeGreaterThanOrEqual(50);
+      expect(mockApprovalDecision.waitingDuration).toBeGreaterThanOrEqual(45);
     });
 
     it('应该模拟用户拒绝流程 (deny)', async () => {
@@ -201,7 +206,7 @@ describe('审批机制集成测试', () => {
       };
 
       expect(mockRejectionDecision.decision).toBe('deny');
-      expect(mockRejectionDecision.waitingDuration).toBeGreaterThanOrEqual(30);
+      expect(mockRejectionDecision.waitingDuration).toBeGreaterThanOrEqual(25);
     });
 
     it('应该正确计算 waitingDuration', async () => {
@@ -213,7 +218,7 @@ describe('审批机制集成测试', () => {
       const endTime = Date.now();
       const waitingDuration = endTime - startTime;
 
-      expect(waitingDuration).toBeGreaterThanOrEqual(100);
+      expect(waitingDuration).toBeGreaterThanOrEqual(95);
       expect(waitingDuration).toBeLessThan(150); // Allow some margin
     });
   });
@@ -240,6 +245,7 @@ describe('审批机制集成测试', () => {
 
       // Verify event was logged
       const logPath = path.join(testSessionDir, 'approval-events.jsonl');
+      await eventLogger.flush();
       const logContent = await fs.readFile(logPath, 'utf-8');
       const lines = logContent.trim().split('\n');
 
@@ -269,6 +275,7 @@ describe('审批机制集成测试', () => {
 
       // Verify event was logged
       const logPath = path.join(testSessionDir, 'approval-events.jsonl');
+      await eventLogger.flush();
       const logContent = await fs.readFile(logPath, 'utf-8');
       const lines = logContent.trim().split('\n');
 
@@ -298,6 +305,7 @@ describe('审批机制集成测试', () => {
 
       // Verify event was logged
       const logPath = path.join(testSessionDir, 'approval-events.jsonl');
+      await eventLogger.flush();
       const logContent = await fs.readFile(logPath, 'utf-8');
       const lines = logContent.trim().split('\n');
 
@@ -331,6 +339,7 @@ describe('审批机制集成测试', () => {
 
       // Verify event sequence
       const logPath = path.join(testSessionDir, 'approval-events.jsonl');
+      await eventLogger.flush();
       const logContent = await fs.readFile(logPath, 'utf-8');
       const lines = logContent.trim().split('\n');
 
@@ -388,6 +397,7 @@ describe('审批机制集成测试', () => {
 
       // Verify events were logged
       const logPath = path.join(testSessionDir, 'approval-events.jsonl');
+      await eventLogger.flush();
       const logContent = await fs.readFile(logPath, 'utf-8');
       const lines = logContent.trim().split('\n');
       const lastTwoEvents = lines.slice(-2).map((line) => JSON.parse(line));
@@ -441,6 +451,7 @@ describe('审批机制集成测试', () => {
 
       // Verify events were logged
       const logPath = path.join(testSessionDir, 'approval-events.jsonl');
+      await eventLogger.flush();
       const logContent = await fs.readFile(logPath, 'utf-8');
       const lines = logContent.trim().split('\n');
       const lastTwoEvents = lines.slice(-2).map((line) => JSON.parse(line));

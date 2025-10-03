@@ -194,10 +194,12 @@ describe('MVP1 单进程基本流程集成测试', () => {
       expect(duration).toBeLessThan(500);
 
       // Verify response contains expected fields
-      expect(result).toHaveProperty('status');
-      expect(result).toHaveProperty('jobId');
-      expect(result).toHaveProperty('conversationId');
-      expect(result.status).toBe('accepted');
+      expect(result).toMatchObject({
+        status: 'accepted',
+        jobId: expect.any(String),
+      });
+      expect(result).toHaveProperty('message');
+      expect(result.message).toContain('Task accepted.');
     });
 
     it('应该返回包含正确字段的响应', async () => {
@@ -227,9 +229,9 @@ describe('MVP1 单进程基本流程集成测试', () => {
       expect(result).toMatchObject({
         status: 'accepted',
         jobId: expect.any(String),
-        conversationId: expect.any(String),
-        message: expect.stringContaining('Task started successfully'),
       });
+      expect(result.message).toContain('Task accepted.');
+      expect(result.message).toContain('Progress will be sent via notifications');
     });
   });
 
@@ -393,6 +395,7 @@ describe('MVP1 单进程基本流程集成测试', () => {
 
       // Verify events.jsonl was created
       const logPath = path.join(testLogDir, 'events.jsonl');
+      await logger.flush();
       const logStats = await fs.stat(logPath);
       expect(logStats.isFile()).toBe(true);
 
@@ -487,11 +490,11 @@ describe('MVP1 单进程基本流程集成测试', () => {
 
       // Mock session manager
       const mockSessionManager = {
-        createSession: vi.fn().mockResolvedValue({
+        createSession: vi.fn().mockImplementation(async ({ jobId }) => ({
           conversationId: 'b8c9d0e1-f2a3-4567-1234-678901234567',
-          jobId: 'c9d0e1f2-a3b4-5678-2345-789012345678',
+          jobId,
           rolloutPath: '/mock/rollout.jsonl',
-        }),
+        })),
         sendUserMessage: vi.fn(),
         handleApprovalRequest: vi.fn(),
       } as any;
@@ -526,14 +529,19 @@ describe('MVP1 单进程基本流程集成测试', () => {
         data: {},
       } as any);
 
+      // Ensure background session creation完成后再持久化配置
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(mockSessionManager.createSession).toHaveBeenCalledTimes(1);
+      const createdSession = await mockSessionManager.createSession.mock.results[0].value;
+
       // Step 3: Save config
       const sessionConfig = {
-        conversationId: result.conversationId!,
+        conversationId: createdSession.conversationId,
         sessionName: 'complete-flow-test',
         jobId: result.jobId!,
         createdAt: new Date(),
         sessionDir: flowTestDir,
-        rolloutRef: '/mock/rollout.jsonl',
+        rolloutRef: createdSession.rolloutPath,
         status: 'active' as const,
         config: {
           model: 'gpt-5',
@@ -553,6 +561,8 @@ describe('MVP1 单进程基本流程集成测试', () => {
       const eventsPath = path.join(flowTestDir, 'events.jsonl');
       const configPath = path.join(flowTestDir, 'config.json');
       const rolloutRefPath = path.join(flowTestDir, 'rollout-ref.txt');
+
+      await eventLogger.flush();
 
       const [eventsExists, configExists, rolloutRefExists] = await Promise.all([
         fs
