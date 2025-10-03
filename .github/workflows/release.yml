@@ -1,26 +1,20 @@
-name: Release to GH Packages
+name: Release
 
 on:
-  # 简化触发：仅 main 分支 push（通常来自 PR 合并）+ 手动触发
   push:
     branches: [main]
-    paths:
-      - 'mcp/**'
-      - '.releaserc'
   workflow_dispatch: {}
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
-  release-ghpkgs:
+  release:
     concurrency:
       group: release-${{ github.ref }}
       cancel-in-progress: true
     runs-on: ubuntu-latest
     env:
-      # 将可选的 NPM_TOKEN 暴露为 env，便于 if 判断
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout
@@ -34,18 +28,13 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org/'
 
-      - name: Configure npm for GitHub Packages
-        run: |
-          echo "@yuanyuanyuan:registry=https://npm.pkg.github.com" >> "$NPM_CONFIG_USERCONFIG"
-          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> "$NPM_CONFIG_USERCONFIG"
-          echo "always-auth=true" >> "$NPM_CONFIG_USERCONFIG"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Configure npm for npmjs (conditional)
+      - name: Configure npm for npmjs
         run: |
           if [ -n "${NPM_TOKEN:-}" ]; then
             echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPM_CONFIG_USERCONFIG"
+            echo "always-auth=true" >> "$NPM_CONFIG_USERCONFIG"
+          else
+            echo "NPM_TOKEN not set; npm publish will be skipped by semantic-release."
           fi
 
       - name: Install dependencies (mcp package)
@@ -67,9 +56,9 @@ jobs:
             @semantic-release/git \
             @semantic-release/github
 
-      - name: Semantic Release (publish to GH Packages)
+      - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release
+
