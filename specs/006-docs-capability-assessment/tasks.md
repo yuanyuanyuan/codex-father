@@ -34,7 +34,7 @@
 - [x] T003 [P] Add JSON Schema validation helper for events at
       `core/lib/utils/stream-event-validator.ts` (uses
       `docs/schemas/stream-json-event.schema.json`)
-- [ ] T004 [P] Create orchestrator module layout under `core/orchestrator/`:
+- [x] T004 [P] Create orchestrator module layout under `core/orchestrator/`:
       `process-orchestrator.ts`, `task-scheduler.ts`, `sww-coordinator.ts`,
       `state-manager.ts`, `resource-monitor.ts`, `quick-validate.ts`,
       `patch-applier.ts`, `types.ts`
