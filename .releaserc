@@ -10,7 +10,13 @@
     ],
     [
       "@semantic-release/npm",
-      { "pkgRoot": "mcp/codex-mcp-server", "npmPublish": true }
+      { "pkgRoot": "mcp/codex-mcp-server", "npmPublish": false }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "publishCmd": "cd mcp/codex-mcp-server && npm publish --registry https://npm.pkg.github.com"
+      }
     ],
     [
       "@semantic-release/git",
@@ -25,4 +31,3 @@
     "@semantic-release/github"
   ]
 }
-
