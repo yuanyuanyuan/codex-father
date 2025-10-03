@@ -1,3 +1,10 @@
+## [1.1.3](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.2...mcp-v1.1.3) (2025-10-03)
+
+
+### Bug Fixes
+
+* update package-lock.json to change package name from @yuanyuanyuan/codex-father-mcp-server to @starkdev020/codex-father-mcp-server ([7ae4817](https://github.com/yuanyuanyuan/codex-father/commit/7ae48173459d8de5e940fcaa0d5936877680de8f))
+
 ## [1.1.2](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.1...mcp-v1.1.2) (2025-10-03)
 
 
