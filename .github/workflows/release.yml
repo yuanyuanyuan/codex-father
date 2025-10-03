@@ -59,6 +59,9 @@ jobs:
             @semantic-release/github
 
       - name: Debug npm identity
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm whoami || true
 
       - name: Release
