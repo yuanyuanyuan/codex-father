@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "codex-father": {
+      "command": "node",
+      "args": ["./mcp/codex-mcp-server/dist/index.js"]
+    }
+  }
+}
