@@ -1,3 +1,10 @@
+## [1.1.10](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.9...mcp-v1.1.10) (2025-10-03)
+
+
+### Bug Fixes
+
+* **start:** 统一可写沙箱审批降级逻辑 ([89ed850](https://github.com/yuanyuanyuan/codex-father/commit/89ed8500c3c0ec869d8c3dec580c7fc61eaee365))
+
 ## [1.1.9](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.8...mcp-v1.1.9) (2025-10-03)
 
 
