@@ -27,6 +27,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          registry-url: 'https://registry.npmjs.org/'
 
       - name: Configure npm for GitHub Packages
         run: |
@@ -47,6 +48,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_REGISTRY: https://npm.pkg.github.com/
-        run: npx -y semantic-release
-
+        run: npx -y --registry=https://registry.npmjs.org/ semantic-release

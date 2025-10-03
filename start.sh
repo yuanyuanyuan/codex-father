@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+# 保留原始 CLI 参数以便日志调试
+ORIG_ARGV=("$@")
 # 提升通配符能力（支持 **）
 shopt -s globstar
 
@@ -21,7 +23,8 @@ if [[ -f "${SCRIPT_DIR}/lib/presets.sh" ]]; then
 fi
 
 # 日志相关默认
-CODEX_LOG_DIR_DEFAULT="${PWD}/.codex-father/sessions"
+# 默认将日志写入脚本所在目录的 .codex-father/sessions，避免受调用时 PWD 影响
+CODEX_LOG_DIR_DEFAULT="${SCRIPT_DIR}/.codex-father/sessions"
 CODEX_LOG_DIR="${CODEX_LOG_DIR:-$CODEX_LOG_DIR_DEFAULT}"
 CODEX_LOG_FILE="${CODEX_LOG_FILE:-}"
 CODEX_LOG_TAG="${CODEX_LOG_TAG:-}"
@@ -51,6 +54,29 @@ REDACT_PATTERNS_DEFAULT=(
 )
 REDACT_REPLACEMENT="${REDACT_REPLACEMENT:-***REDACTED***}"
 
+# 运行期状态：是否已写入标准日志头（用于确保任意异常退出也能落日志）
+RUN_LOGGED=0
+
+# 兜底：任何非零退出都至少写一条错误日志
+trap 'code=$?; if [[ $code -ne 0 ]]; then \
+  ts=$(date +%Y%m%d_%H%M%S); \
+  # 若尚未确定日志文件，尽力用默认规则生成一个
+  if [[ -z "${CODEX_LOG_FILE:-}" ]]; then \
+    CODEX_LOG_DIR="${CODEX_LOG_DIR:-${SCRIPT_DIR}/.codex-father/sessions}"; \
+    mkdir -p "$CODEX_LOG_DIR"; \
+    CODEX_LOG_FILE="${CODEX_LOG_DIR}/codex-${ts}.log"; \
+  fi; \
+  mkdir -p "$(dirname "${CODEX_LOG_FILE}")"; \
+  if [[ "${RUN_LOGGED:-0}" -eq 0 ]]; then \
+    { \
+      echo "===== Codex Run Start: ${ts} ====="; \
+      echo "Script: $(basename "$0")  PWD: $(pwd)"; \
+      echo "Log: ${CODEX_LOG_FILE}"; \
+      echo "[trap] 非零退出（可能为早期错误或参数问题）。Exit Code: ${code}"; \
+    } >> "${CODEX_LOG_FILE}"; \
+  fi; \
+fi' EXIT
+
 KNOWN_FLAGS=(
   "-f" "--file" "-F" "--file-override" "-c" "--content" "-l" "--log-file"
   "--log-dir" "--tag" "--log-subdirs" "--flat-logs" "--echo-instructions"
@@ -58,7 +84,7 @@ KNOWN_FLAGS=(
   "--task" "--require-change-in" "--require-git-commit" "--auto-commit-on-done"
   "--auto-commit-message" "--no-overflow-retry" "--overflow-retries" "--repeat-until"
   "--max-runs" "--sleep-seconds" "--no-carry-context" "--no-compress-context"
-  "--context-head" "--context-grep" "--sandbox" "--approvals" "--profile"
+  "--context-head" "--context-grep" "--sandbox" "--ask-for-approval" "--approval-mode" "--approvals" "--profile"
   "--full-auto" "--dangerously-bypass-approvals-and-sandbox" "--codex-config"
   "--codex-arg" "--no-aggregate" "--aggregate-file" "--aggregate-jsonl-file"
   "--redact" "--redact-pattern" "--prepend" "--append" "--prepend-file"
@@ -119,14 +145,29 @@ expand_arg_to_files() {
     if [[ ! -f "$list_file" ]]; then
       EXP_ERRORS="列表文件不存在: $list_file"; return 1
     fi
+    local had_any=0
     while IFS= read -r line || [[ -n "$line" ]]; do
       line="${line%%$'\r'}" # trim CR
       [[ -z "$line" || "$line" == \#* ]] && continue
-      expand_arg_to_files "$line" || true
-      if (( ${#EXP_FILES[@]} > 0 )); then
-        :
+      if [[ -d "$line" ]]; then
+        while IFS= read -r f; do EXP_FILES+=("$f"); had_any=1; done < <(find "$line" -type f \( -name '*.md' -o -name '*.markdown' \) -print | sort)
+        continue
       fi
+      if [[ "$line" == *'*'* || "$line" == *'?'* || "$line" == *'['* ]]; then
+        local old_nullglob; old_nullglob=$(shopt -p nullglob || true)
+        shopt -s nullglob
+        local expanded_line=( $line )
+        eval "$old_nullglob" || true
+        if (( ${#expanded_line[@]} > 0 )); then
+          local m; for m in "${expanded_line[@]}"; do EXP_FILES+=("$m"); done
+          had_any=1
+        fi
+        continue
+      fi
+      if [[ -f "$line" ]]; then EXP_FILES+=("$line"); had_any=1; continue; fi
+      # otherwise ignore silently; caller会在最终读取阶段提示缺失项
     done < "$list_file"
+    if (( had_any == 0 )); then EXP_ERRORS="列表中未解析到任何文件: $list_file"; return 1; fi
     return 0
   fi
   # 目录：递归匹配 *.md
@@ -139,9 +180,14 @@ expand_arg_to_files() {
   fi
   # 通配符
   if [[ "$token" == *'*'* || "$token" == *'?'* || "$token" == *'['* ]]; then
-    mapfile -t _matches < <(compgen -G -- "$token" || true)
-    if (( ${#_matches[@]} > 0 )); then
-      local m; for m in "${_matches[@]}"; do EXP_FILES+=("$m"); done
+    local old_nullglob
+    old_nullglob=$(shopt -p nullglob || true)
+    shopt -s nullglob
+    local expanded=( $token )
+    # 恢复 nullglob 之前的设置
+    eval "$old_nullglob" || true
+    if (( ${#expanded[@]} > 0 )); then
+      local m; for m in "${expanded[@]}"; do EXP_FILES+=("$m"); done
       return 0
     else
       EXP_ERRORS="未匹配到任何文件: $token"; return 1
@@ -202,16 +248,102 @@ usage() {
   - 默认将日志保存在 ${CODEX_LOG_DIR_DEFAULT}，并按“日期/标签”分层：logs/YYYYMMDD/<tag|untagged>/codex-YYYYMMDD_HHMMSS-<tag>.log；
     可通过 --flat-logs 改为平铺至 --log-dir。摘要附加到 ${REPO_ROOT}/codex_run_recording.txt。
   - 日志默认回显“最终合成的指令”与“各来源列表”，可用 --no-echo-instructions 关闭；或用 --echo-limit 控制回显的行数。
+  - 审批策略：通过 `--approval-mode <策略>`（untrusted|on-failure|on-request|never）或 `-c approval_policy=<策略>` 配置；兼容别名 `--approvals` 将自动映射为 `-c approval_policy=<策略>`。
+  - 透传参数：在选项后使用 `--`，其后的所有参数将原样传递给 codex（例如：`-- --sandbox danger-full-access`).
   - 为简化常用场景，可使用 --preset：
-    - sprint：多轮推进，直到输出 CONTROL: DONE；配合自动连续执行与宽松时限。
+    - sprint：单轮低摩擦推进（自动连续执行、合理时限与步数上限）。
     - analysis：单轮快速分析，回显行数默认限制为 200。
     - secure：启用输出脱敏。
     - fast：缩短时间盒与步数限制，快速试探。
   - 上下文溢出自动重试（默认开启）：如检测到 context/token 限制导致退出，将自动读取最新指令并重试；可用 --no-overflow-retry 关闭，或用 --overflow-retries N 调整重试次数（默认2）。
   - 完成前置校验（可选）：
-    - 使用 --require-change-in 与 --require-git-commit 可以在满足 repeat-until 之前强制验证“进度已写回且已提交”。
+    - 使用 --require-change-in 与 --require-git-commit 可以在结束前强制验证“进度已写回且已提交”。
     - 如设置 --auto-commit-on-done，脚本会在检测到匹配变更未提交时自动提交后再允许结束。
 EOF
+}
+
+## 校验 Codex 透传参数的冲突组合（参照官方 CLI 规则）
+validate_conflicting_codex_args() {
+  local has_bypass=0
+  local has_full_auto=0
+  local has_ask=0
+  local i=0
+  while (( i < ${#CODEX_GLOBAL_ARGS[@]} )); do
+    local a="${CODEX_GLOBAL_ARGS[$i]}"
+    case "$a" in
+      --dangerously-bypass-approvals-and-sandbox)
+        has_bypass=1 ;;
+      --full-auto)
+        has_full_auto=1 ;;
+      --ask-for-approval)
+        has_ask=1; i=$((i+1)) ;; # 跳过其值
+      # 跳过带值选项的值，避免被当作独立标记参与判断
+      --sandbox|--profile|--config)
+        i=$((i+1)) ;;
+    esac
+    i=$((i+1))
+  done
+
+  if (( has_bypass == 1 )) && { (( has_full_auto == 1 )) || (( has_ask == 1 )); }; then
+    VALIDATION_ERROR=$'错误: 参数冲突\n- --dangerously-bypass-approvals-and-sandbox 不可与 --ask-for-approval 或 --full-auto 同时使用\n  请参考 refer-research/openai-codex/docs/sandbox.md 的组合规范'
+    return 0
+  fi
+  # 始终返回 0，避免在 set -e 下因条件为假导致脚本提前退出
+  return 0
+}
+
+# 当用户请求 --sandbox danger-full-access 时，确保审批策略可用
+# - 若未显式设置 --ask-for-approval，默认补上 on-request（可通过环境 DEFAULT_APPROVAL_FOR_DFA 覆盖）
+# - 若显式设置为 never，则提示错误，因为 never 禁止升级权限，无法进入 full-access
+normalize_sandbox_and_approvals() {
+  local sandbox="" approval="" has_bypass=0
+  local i=0
+  while (( i < ${#CODEX_GLOBAL_ARGS[@]} )); do
+    local a="${CODEX_GLOBAL_ARGS[$i]}"
+    case "$a" in
+      --sandbox)
+        if (( i+1 < ${#CODEX_GLOBAL_ARGS[@]} )); then sandbox="${CODEX_GLOBAL_ARGS[$((i+1))]}"; fi
+        i=$((i+1)) ;;
+      --ask-for-approval)
+        if (( i+1 < ${#CODEX_GLOBAL_ARGS[@]} )); then approval="${CODEX_GLOBAL_ARGS[$((i+1))]}"; fi
+        i=$((i+1)) ;;
+      --dangerously-bypass-approvals-and-sandbox)
+        has_bypass=1 ;;
+    esac
+    i=$((i+1))
+  done
+
+  if [[ "$sandbox" == "danger-full-access" && $has_bypass -ne 1 ]]; then
+    if [[ -z "$approval" ]]; then
+      # 未指定审批策略，默认补 on-request（交互式）
+      local policy="${DEFAULT_APPROVAL_FOR_DFA:-on-request}"
+      CODEX_GLOBAL_ARGS+=("--ask-for-approval" "$policy")
+      DFA_NOTE="已自动附加 --ask-for-approval ${policy} 以配合 --sandbox danger-full-access"
+    elif [[ "$approval" == "never" ]]; then
+      # 非交互且请求 full-access：默认降级 sandbox，或在显式允许时自动添加 bypass
+      local allow_bypass="${ALLOW_DFA_WITH_NEVER:-0}"
+      local degrade_on_never="${DFA_DEGRADE_ON_NEVER:-1}"
+      local degrade_target="${DFA_DEGRADE_TARGET:-workspace-write}"
+      if [[ "$allow_bypass" == "1" ]]; then
+        CODEX_GLOBAL_ARGS+=("--dangerously-bypass-approvals-and-sandbox")
+        DFA_NOTE="已在非交互模式下启用 full-access（自动附加 --dangerously-bypass-approvals-and-sandbox，危险）"
+      elif [[ "$degrade_on_never" == "1" ]]; then
+        # 在原地修改 --sandbox 的值
+        local j=0
+        while (( j < ${#CODEX_GLOBAL_ARGS[@]} )); do
+          if [[ "${CODEX_GLOBAL_ARGS[$j]}" == "--sandbox" ]] && (( j+1 < ${#CODEX_GLOBAL_ARGS[@]} )); then
+            CODEX_GLOBAL_ARGS[$((j+1))]="$degrade_target"
+            DFA_NOTE="已自动降级 sandbox: danger-full-access -> ${degrade_target}（非交互模式不提权）"
+            break
+          fi
+          j=$((j+1))
+        done
+      else
+        VALIDATION_ERROR=$'错误: 组合无效\n- 非交互 (--ask-for-approval never) 不允许直接启用 --sandbox danger-full-access\n  可设置环境变量 ALLOW_DFA_WITH_NEVER=1 自动附加 --dangerously-bypass-approvals-and-sandbox（危险），\n  或设置 DFA_DEGRADE_ON_NEVER=1 将 sandbox 降级（默认行为），\n  或改为 --ask-for-approval on-request（交互）。'
+      fi
+    fi
+  fi
+  return 0
 }
 
 FILE_INPUT=""
@@ -239,6 +371,7 @@ OVERRIDE_FILE="" # -F/--file-override 指定的基底文件（可为 '-' 表示 
 # 透传给 codex 的参数
 CODEX_GLOBAL_ARGS=()
 CODEX_EXEC_ARGS=()
+VALIDATION_ERROR=""
 
 # 循环运行与上下文压缩参数（默认关闭循环，不携带上下文）
 REPEAT_UNTIL=""
@@ -403,9 +536,16 @@ while [[ $# -gt 0 ]]; do
     --sandbox)
       [[ $# -ge 2 ]] || { echo "错误: --sandbox 需要一个值 (read-only|workspace-write|danger-full-access)" >&2; exit 2; }
       CODEX_GLOBAL_ARGS+=("--sandbox" "${2}"); shift 2 ;;
+    --ask-for-approval)
+      [[ $# -ge 2 ]] || { echo "错误: --ask-for-approval 需要一个策略 (untrusted|on-failure|on-request|never)" >&2; exit 2; }
+      CODEX_GLOBAL_ARGS+=("--ask-for-approval" "${2}"); shift 2 ;;
+    --approval-mode)
+      [[ $# -ge 2 ]] || { echo "错误: --approval-mode 需要一个策略 (untrusted|on-failure|on-request|never)" >&2; exit 2; }
+      CODEX_GLOBAL_ARGS+=("--ask-for-approval" "${2}"); shift 2 ;;
     --approvals)
       [[ $# -ge 2 ]] || { echo "错误: --approvals 需要一个策略 (untrusted|on-failure|on-request|never)" >&2; exit 2; }
-      CODEX_GLOBAL_ARGS+=("--approvals" "${2}"); shift 2 ;;
+      echo "[warn] --approvals 为兼容别名，将映射为 --ask-for-approval ${2}" >&2
+      CODEX_GLOBAL_ARGS+=("--ask-for-approval" "${2}"); shift 2 ;;
     --profile)
       [[ $# -ge 2 ]] || { echo "错误: --profile 需要一个配置名" >&2; exit 2; }
       CODEX_GLOBAL_ARGS+=("--profile" "${2}"); shift 2 ;;
@@ -453,7 +593,14 @@ while [[ $# -gt 0 ]]; do
     -h|--help)
       usage; exit 0 ;;
     --)
-      shift; break ;;
+      # 停止本脚本参数解析，余下参数作为透传参数追加给 codex
+      shift
+      if [[ $# -gt 0 ]]; then
+        CODEX_GLOBAL_ARGS+=("$@")
+      fi
+      # 清空余下参数并跳出解析循环
+      set --
+      break ;;
     *)
       print_unknown_arg_help "${1}"
       exit 2 ;;
@@ -467,6 +614,72 @@ if [[ -n "${PRESET_NAME:-}" ]]; then
   else
     echo "[warn] 预设功能不可用：缺少 lib/presets.sh" >&2
   fi
+fi
+
+# ——— 日志路径提前初始化（确保任何早期错误都有日志） ———
+mkdir -p "${CODEX_LOG_DIR}"
+if [[ -n "${CODEX_LOG_TAG}" ]]; then
+  SAFE_TAG="$(printf '%s' "${CODEX_LOG_TAG}" | tr -cs 'A-Za-z0-9_.-' '-' | sed 's/^-\+//; s/-\+$//')"
+  TAG_SUFFIX="-${SAFE_TAG}"
+else
+  TAG_SUFFIX=""
+fi
+TS="$(date +%Y%m%d_%H%M%S)"
+if [[ -z "${CODEX_LOG_FILE}" ]]; then
+  if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+    mkdir -p "${CODEX_SESSION_DIR}"
+    CODEX_LOG_FILE="${CODEX_SESSION_DIR}/job.log"
+  else
+    SESSIONS_ROOT="${CODEX_SESSIONS_ROOT:-${CODEX_LOG_DIR}}"
+    mkdir -p "${SESSIONS_ROOT}"
+    if [[ "${CODEX_LOG_SUBDIRS}" == "1" ]]; then
+      SESSION_ID="exec-${TS}${TAG_SUFFIX}"
+      CODEX_SESSION_DIR="${SESSIONS_ROOT}/${SESSION_ID}"
+      mkdir -p "${CODEX_SESSION_DIR}"
+      CODEX_LOG_FILE="${CODEX_SESSION_DIR}/job.log"
+    else
+      CODEX_SESSION_DIR="${SESSIONS_ROOT}"
+      CODEX_LOG_FILE="${SESSIONS_ROOT}/codex-${TS}${TAG_SUFFIX}.log"
+    fi
+  fi
+fi
+mkdir -p "$(dirname "${CODEX_LOG_FILE}")"
+INSTR_FILE="${CODEX_LOG_FILE%.log}.instructions.md"
+META_FILE="${CODEX_LOG_FILE%.log}.meta.json"
+if [[ -z "${CODEX_LOG_AGGREGATE_FILE}" ]]; then
+  CODEX_LOG_AGGREGATE_FILE="$(dirname "${CODEX_LOG_FILE}")/aggregate.txt"
+fi
+if [[ -z "${CODEX_LOG_AGGREGATE_JSONL_FILE}" ]]; then
+  CODEX_LOG_AGGREGATE_JSONL_FILE="$(dirname "${CODEX_LOG_FILE}")/aggregate.jsonl"
+fi
+
+# 校验 Codex 旗标冲突（预设可能注入 --full-auto）。如有问题，写入日志并退出。
+validate_conflicting_codex_args
+if [[ -n "${VALIDATION_ERROR}" ]]; then
+  {
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "Script: $(basename "$0")  PWD: $(pwd)"
+    echo "Log: ${CODEX_LOG_FILE}"
+    echo "Meta: ${META_FILE}"
+    echo "[arg-check] ${VALIDATION_ERROR}"
+  } >> "${CODEX_LOG_FILE}"
+  RUN_LOGGED=1
+  printf '%s\n' "${VALIDATION_ERROR}" >&2
+  exit 2
+fi
+
+# 规范化 sandbox 与审批策略的组合（可能会自动补充 on-request）
+normalize_sandbox_and_approvals
+if [[ -n "${VALIDATION_ERROR}" ]]; then
+  {
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "Script: $(basename "$0")  PWD: $(pwd)"
+    echo "Log: ${CODEX_LOG_FILE}"
+    echo "Meta: ${META_FILE}"
+    echo "[arg-check] ${VALIDATION_ERROR}"
+  } >> "${CODEX_LOG_FILE}"
+  printf '%s\n' "${VALIDATION_ERROR}" >&2
+  exit 2
 fi
 
 # 组合规则（叠加语义）
@@ -607,46 +820,19 @@ ${APPEND_CONTENT}"
   SOURCE_LINES+=("Append text: ${_pv}...")
 fi
 
-# 日志目录与文件准备（基础目录）
-mkdir -p "${CODEX_LOG_DIR}"
+## 注意：上面的“日志路径提前初始化”已完成上述逻辑，以下保留变量用于后续步骤。
 
-# 规范化 tag
-if [[ -n "${CODEX_LOG_TAG}" ]]; then
-  SAFE_TAG="$(printf '%s' "${CODEX_LOG_TAG}" | tr -cs 'A-Za-z0-9_.-' '-' | sed 's/^-\+//; s/-\+$//')"
-  TAG_SUFFIX="-${SAFE_TAG}"
-else
-  TAG_SUFFIX=""
-fi
-
-TS="$(date +%Y%m%d_%H%M%S)"
-
-# 会话目录优先：若提供 CODEX_SESSION_DIR 则使用其中的 job.* 文件
-if [[ -z "${CODEX_LOG_FILE}" ]]; then
-  if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
-    mkdir -p "${CODEX_SESSION_DIR}"
-    CODEX_LOG_FILE="${CODEX_SESSION_DIR}/job.log"
-  else
-    # 构造默认的会话目录：.codex-father/sessions/exec-<ts>-<tag>
-    SESSIONS_ROOT="${CODEX_SESSIONS_ROOT:-${PWD}/.codex-father/sessions}"
-    mkdir -p "${SESSIONS_ROOT}"
-    SESSION_ID="exec-${TS}${TAG_SUFFIX}"
-    CODEX_SESSION_DIR="${SESSIONS_ROOT}/${SESSION_ID}"
-    mkdir -p "${CODEX_SESSION_DIR}"
-    CODEX_LOG_FILE="${CODEX_SESSION_DIR}/job.log"
-  fi
-fi
-
-# 规范化相关文件路径
-mkdir -p "$(dirname "${CODEX_LOG_FILE}")"
-INSTR_FILE="${CODEX_LOG_FILE%.log}.instructions.md"
-META_FILE="${CODEX_LOG_FILE%.log}.meta.json"
-
-# 若未显式设置聚合路径，则使用会话目录内的聚合文件
-if [[ -z "${CODEX_LOG_AGGREGATE_FILE}" ]]; then
-  CODEX_LOG_AGGREGATE_FILE="$(dirname "${CODEX_LOG_FILE}")/aggregate.txt"
-fi
-if [[ -z "${CODEX_LOG_AGGREGATE_JSONL_FILE}" ]]; then
-  CODEX_LOG_AGGREGATE_JSONL_FILE="$(dirname "${CODEX_LOG_FILE}")/aggregate.jsonl"
+# 如果早前检测到参数冲突，则现在写入日志并退出
+if [[ -n "${VALIDATION_ERROR}" ]]; then
+  {
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "Script: $(basename "$0")  PWD: $(pwd)"
+    echo "Log: ${CODEX_LOG_FILE}"
+    echo "Meta: ${META_FILE}"
+    echo "[arg-check] ${VALIDATION_ERROR}"
+  } >> "${CODEX_LOG_FILE}"
+  printf '%s\n' "${VALIDATION_ERROR}" >&2
+  exit 2
 fi
 
 # 构建脱敏 sed 参数（如 lib 已提供则不覆盖）
@@ -784,14 +970,16 @@ else
 fi
 
 # 写入日志头部
-{
-  echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
-  echo "Script: $(basename "$0")  PWD: $(pwd)"
+  {
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "Script: $(basename "$0")  PWD: $(pwd)"
   echo "Log: ${CODEX_LOG_FILE}"
   echo "Instructions: ${INSTR_FILE}"
   echo "Meta: ${META_FILE}"
   echo "Patch Mode: $([[ ${PATCH_MODE} -eq 1 ]] && echo on || echo off)"
+  if [[ -n "${DFA_NOTE:-}" ]]; then echo "[arg-normalize] ${DFA_NOTE}"; fi
 } >> "${CODEX_LOG_FILE}"
+RUN_LOGGED=1
 
 # 可选回显最终合成的指令及其来源
 if [[ "${CODEX_ECHO_INSTRUCTIONS}" == "1" ]]; then
@@ -839,23 +1027,67 @@ if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/n
   GIT_HEAD_BEFORE=$(git rev-parse HEAD 2>/dev/null || echo "")
 fi
 EXEC_ARGS=("${CODEX_EXEC_ARGS[@]}" "--output-last-message" "${RUN_LAST_MSG_FILE}")
+  # 记录调用参数（原始 CLI 与传递给 codex 的参数），便于排错
+  if [[ "${REDACT_ENABLE}" == "1" ]]; then
+    {
+      echo "----- Invocation Args -----"
+      echo "start.sh argv (raw):"
+      for a in "${ORIG_ARGV[@]}"; do printf '  %s\n' "$a"; done
+      echo "codex global args:"
+      for a in "${CODEX_GLOBAL_ARGS[@]}"; do printf '  %s\n' "$a"; done
+      echo "codex exec args:"
+      for a in "${EXEC_ARGS[@]}"; do printf '  %s\n' "$a"; done
+      echo "----- End Invocation Args -----"
+    } | sed -E "${REDACT_SED_ARGS[@]}" >> "${CODEX_LOG_FILE}"
+  else
+    {
+      echo "----- Invocation Args -----"
+      echo "start.sh argv (raw):"
+      for a in "${ORIG_ARGV[@]}"; do printf '  %s\n' "$a"; done
+      echo "codex global args:"
+      for a in "${CODEX_GLOBAL_ARGS[@]}"; do printf '  %s\n' "$a"; done
+      echo "codex exec args:"
+      for a in "${EXEC_ARGS[@]}"; do printf '  %s\n' "$a"; done
+      echo "----- End Invocation Args -----"
+    } >> "${CODEX_LOG_FILE}"
+  fi
   if [[ ${DRY_RUN} -eq 1 ]]; then
-    echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件" | tee -a "${CODEX_LOG_FILE}"
+    if [[ "${JSON_OUTPUT}" == "1" ]]; then
+      echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件" >> "${CODEX_LOG_FILE}"
+    else
+      echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件" | tee -a "${CODEX_LOG_FILE}"
+    fi
     CODEX_EXIT=0
   else
   if ! command -v codex >/dev/null 2>&1; then
-    echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
+    if [[ "${JSON_OUTPUT}" == "1" ]]; then
+      echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" >> "${CODEX_LOG_FILE}"
+    else
+      echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
+    fi
     CODEX_EXIT=127
   else
     if [[ "${REDACT_ENABLE}" == "1" ]]; then
       # 通过 STDIN 传递指令，避免参数过长问题；仅对输出做脱敏
-      printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-        | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
-      CODEX_EXIT=${PIPESTATUS[1]}
+      if [[ "${JSON_OUTPUT}" == "1" ]]; then
+        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+          | sed -u -E "${REDACT_SED_ARGS[@]}" >> "${CODEX_LOG_FILE}"
+        CODEX_EXIT=${PIPESTATUS[1]}
+      else
+        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+          | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
+        CODEX_EXIT=${PIPESTATUS[1]}
+      fi
     else
-      printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-        | tee -a "${CODEX_LOG_FILE}"
-      CODEX_EXIT=${PIPESTATUS[1]}
+      if [[ "${JSON_OUTPUT}" == "1" ]]; then
+        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+          >> "${CODEX_LOG_FILE}"
+        CODEX_EXIT=${PIPESTATUS[1]}
+      else
+        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+          | tee -a "${CODEX_LOG_FILE}"
+        CODEX_EXIT=${PIPESTATUS[1]}
+      fi
     fi
   fi
   fi
@@ -943,9 +1175,18 @@ if (( DO_LOOP == 0 )); then
   fi
   if (( DO_LOOP == 0 )); then
     # 执行结果摘要（单轮）
+    echo "[debug] JSON_OUTPUT=${JSON_OUTPUT} writing summary (single-run)" >> "${CODEX_LOG_FILE}"
     if [[ "${JSON_OUTPUT}" == "1" ]]; then
-      # 直接输出 meta JSON
-      cat "${META_FILE}" 2>/dev/null || printf '%s\n' "${META_JSON}"
+      set +e
+      # 直接输出 meta JSON；若文件缺失则使用内存中的 META_JSON；再退化为即时拼装
+      if [[ -f "${META_FILE}" ]]; then
+        cat "${META_FILE}"
+      elif [[ -n "${META_JSON:-}" ]]; then
+        printf '%s\n' "${META_JSON}"
+      else
+        printf '{"exit_code": %s, "log_file": "%s", "instructions_file": "%s"}\n' "${CODEX_EXIT}" "$(json_escape "${CODEX_LOG_FILE}")" "$(json_escape "${INSTR_FILE}")"
+      fi
+      set -e
     else
       echo "Codex 运行完成。退出码: ${CODEX_EXIT}"
       echo "日志文件: ${CODEX_LOG_FILE}"
@@ -1140,21 +1381,41 @@ while (( RUN <= MAX_RUNS )); do
   RUN_LAST_MSG_FILE="${CODEX_LOG_FILE%.log}.r${RUN}.last.txt"
   EXEC_ARGS=("${CODEX_EXEC_ARGS[@]}" "--output-last-message" "${RUN_LAST_MSG_FILE}")
   if [[ ${DRY_RUN} -eq 1 ]]; then
-    echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件 (iteration ${RUN})" | tee -a "${CODEX_LOG_FILE}"
+    if [[ "${JSON_OUTPUT}" == "1" ]]; then
+      echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件 (iteration ${RUN})" >> "${CODEX_LOG_FILE}"
+    else
+      echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件 (iteration ${RUN})" | tee -a "${CODEX_LOG_FILE}"
+    fi
     CODEX_EXIT=0
   else
     if ! command -v codex >/dev/null 2>&1; then
-      echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
+      if [[ "${JSON_OUTPUT}" == "1" ]]; then
+        echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" >> "${CODEX_LOG_FILE}"
+      else
+        echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
+      fi
       CODEX_EXIT=127
     else
       if [[ "${REDACT_ENABLE}" == "1" ]]; then
-        printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-          | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
-        CODEX_EXIT=${PIPESTATUS[1]}
+        if [[ "${JSON_OUTPUT}" == "1" ]]; then
+          printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | sed -u -E "${REDACT_SED_ARGS[@]}" >> "${CODEX_LOG_FILE}"
+          CODEX_EXIT=${PIPESTATUS[1]}
+        else
+          printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
+          CODEX_EXIT=${PIPESTATUS[1]}
+        fi
       else
-        printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-          | tee -a "${CODEX_LOG_FILE}"
-        CODEX_EXIT=${PIPESTATUS[1]}
+        if [[ "${JSON_OUTPUT}" == "1" ]]; then
+          printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            >> "${CODEX_LOG_FILE}"
+          CODEX_EXIT=${PIPESTATUS[1]}
+        else
+          printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | tee -a "${CODEX_LOG_FILE}"
+          CODEX_EXIT=${PIPESTATUS[1]}
+        fi
       fi
     fi
   fi
@@ -1210,13 +1471,17 @@ done
 
 # 最终摘要（多轮）
 if [[ "${JSON_OUTPUT}" == "1" ]]; then
-  # 输出最后一轮的 meta JSON（若无则回退第一次）
+  set +e
+  # 输出最后一轮的 meta JSON（若无则回退第一次；仍无则即时拼装简版 JSON）
   LAST_META_FILE=$(ls -1t "${CODEX_LOG_FILE%.log}"*.meta.json 2>/dev/null | head -n1 || true)
   if [[ -n "${LAST_META_FILE}" && -f "${LAST_META_FILE}" ]]; then
     cat "${LAST_META_FILE}"
+  elif [[ -f "${META_FILE}" ]]; then
+    cat "${META_FILE}"
   else
-    cat "${META_FILE}" 2>/dev/null || true
+    printf '{"exit_code": %s, "log_file": "%s", "instructions_file": "%s"}\n' "${CODEX_EXIT}" "$(json_escape "${CODEX_LOG_FILE}")" "$(json_escape "${INSTR_FILE}")"
   fi
+  set -e
 else
   echo "Codex 运行完成。退出码: ${CODEX_EXIT}"
   echo "日志文件: ${CODEX_LOG_FILE}"

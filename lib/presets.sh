@@ -4,11 +4,7 @@ apply_preset() {
   local name="$1"
   case "$name" in
     sprint)
-      # Multi-iteration until CONTROL: DONE with sensible defaults
-      REPEAT_UNTIL=${REPEAT_UNTIL:-'CONTROL: DONE'}
-      MAX_RUNS=${MAX_RUNS:-20}
-      SLEEP_SECONDS=${SLEEP_SECONDS:-2}
-      # Enable low-friction execution within sandbox
+      # Single-run, low-friction execution within sandbox
       CODEX_GLOBAL_ARGS+=("--full-auto")
       CODEX_GLOBAL_ARGS+=("--config" 'execution.auto_continue=true')
       CODEX_GLOBAL_ARGS+=("--config" 'execution.max_consecutive_steps=200')
@@ -32,4 +28,3 @@ apply_preset() {
       ;;
   esac
 }
-

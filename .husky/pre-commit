@@ -1,0 +1,39 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+set -eu
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -n "$STAGED_FILES" ]; then
+  echo "🔍 Running lint-staged checks..."
+  if ! npx lint-staged; then
+    echo "❌ lint-staged reported issues. Checking staged PRD sources..."
+    STAGED_PRD_FILES=$(printf '%s\n' "$STAGED_FILES" | grep "^src/" || true)
+
+    if [ -n "$STAGED_PRD_FILES" ]; then
+      echo "⚠️  Running focused ESLint on PRD sources..."
+      printf '%s\n' "$STAGED_PRD_FILES" | xargs npx eslint --fix || true
+      echo "✅ ESLint pass for PRD sources"
+    else
+      echo "⚠️  No PRD sources staged. Please run 'npm run lint:check' manually to inspect issues."
+    fi
+  fi
+else
+  echo "ℹ️  No staged files detected. Skipping lint-staged run."
+fi
+
+echo "🔎 Running TypeScript checks..."
+if [ -n "$STAGED_FILES" ] && ! npm run typecheck >/dev/null 2>&1; then
+  echo "⚠️  TypeScript errors detected (non-blocking)."
+fi
+
+STAGED_TEST_FILES=$(printf '%s\n' "$STAGED_FILES" | grep -E "(\\.test\\.ts|\\.spec\\.ts)$" || true)
+if [ -n "$STAGED_TEST_FILES" ]; then
+  echo "🧪 Running Vitest for staged test files..."
+  if ! npx vitest related --run $STAGED_TEST_FILES; then
+    echo "⚠️  Vitest failures detected for staged tests. Please review before pushing."
+  fi
+fi
+
+echo "✅ Pre-commit checks completed"

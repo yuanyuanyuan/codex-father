@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "local-codex-as-mcp": {
-      "command": "uv",
-      "args": ["run", "python", "-m", "codex_as_mcp"]
-    }
-  }
-}

@@ -5,7 +5,12 @@ set -euo pipefail
 # Async job manager for start.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-START_SH="${SCRIPT_DIR}/start.sh"
+# 允许通过环境变量覆盖 start.sh 的路径，便于测试/替换实现
+if [[ -n "${CODEX_START_SH:-}" && -x "${CODEX_START_SH}" ]]; then
+  START_SH="${CODEX_START_SH}"
+else
+  START_SH="${SCRIPT_DIR}/start.sh"
+fi
 
 # shellcheck disable=SC1091
 if [[ -f "${SCRIPT_DIR}/lib/common.sh" ]]; then . "${SCRIPT_DIR}/lib/common.sh"; fi
@@ -114,7 +119,7 @@ safe_classify() {
     return 0
   fi
   # Fallback grep-based classification
-  SC_TOKENS_USED=$(( (grep -Ei 'tokens used' "$log_file" 2>/dev/null | tail -n1 | sed -E 's/.*tokens used[^0-9]*([0-9,]+).*/\1/i' | tr -d ',') || true ) )
+  SC_TOKENS_USED="$(grep -Ei 'tokens used' "$log_file" 2>/dev/null | tail -n1 | sed -E 's/.*tokens used[^0-9]*([0-9,]+).*/\1/i' | tr -d ',' || true)"
   SC_TOKENS_USED="${SC_TOKENS_USED:-}"
   if [[ "$code" -eq 0 ]]; then
     if [[ -n "$last_msg_file" ]] && grep -Eq 'CONTROL:[[:space:]]*DONE' "$last_msg_file" 2>/dev/null; then
@@ -170,6 +175,8 @@ derive_title_from_instructions() {
 
 status_compute_and_update() {
   local run_dir="$1"; local json_out="$2"
+  # 防止 grep/awk 等返回非零导致整个脚本在 set -e 下退出
+  set +e
   local state_file="${run_dir}/state.json"
   local pid_file="${run_dir}/pid"
   local log_file="${run_dir}/job.log"
@@ -261,6 +268,8 @@ status_compute_and_update() {
 EOF
 )
   write_state "$state_file" "$json"
+  # 恢复严格模式
+  set -e
   if (( json_out == 1 )); then printf '%s\n' "$json"; else
     echo "id: $id"
     echo "state: $state"

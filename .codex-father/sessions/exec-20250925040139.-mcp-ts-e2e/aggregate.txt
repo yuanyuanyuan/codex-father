@@ -1,6 +1,0 @@
-=== [20250925_120139] Codex Run  ===
-Log: /home/stark/codex-father/.codex-father/sessions/exec-20250925040139.-mcp-ts-e2e/job.log
-Instructions: /home/stark/codex-father/.codex-father/sessions/exec-20250925040139.-mcp-ts-e2e/job.instructions.md
-Title: <user-instructions>
-Exit: 0
-

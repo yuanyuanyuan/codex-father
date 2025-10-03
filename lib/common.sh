@@ -135,7 +135,8 @@ classify_exit() {
   # Tokens used
   if [[ -f "$log_file" ]]; then
     local tok
-    tok=$(grep -Ei 'tokens used' "$log_file" | tail -n1 | sed -E 's/.*tokens used[^0-9]*([0-9,]+).*/\1/i' | tr -d ',')
+    # Be resilient under 'set -e -o pipefail': allow no-match
+    tok="$( (grep -Ei 'tokens used' "$log_file" 2>/dev/null | tail -n1 | sed -E 's/.*tokens used[^0-9]*([0-9,]+).*/\1/i' | tr -d ',') || true )"
     [[ -n "$tok" ]] && TOKENS_USED="$tok"
   fi
   # Classification
@@ -167,4 +168,3 @@ classify_exit() {
     fi
   fi
 }
-

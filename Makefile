@@ -8,6 +8,7 @@ mcp-build:
 
 e2e: mcp-build
 	@bash tests/mcp_ts_e2e.sh
+	@bash tests/mcp_injection_bypass_e2e.sh
 
 smoke:
 	@bash tests/smoke_start_json.sh
