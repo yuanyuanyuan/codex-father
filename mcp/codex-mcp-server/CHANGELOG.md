@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.1...mcp-v1.1.2) (2025-10-03)
+
+
+### Bug Fixes
+
+* **release:** 修复 @semantic-release/exec publishCmd 模板变量转义，使用  判断以避免 SyntaxError ([33e16c9](https://github.com/yuanyuanyuan/codex-father/commit/33e16c93448e19f2d26cbeff894a24f03b8070e8))
+
 ## [1.1.1](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.0...mcp-v1.1.1) (2025-10-03)
 
 
