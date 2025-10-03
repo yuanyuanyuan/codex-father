@@ -1,3 +1,10 @@
+## [1.1.9](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.8...mcp-v1.1.9) (2025-10-03)
+
+
+### Bug Fixes
+
+* **changelog:** correct package name reference in changelog ([46eda40](https://github.com/yuanyuanyuan/codex-father/commit/46eda4042c021728cb1410ec741dd021934dca53))
+
 ## [1.1.8](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.7...mcp-v1.1.8) (2025-10-03)
 
 ### Bug Fixes
