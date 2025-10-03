@@ -1,83 +1,76 @@
-# 快速部署参考卡
+# 快速部署参考卡（GitHub Packages 版）
 
-> 3 分钟完成 Codex Father v1.0.0 发布
-
----
-
-## 🚀 一键发布（推荐）
-
-```bash
-# 运行自动化发布脚本
-./scripts/release.sh
-```
-
-脚本会自动完成：
-
-- ✅ 代码质量检查
-- ✅ 项目构建
-- ✅ 创建 Git 标签
-- ✅ 发布到 NPM
-- ✅ 创建 GitHub Release
+> 3 分钟完成 Codex Father（MCP 包）发布到 GitHub Packages
 
 ---
 
-## 📋 手动发布步骤
+## 🚀 一键发布（推荐：GitHub Actions）
+
+无需 npmjs 账号，无需 `npm login`。使用仓库内置工作流发布到 GitHub Packages。
+
+- 工作流：`.github/workflows/release-ghpkgs.yml`
+- 触发：
+  - 推送到 `main`（匹配 `mcp/**`）
+  - 或在 GitHub Actions 手动运行 “Release to GH Packages”
+
+工作流将自动完成：
+
+- ✅ 质量检查与构建（子包 `mcp/codex-mcp-server`）
+- ✅ 配置 `~/.npmrc` 指向 GitHub Packages 并注入 `GITHUB_TOKEN`
+- ✅ 语义化发布（生成版本、CHANGELOG、Git 标签与 Release）
+- ✅ 发布包：`@yuanyuanyuan/codex-father-mcp-server`
+
+---
+
+## 📋 手动发布到 GitHub Packages（可选）
+
+当不使用 Actions 时，可手动发布到 GitHub Packages（无需 `npm login`）。
 
 ### 前置准备
 
-```bash
-# 1. 登录 NPM
-npm login
+1. 生成 PAT（Personal Access Token）
 
-# 2. 登录 GitHub CLI
-gh auth login
+- 权限：`write:packages`（建议同时勾选 `read:packages`）
 
-# 3. 确认版本
-cat package.json | grep version
-```
+2. 配置 npm 认证（任选其一）
 
-### 发布到 NPM
+- 写入 `~/.npmrc`：
 
-```bash
-# 1. 检查并构建
-npm run check:all
-npm run clean && npm run build
+  ```bash
+  echo "@yuanyuanyuan:registry=https://npm.pkg.github.com" >> ~/.npmrc
+  echo "//npm.pkg.github.com/:_authToken=<YOUR_GITHUB_PAT>" >> ~/.npmrc
+  ```
 
-# 2. 试运行
-npm pack --dry-run
+- 或仅导出环境变量（临时会话）：
 
-# 3. 发布
-npm publish
-```
+  ```bash
+  export NODE_AUTH_TOKEN=<YOUR_GITHUB_PAT>
+  ```
 
-### 发布到 GitHub
+### 发布步骤（子包）
 
 ```bash
-# 1. 创建标签
-git tag -a v1.0.0 -m "Release v1.0.0 - MVP1"
-git push origin v1.0.0
-
-# 2. 创建 Release
-gh release create v1.0.0 \
-  --title "Codex Father v1.0.0 - MVP1 正式版" \
-  --notes-file RELEASE_NOTES.md
-
-# 3. 验证
-gh release view v1.0.0
+cd mcp/codex-mcp-server
+npm ci
+npm run build
+# 可选：npm pack --dry-run 查看将要发布的文件
+npm publish --registry https://npm.pkg.github.com
 ```
 
 ---
 
-## ✅ 验证发布
+## ✅ 验证发布（GitHub Packages）
 
 ```bash
-# NPM 验证
-npm view codex-father
-npm install -g codex-father
-codex-father --version
+# 查看 GitHub Release（语义化发布会自动创建）
+open https://github.com/yuanyuanyuan/codex-father/releases
 
-# GitHub 验证
-open https://github.com/yuanyuanyuan/codex-father/releases/tag/v1.0.0
+# 通过 npm 安装（需要 PAT 或已配置 ~/.npmrc）
+npm i -g @yuanyuanyuan/codex-father-mcp-server \
+  --registry https://npm.pkg.github.com
+
+# 运行可执行文件
+codex-mcp-server --help
 ```
 
 ---
@@ -94,13 +87,17 @@ npm run test:run         # 运行测试
 npm run build            # 构建项目
 ```
 
-### NPM 操作
+### GH Packages 常用操作
 
 ```bash
-npm whoami               # 检查登录状态
-npm pack --dry-run       # 试运行打包
-npm view codex-father    # 查看包信息
-npm deprecate <ver> <msg> # 标记废弃
+# 仅使用 GH Packages 时无需 npm login
+# 如需切换注册表：
+echo "@yuanyuanyuan:registry=https://npm.pkg.github.com" >> ~/.npmrc
+echo "//npm.pkg.github.com/:_authToken=<YOUR_GITHUB_PAT>" >> ~/.npmrc
+
+# 查看安装信息（需认证）
+npm view @yuanyuanyuan/codex-father-mcp-server \
+  --registry https://npm.pkg.github.com
 ```
 
 ### Git 操作
@@ -124,18 +121,12 @@ gh release delete v1.0.0 # 删除 release
 
 ## 🔙 回滚操作
 
-### 回滚 NPM
+### 回滚（GitHub Packages）
 
-```bash
-# 方式 1: 撤销发布（72小时内）
-npm unpublish codex-father@1.0.0 --force
-
-# 方式 2: 标记废弃（推荐）
-npm deprecate codex-father@1.0.0 "请使用新版本"
-
-# 方式 3: 发布修复版本
-npm version patch  # 1.0.0 → 1.0.1
-npm publish
+```text
+GH Packages 不支持 npm 侧的 unpublish 流程。
+请在 GitHub → Packages → 目标包 → Package settings → Delete package 进行删除，
+或发布修复版本（推荐）。
 ```
 
 ### 回滚 GitHub
@@ -153,17 +144,19 @@ git push origin :refs/tags/v1.0.0
 
 ## 📚 完整文档
 
-- **[DEPLOY.md](DEPLOY.md)** - 完整部署指南
+- **[DEPLOY.md](DEPLOY.md)** - 完整部署指南（已更新支持 GH Packages）
 - **[RELEASE_NOTES.md](RELEASE_NOTES.md)** - 发布说明
 - **[CHANGELOG.md](CHANGELOG.md)** - 变更日志
 
 ---
 
-## ⚡ 紧急发布（跳过检查）
+## ⚡ 紧急发布（跳过 CI，仅 GH Packages）
 
 ```bash
-# 仅在紧急情况使用！
-npm publish --ignore-scripts
+# 仅在紧急情况使用！需要已配置认证（PAT）
+cd mcp/codex-mcp-server
+npm run build
+npm publish --registry https://npm.pkg.github.com --ignore-scripts
 ```
 
 ---
@@ -172,9 +165,10 @@ npm publish --ignore-scripts
 
 1. **查看完整文档**: [DEPLOY.md](DEPLOY.md)
 2. **提交 Issue**: https://github.com/yuanyuanyuan/codex-father/issues
-3. **查看 NPM 文档**: https://docs.npmjs.com/
-4. **查看 GitHub 文档**: https://docs.github.com/
+3. **GitHub Packages 文档**:
+   https://docs.github.com/packages/using-github-packages-with-your-projects-ecosystem
+4. **npm 配置指南**: https://docs.npmjs.com/cli/v10/configuring-npm/npmrc
 
 ---
 
-**提示**: 首次发布建议使用自动化脚本 `./scripts/release.sh`
+**提示**: 首次发布建议使用 GitHub Actions 工作流 “Release to GH Packages”
