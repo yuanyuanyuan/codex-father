@@ -111,160 +111,81 @@
 
 ## 🚀 快速开始
 
-### 前置要求
+### 开箱即用的 MCP 服务器
 
-- **Node.js** >= 18.0.0
-- **TypeScript** >= 5.3.0
-- **Codex CLI** 已安装并配置
-
-### 安装
+本项目提供了一个完整的 MCP 服务器实现，支持通过 npx 一键启动：
 
 ```bash
-# 克隆仓库
-git clone https://github.com/yourusername/codex-father.git
-cd codex-father
+# 直接运行（推荐）
+npx @starkdev020/codex-father-mcp-server
 
-# 安装依赖
-npm install
-
-# 构建项目
-npm run build
+# 或者克隆仓库本地开发
+git clone https://github.com/yuanyuanyuan/codex-father.git
+cd codex-father/mcp/codex-mcp-server
+npm install && npm run dev
 ```
 
-### 启动服务器
+### 集成到 MCP 客户端
 
-```bash
-# 开发模式（自动重载）
-npm run dev
+支持多种 MCP 客户端：
 
-# 生产模式
-npm start
-
-# 使用 MCP Inspector 调试
-npx @modelcontextprotocol/inspector npm run mcp:start
-```
-
-### 配置 Claude Desktop
-
-添加到 `~/Library/Application Support/Claude/claude_desktop_config.json`:
+**Claude Desktop** - 添加到配置文件：
 
 ```json
 {
   "mcpServers": {
     "codex-father": {
-      "command": "node",
-      "args": ["/path/to/codex-father/dist/core/cli/start.ts", "mcp"],
-      "env": {
-        "NODE_ENV": "production"
-      }
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server"]
     }
   }
 }
 ```
+
+**Codex CLI (rMCP)** - 添加到 `~/.codex/config.toml`：
+
+```toml
+[mcp_servers.codex-father]
+command = "npx"
+args = ["-y", "@starkdev020/codex-father-mcp-server"]
+```
+
+**Claude Code CLI** - 在项目根目录创建 `.claude/mcp_settings.json`
+
+📖 **完整使用文档**: [MCP 服务器使用指南](mcp/codex-mcp-server/README.md)
+
+> 包含详细的配置说明、实战示例、故障排除和 rMCP 集成说明
 
 ## 📖 使用指南
 
-### 基本使用
+### MCP 工具列表
 
-#### 1. 发送消息到 Codex
+当前版本提供以下 MCP 工具：
 
-```typescript
-// 通过 MCP 工具调用
-{
-  "name": "codex-chat",
-  "arguments": {
-    "message": "帮我分析这段代码的性能问题",
-    "systemPrompt": "你是一位资深的性能优化专家"
-  }
-}
-```
+1. **`codex.exec`** - 同步执行 Codex 任务
+2. **`codex.start`** - 异步启动任务（返回 jobId）
+3. **`codex.status`** - 查询任务状态
+4. **`codex.logs`** - 读取任务日志
+5. **`codex.stop`** - 停止运行中的任务
+6. **`codex.list`** - 列出所有任务
 
-#### 2. 执行 Codex 命令
+### 使用示例
 
-```typescript
-{
-  "name": "codex-execute",
-  "arguments": {
-    "args": ["--task", "运行测试", "--cwd", "/workspace"]
-  }
-}
-```
+在 Claude Desktop 中直接对话：
 
-#### 3. 读取文件
+**你**: "帮我分析一下这个项目的代码质量"
 
-```typescript
-{
-  "name": "codex-read-file",
-  "arguments": {
-    "path": "src/index.ts"
-  }
-}
-```
+**Claude** 会自动调用 `codex.exec` 工具执行分析任务。
 
-#### 4. 应用补丁
+### 详细文档
 
-```typescript
-{
-  "name": "codex-apply-patch",
-  "arguments": {
-    "patch": "--- a/file.ts\n+++ b/file.ts\n@@ ...",
-    "fileChanges": [
-      { "type": "modify", "path": "file.ts" }
-    ]
-  }
-}
-```
-
-### 审批机制
-
-配置审批策略 `.codex-father/config/approval-policy.json`:
-
-```json
-{
-  "mode": "untrusted",
-  "whitelist": [
-    {
-      "pattern": "^git status",
-      "reason": "Read-only git command",
-      "enabled": true
-    }
-  ],
-  "timeout": 60000
-}
-```
-
-**审批模式:**
-
-- `never`: 从不审批 (危险，仅用于测试)
-- `on-request`: Codex 请求时审批
-- `on-failure`: 失败后审批重试
-- `untrusted`: 所有操作需审批 (除非在白名单)
-
-### 事件通知
-
-服务器会发送以下 MCP 通知:
-
-```typescript
-// 进度通知
-{
-  "method": "notifications/progress",
-  "params": {
-    "progressToken": "job-123",
-    "progress": 50,
-    "total": 100
-  }
-}
-
-// 日志通知
-{
-  "method": "notifications/message",
-  "params": {
-    "level": "info",
-    "logger": "codex-father",
-    "data": "Command completed successfully"
-  }
-}
-```
+- **完整工具参数说明**:
+  [MCP 工具详解](mcp/codex-mcp-server/README.md#🛠️-mcp-工具详解)
+- **实战示例**: [实战示例](mcp/codex-mcp-server/README.md#📖-实战示例)
+- **安全策略配置**: [安全策略说明](mcp/codex-mcp-server/README.md#⚙️-高级配置)
+- **故障排除**: [故障排除指南](mcp/codex-mcp-server/README.md#🆘-故障排除)
+- **Codex rMCP 集成**:
+  [关于 Codex rMCP](mcp/codex-mcp-server/README.md#🔗-关于-codex-rmcp-支持)
 
 ## 🛠️ 开发
 
@@ -401,10 +322,15 @@ npm run benchmark
 
 ## 📚 文档
 
-- [MCP 使用指南](README.md#mcp-使用指南) — 工具、参数映射、JSON-RPC 示例
-- [Quickstart（已归档）](specs/_archived/005-docs-prd-draft/quickstart.md)
-- [数据模型（已归档）](specs/_archived/005-docs-prd-draft/data-model.md)
-- [非交互模式说明](docs/codex-non-interactive.md)
+### 用户文档
+
+- **[MCP 服务器使用指南](mcp/codex-mcp-server/README.md)** - 完整的使用文档和配置说明
+- [非交互模式说明](docs/codex-non-interactive.md) - CLI 非交互模式使用
+
+### 开发文档
+
+- [架构设计](specs/_archived/005-docs-prd-draft/) - MVP1 设计文档（已归档）
+- [数据模型](specs/_archived/005-docs-prd-draft/data-model.md) - 数据结构说明（已归档）
 
 ## 🤝 贡献
 
@@ -462,124 +388,23 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 如需完整规范与进度，请参见：`specs/006-docs-capability-assessment/*`。
 
-## MCP 使用指南
+## 📚 完整文档
 
-本节整合了原先的 `readme.mcp.md` 内容，作为 MCP 使用的唯一权威文档。
+详细的使用文档请参考：
 
-### 工具与参数
+### 📖 [MCP 服务器使用指南](mcp/codex-mcp-server/README.md)
 
-- 同步：`codex.exec` — `{ args?: string[], tag?: string, cwd?: string }`
-- 异步：
-  - `codex.start` — `{ args?: string[], tag?: string, cwd?: string }`
-  - `codex.status` — `{ jobId: string, cwd?: string }`
-  - `codex.logs` —
-    `{ jobId: string, mode?: 'bytes'|'lines', offset?: number, limit?: number, offsetLines?: number, limitLines?: number, tailLines?: number, grep?: string, cwd?: string }`
-  - `codex.stop` — `{ jobId: string, force?: boolean, cwd?: string }`
-  - `codex.list` — `{ cwd?: string }`
+包含以下内容：
 
-常用参数映射（传给 `arguments.args`）
+- **5 分钟快速上手** - npx 一键启动、多客户端配置
+- **实战示例** - Claude Desktop、Codex CLI、Claude Code 实际使用场景
+- **MCP 工具详解** - 完整的 API 参数说明
+- **高级配置** - 安全策略、环境变量、自动化示例
+- **故障排除** - 常见问题及解决方案
+- **Codex rMCP 支持** - 与 Codex CLI 的深度集成
 
-- 指令组合：`-F/--file-override`、`-f/--file`（通配）`--docs`、`-c/--content`
-- 模板：`--prepend*`、`--append*`
-- 预设：`--preset sprint|analysis|secure|fast`
-- 上下文：`--no-carry-context`、`--no-compress-context`、`--context-head N`、`--context-grep REGEX`
-- 直通 Codex：`--sandbox`、`--codex-config approval_policy=<policy>`、`--profile`、`--full-auto`、`--codex-arg "--flag value"`
+### 🛠️ 开发文档
 
-建议：MCP 场景避免使用 STDIN（`-f -`/`-F -`），改用 `-c` 或将内容落盘后以
-`-f/--docs` 传入。
-
-### stdio/JSON-RPC 示例
-
-```bash
-# 初始化 + 列出工具
-printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"demo","version":"0.0.1"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | ./mcp/server.sh
-
-# 同步执行（exec）
-printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","Sync via MCP","--dry-run"],"tag":"mcp-sync"}}}\n' | ./mcp/server.sh
-
-# 异步执行（start）
-printf '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"codex.start","arguments":{"args":["--task","Async via MCP","--dry-run"],"tag":"mcp-async"}}}\n' | ./mcp/server.sh
-```
-
-### 产物与路径
-
-- 会话目录：`<项目根>/.codex-father/sessions/<job-id>/`
-- 同步（exec）：`job.log | job.instructions.md | job.meta.json | aggregate.*`
-- 异步（start）：`job.log | *.instructions.md | *.meta.json | state.json | pid | aggregate.*`
-
-### 默认安全与补丁模式
-
-- 默认：若未显式提供，MCP 会为 `codex.exec/start` 注入
-  `--sandbox workspace-write`；不再默认注入 `--approvals`（兼容更多 CLI 版本）。
-- 补丁模式：`--patch-mode`（提示仅输出补丁而不改盘），建议与只读策略搭配：`--sandbox read-only --codex-config approval_policy=never`。
-
-## 🧩 使用示例
-
-### 1) 直接使用 CLI（同步）
-
-```bash
-# 汇总多个文档要点（同步执行）
-./start.sh --docs 'docs/**/*.md' -c "仅输出中文要点" --dry-run
-
-# 只输出补丁（不改盘）+ 安全只读
-./start.sh --task "修复 README 锚点" \
-  --patch-mode --sandbox read-only --codex-config approval_policy=never
-```
-
-### 2) 异步任务（job.sh）
-
-```bash
-# 启动后台任务
-./job.sh start --task "验证 MCP 工具" --dry-run --tag demo --json
-
-# 查询状态
-./job.sh status <job-id> --json
-
-# 查看日志（跟随）
-./job.sh logs <job-id> --follow
-
-# 停止任务
-./job.sh stop <job-id> --force
-```
-
-### 3) MCP（stdio/JSON-RPC）
-
-```bash
-# 初始化 + 列出工具
-printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"demo","version":"0.0.1"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | ./mcp/server.sh
-
-# 同步执行：codex.exec
-printf '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"codex.exec","arguments":{"args":["--task","Sync via MCP","--dry-run"],"tag":"mcp-sync"}}}\n' | ./mcp/server.sh
-
-# 异步执行：codex.start
-printf '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"codex.start","arguments":{"args":["--task","Async via MCP","--dry-run"],"tag":"mcp-async"}}}\n' | ./mcp/server.sh
-```
-
-提示：MCP 场景中避免使用 STDIN（`-f -`/`-F -`），优先 `-c` 或落盘后用
-`-f/--docs` 传入。
-
-## 🆘 快速排障
-
-- 无法启动 MCP 服务器
-  - 确认 Node ≥ 18：`node -v`
-  - 构建 MCP：`(cd mcp/codex-mcp-server && npm install && npm run build)`
-  - 直接运行：`./mcp/server.sh`
-
-- tools/list 为空或 tools/call 报错
-  - 检查运行目录是否是项目根（影响相对路径）
-  - 明确传入 `cwd` 字段到 MCP 调用中
-  - 查看 `.codex-father/sessions/<id>/job.log` 末尾错误
-
-- exec/start 行为与审批不符
-  - 未显式传入时会注入 `--sandbox workspace-write`
-  - 指定审批：`--codex-config approval_policy=on-request`（或
-    `never`/`on-failure`/`untrusted`）
-  - 需要只读+补丁：`--patch-mode --sandbox read-only --codex-config approval_policy=never`
-
-- 本地提交被 lint-staged 阻塞
-  - 先执行：`npm run lint:check` 查看报错
-  - 若钩子中断：按提示使用 `git stash list` 恢复 `stash@{0}`（如有）
-
-- 测试失败或类型报错
-  - 执行：`npm run check:all`（typecheck + lint + format:check + test）
-  - 逐项排查：`npm run typecheck`、`npm run test:run`
+- [架构设计文档](docs/) - 技术架构和设计决策
+- [API 参考](specs/) - 完整的 API 规范
+- [贡献指南](#贡献) - 如何参与项目开发
