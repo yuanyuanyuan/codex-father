@@ -1,3 +1,15 @@
+# [1.1.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.0.0...mcp-v1.1.0) (2025-10-03)
+
+
+### Bug Fixes
+
+* **mcp:** add error guard in run() to avoid unresolved spawn errors ([7dbea2c](https://github.com/yuanyuanyuan/codex-father/commit/7dbea2cbe3375d16b282accd13e93d7f13d852e5))
+
+
+### Features
+
+* **ci:** publish to npmjs via exec (if NPM_TOKEN); keep GH Packages publish ([68afd0f](https://github.com/yuanyuanyuan/codex-father/commit/68afd0ff3b8f659142a54ff46c29a8d5ade5d21f))
+
 # 1.0.0 (2025-10-03)
 
 
