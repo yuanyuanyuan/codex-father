@@ -18,7 +18,7 @@
 - ✅ 质量检查与构建（子包 `mcp/codex-mcp-server`）
 - ✅ 配置 `~/.npmrc` 指向 GitHub Packages 并注入 `GITHUB_TOKEN`
 - ✅ 语义化发布（生成版本、CHANGELOG、Git 标签与 Release）
-- ✅ 发布包：`@yuanyuanyuan/codex-father-mcp-server`
+- ✅ 发布包：`@starkdev020/codex-father-mcp-server`
 
 ---
 
@@ -37,7 +37,7 @@
 - 写入 `~/.npmrc`：
 
   ```bash
-  echo "@yuanyuanyuan:registry=https://npm.pkg.github.com" >> ~/.npmrc
+  echo "@starkdev020:registry=https://npm.pkg.github.com" >> ~/.npmrc
   echo "//npm.pkg.github.com/:_authToken=<YOUR_GITHUB_PAT>" >> ~/.npmrc
   ```
 
@@ -66,7 +66,7 @@ npm publish --registry https://npm.pkg.github.com
 open https://github.com/yuanyuanyuan/codex-father/releases
 
 # 通过 npm 安装（需要 PAT 或已配置 ~/.npmrc）
-npm i -g @yuanyuanyuan/codex-father-mcp-server \
+npm i -g @starkdev020/codex-father-mcp-server \
   --registry https://npm.pkg.github.com
 
 # 运行可执行文件
@@ -92,11 +92,11 @@ npm run build            # 构建项目
 ```bash
 # 仅使用 GH Packages 时无需 npm login
 # 如需切换注册表：
-echo "@yuanyuanyuan:registry=https://npm.pkg.github.com" >> ~/.npmrc
+echo "@starkdev020:registry=https://npm.pkg.github.com" >> ~/.npmrc
 echo "//npm.pkg.github.com/:_authToken=<YOUR_GITHUB_PAT>" >> ~/.npmrc
 
 # 查看安装信息（需认证）
-npm view @yuanyuanyuan/codex-father-mcp-server \
+npm view @starkdev020/codex-father-mcp-server \
   --registry https://npm.pkg.github.com
 ```
 

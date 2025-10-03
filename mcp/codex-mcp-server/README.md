@@ -17,13 +17,13 @@ Usage
 - As CLI after publish:
   - GitHub Packages (this repo uses GH Packages)
     - Configure ~/.npmrc:
-      - `@yuanyuanyuan:registry=https://npm.pkg.github.com`
+      - `@starkdev020:registry=https://npm.pkg.github.com`
       - `//npm.pkg.github.com/:_authToken=<YOUR_GITHUB_TOKEN>`
     - Install or run:
-      - `npm install -g @yuanyuanyuan/codex-father-mcp-server`
-      - or `npx @yuanyuanyuan/codex-father-mcp-server`
+      - `npm install -g @starkdev020/codex-father-mcp-server`
+      - or `npx @starkdev020/codex-father-mcp-server`
   - npmjs (if published there)
-    - `npx @yuanyuanyuan/codex-father-mcp-server` (or `codex-mcp-server` if
+    - `npx @starkdev020/codex-father-mcp-server` (or `codex-mcp-server` if
       globally installed)
 
 Tools

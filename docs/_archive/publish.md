@@ -8,7 +8,7 @@
 包信息
 
 - MCP 包：`mcp/codex-mcp-server`
-- 包名（scoped）：`@yuanyuanyuan/codex-father-mcp-server`
+- 包名（scoped）：`@starkdev020/codex-father-mcp-server`
 
 语义化发版（semantic-release）
 
@@ -41,19 +41,19 @@
 
 - GitHub Packages（需要读取权限）：
   - `~/.npmrc`：
-    - `@yuanyuanyuan:registry=https://npm.pkg.github.com`
+    - `@starkdev020:registry=https://npm.pkg.github.com`
     - `//npm.pkg.github.com/:_authToken=<YOUR_GITHUB_TOKEN>`（最小权限：read:packages）
   - 安装/运行：
-    - `npm install -g @yuanyuanyuan/codex-father-mcp-server`
-    - 或 `npx @yuanyuanyuan/codex-father-mcp-server`
+    - `npm install -g @starkdev020/codex-father-mcp-server`
+    - 或 `npx @starkdev020/codex-father-mcp-server`
 - npmjs：若已配置 `NPM_TOKEN`，则与普通 npm 包一致：
-  - `npx @yuanyuanyuan/codex-father-mcp-server`
+  - `npx @starkdev020/codex-father-mcp-server`
 
 本地测试发布（可选）
 
 - 申请 GitHub PAT（fine‑grained 或 classic），至少 `write:packages` 权限
 - `~/.npmrc`：
-  - `@yuanyuanyuan:registry=https://npm.pkg.github.com`
+  - `@starkdev020:registry=https://npm.pkg.github.com`
   - `//npm.pkg.github.com/:_authToken=<YOUR_GITHUB_PAT>`
 - 进入包目录：`cd mcp/codex-mcp-server && npm publish`
 
