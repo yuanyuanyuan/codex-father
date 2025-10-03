@@ -31,10 +31,11 @@ jobs:
 
       - name: Configure npm for GitHub Packages
         run: |
-          echo "@yuanyuanyuan:registry=https://npm.pkg.github.com" >> ~/.npmrc
-          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> ~/.npmrc
+          echo "@yuanyuanyuan:registry=https://npm.pkg.github.com" >> "$NPM_CONFIG_USERCONFIG"
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> "$NPM_CONFIG_USERCONFIG"
+          echo "always-auth=true" >> "$NPM_CONFIG_USERCONFIG"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies (mcp package)
         working-directory: mcp/codex-mcp-server
