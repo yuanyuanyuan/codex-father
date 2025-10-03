@@ -26,12 +26,12 @@
 
 ## Phase 3.1: Setup
 
-- [ ] T001 Ensure CLI command scaffold exists in
+- [x] T001 Ensure CLI command scaffold exists in
       `core/cli/commands/orchestrate-command.ts`; wire into `core/cli/start.ts`
       command registry
-- [ ] T002 Ensure package dependency alignment: add `uuid` to `package.json`
+- [x] T002 Ensure package dependency alignment: add `uuid` to `package.json`
       dependencies (used by `core/session/event-logger.ts` and new modules)
-- [ ] T003 [P] Add JSON Schema validation helper for events at
+- [x] T003 [P] Add JSON Schema validation helper for events at
       `core/lib/utils/stream-event-validator.ts` (uses
       `docs/schemas/stream-json-event.schema.json`)
 - [ ] T004 [P] Create orchestrator module layout under `core/orchestrator/`:
