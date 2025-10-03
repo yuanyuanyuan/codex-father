@@ -7,7 +7,8 @@ on:
     paths:
       - 'mcp/**'
       - '.releaserc'
-      - '.github/workflows/release-ghpkgs.yml'
+    paths-ignore:
+      - '.github/workflows/**'
   workflow_dispatch: {}
 
 permissions:
@@ -16,6 +17,9 @@ permissions:
 
 jobs:
   release-ghpkgs:
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
