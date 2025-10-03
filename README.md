@@ -325,7 +325,7 @@ npm run benchmark
 ### 用户文档
 
 - **[MCP 服务器使用指南](mcp/codex-mcp-server/README.md)** - 完整的使用文档和配置说明
-- [非交互模式说明](docs/codex-non-interactive.md) - CLI 非交互模式使用
+- [非交互模式说明](docs/MVP3/codex-non-interactive.md) - CLI 非交互模式使用
 
 ### 开发文档
 

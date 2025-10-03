@@ -10,3 +10,4 @@ refer-research/*
 .tsbuildinfo
 dist
 .codex-father-test/
+.tsbuildinfo.build
