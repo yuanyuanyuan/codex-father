@@ -69,11 +69,7 @@ export default defineConfig({
     },
 
     // Reporters
-    reporter: ['verbose', 'json', 'html'],
-    outputFile: {
-      json: './test-results/results.json',
-      html: './test-results/report.html',
-    },
+    reporter: 'verbose',
 
     // Setup files
     setupFiles: ['./tests/setup.ts'],
@@ -103,8 +99,7 @@ export default defineConfig({
   benchmark: {
     include: ['**/*.{bench,benchmark}.ts'],
     exclude: ['node_modules/**', 'dist/**'],
-    reporter: ['verbose', 'json'],
-    outputFile: './benchmark-results/results.json',
+    reporter: 'verbose',
   },
 
   // Path resolution

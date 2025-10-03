@@ -17,10 +17,10 @@ type Task = {
 };
 
 class NoopLogger implements MCPLogger {
-  debug(): void { }
-  info(): void { }
-  warn(): void { }
-  error(): void { }
+  debug(): void {}
+  info(): void {}
+  warn(): void {}
+  error(): void {}
 }
 
 const baseCtx: MCPToolContext = {
@@ -55,7 +55,9 @@ describe('TaskManagementTools (T022)', () => {
         required: ['type'],
       },
       handler: async (args): Promise<MCPToolResult> => {
-        if (!args.type) return { content: [{ type: 'text', text: 'Missing type' }], isError: true };
+        if (!args.type) {
+          return { content: [{ type: 'text', text: 'Missing type' }], isError: true };
+        }
         const id = `t_${Math.random().toString(36).slice(2, 8)}`;
         const task: Task = {
           id,
@@ -91,7 +93,9 @@ describe('TaskManagementTools (T022)', () => {
       inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
       handler: async (args): Promise<MCPToolResult> => {
         const t = tasks.get(args.id);
-        if (!t) return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        if (!t) {
+          return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        }
         return { content: [{ type: 'text', text: t.status }] };
       },
       category: 'task',
@@ -104,7 +108,9 @@ describe('TaskManagementTools (T022)', () => {
       inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
       handler: async (args): Promise<MCPToolResult> => {
         const t = tasks.get(args.id);
-        if (!t) return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        if (!t) {
+          return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        }
         t.status = 'canceled';
         t.logs.push('Canceled');
         return { content: [{ type: 'text', text: 'OK' }] };
@@ -119,9 +125,12 @@ describe('TaskManagementTools (T022)', () => {
       inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
       handler: async (args): Promise<MCPToolResult> => {
         const t = tasks.get(args.id);
-        if (!t) return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
-        if (t.status !== 'failed' && t.status !== 'canceled')
+        if (!t) {
+          return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        }
+        if (t.status !== 'failed' && t.status !== 'canceled') {
           return { content: [{ type: 'text', text: 'INVALID_STATE' }], isError: true };
+        }
         t.status = 'queued';
         t.logs.push('Retried');
         return { content: [{ type: 'text', text: 'OK' }] };
@@ -136,7 +145,9 @@ describe('TaskManagementTools (T022)', () => {
       inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
       handler: async (args): Promise<MCPToolResult> => {
         const t = tasks.get(args.id);
-        if (!t) return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        if (!t) {
+          return { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true };
+        }
         return { content: [{ type: 'text', text: JSON.stringify(t.logs) }] };
       },
       category: 'task',

@@ -8,10 +8,10 @@ import type {
 } from '../../../specs/_archived/001-docs-readme-phases/contracts/mcp-service.js';
 
 class NoopLogger implements MCPLogger {
-  debug(): void { }
-  info(): void { }
-  warn(): void { }
-  error(): void { }
+  debug(): void {}
+  info(): void {}
+  warn(): void {}
+  error(): void {}
 }
 
 describe('MCP Prompts (T028)', () => {
@@ -42,7 +42,9 @@ describe('MCP Prompts (T028)', () => {
       args: Record<string, any>,
       _ctx: MCPPromptContext
     ): Promise<MCPPromptResult> => {
-      if (!args.name) throw new Error('Missing name');
+      if (!args.name) {
+        throw new Error('Missing name');
+      }
       return {
         description: 'Hello conversation',
         messages: [

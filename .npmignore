@@ -1,0 +1,55 @@
+# Source code
+core/
+tests/
+specs/
+scripts/
+
+# Configuration files
+.github/
+.vscode/
+.husky/
+.claude/
+.codex-father/
+
+# Test and build artifacts
+coverage/
+*.test.ts
+*.spec.ts
+*.bench.ts
+.tsbuildinfo*
+test-report-*.md
+
+# Documentation (keep only essential)
+docs/*.md
+!docs/mcp-integration.md
+DEPLOY.md
+QUICK_DEPLOY.md
+
+# Development files
+tsconfig*.json
+.eslintrc*
+.prettierrc*
+vitest.config.ts
+TEST-COMMANDS.md
+
+# Temporary files
+*.log
+.DS_Store
+.env*
+.env.local
+.env.*.local
+node_modules/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+
+# OS files
+Thumbs.db

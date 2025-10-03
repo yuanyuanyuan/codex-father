@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync, chmodSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import type { DecipherGCM } from 'node:crypto';
 
 export interface ConfigMetadata {
   createdAt: string;
@@ -75,7 +76,7 @@ function encryptValue(raw: unknown, key: Buffer): EncryptedPayload {
 
 function decryptValue(payload: EncryptedPayload, key: Buffer): unknown {
   const iv = Buffer.from(payload.iv, 'base64');
-  const decipher = createDecipheriv(payload.algorithm, key, iv);
+  const decipher = createDecipheriv(payload.algorithm, key, iv) as DecipherGCM;
   decipher.setAuthTag(Buffer.from(payload.tag, 'base64'));
   const decrypted = Buffer.concat([
     decipher.update(Buffer.from(payload.data, 'base64')),
@@ -174,7 +175,7 @@ function resolveContainer(store: ConfigStore, environment?: string): Record<stri
   if (!store.environments[environment]) {
     store.environments[environment] = {};
   }
-  return store.environments[environment];
+  return store.environments[environment] as Record<string, unknown>;
 }
 
 function setNestedValue(target: Record<string, unknown>, key: string, value: unknown): void {
@@ -290,37 +291,46 @@ export class ConfigAccess {
 
     return {
       encrypted: Boolean(encryptionKey),
-      environment: options.environment,
       value: encryptionKey ? '[encrypted]' : parsedValue,
+      ...(options.environment ? { environment: options.environment } : {}),
     };
   }
 
   get(options: GetConfigOptions): { value?: unknown; encrypted: boolean; environment?: string } {
     const store = loadStore(this.configPath);
-    const container = options.environment ? store.environments[options.environment] : store.global;
+    const container = options.environment
+      ? (store.environments[options.environment] ?? {})
+      : store.global;
     const raw = getNestedValue(container, options.key);
 
     if (raw === undefined) {
-      return { encrypted: false, environment: options.environment };
+      return {
+        encrypted: false,
+        ...(options.environment ? { environment: options.environment } : {}),
+      };
     }
 
     if (isEncryptedPayload(raw)) {
       const key = this.getEncryptionKey();
       if (!key) {
-        return { encrypted: true, environment: options.environment, value: '[encrypted]' };
+        return {
+          encrypted: true,
+          value: '[encrypted]',
+          ...(options.environment ? { environment: options.environment } : {}),
+        };
       }
       const decrypted = decryptValue(raw, key);
       return {
         encrypted: true,
-        environment: options.environment,
         value: options.reveal ? decrypted : '[encrypted]',
+        ...(options.environment ? { environment: options.environment } : {}),
       };
     }
 
     return {
       encrypted: false,
-      environment: options.environment,
       value: raw,
+      ...(options.environment ? { environment: options.environment } : {}),
     };
   }
 

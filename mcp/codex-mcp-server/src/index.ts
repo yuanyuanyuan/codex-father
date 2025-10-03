@@ -17,11 +17,17 @@ const __dirname = path.dirname(__filename);
 
 function resolveJobSh(): string {
   const fromEnv = process.env.CODEX_JOB_SH;
-  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+  if (fromEnv && fs.existsSync(fromEnv)) {
+    return fromEnv;
+  }
   const candidate = path.resolve(process.cwd(), 'job.sh');
-  if (fs.existsSync(candidate)) return candidate;
+  if (fs.existsSync(candidate)) {
+    return candidate;
+  }
   const rel = path.resolve(__dirname, '../../..', 'job.sh');
-  if (fs.existsSync(rel)) return rel;
+  if (fs.existsSync(rel)) {
+    return rel;
+  }
   return candidate;
 }
 
@@ -29,11 +35,17 @@ const JOB_SH = resolveJobSh();
 
 function resolveStartSh(): string {
   const fromEnv = process.env.CODEX_START_SH;
-  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+  if (fromEnv && fs.existsSync(fromEnv)) {
+    return fromEnv;
+  }
   const candidate = path.resolve(process.cwd(), 'start.sh');
-  if (fs.existsSync(candidate)) return candidate;
+  if (fs.existsSync(candidate)) {
+    return candidate;
+  }
   const rel = path.resolve(__dirname, '../../..', 'start.sh');
-  if (fs.existsSync(rel)) return rel;
+  if (fs.existsSync(rel)) {
+    return rel;
+  }
   return candidate;
 }
 
@@ -53,8 +65,11 @@ function run(
     child.on('close', (code: number | null) =>
       resolve({ code: code ?? -1, stdout: out, stderr: err })
     );
-    if (input) child.stdin.end(input);
-    else child.stdin.end();
+    if (input) {
+      child.stdin.end(input);
+    } else {
+      child.stdin.end();
+    }
   });
 }
 
@@ -180,8 +195,12 @@ function toolsSpec(): ListToolsResult {
 }
 
 function toTomlValue(v: any): string {
-  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
-  if (v === null || v === undefined) return '""';
+  if (typeof v === 'boolean' || typeof v === 'number') {
+    return String(v);
+  }
+  if (v === null || v === undefined) {
+    return '""';
+  }
   const s = String(v).replace(/\\/g, '\\\\').replace(/\"/g, '\\"');
   return `"${s}"`;
 }
@@ -202,9 +221,13 @@ function applyConvenienceOptions(args: string[], p: any) {
   }
   const bypassActive = !!p?.dangerouslyBypass || hasBypassArg;
   if (p?.approvalPolicy && typeof p.approvalPolicy === 'string') {
-    if (!bypassActive) args.push('--ask-for-approval', p.approvalPolicy);
+    if (!bypassActive) {
+      args.push('--ask-for-approval', p.approvalPolicy);
+    }
   }
-  if (p?.fullAuto && !bypassActive) args.push('--full-auto');
+  if (p?.fullAuto && !bypassActive) {
+    args.push('--full-auto');
+  }
   if (p?.profile && typeof p.profile === 'string') {
     args.push('--profile', p.profile);
   }
@@ -216,17 +239,35 @@ function applyConvenienceOptions(args: string[], p: any) {
       args.push('--codex-config', `${k}=${toTomlValue(v)}`);
     }
   }
-  if (p?.preset) args.push('--preset', String(p.preset));
-  if (p?.carryContext === false) args.push('--no-carry-context');
-  if (p?.compressContext === false) args.push('--no-compress-context');
-  if (Number.isFinite(p?.contextHead)) args.push('--context-head', String(p.contextHead));
-  if (p?.patchMode) args.push('--patch-mode');
-  if (Array.isArray(p?.requireChangeIn)) {
-    for (const g of p.requireChangeIn) args.push('--require-change-in', String(g));
+  if (p?.preset) {
+    args.push('--preset', String(p.preset));
   }
-  if (p?.requireGitCommit) args.push('--require-git-commit');
-  if (p?.autoCommitOnDone) args.push('--auto-commit-on-done');
-  if (p?.autoCommitMessage) args.push('--auto-commit-message', String(p.autoCommitMessage));
+  if (p?.carryContext === false) {
+    args.push('--no-carry-context');
+  }
+  if (p?.compressContext === false) {
+    args.push('--no-compress-context');
+  }
+  if (Number.isFinite(p?.contextHead)) {
+    args.push('--context-head', String(p.contextHead));
+  }
+  if (p?.patchMode) {
+    args.push('--patch-mode');
+  }
+  if (Array.isArray(p?.requireChangeIn)) {
+    for (const g of p.requireChangeIn) {
+      args.push('--require-change-in', String(g));
+    }
+  }
+  if (p?.requireGitCommit) {
+    args.push('--require-git-commit');
+  }
+  if (p?.autoCommitOnDone) {
+    args.push('--auto-commit-on-done');
+  }
+  if (p?.autoCommitMessage) {
+    args.push('--auto-commit-message', String(p.autoCommitMessage));
+  }
 }
 
 async function handleCall(req: CallToolRequest) {
@@ -286,7 +327,9 @@ async function handleCall(req: CallToolRequest) {
             (a, b) =>
               fs.statSync(path.join(runDir, b)).mtimeMs - fs.statSync(path.join(runDir, a)).mtimeMs
           );
-          if (entries.length) lastMessageFile = path.join(runDir, entries[0]);
+          if (entries.length) {
+            lastMessageFile = path.join(runDir, entries[0]);
+          }
         } catch {}
         let exitCode = code;
         try {
@@ -296,7 +339,9 @@ async function handleCall(req: CallToolRequest) {
             if (matches && matches.length > 0) {
               const last = matches[matches.length - 1];
               const m = last.match(/Exit Code:\s*(-?\d+)/);
-              if (m) exitCode = Number(m[1]);
+              if (m) {
+                exitCode = Number(m[1]);
+              }
             }
           }
         } catch {}
@@ -339,55 +384,85 @@ async function handleCall(req: CallToolRequest) {
           }
           const directArgs = outPath ? [outPath, ...args] : args;
           const { code, stdout, stderr } = await run(START_SH, directArgs);
-          if (code !== 0) throw new Error(`start(stub) failed rc=${code} ${stderr}`);
+          if (code !== 0) {
+            throw new Error(`start(stub) failed rc=${code} ${stderr}`);
+          }
           return { content: [{ type: 'text', text: (stdout || '').trim() }] };
         } else {
           const pass: string[] = ['start', '--json'];
-          if (p.tag) pass.push('--tag', String(p.tag));
-          if (p.cwd) pass.push('--cwd', String(p.cwd));
+          if (p.tag) {
+            pass.push('--tag', String(p.tag));
+          }
+          if (p.cwd) {
+            pass.push('--cwd', String(p.cwd));
+          }
           pass.push(...args);
           const { code, stdout, stderr } = await run(JOB_SH, pass);
-          if (code !== 0) throw new Error(`start failed rc=${code} ${stderr}`);
+          if (code !== 0) {
+            throw new Error(`start failed rc=${code} ${stderr}`);
+          }
           return { content: [{ type: 'text', text: stdout.trim() }] };
         }
       }
       case 'codex.status': {
         const jobId = String(p.jobId || '');
-        if (!jobId) throw new Error('Missing jobId');
+        if (!jobId) {
+          throw new Error('Missing jobId');
+        }
         const pass = ['status', jobId, '--json'] as string[];
         const base = p.cwd ? String(p.cwd) : path.dirname(JOB_SH);
-        if (base) pass.push('--cwd', base);
+        if (base) {
+          pass.push('--cwd', base);
+        }
         const { code, stdout, stderr } = await run(JOB_SH, pass);
-        if (code !== 0) throw new Error(`status failed rc=${code} ${stderr}`);
+        if (code !== 0) {
+          throw new Error(`status failed rc=${code} ${stderr}`);
+        }
         return { content: [{ type: 'text', text: stdout.trim() }] };
       }
       case 'codex.stop': {
         const jobId = String(p.jobId || '');
         const force = !!p.force;
-        if (!jobId) throw new Error('Missing jobId');
+        if (!jobId) {
+          throw new Error('Missing jobId');
+        }
         const pass = ['stop', jobId];
-        if (force) pass.push('--force');
+        if (force) {
+          pass.push('--force');
+        }
         const base = p.cwd ? String(p.cwd) : path.dirname(JOB_SH);
-        if (base) pass.push('--cwd', base);
+        if (base) {
+          pass.push('--cwd', base);
+        }
         const { code, stdout, stderr } = await run(JOB_SH, pass);
-        if (code !== 0) throw new Error(`stop failed rc=${code} ${stderr}`);
+        if (code !== 0) {
+          throw new Error(`stop failed rc=${code} ${stderr}`);
+        }
         return { content: [{ type: 'text', text: stdout.trim() }] };
       }
       case 'codex.list': {
         const pass = ['list', '--json'] as string[];
         const base = p.cwd ? String(p.cwd) : path.dirname(JOB_SH);
-        if (base) pass.push('--cwd', base);
+        if (base) {
+          pass.push('--cwd', base);
+        }
         const { code, stdout, stderr } = await run(JOB_SH, pass);
-        if (code !== 0) throw new Error(`list failed rc=${code} ${stderr}`);
+        if (code !== 0) {
+          throw new Error(`list failed rc=${code} ${stderr}`);
+        }
         return { content: [{ type: 'text', text: stdout.trim() }] };
       }
       case 'codex.logs': {
         const jobId = String(p.jobId || '');
-        if (!jobId) throw new Error('Missing jobId');
+        if (!jobId) {
+          throw new Error('Missing jobId');
+        }
         const baseDir = p.cwd ? String(p.cwd) : path.dirname(JOB_SH);
         const sessionsRoot = path.resolve(baseDir, '.codex-father', 'sessions');
         const logFile = path.join(sessionsRoot, jobId, 'job.log');
-        if (!fs.existsSync(logFile)) throw new Error(`log not found: ${logFile}`);
+        if (!fs.existsSync(logFile)) {
+          throw new Error(`log not found: ${logFile}`);
+        }
         const mode = (p.mode || 'bytes') as 'bytes' | 'lines';
         if (mode === 'lines') {
           const grepRe = typeof p.grep === 'string' ? p.grep : '';
@@ -414,7 +489,7 @@ async function handleCall(req: CallToolRequest) {
         }
         const stat = fs.statSync(logFile);
         const size = stat.size;
-        let offset = Math.max(0, Number.isFinite(p.offset) ? Number(p.offset) : 0);
+        const offset = Math.max(0, Number.isFinite(p.offset) ? Number(p.offset) : 0);
         const limit = Math.max(1, Number.isFinite(p.limit) ? Number(p.limit) : 4096);
         if (offset >= size) {
           return {

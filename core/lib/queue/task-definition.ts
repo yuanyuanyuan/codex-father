@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 
-import packageJson from '../../../package.json' assert { type: 'json' };
 import type { Task, TaskDefinition, TaskMetadata, TaskRetryPolicy, TaskStatus } from '../types.js';
 
 export interface CreateTaskOptions {
@@ -19,11 +18,13 @@ export const DEFAULT_TASK_RETRY_POLICY: TaskRetryPolicy = Object.freeze({
   retryableErrors: [],
 });
 
+const DEFAULT_VERSION = process.env.npm_package_version ?? '1.0.0';
+
 export const DEFAULT_TASK_METADATA: TaskMetadata = Object.freeze({
   source: 'cli',
   tags: [],
   environment: process.env.CODEX_ENV || process.env.NODE_ENV || 'development',
-  version: typeof packageJson.version === 'string' ? packageJson.version : '1.0.0',
+  version: DEFAULT_VERSION,
 });
 
 export const TASK_STATUS_TRANSITIONS: Array<{ from: TaskStatus; to: TaskStatus[] }> = [
@@ -76,9 +77,10 @@ function mergeMetadata(definition?: TaskMetadata, environmentOverride?: string):
 }
 
 function resolveInitialStatus(scheduledAt: Date | undefined, now: Date): TaskStatus {
-  if (scheduledAt && scheduledAt.getTime() > now.getTime()) {
+  if (scheduledAt && scheduledAt.getTime() >= now.getTime()) {
     return 'scheduled';
   }
+
   return 'pending';
 }
 
@@ -107,7 +109,7 @@ export function createTaskFromDefinition(
   const timeout = resolveTimeout(definition.timeout);
   const status = resolveInitialStatus(definition.scheduledAt, now);
 
-  return {
+  const task: Task = {
     id: generateId(),
     type: definition.type,
     priority: definition.priority,
@@ -115,14 +117,16 @@ export function createTaskFromDefinition(
     status,
     createdAt: now,
     updatedAt: now,
-    scheduledAt: definition.scheduledAt,
     attempts: 0,
     maxAttempts: retryPolicy.maxAttempts,
     metadata,
     timeout,
     retryPolicy,
-    result: undefined,
-    error: undefined,
-    lastError: undefined,
   };
+
+  if (definition.scheduledAt) {
+    task.scheduledAt = definition.scheduledAt;
+  }
+
+  return task;
 }

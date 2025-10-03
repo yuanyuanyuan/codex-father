@@ -14,10 +14,10 @@ import type {
 } from '../../../specs/_archived/001-docs-readme-phases/contracts/mcp-service.js';
 
 class NoopLogger implements MCPLogger {
-  debug(): void { }
-  info(): void { }
-  warn(): void { }
-  error(): void { }
+  debug(): void {}
+  info(): void {}
+  warn(): void {}
+  error(): void {}
 }
 
 describe('MCP Resources (T027)', () => {
@@ -65,7 +65,9 @@ describe('MCP Resources (T027)', () => {
         const key = `${cwd}:${uri}`;
         if (ctx.cachePolicy.enabled) {
           const ent = cache.get(key);
-          if (ent && now - ent.ts <= ctx.cachePolicy.ttl) return ent.value;
+          if (ent && now - ent.ts <= ctx.cachePolicy.ttl) {
+            return ent.value;
+          }
         }
 
         const path = uri.replace('file://', '');

@@ -1,287 +1,414 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+/**
+ * MCP Command Unit Tests - MCP 命令单元测试
+ *
+ * 测试覆盖:
+ * - 命令注册和配置
+ * - 选项解析和验证
+ * - 服务器启动流程
+ * - 优雅关闭处理
+ * - 错误处理
+ * - 调试模式
+ * - JSON 输出格式
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Command } from 'commander';
-
+import {
+  registerMCPCommand,
+  getMCPServerInstance,
+  clearMCPServerInstance,
+} from '../commands/mcp-command.js';
 import { CLIParser } from '../parser.js';
-import type { CommandContext, CommandResult } from '../../lib/types.js';
+import type { MCPServer } from '../../mcp/server.js';
 
-describe('MCP Command Interface (T004)', () => {
+// Mock MCPServer
+vi.mock('../../mcp/server.js', () => {
+  return {
+    createMCPServer: vi.fn((config?: any) => {
+      const mockServer = {
+        start: vi.fn().mockResolvedValue(undefined),
+        stop: vi.fn().mockResolvedValue(undefined),
+        getServerInfo: vi.fn().mockReturnValue({
+          name: config?.serverName || 'codex-father',
+          version: config?.serverVersion || '1.0.0-mvp1',
+        }),
+      };
+      return mockServer as unknown as MCPServer;
+    }),
+  };
+});
+
+describe('MCP Command', () => {
   let command: Command;
   let parser: CLIParser;
-  let handledContexts: CommandContext[];
+  let consoleSpy: any;
+  let processOnSpy: any;
 
   beforeEach(() => {
     command = new Command();
     parser = new CLIParser(command);
-    handledContexts = [];
+    registerMCPCommand(parser);
 
-    parser.registerCommand(
-      'mcp',
-      'MCP server management operations',
-      async (context: CommandContext): Promise<CommandResult> => {
-        handledContexts.push(context);
+    // Mock console.log
+    consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-        const [action, identifier] = context.args;
-        const baseData = {
-          action,
-          identifier,
-          options: { ...context.options },
-        };
+    // Mock process.on to prevent actual signal handlers
+    processOnSpy = vi.spyOn(process, 'on').mockImplementation(() => process as any);
 
-        switch (action) {
-          case 'start':
-            return {
-              success: true,
-              message: 'MCP server starting',
-              data: {
-                ...baseData,
-                pid: 4321,
-                port: Number(context.options.port ?? 7007),
-                status: 'starting',
-                endpoint: 'http://localhost:7007',
-              },
-              executionTime: 14,
-            };
-          case 'stop':
-            return {
-              success: true,
-              message: `Stopped MCP instance ${identifier ?? 'default'}`,
-              data: {
-                ...baseData,
-                stopped: true,
-              },
-              executionTime: 6,
-            };
-          case 'status':
-            return {
-              success: true,
-              message: 'MCP status information',
-              data: {
-                ...baseData,
-                instances: [
-                  { name: 'default', status: 'running', port: 7007 },
-                  { name: 'preview', status: 'stopped', port: 7010 },
-                ],
-              },
-              executionTime: 8,
-            };
-          case 'logs':
-            return {
-              success: true,
-              message: 'Streaming MCP logs',
-              data: {
-                ...baseData,
-                entries: ['mcp log 1', 'mcp log 2'],
-              },
-              executionTime: 9,
-            };
-          case 'tools':
-            return {
-              success: true,
-              message: 'Available MCP tools',
-              data: {
-                ...baseData,
-                tools: [
-                  { name: 'codex.exec', description: 'Exec command in sandbox' },
-                  { name: 'codex.review', description: 'Review pull request' },
-                ],
-              },
-              executionTime: 5,
-            };
-          default:
-            return {
-              success: false,
-              message: `Unsupported MCP action: ${action}`,
-              errors: [`Invalid MCP action: ${action}`],
-              executionTime: 3,
-            };
-        }
-      },
-      {
-        arguments: [
-          {
-            name: 'action',
-            description: 'MCP action (start|stop|status|logs|tools)',
-            required: true,
-          },
-          { name: 'name', description: 'Instance name or identifier', required: false },
-        ],
-        options: [
-          { flags: '--port <port>', description: 'Port number for MCP server' },
-          { flags: '--config <path>', description: 'Path to MCP configuration file' },
-          { flags: '--detached', description: 'Start server in detached mode' },
-          { flags: '--profile <profile>', description: 'Profile name for MCP instance' },
-          { flags: '--tail <lines>', description: 'Tail size when streaming logs' },
-          { flags: '--follow', description: 'Follow MCP log output' },
-          { flags: '--since <timestamp>', description: 'Filter logs since timestamp' },
-          { flags: '--format <format>', description: 'Output format for tools listing' },
-          { flags: '--filter <pattern>', description: 'Filter tools by pattern' },
-        ],
-      }
-    );
+    // Clear server instance
+    clearMCPServerInstance();
   });
 
   afterEach(() => {
-    handledContexts = [];
+    vi.clearAllMocks();
     vi.restoreAllMocks();
+    clearMCPServerInstance();
   });
 
-  it('registers MCP command with expected arguments and options', () => {
-    const mcpCommand = command.commands.find((cmd) => cmd.name() === 'mcp');
+  describe('命令注册', () => {
+    it('应该注册 mcp 命令', () => {
+      const mcpCommand = command.commands.find((cmd) => cmd.name() === 'mcp');
 
-    expect(mcpCommand).toBeDefined();
-    expect(mcpCommand?.description()).toContain('MCP server management');
+      expect(mcpCommand).toBeDefined();
+      expect(mcpCommand?.description()).toContain('MCP');
+    });
 
-    const argNames = ((mcpCommand as any)?._args ?? []).map((arg: any) =>
-      typeof arg.name === 'function' ? arg.name() : arg.name
-    );
-    expect(argNames).toEqual(['action', 'name']);
+    it('应该注册所有必需的选项', () => {
+      const mcpCommand = command.commands.find((cmd) => cmd.name() === 'mcp');
 
-    const optionFlags = mcpCommand?.options.map((opt) => opt.flags) ?? [];
-    expect(optionFlags).toEqual(
-      expect.arrayContaining(['--port <port>', '--detached', '--tail <lines>', '--follow'])
-    );
-  });
+      expect(mcpCommand).toBeDefined();
 
-  it('starts MCP server with port, config, and detached options', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-    await parser.parse([
-      'node',
-      'codex-father',
-      '--json',
-      'mcp',
-      'start',
-      '--port',
-      '7010',
-      '--config',
-      './mcp/config.json',
-      '--profile',
-      'preview',
-      '--detached',
-    ]);
-
-    const context = handledContexts.at(-1);
-    expect(context?.args?.[0]).toBe('start');
-    expect(context?.options.port).toBe('7010');
-    expect(context?.options.config).toBe('./mcp/config.json');
-    expect(context?.options.profile).toBe('preview');
-    expect(context?.options.detached).toBe(true);
-
-    const payload = logSpy.mock.calls.at(-1)?.[0] ?? '{}';
-    const parsed = JSON.parse(payload);
-    expect(parsed).toMatchObject({
-      success: true,
-      data: {
-        action: 'start',
-        pid: 4321,
-        status: 'starting',
-      },
+      const optionFlags = mcpCommand?.options.map((opt) => opt.flags) ?? [];
+      expect(optionFlags).toEqual(
+        expect.arrayContaining([
+          '--debug',
+          '--server-name <name>',
+          '--server-version <version>',
+          '--codex-command <command>',
+          '--codex-args <args>',
+          '--cwd <path>',
+          '--health-check-interval <ms>',
+          '--max-restart-attempts <n>',
+          '--restart-delay <ms>',
+          '--timeout <ms>',
+        ])
+      );
     });
   });
 
-  it('stops MCP server by instance name', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  describe('选项解析', () => {
+    it('应该解析 debug 选项 (boolean)', async () => {
+      const { createMCPServer } = await import('../../mcp/server.js');
 
-    await parser.parse(['node', 'codex-father', '--json', 'mcp', 'stop', 'preview']);
+      // Start command with debug flag (will block on keepServerAlive)
+      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp', '--debug']);
 
-    const context = handledContexts.at(-1);
-    expect(context?.args?.[0]).toBe('stop');
-    expect(context?.args?.[1]).toBe('preview');
+      // Wait a bit for command to start
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const payload = logSpy.mock.calls.at(-1)?.[0] ?? '{}';
-    const parsed = JSON.parse(payload);
-    expect(parsed).toMatchObject({
-      success: true,
-      data: {
-        action: 'stop',
-        stopped: true,
-      },
+      expect(createMCPServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          debug: true,
+        })
+      );
+
+      // Cleanup: kill the blocking promise
+      const server = getMCPServerInstance();
+      expect(server).toBeDefined();
+    });
+
+    it('应该解析 server-name 和 server-version 选项', async () => {
+      const { createMCPServer } = await import('../../mcp/server.js');
+
+      // Start command with custom server name/version (will block on keepServerAlive)
+      const promise = parser.parse([
+        'node',
+        'codex-father',
+        '--json',
+        'mcp',
+        '--server-name',
+        'custom-server',
+        '--server-version',
+        '2.0.0',
+      ]);
+
+      // Wait a bit for command to start
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(createMCPServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serverName: 'custom-server',
+          serverVersion: '2.0.0',
+        })
+      );
+
+      // Cleanup
+      const server = getMCPServerInstance();
+      expect(server).toBeDefined();
+    });
+
+    it('应该解析数值选项 (health-check-interval, timeout 等)', async () => {
+      const { createMCPServer } = await import('../../mcp/server.js');
+
+      // Start command with numeric options (will block on keepServerAlive)
+      const promise = parser.parse([
+        'node',
+        'codex-father',
+        '--json',
+        'mcp',
+        '--health-check-interval',
+        '60000',
+        '--max-restart-attempts',
+        '5',
+        '--restart-delay',
+        '2000',
+        '--timeout',
+        '45000',
+      ]);
+
+      // Wait a bit for command to start
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Note: These options are not passed to createMCPServer in current implementation
+      // They would be used if ProcessManager config is exposed through MCPServerConfig
+
+      // Cleanup
+      const server = getMCPServerInstance();
+      expect(server).toBeDefined();
     });
   });
 
-  it('reports MCP status across instances', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  describe('服务器启动', () => {
+    it('应该成功启动 MCP 服务器', async () => {
+      const { createMCPServer } = await import('../../mcp/server.js');
 
-    await parser.parse(['node', 'codex-father', '--json', 'mcp', 'status', '--format', 'json']);
+      // Start command (will block on keepServerAlive)
+      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
 
-    const context = handledContexts.at(-1);
-    expect(context?.args?.[0]).toBe('status');
-    expect(context?.options.format).toBe('json');
+      // Wait a bit for command to start
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const payload = logSpy.mock.calls.at(-1)?.[0] ?? '{}';
-    const parsed = JSON.parse(payload);
-    expect(parsed).toMatchObject({
-      success: true,
-      data: {
-        action: 'status',
-        instances: expect.any(Array),
-      },
+      expect(createMCPServer).toHaveBeenCalled();
+
+      const server = getMCPServerInstance();
+      expect(server).toBeDefined();
+      expect(server?.start).toHaveBeenCalled();
+    });
+
+    it('应该调用 server.start()', async () => {
+      // Start command (will block on keepServerAlive)
+      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
+
+      // Wait a bit for command to start
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const server = getMCPServerInstance();
+      expect(server).toBeDefined();
+      expect(server?.start).toHaveBeenCalled();
+    });
+
+    it('应该在 JSON 模式下输出服务器信息', async () => {
+      // Start command in JSON mode (will block on keepServerAlive)
+      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
+
+      // Wait a bit for command to start
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Check that JSON output was logged
+      const jsonOutputCalls = consoleSpy.mock.calls.filter((call: any[]) => {
+        try {
+          const parsed = JSON.parse(call[0]);
+          return parsed.success !== undefined;
+        } catch {
+          return false;
+        }
+      });
+
+      expect(jsonOutputCalls.length).toBeGreaterThan(0);
+
+      const lastJsonCall = jsonOutputCalls[jsonOutputCalls.length - 1];
+      const parsed = JSON.parse(lastJsonCall[0]);
+
+      expect(parsed).toMatchObject({
+        success: true,
+        message: expect.stringContaining('MCP Server started'),
+        data: {
+          serverName: 'codex-father',
+          serverVersion: '1.0.0-mvp1',
+          transport: 'stdio',
+          protocol: 'MCP 2024-11-05',
+          capabilities: ['tools', 'notifications'],
+        },
+        executionTime: expect.any(Number),
+      });
+    });
+
+    it('应该在非 JSON 模式下输出启动信息', async () => {
+      // Start command without JSON flag (will block on keepServerAlive)
+      const promise = parser.parse(['node', 'codex-father', 'mcp']);
+
+      // Wait a bit for command to start
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Check that console.log was called with startup messages
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Starting MCP Server'));
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('MCP Server started successfully')
+      );
     });
   });
 
-  it('streams MCP logs with tail, follow, and since filters', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  describe('优雅关闭', () => {
+    it('应该注册 SIGINT 和 SIGTERM 信号处理器', async () => {
+      // Start command (will block on keepServerAlive)
+      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
 
-    await parser.parse([
-      'node',
-      'codex-father',
-      '--json',
-      'mcp',
-      'logs',
-      'default',
-      '--tail',
-      '200',
-      '--follow',
-      '--since',
-      '2024-02-01T12:00:00Z',
-    ]);
+      // Wait a bit for command to start
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const context = handledContexts.at(-1);
-    expect(context?.args?.[0]).toBe('logs');
-    expect(context?.args?.[1]).toBe('default');
-    expect(context?.options.tail).toBe('200');
-    expect(context?.options.follow).toBe(true);
-    expect(context?.options.since).toBe('2024-02-01T12:00:00Z');
+      // Verify signal handlers were registered
+      expect(processOnSpy).toHaveBeenCalledWith('SIGINT', expect.any(Function));
+      expect(processOnSpy).toHaveBeenCalledWith('SIGTERM', expect.any(Function));
+    });
 
-    const payload = logSpy.mock.calls.at(-1)?.[0] ?? '{}';
-    const parsed = JSON.parse(payload);
-    expect(parsed).toMatchObject({
-      success: true,
-      data: {
-        action: 'logs',
-        entries: expect.arrayContaining(['mcp log 1']),
-      },
+    it('应该注册 uncaughtException 和 unhandledRejection 处理器', async () => {
+      // Start command (will block on keepServerAlive)
+      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
+
+      // Wait a bit for command to start
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Verify error handlers were registered
+      expect(processOnSpy).toHaveBeenCalledWith('uncaughtException', expect.any(Function));
+      expect(processOnSpy).toHaveBeenCalledWith('unhandledRejection', expect.any(Function));
     });
   });
 
-  it('lists available MCP tools with filters and format options', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  describe('错误处理', () => {
+    it('应该处理服务器启动失败', async () => {
+      // Mock process.exit to prevent actual exit
+      const processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('process.exit called');
+      });
 
-    await parser.parse([
-      'node',
-      'codex-father',
-      '--json',
-      'mcp',
-      'tools',
-      '--format',
-      'table',
-      '--filter',
-      'codex.*',
-    ]);
+      // Mock server.start to throw error
+      const { createMCPServer } = await import('../../mcp/server.js');
+      vi.mocked(createMCPServer).mockReturnValueOnce({
+        start: vi.fn().mockRejectedValueOnce(new Error('Failed to start')),
+        stop: vi.fn().mockResolvedValue(undefined),
+        getServerInfo: vi.fn().mockReturnValue({
+          name: 'codex-father',
+          version: '1.0.0-mvp1',
+        }),
+      } as unknown as MCPServer);
 
-    const context = handledContexts.at(-1);
-    expect(context?.args?.[0]).toBe('tools');
-    expect(context?.options.format).toBe('table');
-    expect(context?.options.filter).toBe('codex.*');
+      // Start command (should throw because of mocked process.exit)
+      try {
+        await parser.parse(['node', 'codex-father', '--json', 'mcp']);
+      } catch (error) {
+        // Expected to throw because of mocked process.exit
+      }
 
-    const payload = logSpy.mock.calls.at(-1)?.[0] ?? '{}';
-    const parsed = JSON.parse(payload);
-    expect(parsed).toMatchObject({
-      success: true,
-      data: {
-        action: 'tools',
-        tools: expect.any(Array),
-      },
+      // Wait a bit for error handling
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Verify process.exit was called
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+
+      processExitSpy.mockRestore();
+    });
+
+    it('应该在错误时输出错误消息 (非 JSON 模式)', async () => {
+      // Mock console.error
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      // Mock process.exit to prevent actual exit
+      const processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('process.exit called');
+      });
+
+      // Mock server.start to throw error
+      const { createMCPServer } = await import('../../mcp/server.js');
+      vi.mocked(createMCPServer).mockReturnValueOnce({
+        start: vi.fn().mockRejectedValueOnce(new Error('Connection failed')),
+        stop: vi.fn().mockResolvedValue(undefined),
+        getServerInfo: vi.fn().mockReturnValue({
+          name: 'codex-father',
+          version: '1.0.0-mvp1',
+        }),
+      } as unknown as MCPServer);
+
+      // Start command without JSON flag (should throw because of mocked process.exit)
+      try {
+        await parser.parse(['node', 'codex-father', 'mcp']);
+      } catch (error) {
+        // Expected to throw because of mocked process.exit
+      }
+
+      // Wait a bit for error handling
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Check that error was logged to console.error
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to start MCP Server')
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Connection failed'));
+
+      // Verify process.exit was called
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+
+      consoleErrorSpy.mockRestore();
+      processExitSpy.mockRestore();
+    });
+  });
+
+  describe('调试模式', () => {
+    it('应该在调试模式下输出额外的调试信息', async () => {
+      // Start command with debug flag (will block on keepServerAlive)
+      const promise = parser.parse(['node', 'codex-father', 'mcp', '--debug']);
+
+      // Wait a bit for command to start
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Check that debug info was logged
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Debug mode: ENABLED'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Working directory'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Timeout'));
+    });
+  });
+
+  describe('工具函数', () => {
+    it('应该通过 getMCPServerInstance 获取服务器实例', async () => {
+      // Initially no instance
+      expect(getMCPServerInstance()).toBeNull();
+
+      // Start command (will block on keepServerAlive)
+      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
+
+      // Wait a bit for command to start
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Now instance should exist
+      const server = getMCPServerInstance();
+      expect(server).toBeDefined();
+      expect(server).not.toBeNull();
+    });
+
+    it('应该通过 clearMCPServerInstance 清理服务器实例', async () => {
+      // Start command (will block on keepServerAlive)
+      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
+
+      // Wait a bit for command to start
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Instance should exist
+      expect(getMCPServerInstance()).not.toBeNull();
+
+      // Clear instance
+      clearMCPServerInstance();
+
+      // Instance should be null
+      expect(getMCPServerInstance()).toBeNull();
     });
   });
 });

@@ -29,7 +29,9 @@ describe('QueueBackupManager (T067 backup/restore)', () => {
   let base: string;
   beforeEach(() => {
     base = mkdtempSync(join(tmpdir(), 'backup-'));
-    for (const d of REQUIRED_DIRS) mkdirSync(join(base, d), { recursive: true });
+    for (const d of REQUIRED_DIRS) {
+      mkdirSync(join(base, d), { recursive: true });
+    }
     writeFileSync(
       join(base, 'pending/tasks', 'a.json'),
       JSON.stringify({ id: 'a', status: 'pending' }),

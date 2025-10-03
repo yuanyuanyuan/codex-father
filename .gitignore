@@ -7,3 +7,6 @@ node_modules/*
 test-results
 refer-research
 refer-research/*
+.tsbuildinfo
+dist
+.codex-father-test/

@@ -74,7 +74,7 @@ export class AppError extends Error {
     this.context = info.context;
 
     // 保持原始错误的堆栈信息
-    if (cause) {
+    if (cause?.stack) {
       this.stack = cause.stack;
     }
 
@@ -576,20 +576,21 @@ export async function withErrorBoundary<T>(
     }
 
     // 包装为应用错误
+    const baseError = error instanceof Error ? error : new Error(String(error));
     const appError = new AppError(
       {
         category: ErrorCategory.INTERNAL,
         code: EXIT_CODES.INTERNAL_ERROR,
-        message: error.message,
+        message: baseError.message,
         userMessage: 'An unexpected error occurred',
         suggestions: [
           'Try running the command again',
           'Check the logs for more details',
           'Report this issue if it persists',
         ],
-        context,
+        ...(context ? { context } : {}),
       },
-      error instanceof Error ? error : new Error(String(error))
+      baseError
     );
 
     throw appError;
@@ -620,6 +621,6 @@ export const createError = {
       message,
       userMessage: 'An internal error occurred',
       suggestions: ['Try again later', 'Contact support if the issue persists'],
-      context: context ?? undefined,
+      ...(context ? { context } : {}),
     }),
 };

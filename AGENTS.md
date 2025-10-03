@@ -55,3 +55,48 @@
 - Pass-through to Codex: `--sandbox`, `--approvals`, `--profile`, `--full-auto`,
   `--codex-config`, `--codex-arg`.
 - STDIN rule: `-` may be used once (in `-f` or `-F`).
+
+## Feature 006 — Multi‑Agent Orchestration (Agent Notes)
+
+Scope: specs/006-docs-capability-assessment/\*
+
+- Tech stack (reuse first):
+  - Node.js >=18 + TypeScript ^5
+  - Reuse core modules: `core/lib/queue/*` (concurrency/retry/scheduler),
+    `core/session/event-logger.ts` (JSONL), `core/cli/config-loader.ts`
+    (file→env→CLI overrides)
+  - Stream events follow `docs/schemas/stream-json-event.schema.json`; audit
+    logs are JSONL under `.codex-father/sessions/<id>/`
+  - LLM access via `codex exec` only; orchestrator stays offline by default
+- Architecture choices:
+  - Concurrency via TaskScheduler + queue; DO NOT add `p-queue`/`p-limit`
+    (DRY/YAGNI)
+  - Writes use SWW (Single Writer Window) with two‑phase write: isolated patch
+    generation → serialized apply + quick validate
+  - Patch apply: prefer `git apply`, fallback to native on failure
+  - Quick validate is mandatory; if missing tools, mark write as failed
+  - Resource monitor: prefer Node built‑ins (`os`, `process`) before adding deps
+- CLI contract (orchestrate):
+  - Add `core/cli/commands/orchestrate-command.ts`
+  - Options: `--mode`, `--tasks-file`, `--max-concurrency` (≤10),
+    `--task-timeout`, `--success-threshold`, `--output-format`, `--config`
+  - Exit 0 iff successRate ≥ threshold AND no `patch_failed`
+- Docs mapping (for reference):
+  - `specs/006-docs-capability-assessment/design.md` — technical design (updated
+    tech choices)
+  - `specs/006-docs-capability-assessment/plan.md` — /plan output, phases &
+    approach
+  - `specs/006-docs-capability-assessment/research.md` — Phase 0 decisions
+  - `specs/006-docs-capability-assessment/data-model.md` — entities & states
+  - `specs/006-docs-capability-assessment/contracts/` — CLI/events contracts
+  - `specs/006-docs-capability-assessment/quickstart.md` — usage & samples
+- Safety defaults:
+  - Sandbox: `workspace-write`; approvals: `never` for orchestrator runs
+  - Single writer at any time; write tasks must output patches, not raw edits
+- Dependency alignment:
+  - Code imports `uuid`; ensure it is declared in `package.json` when
+    implementing
+- Testing expectations:
+  - Contract tests for CLI args and event schema compliance
+  - Unit tests for scheduling, SWW success/failure paths, and quick‑validate
+    gate

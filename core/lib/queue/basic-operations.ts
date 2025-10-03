@@ -130,12 +130,14 @@ export class BasicQueueOperations {
           ? (task.scheduledAt ?? new Date(createdAt.getTime()))
           : new Date(createdAt.getTime());
 
-      return {
+      const enqueueResult: EnqueueResult = {
         taskId: task.id,
-        queuePosition,
         estimatedStartTime,
-        scheduledAt: task.scheduledAt,
+        ...(queuePosition !== undefined ? { queuePosition } : {}),
+        ...(task.scheduledAt ? { scheduledAt: task.scheduledAt } : {}),
       };
+
+      return enqueueResult;
     } catch (error) {
       throw new Error(
         `Failed to enqueue task: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -204,8 +206,8 @@ export class BasicQueueOperations {
       return {
         taskId,
         cancelled: false,
-        reason,
         wasRunning: false,
+        ...(reason ? { reason } : {}),
       };
     }
 
@@ -216,8 +218,8 @@ export class BasicQueueOperations {
       return {
         taskId,
         cancelled: false,
-        reason,
         wasRunning,
+        ...(reason ? { reason } : {}),
       };
     }
 
@@ -225,8 +227,8 @@ export class BasicQueueOperations {
     return {
       taskId,
       cancelled: updated,
-      reason,
       wasRunning,
+      ...(reason ? { reason } : {}),
     };
   }
 
@@ -265,7 +267,7 @@ export class BasicQueueOperations {
       retryScheduled: updated,
       nextAttemptAt,
       attemptNumber: attemptsSoFar + 1,
-      reason: updated ? undefined : 'update_failed',
+      ...(updated ? {} : { reason: 'update_failed' as const }),
     };
   }
 
@@ -353,6 +355,9 @@ export class BasicQueueOperations {
    */
   private getTaskPath(taskId: string, status: TaskStatus): string {
     const statusDir = STATUS_DIR_MAP[status];
+    if (!statusDir) {
+      throw new Error(`Unsupported task status directory mapping: ${status}`);
+    }
     return join(this.config.queuePath, statusDir, 'tasks', `${taskId}.json`);
   }
 
@@ -361,6 +366,9 @@ export class BasicQueueOperations {
    */
   private getMetadataPath(taskId: string, status: TaskStatus): string {
     const statusDir = STATUS_DIR_MAP[status];
+    if (!statusDir) {
+      throw new Error(`Unsupported task status directory mapping: ${status}`);
+    }
     return join(this.config.queuePath, statusDir, 'metadata', `${taskId}.json`);
   }
 

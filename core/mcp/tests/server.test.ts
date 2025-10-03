@@ -1,177 +1,413 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+/**
+ * MCP Server Unit Tests - MCP 服务器单元测试
+ *
+ * 测试覆盖:
+ * - 服务器创建和配置
+ * - 启动和停止流程
+ * - MCP 协议处理 (tools/list, tools/call)
+ * - 事件转发
+ * - 错误处理
+ */
 
-import type {
-  MCPServer,
-  MCPServerConfig,
-  MCPServerStatus,
-  MCPToolDefinition,
-  MCPToolResult,
-  MCPToolContext,
-  MCPLogger,
-  MCPClientInfo,
-  MCPServerInfo,
-  LogLevel,
-} from '../../../specs/_archived/001-docs-readme-phases/contracts/mcp-service.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { MCPServer, createMCPServer, startMCPServer } from '../server.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { createProcessManager, type SingleProcessManager } from '../../process/manager.js';
+import { createSessionManager, type SessionManager } from '../../session/session-manager.js';
+import { createBridgeLayer, type BridgeLayer } from '../bridge-layer.js';
+import { createEventMapper, type EventMapper } from '../event-mapper.js';
 
-class InMemoryLogger implements MCPLogger {
-  logs: Array<{ level: string; message: string; data?: any }> = [];
-  debug(message: string, data?: any): void {
-    this.logs.push({ level: 'debug', message, data });
-  }
-  info(message: string, data?: any): void {
-    this.logs.push({ level: 'info', message, data });
-  }
-  warn(message: string, data?: any): void {
-    this.logs.push({ level: 'warn', message, data });
-  }
-  error(message: string, _error?: Error, data?: any): void {
-    this.logs.push({ level: 'error', message, data });
-  }
-}
-
-class FakeMCPServer implements MCPServer {
-  private status: MCPServerStatus = {
-    running: false,
-    uptime: 0,
-    connections: 0,
-    metrics: {
-      totalRequests: 0,
-      successfulRequests: 0,
-      failedRequests: 0,
-      averageResponseTime: 0,
-      memoryUsage: 0,
-      activeTasks: 0,
-    },
+// Mock dependencies
+vi.mock('@modelcontextprotocol/sdk/server/index.js', () => {
+  return {
+    Server: vi.fn(),
   };
+});
 
-  private config?: MCPServerConfig;
-  private startedAt = 0;
-  private tools: Map<string, MCPToolDefinition> = new Map();
+vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => {
+  return {
+    StdioServerTransport: vi.fn(),
+  };
+});
 
-  async start(config: MCPServerConfig): Promise<void> {
-    this.config = config;
-    this.tools = new Map(config.tools.map((t) => [t.name, t]));
-    this.startedAt = Date.now();
-    this.status.running = true;
-    this.status.pid = process.pid;
-    this.status.port = config.port ?? 7007;
-    this.status.uptime = 0;
-    this.status.connections = 1;
-  }
+vi.mock('../../process/manager.js', () => {
+  return {
+    createProcessManager: vi.fn(),
+  };
+});
 
-  async stop(): Promise<void> {
-    this.status.running = false;
-    this.status.connections = 0;
-    this.status.uptime = Date.now() - this.startedAt;
-  }
+vi.mock('../../session/session-manager.js', () => {
+  return {
+    createSessionManager: vi.fn(),
+  };
+});
 
-  getStatus(): MCPServerStatus {
-    const uptime = this.status.running ? Date.now() - this.startedAt : this.status.uptime;
-    return { ...this.status, uptime };
-  }
+vi.mock('../bridge-layer.js', () => {
+  return {
+    createBridgeLayer: vi.fn(),
+  };
+});
 
-  async listTools() {
-    return Array.from(this.tools.values());
-  }
+vi.mock('../event-mapper.js', () => {
+  return {
+    createEventMapper: vi.fn(),
+  };
+});
 
-  async callTool(name: string, args?: Record<string, any>): Promise<MCPToolResult> {
-    const tool = this.tools.get(name);
-    if (!tool) {
-      return {
-        content: [{ type: 'text', text: `Tool not found: ${name}` }],
-        isError: true,
-      };
-    }
-
-    const ctx: MCPToolContext = {
-      requestId: `req_${Date.now()}`,
-      clientInfo: { name: 'test-client', version: '1.0.0', capabilities: {} },
-      serverInfo: {
-        name: this.config?.name ?? 'fake',
-        version: this.config?.version ?? '0',
-        capabilities: this.config?.capabilities ?? {},
-      },
-      logger: new InMemoryLogger(),
-      workingDirectory: process.cwd(),
-      permissions: {
-        readFileSystem: true,
-        writeFileSystem: true,
-        executeCommands: false,
-        networkAccess: false,
-        containerAccess: false,
-        gitAccess: false,
-      },
-    };
-
-    const result = await tool.handler(args ?? {}, ctx);
-    // update metrics
-    this.status.metrics.totalRequests += 1;
-    if (result.isError) this.status.metrics.failedRequests += 1;
-    else this.status.metrics.successfulRequests += 1;
-    return result;
-  }
-
-  async listResources() {
-    return [];
-  }
-  async readResource(_uri: string) {
-    throw new Error('not implemented in fake');
-  }
-  async listPrompts() {
-    return [];
-  }
-  async getPrompt(_name: string) {
-    throw new Error('not implemented in fake');
-  }
-}
-
-describe('MCP Server interface (T020)', () => {
-  let server: FakeMCPServer;
-  let config: MCPServerConfig;
+describe('MCPServer', () => {
+  let mockServer: any;
+  let mockTransport: any;
+  let mockProcessManager: any;
+  let mockSessionManager: any;
+  let mockBridgeLayer: any;
+  let mockEventMapper: any;
+  let mockCodexClient: any;
 
   beforeEach(() => {
-    const echoTool: MCPToolDefinition = {
-      name: 'echo',
-      description: 'Echo back arguments',
-      inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
-      handler: async (args) => ({ content: [{ type: 'text', text: String(args.text) }] }),
-      category: 'utility',
-      version: '1.0.0',
+    // 创建 mock MCP Server
+    mockServer = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+      setRequestHandler: vi.fn(),
+      notification: vi.fn(),
+    };
+    vi.mocked(Server).mockImplementation(() => mockServer);
+
+    // 创建 mock Transport
+    mockTransport = {};
+    vi.mocked(StdioServerTransport).mockImplementation(() => mockTransport);
+
+    // 创建 mock CodexClient
+    mockCodexClient = {
+      on: vi.fn(),
+      off: vi.fn(),
     };
 
-    config = {
-      name: 'cf-mcp',
-      version: '0.1.0',
-      port: 7123,
-      logLevel: 'info',
-      capabilities: { tools: { listChanged: true } },
-      tools: [echoTool],
-      resources: [],
-      prompts: [],
+    // 创建 mock ProcessManager
+    mockProcessManager = {
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue(undefined),
+      getClient: vi.fn().mockReturnValue(mockCodexClient),
+      isReady: vi.fn().mockReturnValue(true),
+      getStatus: vi.fn().mockReturnValue('ready'),
     };
-    server = new FakeMCPServer();
+    vi.mocked(createProcessManager).mockReturnValue(mockProcessManager);
+
+    // 创建 mock SessionManager
+    mockSessionManager = {
+      cleanup: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue({
+        conversationId: 'conv-123',
+        jobId: 'job-123',
+        rolloutPath: '/path/to/rollout',
+      }),
+      sendUserMessage: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.mocked(createSessionManager).mockReturnValue(mockSessionManager);
+
+    // 创建 mock BridgeLayer
+    mockBridgeLayer = {
+      getTools: vi.fn().mockReturnValue([
+        {
+          name: 'test-tool',
+          description: 'A test tool',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+      ]),
+      callTool: vi.fn().mockResolvedValue({ success: true, data: 'result' }),
+    };
+    vi.mocked(createBridgeLayer).mockReturnValue(mockBridgeLayer);
+
+    // 创建 mock EventMapper
+    mockEventMapper = {
+      mapEvent: vi.fn().mockReturnValue({
+        method: 'notifications/progress',
+        params: {
+          progressToken: 'token-123',
+          progress: 50,
+          total: 100,
+        },
+      }),
+    };
+    vi.mocked(createEventMapper).mockReturnValue(mockEventMapper);
   });
 
-  it('starts, reports status, lists and calls tools, then stops', async () => {
-    await server.start(config);
-    const status1 = server.getStatus();
-    expect(status1.running).toBe(true);
-    expect(status1.port).toBe(7123);
-    expect(status1.pid).toBeDefined();
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
-    const tools = await server.listTools();
-    expect(tools.map((t) => t.name)).toContain('echo');
+  describe('基本功能', () => {
+    it('应该创建 MCPServer 实例', () => {
+      const server = createMCPServer();
 
-    const ok = await server.callTool('echo', { text: 'hello' });
-    expect(ok.isError).toBeFalsy();
-    expect(ok.content[0].text).toBe('hello');
+      expect(server).toBeInstanceOf(MCPServer);
+    });
 
-    const notFound = await server.callTool('missing', {});
-    expect(notFound.isError).toBe(true);
+    it('应该使用默认配置', () => {
+      const server = createMCPServer();
+      const info = server.getServerInfo();
 
-    await server.stop();
-    const status2 = server.getStatus();
-    expect(status2.running).toBe(false);
-    expect(status2.uptime).toBeGreaterThanOrEqual(0);
+      expect(info.name).toBe('codex-father');
+      expect(info.version).toBe('1.0.0-mvp1');
+    });
+
+    it('应该使用自定义配置', () => {
+      const server = createMCPServer({
+        serverName: 'custom-server',
+        serverVersion: '2.0.0',
+        debug: true,
+      });
+      const info = server.getServerInfo();
+
+      expect(info.name).toBe('custom-server');
+      expect(info.version).toBe('2.0.0');
+    });
+
+    it('应该创建所有必需的子系统', () => {
+      createMCPServer();
+
+      expect(Server).toHaveBeenCalledWith(
+        {
+          name: 'codex-father',
+          version: '1.0.0-mvp1',
+        },
+        {
+          capabilities: {
+            tools: {},
+          },
+        }
+      );
+      expect(StdioServerTransport).toHaveBeenCalled();
+      expect(createProcessManager).toHaveBeenCalled();
+      expect(createSessionManager).toHaveBeenCalled();
+      expect(createBridgeLayer).toHaveBeenCalled();
+      expect(createEventMapper).toHaveBeenCalled();
+    });
+  });
+
+  describe('启动和停止', () => {
+    it('应该成功启动服务器', async () => {
+      const server = createMCPServer();
+
+      await server.start();
+
+      expect(mockProcessManager.start).toHaveBeenCalled();
+      expect(mockServer.connect).toHaveBeenCalledWith(mockTransport);
+    });
+
+    it('应该成功停止服务器', async () => {
+      const server = createMCPServer();
+      await server.start();
+
+      await server.stop();
+
+      expect(mockSessionManager.cleanup).toHaveBeenCalled();
+      expect(mockServer.close).toHaveBeenCalled();
+    });
+
+    it('应该通过 startMCPServer 便捷函数启动', async () => {
+      const server = await startMCPServer();
+
+      expect(server).toBeInstanceOf(MCPServer);
+      expect(mockProcessManager.start).toHaveBeenCalled();
+      expect(mockServer.connect).toHaveBeenCalled();
+    });
+  });
+
+  describe('MCP 协议处理', () => {
+    it('应该注册 tools/list 处理器', () => {
+      createMCPServer();
+
+      // 验证 setRequestHandler 被调用了两次 (tools/list 和 tools/call)
+      expect(mockServer.setRequestHandler).toHaveBeenCalledTimes(2);
+    });
+
+    it('应该处理 tools/list 请求', async () => {
+      createMCPServer();
+
+      // 获取 tools/list 处理器
+      const listToolsHandler = mockServer.setRequestHandler.mock.calls[0][1];
+
+      const result = await listToolsHandler();
+
+      expect(mockBridgeLayer.getTools).toHaveBeenCalled();
+      expect(result).toEqual({
+        tools: [
+          {
+            name: 'test-tool',
+            description: 'A test tool',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+        ],
+      });
+    });
+
+    it('应该处理 tools/call 请求 (成功)', async () => {
+      createMCPServer();
+
+      // 获取 tools/call 处理器
+      const callToolHandler = mockServer.setRequestHandler.mock.calls[1][1];
+
+      const request = {
+        params: {
+          name: 'test-tool',
+          arguments: { arg1: 'value1' },
+        },
+      };
+
+      const result = await callToolHandler(request);
+
+      expect(mockBridgeLayer.callTool).toHaveBeenCalledWith('test-tool', { arg1: 'value1' });
+      expect(result).toEqual({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ success: true, data: 'result' }, null, 2),
+          },
+        ],
+      });
+    });
+
+    it('应该处理 tools/call 请求 (无参数)', async () => {
+      createMCPServer();
+
+      const callToolHandler = mockServer.setRequestHandler.mock.calls[1][1];
+
+      const request = {
+        params: {
+          name: 'test-tool',
+          // arguments 为 undefined
+        },
+      };
+
+      await callToolHandler(request);
+
+      expect(mockBridgeLayer.callTool).toHaveBeenCalledWith('test-tool', {});
+    });
+
+    it('应该处理 tools/call 请求错误', async () => {
+      createMCPServer();
+
+      // Mock callTool 抛出错误
+      mockBridgeLayer.callTool.mockRejectedValueOnce(new Error('Tool execution failed'));
+
+      const callToolHandler = mockServer.setRequestHandler.mock.calls[1][1];
+
+      const request = {
+        params: {
+          name: 'test-tool',
+          arguments: {},
+        },
+      };
+
+      const result = await callToolHandler(request);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Tool execution failed');
+    });
+  });
+
+  describe('事件转发', () => {
+    it('应该注册 Codex 事件监听器', () => {
+      createMCPServer();
+
+      expect(mockCodexClient.on).toHaveBeenCalledWith('notification', expect.any(Function));
+    });
+
+    it('应该转发 Codex 通知为 MCP 通知', () => {
+      createMCPServer();
+
+      // 获取事件监听器
+      const notificationListener = mockCodexClient.on.mock.calls[0][1];
+
+      // 模拟 Codex 通知
+      const codexNotification = {
+        method: 'codex/progress',
+        params: {
+          eventId: 'event-123',
+          type: 'progress',
+          progress: 50,
+          total: 100,
+        },
+      };
+
+      notificationListener(codexNotification);
+
+      expect(mockEventMapper.mapEvent).toHaveBeenCalled();
+      expect(mockServer.notification).toHaveBeenCalledWith({
+        method: 'notifications/progress',
+        params: {
+          progressToken: 'token-123',
+          progress: 50,
+          total: 100,
+        },
+      });
+    });
+  });
+
+  describe('错误处理', () => {
+    it('应该处理 ProcessManager 启动失败', async () => {
+      mockProcessManager.start.mockRejectedValueOnce(new Error('Failed to start process'));
+
+      const server = createMCPServer();
+
+      await expect(server.start()).rejects.toThrow('Failed to start process');
+    });
+
+    it('应该处理 Server.connect 失败', async () => {
+      mockServer.connect.mockRejectedValueOnce(new Error('Failed to connect'));
+
+      const server = createMCPServer();
+
+      await expect(server.start()).rejects.toThrow('Failed to connect');
+    });
+
+    it('应该处理 SessionManager.cleanup 失败', async () => {
+      mockSessionManager.cleanup.mockRejectedValueOnce(new Error('Failed to cleanup'));
+
+      const server = createMCPServer();
+      await server.start();
+
+      await expect(server.stop()).rejects.toThrow('Failed to cleanup');
+    });
+  });
+
+  describe('工厂函数', () => {
+    it('应该通过工厂函数创建实例', () => {
+      const server = createMCPServer({ serverName: 'test-server' });
+
+      expect(server).toBeInstanceOf(MCPServer);
+      expect(server.getServerInfo().name).toBe('test-server');
+    });
+
+    it('应该通过 startMCPServer 创建并启动实例', async () => {
+      const server = await startMCPServer({ serverName: 'test-server' });
+
+      expect(server).toBeInstanceOf(MCPServer);
+      expect(mockProcessManager.start).toHaveBeenCalled();
+    });
+  });
+
+  describe('调试模式', () => {
+    it('应该在调试模式下输出日志', async () => {
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const server = createMCPServer({ debug: true });
+      await server.start();
+
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[MCPServer] Starting'));
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[MCPServer] Started: codex-father v1.0.0-mvp1')
+      );
+
+      consoleSpy.mockRestore();
+    });
   });
 });

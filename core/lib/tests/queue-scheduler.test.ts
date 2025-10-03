@@ -35,7 +35,9 @@ describe('TaskScheduler (T068 scheduler)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     base = mkdtempSync(join(tmpdir(), 'scheduler-'));
-    for (const d of REQUIRED_DIRS) mkdirSync(join(base, d), { recursive: true });
+    for (const d of REQUIRED_DIRS) {
+      mkdirSync(join(base, d), { recursive: true });
+    }
     ops = new BasicQueueOperations({ queuePath: base });
   });
   afterEach(() => {

@@ -54,11 +54,12 @@ export class FileSystemQueue {
   static async initialize(options: FileSystemQueueOptions = {}): Promise<FileSystemQueue> {
     const queuePath = resolve(options.queuePath ?? join(process.cwd(), '.codex-father/queue'));
     ensureBaseStructure(queuePath);
-    const queueOps = new BasicQueueOperations({
+    const queueConfig: Partial<QueueConfig> = {
       queuePath,
-      lockTimeout: options.lockTimeout,
-      maxRetries: options.maxRetries,
-    });
+      ...(typeof options.lockTimeout === 'number' ? { lockTimeout: options.lockTimeout } : {}),
+      ...(typeof options.maxRetries === 'number' ? { maxRetries: options.maxRetries } : {}),
+    };
+    const queueOps = new BasicQueueOperations(queueConfig);
     return new FileSystemQueue(queuePath, queueOps);
   }
 

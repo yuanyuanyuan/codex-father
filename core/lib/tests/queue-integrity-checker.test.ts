@@ -31,7 +31,9 @@ describe('QueueIntegrityChecker (T066 integrity)', () => {
   let base: string;
   beforeEach(() => {
     base = mkdtempSync(join(tmpdir(), 'integrity-'));
-    for (const d of REQUIRED_DIRS) mkdirSync(join(base, d), { recursive: true });
+    for (const d of REQUIRED_DIRS) {
+      mkdirSync(join(base, d), { recursive: true });
+    }
   });
   afterEach(() => {
     rmSync(base, { recursive: true, force: true });

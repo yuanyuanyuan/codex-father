@@ -7,10 +7,11 @@ import { ErrorBoundary, withErrorBoundary, createError } from './error-boundary.
 import { LoggerManager, setupDevelopmentLogging } from './logger-setup.js';
 import { getConfig } from './config-loader.js';
 import { parser } from './parser.js';
-import { LegacyCommandHandler, routeLegacyCommand } from './legacy-compatibility.js';
+import { LegacyCommandHandler } from './legacy-compatibility.js';
 import { registerTaskCommand } from './commands/task-command.js';
 import { registerConfigCommand } from './commands/config-command.js';
 import { registerQueueCommand } from './commands/queue-command.js';
+import { registerMCPCommand } from './commands/mcp-command.js';
 import type { CommandContext, CommandResult } from '../lib/types.js';
 
 /**
@@ -130,29 +131,8 @@ class CodexFatherCLI {
     // queue 命令（完整队列管理）
     registerQueueCommand(parser);
 
-    // mcp 命令 (计划中)
-    parser.registerCommand(
-      'mcp',
-      'MCP server management (coming soon)',
-      async (context: CommandContext): Promise<CommandResult> => {
-        return {
-          success: false,
-          message: 'MCP server management is not yet implemented',
-          errors: ['This feature is planned for Phase 2 implementation'],
-          warnings: ['MCP integration will be available in Phase 2'],
-          executionTime: 0,
-        };
-      },
-      {
-        arguments: [
-          {
-            name: 'action',
-            description: 'MCP action (start, stop, status, logs, tools)',
-            required: true,
-          },
-        ],
-      }
-    );
+    // mcp 命令 (MVP1 实现)
+    registerMCPCommand(parser);
 
     // status 命令 (立即可用)
     parser.registerCommand(
@@ -300,7 +280,8 @@ class CodexFatherCLI {
         executionTime,
       };
     } catch (error) {
-      throw createError.internal('Failed to get status information', { error: error.message });
+      const cause = error instanceof Error ? error : new Error(String(error));
+      throw createError.internal('Failed to get status information', { error: cause.message });
     }
   }
 

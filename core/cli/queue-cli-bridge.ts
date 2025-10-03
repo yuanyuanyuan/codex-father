@@ -4,8 +4,8 @@
  */
 
 import chalk from 'chalk';
-import type { CommandContext, CommandResult } from '../lib/types.js';
-import { BasicQueueOperations, CreateTaskOptions } from '../lib/queue/basic-operations.js';
+import type { CommandContext, CommandResult, TaskDefinition } from '../lib/types.js';
+import { BasicQueueOperations } from '../lib/queue/basic-operations.js';
 import {
   TaskStatusQuery,
   TaskFilter,
@@ -15,14 +15,18 @@ import {
 import {
   BasicTaskExecutor,
   ExecutionOptions,
+  ExecutionResult,
   BUILT_IN_TASK_TYPES,
 } from '../lib/queue/basic-executor.js';
-import { ErrorFormatter } from './error-boundary.js';
 
 /**
  * CLI 任务创建选项
  */
-export interface CLICreateTaskOptions extends CreateTaskOptions {
+export interface CLICreateTaskOptions {
+  type?: string;
+  payload?: Record<string, unknown> | string;
+  priority?: number;
+  scheduledAt?: string | Date;
   execute?: boolean; // 是否立即执行
   wait?: boolean; // 是否等待执行完成
   timeout?: number; // 执行超时（毫秒）
@@ -50,7 +54,7 @@ export class QueueCLIBridge {
   private executor: BasicTaskExecutor;
 
   constructor(queuePath?: string) {
-    this.queueOps = new BasicQueueOperations({ queuePath });
+    this.queueOps = new BasicQueueOperations(queuePath ? { queuePath } : {});
     this.statusQuery = new TaskStatusQuery(queuePath);
     this.executor = new BasicTaskExecutor(queuePath);
   }
@@ -75,11 +79,61 @@ export class QueueCLIBridge {
         };
       }
 
+      // 解析任务负载
+      let parsedPayload: Record<string, unknown> = {};
+      if (payload !== undefined) {
+        if (typeof payload === 'string') {
+          try {
+            parsedPayload = JSON.parse(payload);
+          } catch (error) {
+            return {
+              success: false,
+              message: 'Invalid payload JSON',
+              errors: [error instanceof Error ? error.message : 'Unable to parse payload'],
+              executionTime: 0,
+            };
+          }
+        } else if (typeof payload === 'object' && payload !== null) {
+          parsedPayload = payload;
+        } else {
+          return {
+            success: false,
+            message: 'Unsupported payload type',
+            errors: ['Payload must be a JSON object or stringified JSON'],
+            executionTime: 0,
+          };
+        }
+      }
+
+      const priority = typeof options.priority === 'number' ? options.priority : 5;
+      const scheduledAtDate = options.scheduledAt ? new Date(options.scheduledAt) : undefined;
+      if (scheduledAtDate && Number.isNaN(scheduledAtDate.getTime())) {
+        return {
+          success: false,
+          message: 'Invalid scheduledAt value',
+          errors: ['scheduledAt must be a valid ISO timestamp or Date'],
+          executionTime: 0,
+        };
+      }
+
+      const definition: TaskDefinition = {
+        type,
+        priority,
+        payload: parsedPayload,
+        ...(scheduledAtDate ? { scheduledAt: scheduledAtDate } : {}),
+      };
+
       // 创建任务
-      const enqueueResult = await this.queueOps.enqueueTask({ type, payload });
+      const enqueueResult = await this.queueOps.enqueueTask(definition);
       const { taskId, queuePosition, estimatedStartTime, scheduledAt } = enqueueResult;
 
-      const result: any = {
+      const result: {
+        taskId: string;
+        queuePosition: number | undefined;
+        estimatedStartTime: Date | undefined;
+        scheduledAt: Date | undefined;
+        execution?: ExecutionResult;
+      } = {
         taskId,
         queuePosition,
         estimatedStartTime,
@@ -90,7 +144,7 @@ export class QueueCLIBridge {
 
       // 如果需要立即执行
       if (execute) {
-        const execOptions: ExecutionOptions = { timeout };
+        const execOptions: ExecutionOptions = typeof timeout === 'number' ? { timeout } : {};
         const execResult = await this.executor.executeTask(taskId, execOptions);
         result.execution = execResult;
         executionTime = execResult.executionTime;
@@ -125,19 +179,21 @@ export class QueueCLIBridge {
       }
       if (execute) {
         const execResult = result.execution;
-        if (execResult.success) {
+        if (execResult?.success) {
           messages.push(
             `✅ Task executed successfully in ${execResult.executionTime.toFixed(2)}ms`
           );
-        } else {
+        } else if (execResult) {
           messages.push(`❌ Task execution failed: ${execResult.error}`);
         }
       }
 
+      const message = messages.join('\n');
+
       return {
         success: true,
-        message: messages.join('\\n'),
-        data: context.verbose ? result : undefined,
+        message,
+        ...(context.verbose ? { data: result } : {}),
         executionTime,
       };
     } catch (error) {
@@ -204,7 +260,7 @@ export class QueueCLIBridge {
       return {
         success: true,
         message,
-        data: context.verbose ? queryResult : undefined,
+        ...(context.verbose ? { data: queryResult } : {}),
         executionTime,
       };
     } catch (error) {
@@ -256,7 +312,7 @@ export class QueueCLIBridge {
       return {
         success: true,
         message,
-        data: context.verbose ? task : undefined,
+        ...(context.verbose ? { data: task } : {}),
         executionTime: Date.now() - startTime,
       };
     } catch (error) {
@@ -303,13 +359,18 @@ export class QueueCLIBridge {
         ? `✅ Task executed successfully in ${execResult.executionTime.toFixed(2)}ms`
         : `❌ Task execution failed: ${execResult.error}`;
 
-      return {
+      const baseResult: CommandResult = {
         success: execResult.success,
         message,
-        data: context.verbose ? execResult : undefined,
-        errors: execResult.success ? undefined : [execResult.error || 'Unknown error'],
+        ...(context.verbose ? { data: execResult } : {}),
         executionTime: Date.now() - startTime,
       };
+
+      if (!execResult.success) {
+        baseResult.errors = [execResult.error || 'Unknown error'];
+      }
+
+      return baseResult;
     } catch (error) {
       return {
         success: false,
@@ -356,7 +417,7 @@ export class QueueCLIBridge {
       return {
         success: true,
         message,
-        data: context.verbose ? stats : undefined,
+        ...(context.verbose ? { data: stats } : {}),
         executionTime,
       };
     } catch (error) {
@@ -528,7 +589,16 @@ export class QueueCLIBridge {
 
     // 格式化行
     const formatRow = (row: string[]) => {
-      return '│' + row.map((cell, i) => ` ${(cell || '').padEnd(colWidths[i])} `).join('│') + '│';
+      return (
+        '│' +
+        row
+          .map((cell, i) => {
+            const width = colWidths[i] ?? headers[i]?.length ?? 0;
+            return ` ${(cell || '').padEnd(width)} `;
+          })
+          .join('│') +
+        '│'
+      );
     };
 
     // 组装表格
