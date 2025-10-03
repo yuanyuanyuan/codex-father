@@ -1,122 +1,214 @@
-/**
- * Orchestrator 模块的公共类型定义，覆盖编排配置、任务与状态结构喵。
- */
-export type OrchestratorMode = 'sequential' | 'concurrent';
+import { z } from 'zod';
 
-/**
- * 编排器运行配置。
- */
-export interface OrchestratorConfig {
-  /** 最大并发度，必须是正整数。 */
-  readonly maxConcurrency: number;
-  /** 成功阈值，决定任务成功率判定。 */
-  readonly successThreshold: number;
-  /** 任务执行模式。 */
-  readonly mode: OrchestratorMode;
-  /** 单个任务的超时时间（毫秒）。 */
-  readonly taskTimeoutMs: number;
-}
+const NonEmptyStringSchema = z.string().min(1, 'string must not be empty');
+const TaskIdSchema = NonEmptyStringSchema.regex(/^t[-_]/, 'task id must start with t_/t-');
+const AgentIdSchema = NonEmptyStringSchema.regex(/^agent_/, 'agent id must start with agent_');
+const OrchestrationIdSchema = NonEmptyStringSchema.regex(
+  /^orc_/,
+  'orchestration id must start with orc_'
+);
+const PatchIdSchema = NonEmptyStringSchema.regex(/^patch_/, 'patch id must start with patch_');
+const IsoDateTimeSchema = z.string().datetime({ offset: true });
+const PositiveIntegerSchema = z.number().int().positive();
+const NonNegativeIntegerSchema = z.number().int().nonnegative();
+const PercentageSchema = z.number().min(0).max(1);
 
-/**
- * 编排任务定义信息。
- */
-export interface TaskDefinition {
-  /** 任务唯一标识。 */
-  readonly id: string;
-  /** 任务描述。 */
-  readonly description?: string;
-  /** 任务期望执行时限（毫秒）。 */
-  readonly expectedDurationMs?: number;
-}
+export const TaskOutputSchema = z
+  .object({
+    type: z.enum(['file', 'patch', 'log']),
+    path: NonEmptyStringSchema,
+    description: z.string().optional(),
+  })
+  .strict();
 
-/**
- * 任务调度结果。
- */
+export const TaskStatusSchema = z.enum([
+  'pending',
+  'waiting',
+  'running',
+  'completed',
+  'failed',
+  'timeout',
+]);
+
+export const TaskSchema = z
+  .object({
+    id: TaskIdSchema,
+    title: z.string().optional(),
+    description: NonEmptyStringSchema,
+    role: z.enum(['developer', 'reviewer', 'tester']).or(NonEmptyStringSchema),
+    mutation: z.boolean().optional(),
+    roleMatchMethod: z.enum(['rule', 'llm']),
+    roleMatchDetails: NonEmptyStringSchema,
+    status: TaskStatusSchema,
+    dependencies: z.array(NonEmptyStringSchema).default([]),
+    priority: z.number().int().min(0).default(0),
+    timeout: PositiveIntegerSchema,
+    createdAt: IsoDateTimeSchema,
+    startedAt: IsoDateTimeSchema.optional(),
+    completedAt: IsoDateTimeSchema.optional(),
+    agentId: NonEmptyStringSchema.optional(),
+    outputs: z.array(TaskOutputSchema).default([]),
+    error: z.string().optional(),
+    attempts: z.number().int().min(0).optional(),
+  })
+  .strict();
+
+export type Task = z.infer<typeof TaskSchema>;
+
+export const AgentStatusSchema = z.enum(['idle', 'busy', 'crashed', 'terminated']);
+
+export const ResourceUsageSchema = z
+  .object({
+    cpu: PercentageSchema,
+    memory: z.number().nonnegative(),
+  })
+  .strict();
+
+export const AgentSchema = z
+  .object({
+    id: AgentIdSchema,
+    role: NonEmptyStringSchema,
+    status: AgentStatusSchema,
+    processId: PositiveIntegerSchema,
+    currentTask: TaskIdSchema.optional(),
+    startedAt: IsoDateTimeSchema,
+    lastActivityAt: IsoDateTimeSchema,
+    workDir: NonEmptyStringSchema,
+    sessionDir: NonEmptyStringSchema,
+    resourceUsage: ResourceUsageSchema.optional(),
+  })
+  .strict();
+
+export type Agent = z.infer<typeof AgentSchema>;
+
+export const PatchStatusSchema = z.enum(['pending', 'applying', 'applied', 'failed']);
+
+export const PatchSchema = z
+  .object({
+    id: PatchIdSchema,
+    taskId: TaskIdSchema,
+    sequence: NonNegativeIntegerSchema,
+    filePath: NonEmptyStringSchema,
+    targetFiles: z.array(NonEmptyStringSchema).min(1),
+    status: PatchStatusSchema,
+    createdAt: IsoDateTimeSchema,
+    appliedAt: IsoDateTimeSchema.optional(),
+    error: z.string().optional(),
+  })
+  .strict();
+
+export type Patch = z.infer<typeof PatchSchema>;
+
+export const RetryPolicySchema = z
+  .object({
+    maxAttempts: PositiveIntegerSchema,
+    backoff: z.enum(['exponential', 'fixed']),
+    initialDelayMs: NonNegativeIntegerSchema,
+    maxDelayMs: NonNegativeIntegerSchema,
+  })
+  .strict();
+
+export const ResourceMonitorConfigSchema = z
+  .object({
+    cpuThreshold: PercentageSchema.optional(),
+    memoryThreshold: z.number().nonnegative().optional(),
+    adjustMinIntervalMs: PositiveIntegerSchema.optional(),
+  })
+  .strict();
+
+export const QuickValidateConfigSchema = z
+  .object({
+    steps: z.array(NonEmptyStringSchema),
+    failOnMissing: z.boolean().optional(),
+  })
+  .strict();
+
+export const OrchestrationConfigSchema = z
+  .object({
+    maxConcurrency: z.number().int().min(1).max(10),
+    taskTimeout: PositiveIntegerSchema,
+    outputFormat: z.enum(['json', 'stream-json']),
+    successRateThreshold: PercentageSchema,
+    retryPolicy: RetryPolicySchema.optional(),
+    resourceMonitor: ResourceMonitorConfigSchema.optional(),
+    quickValidate: QuickValidateConfigSchema.optional(),
+    applyPatchStrategy: z.enum(['git', 'native']).optional(),
+    applyPatchFallbackOnFailure: z.boolean().optional(),
+    mode: z.enum(['manual', 'llm']).optional(),
+  })
+  .strict();
+
+export type OrchestratorConfig = z.infer<typeof OrchestrationConfigSchema>;
+
+export const OrchestrationStatusSchema = z.enum([
+  'initializing',
+  'running',
+  'completed',
+  'failed',
+  'cancelled',
+]);
+
+export const OrchestrationSchema = z
+  .object({
+    id: OrchestrationIdSchema,
+    requirement: NonEmptyStringSchema,
+    tasks: z.array(TaskSchema),
+    status: OrchestrationStatusSchema,
+    createdAt: IsoDateTimeSchema,
+    completedAt: IsoDateTimeSchema.optional(),
+    successRateThreshold: PercentageSchema,
+    config: OrchestrationConfigSchema,
+  })
+  .strict();
+
+export type Orchestration = z.infer<typeof OrchestrationSchema>;
+
 export interface TaskScheduleResult {
-  /** 实际将要执行的任务列表。 */
-  readonly scheduledTasks: readonly TaskDefinition[];
-  /** 是否触发限流或等待。 */
+  readonly scheduledTasks: readonly Task[];
   readonly throttled: boolean;
 }
 
-/**
- * 快速校验的返回结果。
- */
 export interface QuickValidateResult {
-  /** 校验是否通过。 */
   readonly valid: boolean;
-  /** 错误列表。 */
   readonly errors: readonly string[];
-  /** 警告信息。 */
   readonly warnings: readonly string[];
 }
 
-/**
- * 补丁提案结构。
- */
 export interface PatchProposal {
-  /** 补丁的唯一标识。 */
   readonly id: string;
-  /** 预期应用的文件路径列表。 */
   readonly targetFiles: readonly string[];
-  /** 补丁内容摘要。 */
   readonly summary?: string;
 }
 
-/**
- * 补丁应用的结果描述。
- */
 export interface PatchApplyResult {
-  /** 是否应用成功。 */
   readonly success: boolean;
-  /** 失败时的错误信息。 */
   readonly errorMessage?: string;
 }
 
-/**
- * 状态快照。
- */
 export interface OrchestratorStateSnapshot {
-  /** 当前任务完成数量。 */
   readonly completedTasks: number;
-  /** 当前任务失败数量。 */
   readonly failedTasks: number;
-  /** 最近一次更新时间戳。 */
   readonly updatedAt: number;
 }
 
-/**
- * 资源使用情况快照。
- */
 export interface ResourceSnapshot {
-  /** 进程 CPU 使用率（0-1）。 */
   readonly cpuUsage: number;
-  /** 进程 RSS 内存使用量（字节）。 */
   readonly memoryUsage: number;
-  /** 采样时间戳。 */
   readonly timestamp: number;
 }
 
-/**
- * 单次编排上下文。
- */
 export interface OrchestratorContext {
-  /** 编排配置。 */
   readonly config: OrchestratorConfig;
-  /** 待执行任务列表。 */
-  readonly tasks: readonly TaskDefinition[];
+  readonly tasks: readonly Task[];
 }
 
-/**
- * 创建默认的编排器配置。
- *
- * @returns 默认配置对象。
- */
+export type TaskDefinition = Task;
+
 export function createDefaultOrchestratorConfig(): OrchestratorConfig {
   return {
-    maxConcurrency: 1,
-    successThreshold: 1,
-    mode: 'sequential',
-    taskTimeoutMs: 5 * 60 * 1000,
-  };
+    maxConcurrency: 10,
+    taskTimeout: 30 * 60 * 1000,
+    outputFormat: 'stream-json',
+    successRateThreshold: 0.9,
+  } satisfies OrchestratorConfig;
 }
