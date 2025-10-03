@@ -1,3 +1,11 @@
+## [1.1.8](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.7...mcp-v1.1.8) (2025-10-03)
+
+
+### Bug Fixes
+
+* **mcp:** switch npm scope to [@starkdev020](https://github.com/starkdev020) ([6f9fd99](https://github.com/yuanyuanyuan/codex-father/commit/6f9fd997dc44e27437f440efc7a7c1042408e4a1))
+* update package name from [@yuanyuanyuan](https://github.com/yuanyuanyuan) to [@starkdev020](https://github.com/starkdev020) in various files ([79d2e9e](https://github.com/yuanyuanyuan/codex-father/commit/79d2e9ea6379407434c2bea6bb700762e92007eb))
+
 ## [1.1.7](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.6...mcp-v1.1.7) (2025-10-03)
 
 ### Bug Fixes
