@@ -1,3 +1,10 @@
+## [1.1.4](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.3...mcp-v1.1.4) (2025-10-03)
+
+
+### Bug Fixes
+
+* **release:** add NODE_AUTH_TOKEN and NPM_TOKEN to Debug npm identity step ([b08c787](https://github.com/yuanyuanyuan/codex-father/commit/b08c787c7a33ef45383bb9b18835236c540ed11b))
+
 ## [1.1.3](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.2...mcp-v1.1.3) (2025-10-03)
 
 
