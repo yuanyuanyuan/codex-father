@@ -1,15 +1,13 @@
 name: Release to GH Packages
 
 on:
-  # 仅在 PR 合并到 main 时触发（避免普通分支 push 消耗次数）
-  pull_request:
-    types: [closed]
+  # 简化触发：仅 main 分支 push（通常来自 PR 合并）+ 手动触发
+  push:
     branches: [main]
     paths:
       - 'mcp/**'
       - '.releaserc'
       - '.github/workflows/release-ghpkgs.yml'
-  # 仍保留手动触发
   workflow_dispatch: {}
 
 permissions:
@@ -19,15 +17,11 @@ permissions:
 jobs:
   release-ghpkgs:
     runs-on: ubuntu-latest
-    # 仅在 PR 已合并时执行；或手动触发
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # 在合并事件上检出合并提交；手动触发时默认 main
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || 'main' }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
