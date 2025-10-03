@@ -4,6 +4,10 @@ Auto-generated from all feature plans. Last updated: 2025-09-30
 
 ## Active Technologies
 
+- Node.js >=18 + TypeScript ^5 + commander, fs-extra, yaml, zod, winston
+  (006-docs-capability-assessment)
+- Files (.codex-father/sessions/<id>/) (006-docs-capability-assessment)
+
 ### MVP1 TypeScript MCP Server (005-docs-prd-draft - COMPLETED)
 
 - **TypeScript 5.3+** with Node.js 18+ (统一技术栈)
@@ -90,33 +94,19 @@ npx @modelcontextprotocol/inspector npm run mcp:start  # 使用 Inspector 调试
 
 ## Recent Changes
 
+- 006-docs-capability-assessment: Added Node.js >=18 + TypeScript ^5 +
+  commander, fs-extra, yaml, zod, winston
+
 ### 2025-10-02 - MVP1 Polish & Release Prep
 
 - ✅ 完成 T035 代码复用检查：重复代码率 3.2%（✅ 达标 < 5%）
 - ✅ 完成 T036 文档更新：README.md, CLAUDE.md, VERSION_1.0.0.md
-- ✅ 创建 T037 验收测试操作指引：`specs/005-docs-prd-draft/T037-ACCEPTANCE-TEST-GUIDE.md`
-- ✅ 创建 T038 代码审查范围文档：`specs/005-docs-prd-draft/T038-CODE-REVIEW-SCOPE.md`
-- ✅ 修复 tasks.md 重复条目（T018/T019/T020）
-- ✅ 更新 tasks.md：标记 T001-T036 完成，T037-T038 待执行
-- 🔄 准备发布 v1.0.0
 
 ### 2025-10-01 - MVP1 All Tests Complete
 
-- ✅ 完成 MCP 服务器 MVP1 实现 (T001-T033)
-- ✅ 完成所有单元测试和集成测试 (T021-T033)
-- ✅ 完成性能基准测试 (T034)
-- ✅ **506 个测试全部通过** (51 个测试文件, 6 个跳过)
-- ✅ 性能指标达标: tools/call < 500ms, 事件延迟 < 100ms, 内存 < 200MB
-- ✅ 更新文档 (README.md, CLAUDE.md, mcp-integration.md)
-
 ### 2025-09-30 - MVP1 Feature Complete
 
-- ✅ 完成 MCP 服务器 MVP1 核心实现 (T001-T020)
-- ✅ 更新文档
-
 ### 2025-09-27
-
-- 005-docs-prd-draft: Added TypeScript 5.3+ with Node.js 18+
 
 <!-- MANUAL ADDITIONS START -->
 
