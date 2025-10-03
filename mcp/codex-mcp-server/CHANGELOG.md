@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.0...mcp-v1.1.1) (2025-10-03)
+
+
+### Bug Fixes
+
+* **mcp:** 处理子进程 error 事件以避免挂起并返回明确错误 ([bc1a6c6](https://github.com/yuanyuanyuan/codex-father/commit/bc1a6c6cc147ed2f84e5d62ec0b7cc5b6e6533c1))
+
 # [1.1.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.0.0...mcp-v1.1.0) (2025-10-03)
 
 
