@@ -1,3 +1,10 @@
+## [1.1.6](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.5...mcp-v1.1.6) (2025-10-03)
+
+
+### Bug Fixes
+
+* update package name from [@yuanyuanyuan](https://github.com/yuanyuanyuan) to [@starkdev020](https://github.com/starkdev020) in various files ([79a9803](https://github.com/yuanyuanyuan/codex-father/commit/79a9803470b391cb24cb9101c7d2d5ef605aab82))
+
 ## [1.1.5](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.4...mcp-v1.1.5) (2025-10-03)
 
 
