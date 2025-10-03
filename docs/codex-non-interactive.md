@@ -59,12 +59,17 @@ Container/Docker 中让 Codex 以“非交互模式（无需审批）”运行�
 - 目标：允许在工作区内进行修改（写文件/运行命令），并关闭审批弹窗。
 - 命令（非交互 + 无审批）：
 
-  ```bash
-  codex exec --sandbox workspace-write --ask-for-approval never "在 README 增补使用说明"
-  ```
+```bash
+codex exec --sandbox workspace-write --ask-for-approval never "在 README 增补使用说明"
+```
 
-  - 依据：`workspace-write`
-    模式（`refer-research/openai-codex/docs/sandbox.md:19`）；默认禁网（`docs/sandbox.md:36`）；无审批（`docs/sandbox.md:24`）。
+- 依据：`workspace-write`
+  模式（`refer-research/openai-codex/docs/sandbox.md:19`）；默认禁网（`docs/sandbox.md:36`）；无审批（`docs/sandbox.md:24`）。
+
+> **提示**：项目自带的 `start.sh` 会在检测到 `--sandbox workspace-write`
+> 且审批策略缺失或为 `never` 时，自动将其规范化为 `on-request`，以避免 Codex
+> CLI 把会话降级成只读沙箱。如确实需要 `never` 与可写沙箱组合，可显式导出
+> `ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1` 覆盖该行为。
 
 - 打开网络（可选，默认关闭）：
 

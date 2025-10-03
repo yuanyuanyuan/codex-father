@@ -295,6 +295,27 @@ validate_conflicting_codex_args() {
 # 当用户请求 --sandbox danger-full-access 时，确保审批策略可用
 # - 若未显式设置 --ask-for-approval，默认补上 on-request（可通过环境 DEFAULT_APPROVAL_FOR_DFA 覆盖）
 # - 若显式设置为 never，则提示错误，因为 never 禁止升级权限，无法进入 full-access
+set_codex_flag_value() {
+  local flag="$1" value="$2"
+  local -a new_args=()
+  local i=0
+  local total=${#CODEX_GLOBAL_ARGS[@]}
+  while (( i < total )); do
+    local current="${CODEX_GLOBAL_ARGS[$i]}"
+    if [[ "$current" == "$flag" ]]; then
+      # 跳过 flag 以及紧随其后的值，避免重复追加
+      ((i+=1))
+      if (( i < total )); then
+        ((i+=1))
+      fi
+      continue
+    fi
+    new_args+=("$current")
+    ((i+=1))
+  done
+  CODEX_GLOBAL_ARGS=("${new_args[@]}" "$flag" "$value")
+}
+
 normalize_sandbox_and_approvals() {
   local sandbox="" approval="" has_bypass=0
   local i=0
@@ -317,7 +338,8 @@ normalize_sandbox_and_approvals() {
     if [[ -z "$approval" ]]; then
       # 未指定审批策略，默认补 on-request（交互式）
       local policy="${DEFAULT_APPROVAL_FOR_DFA:-on-request}"
-      CODEX_GLOBAL_ARGS+=("--ask-for-approval" "$policy")
+      set_codex_flag_value "--ask-for-approval" "$policy"
+      approval="$policy"
       DFA_NOTE="已自动附加 --ask-for-approval ${policy} 以配合 --sandbox danger-full-access"
     elif [[ "$approval" == "never" ]]; then
       # 非交互且请求 full-access：默认降级 sandbox，或在显式允许时自动添加 bypass
@@ -340,6 +362,24 @@ normalize_sandbox_and_approvals() {
         done
       else
         VALIDATION_ERROR=$'错误: 组合无效\n- 非交互 (--ask-for-approval never) 不允许直接启用 --sandbox danger-full-access\n  可设置环境变量 ALLOW_DFA_WITH_NEVER=1 自动附加 --dangerously-bypass-approvals-and-sandbox（危险），\n  或设置 DFA_DEGRADE_ON_NEVER=1 将 sandbox 降级（默认行为），\n  或改为 --ask-for-approval on-request（交互）。'
+      fi
+    fi
+  fi
+
+  local allow_never_writable="${ALLOW_NEVER_WITH_WRITABLE_SANDBOX:-0}"
+  if [[ $has_bypass -eq 0 && "$allow_never_writable" != "1" ]]; then
+    local effective_sandbox="$sandbox"
+    if [[ -z "$effective_sandbox" ]]; then effective_sandbox="workspace-write"; fi
+    if [[ "$effective_sandbox" != "read-only" ]]; then
+      local override="${WRITABLE_SANDBOX_APPROVAL_OVERRIDE:-on-request}"
+      if [[ "$approval" == "never" ]]; then
+        set_codex_flag_value "--ask-for-approval" "$override"
+        approval="$override"
+        APPROVAL_NOTE="已将审批策略调整为 ${override}（避免 never 与可写沙箱组合触发只读降级）"
+      elif [[ -z "$approval" ]]; then
+        set_codex_flag_value "--ask-for-approval" "$override"
+        approval="$override"
+        APPROVAL_NOTE="已设置审批策略为 ${override}（可写沙箱需要审批以避免只读降级）"
       fi
     fi
   fi
@@ -978,6 +1018,7 @@ fi
   echo "Meta: ${META_FILE}"
   echo "Patch Mode: $([[ ${PATCH_MODE} -eq 1 ]] && echo on || echo off)"
   if [[ -n "${DFA_NOTE:-}" ]]; then echo "[arg-normalize] ${DFA_NOTE}"; fi
+  if [[ -n "${APPROVAL_NOTE:-}" ]]; then echo "[arg-normalize] ${APPROVAL_NOTE}"; fi
 } >> "${CODEX_LOG_FILE}"
 RUN_LOGGED=1
 
