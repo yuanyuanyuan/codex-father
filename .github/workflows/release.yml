@@ -36,6 +36,8 @@ jobs:
           else
             echo "NPM_TOKEN not set; npm publish will be skipped by semantic-release."
           fi
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Install dependencies (mcp package)
         working-directory: mcp/codex-mcp-server
@@ -56,9 +58,12 @@ jobs:
             @semantic-release/git \
             @semantic-release/github
 
+      - name: Debug npm identity
+        run: npm whoami || true
+
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release
-
