@@ -91,6 +91,114 @@ KNOWN_FLAGS=(
   "--append-file" "--patch-mode" "--dry-run" "--json" "-h" "--help"
 )
 
+# --- Codex 版本检测与参数兼容性校验（严格模式） ---
+# 若在旧版本 Codex 环境（<0.44）传入 0.44-only 参数，直接拒绝执行，提示调用方修正
+
+normalize_semver() {
+  local v="$1"
+  # Bash ERE 不支持 (?:...) 非捕获组，改用标准捕获组
+  if [[ "$v" =~ ^([0-9]+)\.([0-9]+)(\.([0-9]+))?$ ]]; then
+    local maj=${BASH_REMATCH[1]}
+    local min=${BASH_REMATCH[2]}
+    local pat=${BASH_REMATCH[4]:-0}  # 第4个捕获组才是patch版本号
+    printf '%s.%s.%s' "$maj" "$min" "$pat"
+    return 0
+  fi
+  return 1
+}
+
+cmp_semver() {
+  # echo negative if $1 < $2, zero if equal, positive if $1 > $2
+  local a b
+  a=$(normalize_semver "$1") || { echo 0; return; }
+  b=$(normalize_semver "$2") || { echo 0; return; }
+  local A IFS=.
+  read -r -a A <<<"$a"
+  local B
+  read -r -a B <<<"$b"
+  for i in 0 1 2; do
+    local da=${A[$i]:-0}
+    local db=${B[$i]:-0}
+    if (( da < db )); then echo -1; return; fi
+    if (( da > db )); then echo 1; return; fi
+  done
+  echo 0
+}
+
+DETECTED_CODEX_VERSION=""
+detect_codex_version() {
+  if [[ -n "${DETECTED_CODEX_VERSION}" ]]; then
+    return 0
+  fi
+  if [[ -n "${CODEX_VERSION_OVERRIDE:-}" ]]; then
+    if v=$(normalize_semver "${CODEX_VERSION_OVERRIDE}"); then
+      DETECTED_CODEX_VERSION="$v"; return 0
+    else
+      VALIDATION_ERROR="错误: 无效的环境变量 CODEX_VERSION_OVERRIDE='${CODEX_VERSION_OVERRIDE}'"; return 1
+    fi
+  fi
+  if ! command -v codex >/dev/null 2>&1; then
+    VALIDATION_ERROR=$'错误: 无法检测 Codex 版本 (codex 未安装或不在 PATH)。\n- 请安装/配置 codex CLI，或设置 CODEX_VERSION_OVERRIDE=0.44.0 临时覆盖'
+    return 1
+  fi
+  local out
+  if ! out=$(codex --version 2>&1); then
+    VALIDATION_ERROR="错误: 无法检测 Codex 版本: ${out}"
+    return 1
+  fi
+  if [[ "$out" =~ ([0-9]+\.[0-9]+(\.[0-9]+)?) ]]; then
+    local v="${BASH_REMATCH[1]}"
+    if v=$(normalize_semver "$v"); then
+      DETECTED_CODEX_VERSION="$v"; return 0
+    fi
+  fi
+  VALIDATION_ERROR="错误: 解析 Codex 版本失败: ${out}"
+  return 1
+}
+
+check_version_param_compatibility() {
+  # 仅当存在潜在 0.44-only 参数时才需要判定
+  detect_codex_version || return 0 # VALIDATION_ERROR 已设置
+  local v="${DETECTED_CODEX_VERSION}"
+  # v < 0.44.0 视为不兼容 0.44-only
+  # 标记是否可安全使用 --output-last-message（Codex 0.44+）
+  ALLOW_OUTPUT_LAST_MESSAGE=1
+  if (( $(cmp_semver "$v" "0.44.0") < 0 )); then
+    ALLOW_OUTPUT_LAST_MESSAGE=0
+    local violations=()
+    # CLI 旗标（0.44 专属）
+    local i=0
+    while (( i < ${#CODEX_GLOBAL_ARGS[@]} )); do
+      local a="${CODEX_GLOBAL_ARGS[$i]}"
+      case "$a" in
+        --profile) violations+=("--profile"); i=$((i+2)); continue ;;
+        --full-auto) violations+=("--full-auto"); i=$((i+1)); continue ;;
+        --dangerously-bypass-approvals-and-sandbox)
+          violations+=("--dangerously-bypass-approvals-and-sandbox"); i=$((i+1)); continue ;;
+        --config)
+          if (( i+1 < ${#CODEX_GLOBAL_ARGS[@]} )); then
+            local kv="${CODEX_GLOBAL_ARGS[$((i+1))]}"
+            local k="${kv%%=*}"
+            case "$k" in
+              model_reasoning_effort|model_reasoning_summary|model_supports_reasoning_summaries|model_verbosity|profile)
+                violations+=("config:${k}") ;;
+            esac
+          fi
+          i=$((i+2)); continue ;;
+      esac
+      i=$((i+1))
+    done
+    if (( ${#violations[@]} > 0 )); then
+      VALIDATION_ERROR=$'错误: 参数与 Codex 版本不兼容\n'
+      VALIDATION_ERROR+="- 当前 Codex 版本: ${v}\n"
+      VALIDATION_ERROR+="- 需要 Codex >= 0.44 才能使用以下选项： ${violations[*]}\n"
+      VALIDATION_ERROR+=$'- 修复建议：移除这些参数或升级 Codex 到 >= 0.44\n'
+      return 1
+    fi
+  fi
+  return 0
+}
+
 flag_help_line() {
   case "$1" in
     --task) echo "--task <text>         设置任务描述" ;;
@@ -722,6 +830,20 @@ if [[ -n "${VALIDATION_ERROR}" ]]; then
   exit 2
 fi
 
+# 按版本拦截 0.44-only 参数（严格模式）
+check_version_param_compatibility
+if [[ -n "${VALIDATION_ERROR}" ]]; then
+  {
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "Script: $(basename "$0")  PWD: $(pwd)"
+    echo "Log: ${CODEX_LOG_FILE}"
+    echo "Meta: ${META_FILE}"
+    echo "[arg-check] ${VALIDATION_ERROR}"
+  } >> "${CODEX_LOG_FILE}"
+  printf '%s\n' "${VALIDATION_ERROR}" >&2
+  exit 2
+fi
+
 # 组合规则（叠加语义）
 STDIN_USED=0
 STDIN_CONTENT=""
@@ -1067,7 +1189,15 @@ if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/n
   GIT_ENABLED=1
   GIT_HEAD_BEFORE=$(git rev-parse HEAD 2>/dev/null || echo "")
 fi
-EXEC_ARGS=("${CODEX_EXEC_ARGS[@]}" "--output-last-message" "${RUN_LAST_MSG_FILE}")
+if [[ "${ALLOW_OUTPUT_LAST_MESSAGE:-1}" == "1" ]]; then
+  if [[ "${ALLOW_OUTPUT_LAST_MESSAGE:-1}" == "1" ]]; then
+    EXEC_ARGS=("${CODEX_EXEC_ARGS[@]}" "--output-last-message" "${RUN_LAST_MSG_FILE}")
+  else
+    EXEC_ARGS=("${CODEX_EXEC_ARGS[@]}")
+  fi
+else
+  EXEC_ARGS=("${CODEX_EXEC_ARGS[@]}")
+fi
   # 记录调用参数（原始 CLI 与传递给 codex 的参数），便于排错
   if [[ "${REDACT_ENABLE}" == "1" ]]; then
     {
