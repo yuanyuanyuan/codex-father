@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "listConversations",
+  "description": "Codex server method for listing all available conversations (JSON-RPC request/response).",
+  "dataSource": "refer-research/openai-codex/codex-rs/docs/codex_mcp_interface.md:72",
+  "minVersion": "0.42.0",
+  "definitions": {
+    "conversation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Unique conversation identifier"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model assigned to the conversation"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when the conversation was created"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "initializing",
+            "active",
+            "idle",
+            "paused",
+            "interrupted",
+            "archived",
+            "terminated"
+          ],
+          "description": "Lifecycle status of the conversation"
+        },
+        "title": {
+          "type": "string",
+          "description": "Optional human-friendly title for the conversation"
+        }
+      },
+      "required": ["id", "model", "createdAt", "status"],
+      "additionalProperties": false
+    }
+  },
+  "request": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": [
+          "initializing",
+          "active",
+          "idle",
+          "paused",
+          "interrupted",
+          "archived",
+          "terminated"
+        ],
+        "description": "Optional filter to match conversations in a specific status"
+      },
+      "model": {
+        "type": "string",
+        "description": "Optional filter to match conversations using a specific model"
+      }
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "conversations": {
+        "type": "array",
+        "items": { "$ref": "#/definitions/conversation" },
+        "description": "Collection of conversations visible to the client"
+      }
+    },
+    "required": ["conversations"],
+    "additionalProperties": false
+  }
+}
