@@ -24,6 +24,7 @@ SH
 chmod +x "$stub_bin/codex"
 
 export PATH="${stub_bin}:$PATH"
+export CODEX_VERSION_OVERRIDE="0.44.0"
 
 log="$tmpdir/job.log"
 
@@ -33,6 +34,7 @@ CODEX_LOG_FILE="$log" ./start.sh \
   --approval-mode never \
   --sandbox workspace-write \
   --full-auto \
+  --model gpt-5-codex \
   --profile dev \
   --codex-config 'sandbox_workspace_write.network_access=true' \
   --codex-config 'foo.bar="baz"' \
@@ -48,6 +50,7 @@ grep -F -- "ARG: workspace-write" "$log" >/dev/null || { echo "[smoke-start-args
 grep -F -- "ARG: --ask-for-approval" "$log" >/dev/null || { echo "[smoke-start-args] missing --ask-for-approval" >&2; exit 1; }
 grep -E -- "ARG: (never|on-request|on-failure|untrusted)" "$log" >/dev/null || { echo "[smoke-start-args] missing approval value" >&2; exit 1; }
 grep -F -- "ARG: --config" "$log" >/dev/null || { echo "[smoke-start-args] missing --config entries" >&2; exit 1; }
+grep -F -- "ARG: model=gpt-5-codex" "$log" >/dev/null || { echo "[smoke-start-args] missing model config" >&2; exit 1; }
 grep -F -- "ARG: sandbox_workspace_write.network_access=true" "$log" >/dev/null || { echo "[smoke-start-args] missing network config" >&2; exit 1; }
 grep -F -- "ARG: --full-auto" "$log" >/dev/null || { echo "[smoke-start-args] missing --full-auto" >&2; exit 1; }
 grep -F -- "ARG: --profile" "$log" >/dev/null || { echo "[smoke-start-args] missing --profile" >&2; exit 1; }
