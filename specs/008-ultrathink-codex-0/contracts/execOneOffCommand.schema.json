@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "execOneOffCommand",
+  "description": "Execute a single shell command within the Codex sandbox.",
+  "dataSource": "refer-research/openai-codex/codex-rs/docs/codex_mcp_interface.md:25",
+  "minVersion": "0.42.0",
+  "definitions": {
+    "sandboxPolicy": {
+      "type": "string",
+      "enum": ["read-only", "workspace-write", "danger-full-access"],
+      "description": "Sandbox policy override applied when running the command"
+    }
+  },
+  "request": {
+    "type": "object",
+    "properties": {
+      "command": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minItems": 1,
+        "description": "Command argv vector to execute"
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Optional timeout for the command in milliseconds"
+      },
+      "cwd": {
+        "type": "string",
+        "description": "Working directory for the command execution"
+      },
+      "sandboxPolicy": {
+        "$ref": "#/definitions/sandboxPolicy"
+      }
+    },
+    "required": ["command"],
+    "additionalProperties": false
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "exitCode": {
+        "type": "integer",
+        "description": "Exit code returned by the process"
+      },
+      "stdout": {
+        "type": "string",
+        "description": "Captured standard output from the process"
+      },
+      "stderr": {
+        "type": "string",
+        "description": "Captured standard error from the process"
+      },
+      "output": {
+        "type": "string",
+        "description": "Optional combined stdout/stderr for convenience"
+      }
+    },
+    "required": ["exitCode", "stdout", "stderr"],
+    "additionalProperties": false
+  }
+}

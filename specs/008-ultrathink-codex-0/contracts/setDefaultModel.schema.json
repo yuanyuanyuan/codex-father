@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "setDefaultModel",
+  "description": "Update the default Codex model and reasoning effort stored in user config.",
+  "dataSource": "refer-research/openai-codex/codex-rs/docs/codex_mcp_interface.md:21",
+  "minVersion": "0.42.0",
+  "definitions": {
+    "reasoningEffort": {
+      "type": "string",
+      "enum": ["minimal", "low", "medium", "high"],
+      "description": "Reasoning effort level to persist alongside the default model"
+    }
+  },
+  "request": {
+    "type": "object",
+    "properties": {
+      "model": {
+        "type": ["string", "null"],
+        "description": "Model identifier to set as the default; null clears the existing value"
+      },
+      "reasoningEffort": {
+        "$ref": "#/definitions/reasoningEffort"
+      }
+    },
+    "required": ["model"],
+    "additionalProperties": false
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean",
+        "description": "Indicates whether the default model was updated successfully"
+      },
+      "message": {
+        "type": "string",
+        "description": "Optional status message returned by the server"
+      }
+    },
+    "required": ["success"],
+    "additionalProperties": false
+  }
+}
