@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "loginChatGpt",
+  "description": "Codex server method for initiating ChatGPT OAuth login (JSON-RPC request/response).",
+  "dataSource": "refer-research/openai-codex/codex-rs/docs/codex_mcp_interface.md:97",
+  "minVersion": "0.42.0",
+  "request": {
+    "type": "object",
+    "description": "Optional parameters for initiating the ChatGPT login flow.",
+    "additionalProperties": true
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "loginId": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Identifier for the pending ChatGPT login session"
+      },
+      "authUrl": {
+        "type": "string",
+        "format": "uri",
+        "description": "OAuth authorization URL the user should open"
+      },
+      "expiresAt": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Optional expiration timestamp for the authorization URL"
+      }
+    },
+    "required": ["loginId", "authUrl"],
+    "additionalProperties": false
+  }
+}

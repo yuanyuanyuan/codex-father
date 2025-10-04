@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "loginChatGptComplete",
+  "description": "Codex server notification sent when ChatGPT login completes (JSON-RPC notification params).",
+  "dataSource": "refer-research/openai-codex/codex-rs/docs/codex_mcp_interface.md:79",
+  "minVersion": "0.42.0",
+  "request": {
+    "type": "object",
+    "properties": {
+      "loginId": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Identifier of the ChatGPT login flow"
+      },
+      "success": {
+        "type": "boolean",
+        "description": "Indicates whether the ChatGPT login succeeded"
+      },
+      "error": {
+        "type": "string",
+        "description": "Optional error message when the login fails"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Time when the login attempt completed"
+      }
+    },
+    "required": ["loginId", "success"],
+    "additionalProperties": false
+  },
+  "response": {
+    "type": "null",
+    "description": "Notifications do not include a response payload"
+  }
+}
