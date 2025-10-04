@@ -428,3 +428,11 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 - 本次版本说明：`docs/VERSION_MCP_1.2.0.md`
 - 一键脚本：`scripts/release-mcp.sh`（支持 `--preflight` / `--dry-run` /
   `--local` / `--ci` / `--ci-commit-docs`）
+- npm/npx 验证流程：
+  1. `npm pack`，确认生成的 `codex-father-*.tgz` 内包含 `start.sh`、`job.sh` 与
+     `lib/`（可 `tar -tf` 检查）
+  2. 在空目录执行 `npm init -y && npm install /path/to/codex-father-*.tgz`
+  3. 运行
+     `npx codex-father start --help`，若可正常输出帮助信息即表示包内脚本可被分发与调用
+  4. 可选：设置 `CODEX_START_SH`/`CODEX_JOB_SH`
+     指向自定义路径再次运行，验证环境变量覆盖是否生效
