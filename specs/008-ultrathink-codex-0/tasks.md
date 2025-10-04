@@ -463,7 +463,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
     - 0.44 独有参数（profile）触发 JSON-RPC 错误
     - 配置警告正确显示
 
-- [ ] **T051** 集成测试：配置验证与修正（0.44 环境）
+- [x] **T051** 集成测试：配置验证与修正（0.44 环境）
   - **依赖**: T049
   - **输入**: quickstart.md#C1-C3
   - **输出**: `tests/integration/config-validation.test.ts`
