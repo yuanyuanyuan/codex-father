@@ -26,36 +26,36 @@
 
 ## Phase 3.1: Setup
 
-- [ ] T001 Ensure CLI command scaffold exists in
+- [x] T001 Ensure CLI command scaffold exists in
       `core/cli/commands/orchestrate-command.ts`; wire into `core/cli/start.ts`
       command registry
-- [ ] T002 Ensure package dependency alignment: add `uuid` to `package.json`
+- [x] T002 Ensure package dependency alignment: add `uuid` to `package.json`
       dependencies (used by `core/session/event-logger.ts` and new modules)
-- [ ] T003 [P] Add JSON Schema validation helper for events at
+- [x] T003 [P] Add JSON Schema validation helper for events at
       `core/lib/utils/stream-event-validator.ts` (uses
       `docs/schemas/stream-json-event.schema.json`)
-- [ ] T004 [P] Create orchestrator module layout under `core/orchestrator/`:
+- [x] T004 [P] Create orchestrator module layout under `core/orchestrator/`:
       `process-orchestrator.ts`, `task-scheduler.ts`, `sww-coordinator.ts`,
       `state-manager.ts`, `resource-monitor.ts`, `quick-validate.ts`,
       `patch-applier.ts`, `types.ts`
 
 ## Phase 3.2: Tests First (TDD) — MUST FAIL BEFORE 3.3
 
-- [ ] T005 [P] Contract test: CLI options and help per
+- [x] T005 [P] Contract test: CLI options and help per
       `contracts/orchestrate.cli.md` in
       `core/cli/tests/orchestrate-command.contract.test.ts`
-- [ ] T006 [P] Contract test: exit codes and summary output per
+- [x] T006 [P] Contract test: exit codes and summary output per
       `contracts/orchestrate.cli.md` in
       `core/cli/tests/orchestrate-exit.contract.test.ts`
-- [ ] T007 [P] Schema test: stream events conform to
+- [x] T007 [P] Schema test: stream events conform to
       `docs/schemas/stream-json-event.schema.json` in
       `core/orchestrator/tests/events.schema.test.ts`
-- [ ] T008 [P] Data model test: zod schemas for Orchestration/Task/Agent/Patch
+- [x] T008 [P] Data model test: zod schemas for Orchestration/Task/Agent/Patch
       in `core/orchestrator/tests/data-model.test.ts` based on `data-model.md`
-- [ ] T009 [P] Integration test: quickstart happy-path stream (stubbed
+- [x] T009 [P] Integration test: quickstart happy-path stream (stubbed
       orchestrator) in `core/orchestrator/tests/quickstart.integration.test.ts`
       per `quickstart.md`
-- [ ] T010 [P] Scheduler test: topo sort + dependency wave scheduling in
+- [x] T010 [P] Scheduler test: topo sort + dependency wave scheduling in
       `core/orchestrator/tests/task-scheduler.test.ts`
 
 ### Additional Tests for Missing FR/NFR Coverage

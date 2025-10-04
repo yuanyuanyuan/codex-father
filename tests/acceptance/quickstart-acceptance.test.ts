@@ -30,9 +30,7 @@ class MockCodexClient extends EventEmitter {
   conversations: CodexNewConversationResult[] = [];
   messages: Array<{ conversationId: string; items: CodexSendUserMessageParams['items'] }> = [];
 
-  async newConversation(
-    params: CodexNewConversationParams
-  ): Promise<CodexNewConversationResult> {
+  async newConversation(params: CodexNewConversationParams): Promise<CodexNewConversationResult> {
     const conversationId = uuidv4();
     const result: CodexNewConversationResult = {
       conversationId,
@@ -111,7 +109,11 @@ async function createAcceptanceContext(tag: string): Promise<AcceptanceContext> 
   };
 }
 
-async function waitForCondition(check: () => Promise<boolean>, timeoutMs = 1000, intervalMs = 25): Promise<void> {
+async function waitForCondition(
+  check: () => Promise<boolean>,
+  timeoutMs = 1000,
+  intervalMs = 25
+): Promise<void> {
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
@@ -151,9 +153,9 @@ async function waitForPolicyEngine(
   let engine: PolicyEngine | undefined;
 
   await waitForCondition(async () => {
-    engine = (sessionManager as unknown as { policyEngines: Map<string, PolicyEngine> }).policyEngines.get(
-      jobId
-    );
+    engine = (
+      sessionManager as unknown as { policyEngines: Map<string, PolicyEngine> }
+    ).policyEngines.get(jobId);
     return engine !== undefined;
   }, 1500);
 
@@ -195,7 +197,9 @@ describe('T037 自动化验收测试', () => {
       const duration = Date.now() - startTime;
 
       expect(result.status).toBe('accepted');
-      expect(result.jobId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      expect(result.jobId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      );
       expect(result.message).toContain('Task accepted');
       expect(duration).toBeLessThan(500);
 
@@ -303,7 +307,8 @@ describe('T037 自动化验收测试', () => {
       };
 
       spy.mockResolvedValueOnce('allow');
-      const manualDecisionAllow = await context.sessionManager.handleApprovalRequest(manualRequestAllow);
+      const manualDecisionAllow =
+        await context.sessionManager.handleApprovalRequest(manualRequestAllow);
       expect(manualDecisionAllow).toBe('allow');
       expect(manualRequestAllow.status).toBe(ApprovalStatus.APPROVED);
 
@@ -320,7 +325,8 @@ describe('T037 自动化验收测试', () => {
       };
 
       spy.mockResolvedValueOnce('deny');
-      const manualDecisionDeny = await context.sessionManager.handleApprovalRequest(manualRequestDeny);
+      const manualDecisionDeny =
+        await context.sessionManager.handleApprovalRequest(manualRequestDeny);
       expect(manualDecisionDeny).toBe('deny');
       expect(manualRequestDeny.status).toBe(ApprovalStatus.DENIED);
 
@@ -333,7 +339,9 @@ describe('T037 自动化验收测试', () => {
       const requested = events.filter((event) => event.type === EventType.APPROVAL_REQUESTED);
       const approved = events.filter((event) => event.type === EventType.APPROVAL_APPROVED);
       const denied = events.filter((event) => event.type === EventType.APPROVAL_DENIED);
-      const autoApproved = events.filter((event) => event.type === EventType.APPROVAL_AUTO_APPROVED);
+      const autoApproved = events.filter(
+        (event) => event.type === EventType.APPROVAL_AUTO_APPROVED
+      );
 
       expect(requested.length).toBeGreaterThanOrEqual(2);
       expect(approved.length).toBeGreaterThanOrEqual(1);

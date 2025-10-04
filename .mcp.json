@@ -1,8 +1,15 @@
 {
   "mcpServers": {
-    "codex-father": {
+    "codex-father-preview": {
       "command": "node",
       "args": ["./mcp/codex-mcp-server/dist/index.js"]
+    },
+    "codex-father-prod": {
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server"],
+      "env": {
+        "NODE_ENV": "production"
+      }
     }
   }
 }

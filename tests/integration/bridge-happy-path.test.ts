@@ -81,7 +81,9 @@ describe('BridgeLayer Happy Path', () => {
         return 'allow' as const;
       },
       getJobIdByConversationId(conversationId: string) {
-        if (conversationId === 'conv-abc') return 'job-abc-uuid-0000-0000-000000000000';
+        if (conversationId === 'conv-abc') {
+          return 'job-abc-uuid-0000-0000-000000000000';
+        }
         return undefined;
       },
     };
@@ -103,4 +105,3 @@ describe('BridgeLayer Happy Path', () => {
     expect(arg.status).toBe(ApprovalStatus.PENDING);
   });
 });
-

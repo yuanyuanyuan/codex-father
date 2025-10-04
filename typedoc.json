@@ -1,0 +1,36 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["./core"],
+  "entryPointStrategy": "expand",
+  "tsconfig": "tsconfig.build.json",
+  "out": "./docs/api",
+  "exclude": ["**/node_modules/**", "**/*.test.ts", "**/*.spec.ts", "**/tests/**"],
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeExternals": true,
+  "includeVersion": true,
+  "readme": "README.md",
+  "name": "Codex Father API Documentation",
+  "navigationLinks": {
+    "GitHub": "https://github.com/yuanyuanyuan/codex-father"
+  },
+  "plugin": [],
+  "skipErrorChecking": true,
+  "sort": ["source-order"],
+  "categorizeByGroup": true,
+  "categoryOrder": [
+    "MCP Protocol",
+    "Session Management",
+    "Approval System",
+    "Process Management",
+    "CLI",
+    "*"
+  ],
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "notDocumented": false
+  },
+  "githubPages": false,
+  "hideGenerator": false
+}

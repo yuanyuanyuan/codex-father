@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "userInfo",
+  "description": "Retrieve metadata about the authenticated Codex user.",
+  "dataSource": "refer-research/openai-codex/codex-rs/docs/codex_mcp_interface.md:21",
+  "minVersion": "0.42.0",
+  "request": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Server-assigned identifier for the authenticated user"
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "description": "Verified email address when available"
+      },
+      "name": {
+        "type": "string",
+        "description": "Display name associated with the account"
+      },
+      "allegedUserEmail": {
+        "type": "string",
+        "format": "email",
+        "description": "Email observed from local auth state (may be unverified)"
+      }
+    },
+    "required": ["allegedUserEmail"],
+    "additionalProperties": false
+  }
+}

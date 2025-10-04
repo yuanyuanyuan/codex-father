@@ -1,0 +1,153 @@
+import type { Patch, PatchApplyResult } from './types.js';
+
+type PatchEventType = 'patch_applied' | 'patch_failed';
+
+interface PatchEventPayload {
+  readonly event: PatchEventType;
+  readonly patch: Patch;
+  readonly timestamp: string;
+  readonly errorMessage?: string;
+}
+
+/**
+ * SWWCoordinator 实现单写窗口与补丁排队喵。
+ */
+export class SWWCoordinator {
+  /** 当前写窗口由哪一个任务持有。 */
+  private currentWriter: string | null = null;
+
+  /** 待处理补丁队列。 */
+  private readonly patchQueue: Patch[] = [];
+
+  /** 队列处理中的 promise，避免并发 drain。 */
+  private processingPromise: Promise<void> | null = null;
+
+  /** 补丁事件回调。 */
+  private readonly listeners: Record<PatchEventType, Set<(event: PatchEventPayload) => void>> = {
+    patch_applied: new Set(),
+    patch_failed: new Set(),
+  };
+
+  /** 补丁事件历史记录。 */
+  private readonly eventHistory: PatchEventPayload[] = [];
+
+  /** 暴露事件历史，方便测试与诊断。 */
+  public get events(): readonly PatchEventPayload[] {
+    return this.eventHistory;
+  }
+
+  /** 订阅补丁事件。 */
+  public on(event: PatchEventType, listener: (payload: PatchEventPayload) => void): void {
+    this.listeners[event].add(listener);
+  }
+
+  /** 取消订阅补丁事件。 */
+  public off(event: PatchEventType, listener: (payload: PatchEventPayload) => void): void {
+    this.listeners[event].delete(listener);
+  }
+
+  /** 添加补丁到队列并触发处理。 */
+  public enqueuePatch(patch: Patch): void {
+    const queuedPatch: Patch = { ...patch };
+    this.patchQueue.push(queuedPatch);
+    void this.processQueue();
+  }
+
+  /** 处理补丁队列，保证串行执行。 */
+  public async processQueue(): Promise<void> {
+    if (this.processingPromise) {
+      return this.processingPromise;
+    }
+
+    this.processingPromise = this.drainQueue();
+    try {
+      await this.processingPromise;
+    } finally {
+      this.processingPromise = null;
+    }
+  }
+
+  /**
+   * 两阶段写（预检 + 应用补丁）。
+   */
+  public async applyPatch(patch: Patch): Promise<PatchApplyResult> {
+    const ownsWindow = this.acquireWindow(patch.taskId);
+    try {
+      const validationError = this.preCheck(patch);
+      if (validationError) {
+        patch.status = 'failed';
+        patch.error = validationError;
+        return { success: false, errorMessage: validationError };
+      }
+
+      patch.status = 'applying';
+      await Promise.resolve();
+
+      patch.status = 'applied';
+      patch.appliedAt = new Date().toISOString();
+      delete patch.error;
+      return { success: true };
+    } finally {
+      if (ownsWindow) {
+        this.releaseWindow();
+      }
+    }
+  }
+
+  /** 派发补丁事件。 */
+  public emitPatchEvent(event: PatchEventType, patch: Patch, errorMessage?: string): void {
+    const basePayload: Omit<PatchEventPayload, 'errorMessage'> = {
+      event,
+      patch: { ...patch },
+      timestamp: new Date().toISOString(),
+    };
+
+    const payload: PatchEventPayload =
+      errorMessage !== undefined ? { ...basePayload, errorMessage } : basePayload;
+
+    this.eventHistory.push(payload);
+    for (const listener of this.listeners[event]) {
+      listener(payload);
+    }
+  }
+
+  private async drainQueue(): Promise<void> {
+    while (this.patchQueue.length > 0) {
+      const patch = this.patchQueue.shift()!;
+      const result = await this.applyPatch(patch);
+      if (result.success) {
+        this.emitPatchEvent('patch_applied', patch);
+      } else {
+        this.emitPatchEvent('patch_failed', patch, result.errorMessage);
+      }
+    }
+  }
+
+  private acquireWindow(taskId: string): boolean {
+    if (this.currentWriter === taskId) {
+      return false;
+    }
+    if (this.currentWriter !== null && this.currentWriter !== taskId) {
+      throw new Error('Single writer window is busy');
+    }
+    this.currentWriter = taskId;
+    return true;
+  }
+
+  private releaseWindow(): void {
+    this.currentWriter = null;
+  }
+
+  private preCheck(patch: Patch): string | undefined {
+    if (!patch.filePath || patch.filePath.trim() === '') {
+      return 'Patch filePath is required';
+    }
+    if (!Array.isArray(patch.targetFiles) || patch.targetFiles.length === 0) {
+      return 'Patch targetFiles cannot be empty';
+    }
+    if (patch.status !== 'pending' && patch.status !== 'applying') {
+      return `Patch status ${patch.status} is not eligible for apply`;
+    }
+    return undefined;
+  }
+}

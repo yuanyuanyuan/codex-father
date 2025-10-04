@@ -12,6 +12,7 @@ import { registerTaskCommand } from './commands/task-command.js';
 import { registerConfigCommand } from './commands/config-command.js';
 import { registerQueueCommand } from './commands/queue-command.js';
 import { registerMCPCommand } from './commands/mcp-command.js';
+import { registerOrchestrateCommand } from './commands/orchestrate-command.js';
 import type { CommandContext, CommandResult } from '../lib/types.js';
 
 /**
@@ -133,6 +134,9 @@ class CodexFatherCLI {
 
     // mcp 命令 (MVP1 实现)
     registerMCPCommand(parser);
+
+    // orchestrate 命令（多 Agent 编排脚手架）
+    registerOrchestrateCommand(parser);
 
     // status 命令 (立即可用)
     parser.registerCommand(

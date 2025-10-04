@@ -28,6 +28,10 @@
   "files": [
     "dist",
     "config",
+    "start.sh",
+    "job.sh",
+    "lib",
+    "run_tests.sh",
     "!dist/**/*.test.*",
     "!dist/**/*.spec.*"
   ],
@@ -63,7 +67,14 @@
     "check:typescript": "tsc --version && echo 'TypeScript environment valid'",
     "benchmark": "vitest bench",
     "docs:build": "echo 'Documentation generation will be enabled when core/lib/index.ts exists'",
-    "release": "semantic-release"
+    "docs:api": "typedoc",
+    "docs:api:watch": "typedoc --watch",
+    "release": "semantic-release",
+    "release:preflight": "bash scripts/release-mcp.sh --preflight",
+    "release:dry-run": "bash scripts/release-mcp.sh --dry-run",
+    "release:local": "bash scripts/release-mcp.sh --local",
+    "release:ci": "bash scripts/release-mcp.sh --ci",
+    "release:ci-commit-docs": "bash scripts/release-mcp.sh --ci-commit-docs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.2",
@@ -80,6 +91,7 @@
     "marked": "^16.3.0",
     "mermaid": "^11.12.0",
     "tslib": "^2.6.0",
+    "uuid": "^11.1.0",
     "winston": "^3.11.0",
     "yaml": "^2.3.4",
     "zod": "^3.22.4"

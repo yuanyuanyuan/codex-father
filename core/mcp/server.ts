@@ -56,6 +56,7 @@ export class MCPServer {
   private bridgeLayer: BridgeLayer;
   private eventMapper: EventMapper;
   private config: MCPServerConfig;
+  private handlersRegistered = false;
 
   constructor(config: MCPServerConfig = {}) {
     this.config = {
@@ -63,15 +64,27 @@ export class MCPServer {
       serverVersion: config.serverVersion || '1.0.0-mvp1',
       debug: config.debug || false,
     };
-    if (config.codexCommand !== undefined) this.config.codexCommand = config.codexCommand;
-    if (config.codexArgs !== undefined) this.config.codexArgs = config.codexArgs;
-    if (config.cwd !== undefined) this.config.cwd = config.cwd;
-    if (config.healthCheckInterval !== undefined)
+    if (config.codexCommand !== undefined) {
+      this.config.codexCommand = config.codexCommand;
+    }
+    if (config.codexArgs !== undefined) {
+      this.config.codexArgs = config.codexArgs;
+    }
+    if (config.cwd !== undefined) {
+      this.config.cwd = config.cwd;
+    }
+    if (config.healthCheckInterval !== undefined) {
       this.config.healthCheckInterval = config.healthCheckInterval;
-    if (config.maxRestartAttempts !== undefined)
+    }
+    if (config.maxRestartAttempts !== undefined) {
       this.config.maxRestartAttempts = config.maxRestartAttempts;
-    if (config.restartDelay !== undefined) this.config.restartDelay = config.restartDelay;
-    if (config.timeout !== undefined) this.config.timeout = config.timeout;
+    }
+    if (config.restartDelay !== undefined) {
+      this.config.restartDelay = config.restartDelay;
+    }
+    if (config.timeout !== undefined) {
+      this.config.timeout = config.timeout;
+    }
 
     // 创建 MCP Server
     this.server = new Server(
@@ -93,15 +106,27 @@ export class MCPServer {
     const pmConfig: import('../process/manager.js').ProcessManagerConfig = {
       debug: !!this.config.debug,
     };
-    if (this.config.codexCommand) pmConfig.codexCommand = this.config.codexCommand;
-    if (this.config.codexArgs) pmConfig.codexArgs = this.config.codexArgs;
-    if (this.config.cwd) pmConfig.cwd = this.config.cwd;
-    if (typeof this.config.healthCheckInterval === 'number')
+    if (this.config.codexCommand) {
+      pmConfig.codexCommand = this.config.codexCommand;
+    }
+    if (this.config.codexArgs) {
+      pmConfig.codexArgs = this.config.codexArgs;
+    }
+    if (this.config.cwd) {
+      pmConfig.cwd = this.config.cwd;
+    }
+    if (typeof this.config.healthCheckInterval === 'number') {
       pmConfig.healthCheckInterval = this.config.healthCheckInterval;
-    if (typeof this.config.maxRestartAttempts === 'number')
+    }
+    if (typeof this.config.maxRestartAttempts === 'number') {
       pmConfig.maxRestartAttempts = this.config.maxRestartAttempts;
-    if (typeof this.config.restartDelay === 'number') pmConfig.restartDelay = this.config.restartDelay;
-    if (typeof this.config.timeout === 'number') pmConfig.timeout = this.config.timeout;
+    }
+    if (typeof this.config.restartDelay === 'number') {
+      pmConfig.restartDelay = this.config.restartDelay;
+    }
+    if (typeof this.config.timeout === 'number') {
+      pmConfig.timeout = this.config.timeout;
+    }
 
     this.processManager = createProcessManager(pmConfig);
 
@@ -120,8 +145,8 @@ export class MCPServer {
       debug: !!this.config.debug,
     });
 
-    // 注册 MCP 协议处理器
-    this.registerHandlers();
+    // 注意: 处理器注册依赖于已启动的 ProcessManager，
+    // 移至 start() 中在 processManager.start() 之后执行
   }
 
   /**
@@ -134,6 +159,9 @@ export class MCPServer {
 
     // 启动进程管理器
     await this.processManager.start();
+
+    // 启动后再注册处理器，确保 CodexClient 可用
+    this.registerHandlers();
 
     // 连接传输层
     await this.server.connect(this.transport);
@@ -166,6 +194,9 @@ export class MCPServer {
    * 注册 MCP 协议处理器 (私有方法)
    */
   private registerHandlers(): void {
+    if (this.handlersRegistered) {
+      return;
+    }
     // 处理 tools/list 请求
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       if (this.config.debug) {
@@ -234,7 +265,11 @@ export class MCPServer {
       // 优先从 Codex 通知参数中提取 conversationId → 解析 jobId
       const params: unknown = notification.params;
       let conversationId: string | undefined;
-      if (params && typeof params === 'object' && 'conversationId' in (params as Record<string, unknown>)) {
+      if (
+        params &&
+        typeof params === 'object' &&
+        'conversationId' in (params as Record<string, unknown>)
+      ) {
         const cid = (params as Record<string, unknown>)['conversationId'];
         if (typeof cid === 'string' && cid.length > 0) {
           conversationId = cid;
@@ -243,7 +278,9 @@ export class MCPServer {
 
       if (!conversationId) {
         if (this.config.debug) {
-          console.warn('[MCPServer] Codex notification missing conversationId; skip progress relay');
+          console.warn(
+            '[MCPServer] Codex notification missing conversationId; skip progress relay'
+          );
         }
         return;
       }
@@ -280,6 +317,8 @@ export class MCPServer {
     if (this.config.debug) {
       console.log('[MCPServer] Handlers registered');
     }
+
+    this.handlersRegistered = true;
   }
 
   /**

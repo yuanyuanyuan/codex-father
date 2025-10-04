@@ -1,0 +1,308 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "codex/event",
+  "description": "Codex server → client event notification payload (JSON-RPC notification params).",
+  "dataSource": "refer-research/openai-codex/codex-rs/docs/codex_mcp_interface.md:71-90",
+  "minVersion": "0.42.0",
+  "definitions": {
+    "fileChange": {
+      "type": "object",
+      "description": "Single file change entry emitted by Codex events.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute or workspace-relative file path"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["create", "modify", "delete"],
+          "description": "Mutation type for the file"
+        },
+        "diff": {
+          "type": "string",
+          "description": "Unified diff content for the change"
+        },
+        "contentPreview": {
+          "type": "string",
+          "description": "Optional content preview shared by Codex"
+        }
+      },
+      "required": ["path", "type"],
+      "additionalProperties": true
+    },
+    "tokenUsage": {
+      "type": "object",
+      "description": "Aggregated token usage snapshot",
+      "properties": {
+        "inputTokens": { "type": "integer", "minimum": 0 },
+        "cachedInputTokens": { "type": "integer", "minimum": 0 },
+        "outputTokens": { "type": "integer", "minimum": 0 },
+        "reasoningOutputTokens": { "type": "integer", "minimum": 0 },
+        "totalTokens": { "type": "integer", "minimum": 0 }
+      },
+      "required": [
+        "inputTokens",
+        "cachedInputTokens",
+        "outputTokens",
+        "reasoningOutputTokens",
+        "totalTokens"
+      ],
+      "additionalProperties": false
+    },
+    "tokenUsageInfo": {
+      "type": "object",
+      "description": "Detailed token usage information",
+      "properties": {
+        "totalTokenUsage": { "$ref": "#/definitions/tokenUsage" },
+        "lastTokenUsage": { "$ref": "#/definitions/tokenUsage" },
+        "modelContextWindow": { "type": ["integer", "null"], "minimum": 0 }
+      },
+      "required": ["totalTokenUsage", "lastTokenUsage"],
+      "additionalProperties": false
+    }
+  },
+  "request": {
+    "type": "object",
+    "description": "Notification params forwarded from Codex to clients.",
+    "properties": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "error",
+          "task_started",
+          "task_complete",
+          "token_count",
+          "agent_message",
+          "user_message",
+          "agent_message_delta",
+          "agent_reasoning",
+          "agent_reasoning_delta",
+          "agent_reasoning_raw_content",
+          "agent_reasoning_raw_content_delta",
+          "agent_reasoning_section_break",
+          "session_configured",
+          "mcp_tool_call_begin",
+          "mcp_tool_call_end",
+          "web_search_begin",
+          "web_search_end",
+          "exec_command_begin",
+          "exec_command_output_delta",
+          "exec_command_end",
+          "exec_approval_request",
+          "apply_patch_approval_request",
+          "background_event",
+          "stream_error",
+          "patch_apply_begin",
+          "patch_apply_end",
+          "turn_diff",
+          "get_history_entry_response",
+          "mcp_list_tools_response",
+          "list_custom_prompts_response",
+          "plan_update",
+          "turn_aborted",
+          "shutdown_complete",
+          "conversation_path",
+          "entered_review_mode",
+          "exited_review_mode"
+        ],
+        "description": "Event discriminator emitted by Codex",
+        "examples": ["task_started", "agent_message", "apply_patch_approval_request"]
+      },
+      "conversationId": {
+        "type": "string",
+        "description": "Conversation identifier related to the event"
+      },
+      "taskId": {
+        "type": "string",
+        "description": "Identifier for the logical task"
+      },
+      "callId": {
+        "type": "string",
+        "description": "Identifier for long-running operations (tool calls, approvals)"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO timestamp reported by Codex"
+      },
+      "message": {
+        "type": "string",
+        "description": "Human readable message content"
+      },
+      "role": {
+        "type": "string",
+        "enum": ["assistant", "user", "system", "tool"],
+        "description": "Speaker role for message-style events"
+      },
+      "delta": {
+        "type": "string",
+        "description": "Streaming token delta emitted by Codex"
+      },
+      "text": {
+        "type": "string",
+        "description": "Reasoning content payload"
+      },
+      "reason": {
+        "type": "string",
+        "description": "Optional explanation supplied by Codex"
+      },
+      "command": {
+        "description": "Command awaiting user approval or execution context",
+        "oneOf": [
+          {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          {
+            "type": "string",
+            "minLength": 1
+          }
+        ]
+      },
+      "cwd": {
+        "type": "string",
+        "description": "Working directory associated with command events"
+      },
+      "autoApproved": {
+        "type": "boolean",
+        "description": "Indicates whether Codex auto-approved the change"
+      },
+      "stdout": {
+        "type": "string",
+        "description": "Captured stdout emitted by Codex"
+      },
+      "stderr": {
+        "type": "string",
+        "description": "Captured stderr emitted by Codex"
+      },
+      "success": {
+        "type": "boolean",
+        "description": "Indicates whether the action finished successfully"
+      },
+      "unifiedDiff": {
+        "type": "string",
+        "description": "Unified diff for turn-level changes"
+      },
+      "changes": {
+        "type": "object",
+        "description": "File change map keyed by path",
+        "additionalProperties": { "$ref": "#/definitions/fileChange" }
+      },
+      "info": {
+        "type": "object",
+        "description": "Token usage info payload",
+        "properties": {
+          "tokenUsage": { "$ref": "#/definitions/tokenUsageInfo" },
+          "rateLimits": {
+            "type": ["object", "null"],
+            "description": "Optional rate limit snapshot",
+            "additionalProperties": true
+          }
+        },
+        "required": ["tokenUsage"],
+        "additionalProperties": true
+      },
+      "tools": {
+        "type": "object",
+        "description": "Available MCP tools keyed by fully-qualified name",
+        "additionalProperties": true
+      },
+      "customPrompts": {
+        "type": "array",
+        "description": "List of available custom prompts",
+        "items": { "type": "object" }
+      },
+      "reviewOutput": {
+        "type": ["object", "null"],
+        "description": "Optional review output returned by Codex",
+        "additionalProperties": true
+      },
+      "entry": {
+        "type": ["object", "null"],
+        "description": "History entry payload",
+        "additionalProperties": true
+      },
+      "_meta": {
+        "type": "object",
+        "description": "Optional metadata for correlating notifications",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "description": "Original request identifier"
+          }
+        },
+        "required": ["requestId"],
+        "additionalProperties": false
+      }
+    },
+    "required": ["type"],
+    "additionalProperties": true,
+    "allOf": [
+      {
+        "if": { "properties": { "type": { "const": "agent_message" } } },
+        "then": { "required": ["message"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "user_message" } } },
+        "then": { "required": ["message"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "agent_message_delta" } } },
+        "then": { "required": ["delta"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "agent_reasoning" } } },
+        "then": { "required": ["text"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "agent_reasoning_delta" } } },
+        "then": { "required": ["delta"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "agent_reasoning_raw_content" } } },
+        "then": { "required": ["text"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "agent_reasoning_raw_content_delta" } } },
+        "then": { "required": ["delta"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "task_started" } } },
+        "then": { "required": ["conversationId"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "task_complete" } } },
+        "then": { "required": ["conversationId"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "token_count" } } },
+        "then": { "required": ["info"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "exec_approval_request" } } },
+        "then": { "required": ["callId", "command", "cwd"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "apply_patch_approval_request" } } },
+        "then": { "required": ["callId", "changes"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "patch_apply_begin" } } },
+        "then": { "required": ["callId", "changes", "autoApproved"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "patch_apply_end" } } },
+        "then": { "required": ["callId", "stdout", "stderr", "success"] }
+      },
+      {
+        "if": { "properties": { "type": { "const": "turn_diff" } } },
+        "then": { "required": ["unifiedDiff"] }
+      }
+    ]
+  },
+  "response": {
+    "type": "null",
+    "description": "codex/event notifications do not carry a response payload"
+  }
+}

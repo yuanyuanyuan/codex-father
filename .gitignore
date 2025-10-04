@@ -6,7 +6,13 @@ node_modules
 node_modules/*
 test-results
 refer-research
-refer-research/*
 .tsbuildinfo
 dist
 .codex-father-test/
+.tsbuildinfo.build
+.serena
+# API 文档（自动生成）
+docs/api/
+*.tgz
+codex-father-*.tgz
+mcp/codex-mcp-server/*.tgz

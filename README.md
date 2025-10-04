@@ -31,6 +31,17 @@
 - 会话管理：事件 JSONL 与元数据持久化
 - 类型安全：完整 TypeScript + Zod 校验
 
+### Codex 版本兼容（0.44）
+
+- 版本检测与缓存：自动解析 `codex --version`，异常时快速失败并提示修复
+- 参数-版本映射：在 0.42 ↔ 0.44 之间做参数兼容与降级（保持调用一致性）
+- Profile 自动修复：按模型与能力修正关键项（如 `wire_api`, `model`, 超时等）
+- 校验与错误码：不满足 `minVersion` 或参数非法时返回 `-32602`；HTTP 类错误对齐
+  `405/401/429/500`
+- MCP 方法门禁：在 tools/call 前做版本/参数校验，确保上游可预期
+
+参考：`docs/VERSION_MCP_1.2.0.md`、`docs/mcp-integration.md`
+
 ### MCP 工具（当前实现）
 
 1. `codex.exec` — 同步执行（前台阻塞直到完成）
@@ -186,6 +197,7 @@ args = ["-y", "@starkdev020/codex-father-mcp-server"]
 - **故障排除**: [故障排除指南](mcp/codex-mcp-server/README.md#🆘-故障排除)
 - **Codex rMCP 集成**:
   [关于 Codex rMCP](mcp/codex-mcp-server/README.md#🔗-关于-codex-rmcp-支持)
+- **Codex 0.44 兼容指南**: [docs/mcp-integration.md](docs/mcp-integration.md)
 
 ## 🛠️ 开发
 
@@ -325,7 +337,8 @@ npm run benchmark
 ### 用户文档
 
 - **[MCP 服务器使用指南](mcp/codex-mcp-server/README.md)** - 完整的使用文档和配置说明
-- [非交互模式说明](docs/codex-non-interactive.md) - CLI 非交互模式使用
+- **[Codex 0.44 兼容与集成](docs/mcp-integration.md)** - 版本检测/参数映射/Profile 自动修复/错误码
+- [非交互模式说明](docs/MVP3/codex-non-interactive.md) - CLI 非交互模式使用
 
 ### 开发文档
 
@@ -408,3 +421,18 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 - [架构设计文档](docs/) - 技术架构和设计决策
 - [API 参考](specs/) - 完整的 API 规范
 - [贡献指南](#贡献) - 如何参与项目开发
+
+## 📦 发布
+
+- 完整流程：`docs/RELEASE_FLOW_MCP.md`
+- 本次版本说明：`docs/VERSION_MCP_1.2.0.md`
+- 一键脚本：`scripts/release-mcp.sh`（支持 `--preflight` / `--dry-run` /
+  `--local` / `--ci` / `--ci-commit-docs`）
+- npm/npx 验证流程：
+  1. `npm pack`，确认生成的 `codex-father-*.tgz` 内包含 `start.sh`、`job.sh` 与
+     `lib/`（可 `tar -tf` 检查）
+  2. 在空目录执行 `npm init -y && npm install /path/to/codex-father-*.tgz`
+  3. 运行
+     `npx codex-father start --help`，若可正常输出帮助信息即表示包内脚本可被分发与调用
+  4. 可选：设置 `CODEX_START_SH`/`CODEX_JOB_SH`
+     指向自定义路径再次运行，验证环境变量覆盖是否生效

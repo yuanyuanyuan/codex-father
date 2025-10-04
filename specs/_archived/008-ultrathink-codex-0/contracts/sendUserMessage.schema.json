@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "sendUserMessage",
+  "description": "Send user input items to an active conversation",
+  "dataSource": "refer-research/openai-codex/codex-rs/docs/codex_mcp_interface.md:66-68",
+  "minVersion": "0.42.0",
+  "request": {
+    "type": "object",
+    "properties": {
+      "conversationId": {
+        "type": "string",
+        "description": "ID of the conversation to send message to"
+      },
+      "items": {
+        "type": "array",
+        "description": "Array of message items (text, image, etc.)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["text", "image"],
+              "description": "Type of the message item"
+            },
+            "text": {
+              "type": "string",
+              "description": "Text content (required if type=text)"
+            },
+            "imageUrl": {
+              "type": "string",
+              "description": "Image URL or base64 data (required if type=image)"
+            }
+          },
+          "required": ["type"],
+          "additionalProperties": false
+        },
+        "minItems": 1
+      }
+    },
+    "required": ["conversationId", "items"],
+    "additionalProperties": false
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "accepted": {
+        "type": "boolean",
+        "description": "Whether the message was accepted"
+      }
+    },
+    "required": ["accepted"],
+    "additionalProperties": false
+  }
+}

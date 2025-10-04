@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "logoutChatGpt",
+  "description": "Codex server method for logging out from ChatGPT (JSON-RPC request/response).",
+  "dataSource": "refer-research/openai-codex/codex-rs/docs/codex_mcp_interface.md:98",
+  "minVersion": "0.42.0",
+  "request": {
+    "type": "object",
+    "description": "Logout request does not carry any parameters.",
+    "additionalProperties": false
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean",
+        "description": "Indicates whether the logout succeeded"
+      },
+      "message": {
+        "type": "string",
+        "description": "Optional detail about the logout result"
+      }
+    },
+    "required": ["success"],
+    "additionalProperties": false
+  }
+}
