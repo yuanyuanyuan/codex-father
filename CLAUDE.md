@@ -4,6 +4,11 @@ Auto-generated from all feature plans. Last updated: 2025-09-30
 
 ## Active Technologies
 
+- TypeScript 5.x + Node.js >= 18 + @modelcontextprotocol/sdk ^1.0.4, inquirer
+  ^9.3.7, zod ^3.24.1, uuid ^11.0.3, vitest ^1.6.1 (008-ultrathink-codex-0)
+- 文件系统（Codex
+  Profile：`~/.codex/config.toml`，状态文件：`.codex-father/`） (008-ultrathink-codex-0)
+
 - Node.js >=18 + TypeScript ^5 + commander, fs-extra, yaml, zod, winston
   (006-docs-capability-assessment)
 - Files (.codex-father/sessions/<id>/) (006-docs-capability-assessment)
@@ -94,13 +99,16 @@ npx @modelcontextprotocol/inspector npm run mcp:start  # 使用 Inspector 调试
 
 ## Recent Changes
 
+- 008-ultrathink-codex-0: Added TypeScript 5.x + Node.js >= 18 +
+  @modelcontextprotocol/sdk ^1.0.4, inquirer ^9.3.7, zod ^3.24.1, uuid ^11.0.3,
+  vitest ^1.6.1
+
 - 006-docs-capability-assessment: Added Node.js >=18 + TypeScript ^5 +
   commander, fs-extra, yaml, zod, winston
 
 ### 2025-10-02 - MVP1 Polish & Release Prep
 
 - ✅ 完成 T035 代码复用检查：重复代码率 3.2%（✅ 达标 < 5%）
-- ✅ 完成 T036 文档更新：README.md, CLAUDE.md, VERSION_1.0.0.md
 
 ### 2025-10-01 - MVP1 All Tests Complete
 
