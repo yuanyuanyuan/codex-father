@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "applyPatchApproval",
+  "description": "Codex server approval request for applying file changes (JSON-RPC request params/result).",
+  "dataSource": "refer-research/openai-codex/codex-rs/docs/codex_mcp_interface.md:87",
+  "minVersion": "0.42.0",
+  "definitions": {
+    "fileChange": {
+      "type": "object",
+      "description": "Single file change entry requiring approval.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute or workspace-relative file path"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["create", "modify", "delete"],
+          "description": "Change type for the file"
+        },
+        "diff": {
+          "type": "string",
+          "description": "Unified diff content proposed by Codex"
+        },
+        "contentPreview": {
+          "type": "string",
+          "description": "Optional preview snippet shared for UX"
+        }
+      },
+      "required": ["path", "type", "diff"],
+      "additionalProperties": false
+    }
+  },
+  "request": {
+    "type": "object",
+    "properties": {
+      "conversationId": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Conversation identifier for the pending approval"
+      },
+      "callId": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Codex call identifier used to correlate responses"
+      },
+      "fileChanges": {
+        "type": "array",
+        "description": "List of file changes Codex wants to apply",
+        "items": { "$ref": "#/definitions/fileChange" },
+        "minItems": 1
+      },
+      "reason": {
+        "type": "string",
+        "description": "Optional explanation describing why the patch is required"
+      },
+      "grantRoot": {
+        "type": "boolean",
+        "description": "Whether Codex requests elevated write access"
+      }
+    },
+    "required": ["conversationId", "callId", "fileChanges"],
+    "additionalProperties": false
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "decision": {
+        "type": "string",
+        "enum": ["allow", "deny"],
+        "description": "Approval decision returned to Codex"
+      },
+      "note": {
+        "type": "string",
+        "description": "Optional note or justification for auditing"
+      }
+    },
+    "required": ["decision"],
+    "additionalProperties": false
+  }
+}
