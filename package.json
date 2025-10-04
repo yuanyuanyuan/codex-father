@@ -63,6 +63,8 @@
     "check:typescript": "tsc --version && echo 'TypeScript environment valid'",
     "benchmark": "vitest bench",
     "docs:build": "echo 'Documentation generation will be enabled when core/lib/index.ts exists'",
+    "docs:api": "typedoc",
+    "docs:api:watch": "typedoc --watch",
     "release": "semantic-release"
   },
   "dependencies": {

@@ -11,3 +11,5 @@ dist
 .codex-father-test/
 .tsbuildinfo.build
 .serena
+\n+# API 文档（自动生成）
+docs/api/
