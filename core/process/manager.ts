@@ -360,7 +360,9 @@ export class SingleProcessManager extends EventEmitter {
         });
         return;
       }
-      if (this.config.debug) console.log('[ProcessManager] Health check passed');
+      if (this.config.debug) {
+        console.log('[ProcessManager] Health check passed');
+      }
     }
   }
 }

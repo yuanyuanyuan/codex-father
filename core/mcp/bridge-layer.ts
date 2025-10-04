@@ -309,9 +309,7 @@ export class BridgeLayer {
 
     // 构造审批请求
     // 将 conversationId 映射为 jobId
-    const mappedJobId = this.sessionManager.getJobIdByConversationId(
-      typedParams.conversationId!
-    );
+    const mappedJobId = this.sessionManager.getJobIdByConversationId(typedParams.conversationId!);
     if (!mappedJobId) {
       throw new Error(
         `Unknown conversationId: ${typedParams.conversationId}. Cannot resolve jobId for approval`
@@ -376,9 +374,7 @@ export class BridgeLayer {
     }
 
     // 构造审批请求
-    const mappedJobId = this.sessionManager.getJobIdByConversationId(
-      typedParams.conversationId!
-    );
+    const mappedJobId = this.sessionManager.getJobIdByConversationId(typedParams.conversationId!);
     if (!mappedJobId) {
       throw new Error(
         `Unknown conversationId: ${typedParams.conversationId}. Cannot resolve jobId for approval`

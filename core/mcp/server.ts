@@ -63,15 +63,27 @@ export class MCPServer {
       serverVersion: config.serverVersion || '1.0.0-mvp1',
       debug: config.debug || false,
     };
-    if (config.codexCommand !== undefined) this.config.codexCommand = config.codexCommand;
-    if (config.codexArgs !== undefined) this.config.codexArgs = config.codexArgs;
-    if (config.cwd !== undefined) this.config.cwd = config.cwd;
-    if (config.healthCheckInterval !== undefined)
+    if (config.codexCommand !== undefined) {
+      this.config.codexCommand = config.codexCommand;
+    }
+    if (config.codexArgs !== undefined) {
+      this.config.codexArgs = config.codexArgs;
+    }
+    if (config.cwd !== undefined) {
+      this.config.cwd = config.cwd;
+    }
+    if (config.healthCheckInterval !== undefined) {
       this.config.healthCheckInterval = config.healthCheckInterval;
-    if (config.maxRestartAttempts !== undefined)
+    }
+    if (config.maxRestartAttempts !== undefined) {
       this.config.maxRestartAttempts = config.maxRestartAttempts;
-    if (config.restartDelay !== undefined) this.config.restartDelay = config.restartDelay;
-    if (config.timeout !== undefined) this.config.timeout = config.timeout;
+    }
+    if (config.restartDelay !== undefined) {
+      this.config.restartDelay = config.restartDelay;
+    }
+    if (config.timeout !== undefined) {
+      this.config.timeout = config.timeout;
+    }
 
     // 创建 MCP Server
     this.server = new Server(
@@ -93,15 +105,27 @@ export class MCPServer {
     const pmConfig: import('../process/manager.js').ProcessManagerConfig = {
       debug: !!this.config.debug,
     };
-    if (this.config.codexCommand) pmConfig.codexCommand = this.config.codexCommand;
-    if (this.config.codexArgs) pmConfig.codexArgs = this.config.codexArgs;
-    if (this.config.cwd) pmConfig.cwd = this.config.cwd;
-    if (typeof this.config.healthCheckInterval === 'number')
+    if (this.config.codexCommand) {
+      pmConfig.codexCommand = this.config.codexCommand;
+    }
+    if (this.config.codexArgs) {
+      pmConfig.codexArgs = this.config.codexArgs;
+    }
+    if (this.config.cwd) {
+      pmConfig.cwd = this.config.cwd;
+    }
+    if (typeof this.config.healthCheckInterval === 'number') {
       pmConfig.healthCheckInterval = this.config.healthCheckInterval;
-    if (typeof this.config.maxRestartAttempts === 'number')
+    }
+    if (typeof this.config.maxRestartAttempts === 'number') {
       pmConfig.maxRestartAttempts = this.config.maxRestartAttempts;
-    if (typeof this.config.restartDelay === 'number') pmConfig.restartDelay = this.config.restartDelay;
-    if (typeof this.config.timeout === 'number') pmConfig.timeout = this.config.timeout;
+    }
+    if (typeof this.config.restartDelay === 'number') {
+      pmConfig.restartDelay = this.config.restartDelay;
+    }
+    if (typeof this.config.timeout === 'number') {
+      pmConfig.timeout = this.config.timeout;
+    }
 
     this.processManager = createProcessManager(pmConfig);
 
@@ -234,7 +258,11 @@ export class MCPServer {
       // 优先从 Codex 通知参数中提取 conversationId → 解析 jobId
       const params: unknown = notification.params;
       let conversationId: string | undefined;
-      if (params && typeof params === 'object' && 'conversationId' in (params as Record<string, unknown>)) {
+      if (
+        params &&
+        typeof params === 'object' &&
+        'conversationId' in (params as Record<string, unknown>)
+      ) {
         const cid = (params as Record<string, unknown>)['conversationId'];
         if (typeof cid === 'string' && cid.length > 0) {
           conversationId = cid;
@@ -243,7 +271,9 @@ export class MCPServer {
 
       if (!conversationId) {
         if (this.config.debug) {
-          console.warn('[MCPServer] Codex notification missing conversationId; skip progress relay');
+          console.warn(
+            '[MCPServer] Codex notification missing conversationId; skip progress relay'
+          );
         }
         return;
       }

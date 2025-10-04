@@ -191,7 +191,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
 
 ### 基础模块（3 个可并行）
 
-- [x] **T023** [P] 实现版本检测模块
+- [ ] **T023** [P] 实现版本检测模块
   - **依赖**: 无
   - **输入**: research.md#1-版本检测机制, data-model.md#1-版本信息
   - **输出**:
@@ -206,7 +206,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
     - 解析输出提取语义化版本号
     - 内存缓存 `{ version, major, minor, patch, detectedAt }`
 
-- [x] **T024** [P] 实现参数-版本映射表
+- [ ] **T024** [P] 实现参数-版本映射表
   - **依赖**: 无
   - **输入**: specs/008-ultrathink-codex-0/parameter-version-mapping.md
   - **输出**:
@@ -220,7 +220,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
     - 使用 `Record<string, ParameterMapping>` 结构
     - 包含 name, category, minVersion, dataSource, incompatibleBehavior
 
-- [x] **T025** [P] 实现配置 Schema 定义
+- [ ] **T025** [P] 实现配置 Schema 定义
   - **依赖**: 无
   - **输入**: data-model.md#3-配置选项
   - **输出**: `src/lib/configSchema.ts` (使用 Zod)
@@ -233,7 +233,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
 
 ### 验证与策略模块（5 个有依赖）
 
-- [x] **T026** 实现配置验证模块
+- [ ] **T026** 实现配置验证模块
   - **依赖**: T023, T024, T025
   - **输入**: research.md#5-配置验证方式, data-model.md#5-配置验证结果
   - **输出**:
@@ -248,7 +248,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
     - 静态校验（无 API 调用）
     - 返回 ValidationResult { valid, errors, warnings, suggestions }
 
-- [x] **T027** 实现 Codex Profile 管理
+- [ ] **T027** 实现 Codex Profile 管理
   - **依赖**: T026
   - **输入**: research.md#2-配置修正持久化机制, data-model.md#4-Codex Profile
   - **输出**:
@@ -262,7 +262,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
     - Profile 名称固定为 `codex-father-auto-fix`
     - 添加时间戳和修正原因注释
 
-- [x] **T028** 实现模型-wire_api 映射
+- [ ] **T028** 实现模型-wire_api 映射
   - **依赖**: 无（独立模块）
   - **输入**: research.md#6-模型与wire_api映射
   - **输出**:
@@ -276,7 +276,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
     - `Record<string, 'chat' | 'responses'>` 结构
     - 查询 O(1)
 
-- [x] **T029** 实现错误格式化模块
+- [ ] **T029** 实现错误格式化模块
   - **依赖**: T023 (需要版本信息)
   - **输入**: research.md#8-错误处理增强, data-model.md#7-错误响应
   - **输出**:
@@ -288,7 +288,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
   - **实现要点**:
     - 返回 ErrorResponse { code, message, context, suggestions }
 
-- [x] **T030** 实现三层降级策略
+- [ ] **T030** 实现三层降级策略
   - **依赖**: T023, T024, T029
   - **输入**: research.md#3-三层降级策略
   - **输出**:
@@ -311,7 +311,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
 
 ### 核心事件处理（1 个）
 
-- [x] **T031** 实现 `codex/event` 通知处理
+- [ ] **T031** 实现 `codex/event` 通知处理
   - **依赖**: T023-T030 (所有基础设施)
   - **输入**: contracts/codex-event.schema.json, data-model.md#6-MCP方法
   - **输出**:
@@ -328,13 +328,13 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
 
 ### 审批方法（2 个可并行）
 
-- [x] **T032** [P] 实现 `applyPatchApproval`（Server → Client 请求）
+- [ ] **T032** [P] 实现 `applyPatchApproval`（Server → Client 请求）
   - **依赖**: T031
   - **输入**: contracts/applyPatchApproval.schema.json
   - **输出**: `src/mcp/approvalHandlers.ts` (handleApplyPatchApproval())
   - **验证**: 契约测试通过，能接收 Client 的 allow/deny 响应
 
-- [x] **T033** [P] 实现 `execCommandApproval`（Server → Client 请求）
+- [ ] **T033** [P] 实现 `execCommandApproval`（Server → Client 请求）
   - **依赖**: T031
   - **输入**: contracts/execCommandApproval.schema.json
   - **输出**: `src/mcp/approvalHandlers.ts` (handleExecCommandApproval())
@@ -342,25 +342,25 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
 
 ### 会话管理（4 个可并行）
 
-- [x] **T034** [P] 实现 `interruptConversation`
+- [ ] **T034** [P] 实现 `interruptConversation`
   - **依赖**: T031
   - **输入**: contracts/interruptConversation.schema.json
   - **输出**: `src/mcp/conversationHandlers.ts` (interruptConversation())
   - **验证**: 契约测试通过
 
-- [x] **T035** [P] 实现 `resumeConversation`
+- [ ] **T035** [P] 实现 `resumeConversation`
   - **依赖**: T031
   - **输入**: contracts/resumeConversation.schema.json
   - **输出**: `src/mcp/conversationHandlers.ts` (resumeConversation())
   - **验证**: 契约测试通过
 
-- [x] **T036** [P] 实现 `listConversations`
+- [ ] **T036** [P] 实现 `listConversations`
   - **依赖**: T031
   - **输入**: contracts/listConversations.schema.json
   - **输出**: `src/mcp/conversationHandlers.ts` (listConversations())
   - **验证**: 契约测试通过，返回会话数组
 
-- [x] **T037** [P] 实现 `archiveConversation`
+- [ ] **T037** [P] 实现 `archiveConversation`
   - **依赖**: T031
   - **输入**: contracts/archiveConversation.schema.json
   - **输出**: `src/mcp/conversationHandlers.ts` (archiveConversation())
@@ -368,33 +368,33 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
 
 ### 认证方法（5 个可并行）
 
-- [x] **T038** [P] 实现 `loginApiKey`
+- [ ] **T038** [P] 实现 `loginApiKey`
   - **依赖**: T031
   - **输入**: contracts/loginApiKey.schema.json
   - **输出**: `src/mcp/authHandlers.ts` (loginApiKey())
   - **验证**: 契约测试通过
 
-- [x] **T039** [P] 实现 `loginChatGpt` + `loginChatGptComplete`
+- [ ] **T039** [P] 实现 `loginChatGpt` + `loginChatGptComplete`
   - **依赖**: T031
   - **输入**: contracts/loginChatGpt.schema.json,
     contracts/loginChatGptComplete.schema.json
   - **输出**: `src/mcp/authHandlers.ts` (loginChatGpt(), handleLoginComplete())
   - **验证**: 返回 loginId 和 authUrl，完成后发送通知
 
-- [x] **T040** [P] 实现 `cancelLoginChatGpt` + `logoutChatGpt`
+- [ ] **T040** [P] 实现 `cancelLoginChatGpt` + `logoutChatGpt`
   - **依赖**: T039
   - **输入**: contracts/cancelLoginChatGpt.schema.json,
     contracts/logoutChatGpt.schema.json
   - **输出**: `src/mcp/authHandlers.ts` (cancelLogin(), logout())
   - **验证**: 契约测试通过
 
-- [x] **T041** [P] 实现 `getAuthStatus`
+- [ ] **T041** [P] 实现 `getAuthStatus`
   - **依赖**: T031
   - **输入**: contracts/getAuthStatus.schema.json
   - **输出**: `src/mcp/authHandlers.ts` (getAuthStatus())
   - **验证**: 契约测试通过，支持 includeToken 参数
 
-- [x] **T042** [P] 实现 `authStatusChange` 通知
+- [ ] **T042** [P] 实现 `authStatusChange` 通知
   - **依赖**: T031
   - **输入**: contracts/authStatusChange.schema.json
   - **输出**: `src/mcp/authHandlers.ts` (emitAuthStatusChange())
@@ -402,37 +402,37 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
 
 ### 配置和工具（6 个可并行）
 
-- [x] **T043** [P] 实现 `getUserSavedConfig`
+- [ ] **T043** [P] 实现 `getUserSavedConfig`
   - **依赖**: T031
   - **输入**: contracts/getUserSavedConfig.schema.json
   - **输出**: `src/mcp/configHandlers.ts` (getUserSavedConfig())
   - **验证**: 读取 ~/.codex/config.toml，返回配置对象
 
-- [x] **T044** [P] 实现 `setDefaultModel`
+- [ ] **T044** [P] 实现 `setDefaultModel`
   - **依赖**: T031
   - **输入**: contracts/setDefaultModel.schema.json
   - **输出**: `src/mcp/configHandlers.ts` (setDefaultModel())
   - **验证**: 写入默认模型到配置文件
 
-- [x] **T045** [P] 实现 `getUserAgent`
+- [ ] **T045** [P] 实现 `getUserAgent`
   - **依赖**: T031
   - **输入**: contracts/getUserAgent.schema.json
   - **输出**: `src/mcp/configHandlers.ts` (getUserAgent())
   - **验证**: 返回 user agent 字符串
 
-- [x] **T046** [P] 实现 `userInfo`
+- [ ] **T046** [P] 实现 `userInfo`
   - **依赖**: T031
   - **输入**: contracts/userInfo.schema.json
   - **输出**: `src/mcp/configHandlers.ts` (userInfo())
   - **验证**: 返回用户信息
 
-- [x] **T047** [P] 实现 `gitDiffToRemote`
+- [ ] **T047** [P] 实现 `gitDiffToRemote`
   - **依赖**: T031
   - **输入**: contracts/gitDiffToRemote.schema.json
   - **输出**: `src/mcp/utilHandlers.ts` (gitDiffToRemote())
   - **验证**: 执行 git diff 并返回结果
 
-- [x] **T048** [P] 实现 `execOneOffCommand`
+- [ ] **T048** [P] 实现 `execOneOffCommand`
   - **依赖**: T031
   - **输入**: contracts/execOneOffCommand.schema.json
   - **输出**: `src/mcp/utilHandlers.ts` (execOneOffCommand())
