@@ -3,10 +3,12 @@
  * 提供渐进式迁移路径，保持向后兼容性
  */
 
-import { resolve, dirname } from 'path';
+import { resolve, dirname, relative, isAbsolute } from 'path';
+import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import type { SpawnOptions } from 'child_process';
+import { createError } from './error-boundary.js';
 
 /**
  * 动态查找项目根目录
@@ -33,23 +35,79 @@ function findProjectRoot(): string {
 const PROJECT_ROOT = findProjectRoot();
 
 /**
+ * 查找 CLI 包自身的根目录
+ * 基于当前模块位置回溯 package.json
+ */
+function findCliPackageRoot(): string {
+  const moduleDir = dirname(fileURLToPath(import.meta.url));
+  let currentDir = moduleDir;
+
+  while (currentDir !== dirname(currentDir)) {
+    if (existsSync(resolve(currentDir, 'package.json'))) {
+      return currentDir;
+    }
+    currentDir = dirname(currentDir);
+  }
+
+  return moduleDir;
+}
+
+// CLI 包的根目录（start.sh、job.sh 等资产应位于此处）
+const PACKAGE_ROOT = findCliPackageRoot();
+
+/**
+ * 将环境变量提供的路径标准化为绝对路径
+ */
+function normalizeUserProvidedPath(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return trimmed;
+  }
+
+  if (isAbsolute(trimmed)) {
+    return trimmed;
+  }
+
+  return resolve(process.cwd(), trimmed);
+}
+
+/**
+ * 根据环境变量和包内相对路径确定脚本位置
+ */
+function resolveScriptPath(options: { env?: string; relative: string }): string {
+  if (options.env) {
+    const fromEnv = process.env[options.env];
+    if (typeof fromEnv === 'string' && fromEnv.trim().length > 0) {
+      return normalizeUserProvidedPath(fromEnv);
+    }
+  }
+
+  return resolve(PACKAGE_ROOT, options.relative);
+}
+
+/**
  * 现有脚本路径映射
  */
 export const LEGACY_SCRIPTS = {
   // 主要脚本
-  start: resolve(PROJECT_ROOT, 'start.sh'),
-  job: resolve(PROJECT_ROOT, 'job.sh'),
-  runTests: resolve(PROJECT_ROOT, 'run_tests.sh'),
+  start: resolveScriptPath({ env: 'CODEX_START_SH', relative: 'start.sh' }),
+  job: resolveScriptPath({ env: 'CODEX_JOB_SH', relative: 'job.sh' }),
+  runTests: resolve(PACKAGE_ROOT, 'run_tests.sh'),
 
   // 库脚本
-  common: resolve(PROJECT_ROOT, 'lib/common.sh'),
-  presets: resolve(PROJECT_ROOT, 'lib/presets.sh'),
+  common: resolve(PACKAGE_ROOT, 'lib/common.sh'),
+  presets: resolve(PACKAGE_ROOT, 'lib/presets.sh'),
 
   // 规范管理脚本
-  updateAgentContext: resolve(PROJECT_ROOT, '.specify/scripts/bash/update-agent-context.sh'),
-  checkPrerequisites: resolve(PROJECT_ROOT, '.specify/scripts/bash/check-prerequisites.sh'),
-  createNewFeature: resolve(PROJECT_ROOT, '.specify/scripts/bash/create-new-feature.sh'),
+  updateAgentContext: resolve(PACKAGE_ROOT, '.specify/scripts/bash/update-agent-context.sh'),
+  checkPrerequisites: resolve(PACKAGE_ROOT, '.specify/scripts/bash/check-prerequisites.sh'),
+  createNewFeature: resolve(PACKAGE_ROOT, '.specify/scripts/bash/create-new-feature.sh'),
 } as const;
+
+const REQUIRED_SCRIPT_ENVS: Partial<Record<keyof typeof LEGACY_SCRIPTS, string>> = {
+  start: 'CODEX_START_SH',
+  job: 'CODEX_JOB_SH',
+};
 
 /**
  * 脚本执行结果接口
@@ -108,6 +166,30 @@ function getScriptTimeout(scriptPath: string, customTimeout?: number): number {
   }
 
   return DEFAULT_TIMEOUTS.default;
+}
+
+async function ensureScriptAvailable(
+  name: keyof typeof LEGACY_SCRIPTS,
+  scriptPath: string
+): Promise<void> {
+  const valid = await validateScript(scriptPath);
+  if (valid) {
+    return;
+  }
+
+  const envVar = REQUIRED_SCRIPT_ENVS[name];
+  const suggestions = envVar
+    ? [
+        `确认环境变量 ${envVar} 指向可执行的脚本路径`,
+        '或重新安装 codex-father 以恢复缺失的 Shell 资产',
+      ]
+    : ['重新安装 codex-father 以恢复缺失的 Shell 资产'];
+
+  throw createError.configuration(
+    `Legacy script '${name}' is missing or not executable`,
+    scriptPath,
+    suggestions
+  );
 }
 
 export async function executeScript(
@@ -177,6 +259,7 @@ export class LegacyScriptRunner {
    * 执行 start.sh 脚本
    */
   static async start(args: string[] = [], options?: ScriptOptions): Promise<ScriptResult> {
+    await ensureScriptAvailable('start', LEGACY_SCRIPTS.start);
     return executeScript(LEGACY_SCRIPTS.start, args, options);
   }
 
@@ -184,6 +267,7 @@ export class LegacyScriptRunner {
    * 执行 job.sh 脚本
    */
   static async job(args: string[] = [], options?: ScriptOptions): Promise<ScriptResult> {
+    await ensureScriptAvailable('job', LEGACY_SCRIPTS.job);
     return executeScript(LEGACY_SCRIPTS.job, args, options);
   }
 
@@ -191,6 +275,7 @@ export class LegacyScriptRunner {
    * 执行测试脚本
    */
   static async runTests(args: string[] = [], options?: ScriptOptions): Promise<ScriptResult> {
+    await ensureScriptAvailable('runTests', LEGACY_SCRIPTS.runTests);
     return executeScript(LEGACY_SCRIPTS.runTests, args, options);
   }
 
@@ -300,6 +385,8 @@ export async function getScriptStatus(): Promise<
       exists: boolean;
       executable: boolean;
       migrationStatus: 'migrated' | 'planned' | 'keepAsShell' | 'unknown';
+      source: 'env' | 'package';
+      envVar?: string;
     }
   >
 > {
@@ -309,7 +396,7 @@ export async function getScriptStatus(): Promise<
     const { exists, executable } = await checkScriptStatus(path);
 
     // 提取相对于项目根目录的相对路径用于状态比较
-    const relativePath = path.replace(PROJECT_ROOT + '/', '');
+    const relativePath = relative(PACKAGE_ROOT, path);
 
     let migrationStatus: 'migrated' | 'planned' | 'keepAsShell' | 'unknown' = 'unknown';
     if (MIGRATION_STATUS.migrated.has(relativePath)) {
@@ -320,11 +407,16 @@ export async function getScriptStatus(): Promise<
       migrationStatus = 'keepAsShell';
     }
 
+    const envVar = REQUIRED_SCRIPT_ENVS[name as keyof typeof LEGACY_SCRIPTS];
+    const envValue = envVar ? process.env[envVar] : undefined;
+
     status[name] = {
       path,
       exists,
       executable,
       migrationStatus,
+      source: envValue ? 'env' : 'package',
+      envVar,
     };
   }
 

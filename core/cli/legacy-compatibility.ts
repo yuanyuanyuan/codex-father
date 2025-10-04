@@ -4,6 +4,7 @@
  */
 
 import { LegacyScriptRunner, type ScriptResult } from './scripts.js';
+import { AppError } from './error-boundary.js';
 import type { CommandContext, CommandResult } from '../lib/types.js';
 
 /**
@@ -41,6 +42,9 @@ export class LegacyCommandHandler {
 
       return adaptScriptResult(result);
     } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
       return {
         success: false,
         message: 'Failed to execute start command',
@@ -62,6 +66,9 @@ export class LegacyCommandHandler {
 
       return adaptScriptResult(result);
     } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
       return {
         success: false,
         message: 'Failed to execute job command',
@@ -83,6 +90,9 @@ export class LegacyCommandHandler {
 
       return adaptScriptResult(result);
     } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
       return {
         success: false,
         message: 'Failed to execute test command',
@@ -155,6 +165,11 @@ export async function validateLegacyScripts(): Promise<{
   for (const [name, info] of Object.entries(status)) {
     if (!info.exists) {
       missing.push(name);
+      if (info.envVar) {
+        issues.push(`Script ${name} not found at ${info.path} (configured via ${info.envVar})`);
+      } else {
+        issues.push(`Script ${name} not found at ${info.path}`);
+      }
     } else if (!info.executable) {
       issues.push(`Script ${name} exists but is not executable`);
     }
