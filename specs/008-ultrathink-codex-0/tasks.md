@@ -480,7 +480,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
     - Profile 参数可用（newConversation with profile）
     - 推理配置可用（sendUserTurn with effort, summary）
 
-- [ ] **T053** 集成测试：错误处理增强
+- [x] **T053** 集成测试：错误处理增强
   - **依赖**: T049
   - **输入**: quickstart.md#E1-E2
   - **输出**: `tests/integration/error-handling.test.ts`
