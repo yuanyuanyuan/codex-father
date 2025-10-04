@@ -197,7 +197,7 @@ args = ["-y", "@starkdev020/codex-father-mcp-server"]
 - **故障排除**: [故障排除指南](mcp/codex-mcp-server/README.md#🆘-故障排除)
 - **Codex rMCP 集成**:
   [关于 Codex rMCP](mcp/codex-mcp-server/README.md#🔗-关于-codex-rmcp-支持)
-- **Codex 0.44 兼容指南**: [docs/architecture/mcp-integration.md](docs/architecture/mcp-integration.md)
+- **[Codex 0.44 兼容指南](docs/architecture/mcp-integration.md)**
 
 ## 🛠️ 开发
 
@@ -336,9 +336,11 @@ npm run benchmark
 
 ### 🚀 新手必读（开箱即用）
 
-1. **[⚡ 5分钟快速开始](docs/user/quick-start.md)** - 最快的上手方式 ⭐ **强烈推荐**
+1. **[⚡ 5分钟快速开始](docs/user/quick-start.md)** - 最快的上手方式 ⭐
+   **强烈推荐**
 2. **[📦 安装指南](docs/user/installation.md)** - 详细安装步骤和系统要求
-3. **[⚙️ 配置指南](docs/user/configuration.md)** - 配置 Claude Desktop/Code/Codex CLI
+3. **[⚙️ 配置指南](docs/user/configuration.md)** - 配置 Claude
+   Desktop/Code/Codex CLI
 4. **[🚀 首次运行测试](docs/user/first-run.md)** - 10 个测试验证所有功能
 
 ### 📖 完整文档导航
@@ -346,6 +348,7 @@ npm run benchmark
 - **[📚 文档总入口](docs/README.md)** - 所有文档的导航中心
 
 **按类别浏览**：
+
 - [👤 用户文档](docs/user/README.md) - 使用指南、场景化应用、故障排除
 - [🔧 开发文档](docs/developer/README.md) - 开发环境、技术栈、贡献指南
 - [🏗️ 架构文档](docs/architecture/README.md) - 系统架构、MCP 集成、API 参考
@@ -353,9 +356,15 @@ npm run benchmark
 - [📋 版本发布](docs/releases/README.md) - 发布说明、变更日志
 
 **按角色导航**：
-- **第一次使用**：[快速开始](docs/user/quick-start.md) → [首次测试](docs/user/first-run.md) → [使用场景](docs/user/use-cases/README.md)
-- **开发者**：[开发指南](docs/developer/DEVELOPMENT.md) → [架构概览](docs/architecture/overview.md) → [贡献指南](docs/developer/contributing.md)
-- **运维人员**：[部署指南](docs/operations/DEPLOY.md) → [配置指南](docs/user/configuration.md) → [故障排除](docs/user/troubleshooting.md)
+
+- **第一次使用**：[快速开始](docs/user/quick-start.md) →
+  [首次测试](docs/user/first-run.md) → [使用场景](docs/user/use-cases/README.md)
+- **开发者**：[开发指南](docs/developer/DEVELOPMENT.md) →
+  [架构概览](docs/architecture/overview.md) →
+  [贡献指南](docs/developer/contributing.md)
+- **运维人员**：[部署指南](docs/operations/DEPLOY.md) →
+  [配置指南](docs/user/configuration.md) →
+  [故障排除](docs/user/troubleshooting.md)
 
 ## 🤝 贡献
 
@@ -428,8 +437,8 @@ Codex Father 可以帮您：
 
 ## 📦 发布
 
-- 完整流程：`docs/RELEASE_FLOW_MCP.md`
-- 本次版本说明：`docs/VERSION_MCP_1.2.0.md`
+- 完整流程：`docs/releases/RELEASE_FLOW_MCP.md`
+- 本次版本说明：`docs/releases/VERSION_MCP_1.2.0.md`
 - 一键脚本：`scripts/release-mcp.sh`（支持 `--preflight` / `--dry-run` /
   `--local` / `--ci` / `--ci-commit-docs`）
 - npm/npx 验证流程：
