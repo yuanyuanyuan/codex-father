@@ -1,10 +1,8 @@
 # Feature Specification: Multi-Agent Parallel Task Orchestration
 
-**Feature Branch**: `006-docs-capability-assessment`
-**Created**: 2025-10-02
-**Status**: Ready for Design ✅
-**Input**: User description: "docs/capability-assessment-2025-10-02.md 澄清需求,要ultrathink的"
-
+**Feature Branch**: `006-docs-capability-assessment` **Created**: 2025-10-02
+**Status**: Ready for Design ✅ **Input**: User description:
+"docs/capability-assessment-2025-10-02.md 澄清需求,要ultrathink的"
 
 ## ⚡ Quick Guidelines
 
@@ -21,6 +19,7 @@
 **作为项目管理者**，我希望能够将一个大型开发需求提交给 codex-father，系统自动将其分解为多个可并行执行的子任务，并协调多个 AI 助手（Codex 实例）同时工作，从而**大幅缩短项目交付时间**，并在遇到问题时及时获得反馈和调整建议。
 
 **业务价值**：
+
 - **效率提升**：将串行执行改为并行执行，理论上可将 10 个任务的总耗时从 10 小时降至 1-2 小时
 - **自动化**：减少手动任务分配和协调的工作量，项目管理者只需关注整体进度
 - **质量保障**：系统自动检查任务理解度和上下文完整性，降低执行错误风险
@@ -28,19 +27,30 @@
 
 ### Acceptance Scenarios
 
-1. **Given** 用户提交一个包含 10 个独立子任务的开发需求，**When** 系统分解并分配任务给 10 个 AI 助手，**Then** 系统应在“每任务超时阈值 30 分钟（可配置）”约束下完成任务；默认成功率阈值应 ≥ 90%（可配置），低于阈值则判定本次编排失败并输出失败任务清单与整改建议
+1. **Given** 用户提交一个包含 10 个独立子任务的开发需求，**When**
+   系统分解并分配任务给 10 个 AI 助手，**Then**
+   系统应在“每任务超时阈值 30 分钟（可配置）”约束下完成任务；默认成功率阈值应 ≥
+   90%（可配置），低于阈值则判定本次编排失败并输出失败任务清单与整改建议
 
-2. **Given** 系统正在执行并行任务，**When** 用户查看整体进度，**Then** 系统应实时显示每个任务的状态（待执行/进行中/已完成/失败）、完成百分比、预计剩余时间
+2. **Given** 系统正在执行并行任务，**When** 用户查看整体进度，**Then**
+   系统应实时显示每个任务的状态（待执行/进行中/已完成/失败）、完成百分比、预计剩余时间
 
-3. **Given** 某个 AI 助手在执行任务时遇到问题（如依赖缺失、权限不足），**When** 该助手向系统反馈问题，**Then** 系统应向上反馈给用户并记录问题详情
+3. **Given** 某个 AI 助手在执行任务时遇到问题（如依赖缺失、权限不足），**When**
+   该助手向系统反馈问题，**Then** 系统应向上反馈给用户并记录问题详情
 
-4. **Given** 系统检测到某个任务的上下文信息不足，**When** 准备分配该任务给 AI 助手，**Then** 系统应拒绝执行并向上反馈，直到获取足够的上下文才可以继续
+4. **Given** 系统检测到某个任务的上下文信息不足，**When**
+   准备分配该任务给 AI 助手，**Then**
+   系统应拒绝执行并向上反馈，直到获取足够的上下文才可以继续
 
-5. **Given** 任务之间存在依赖关系（如任务 B 依赖任务 A 的输出），**When** 系统编排执行顺序，**Then** 系统应确保任务 A 完成后再启动任务 B
+5. **Given** 任务之间存在依赖关系（如任务 B 依赖任务 A 的输出），**When**
+   系统编排执行顺序，**Then** 系统应确保任务 A 完成后再启动任务 B
 
-6. **Given** 用户定义了三种角色（开发者、审查者、测试工程师），**When** 系统分配任务，**Then** 系统应基于“规则表优先、LLM 兜底”的方式自动选择合适的角色（可选开启人工确认）
+6. **Given** 用户定义了三种角色（开发者、审查者、测试工程师），**When**
+   系统分配任务，**Then**
+   系统应基于“规则表优先、LLM 兜底”的方式自动选择合适的角色（可选开启人工确认）
 
-7. **Given** 系统正在执行 10 个并行任务，**When** 其中 3 个任务失败，**Then** 系统应通知上级找到失败的原因，并由上级重新规划
+7. **Given** 系统正在执行 10 个并行任务，**When** 其中 3 个任务失败，**Then**
+   系统应通知上级找到失败的原因，并由上级重新规划
 
 ### Edge Cases
 
@@ -54,7 +64,8 @@
 
 - **边界情况 5**：如果某个任务需要的上下文信息在另一个任务的输出中，但后者尚未完成，系统应等待依赖任务完成
 
-- **边界情况 6**：并发写入采用“单写者窗口（Single Writer Window, SWW）+ 补丁顺序应用”策略：任意时刻仅调度 1 个写任务；写任务必须产出补丁，编排器按提交顺序应用并执行快速校验/测试；若应用失败或冲突，则标记该补丁失败并上报，不阻塞读/分析任务
+- **边界情况 6**：并发写入采用“单写者窗口（Single Writer Window,
+  SWW）+ 补丁顺序应用”策略：任意时刻仅调度 1 个写任务；写任务必须产出补丁，编排器按提交顺序应用并执行快速校验/测试；若应用失败或冲突，则标记该补丁失败并上报，不阻塞读/分析任务
 
 ---
 
@@ -106,7 +117,8 @@
 
 #### 问题反馈与策略调整
 
-- **FR-018**: AI 助手 MUST 能够向系统反馈执行过程中遇到的问题（如依赖缺失、权限不足、逻辑错误）
+- **FR-018**:
+  AI 助手 MUST 能够向系统反馈执行过程中遇到的问题（如依赖缺失、权限不足、逻辑错误）
 
 - **FR-019**: 系统 MUST 接收并记录所有 AI 助手的反馈信息
 
@@ -126,11 +138,15 @@
 
 ### Non-Functional Requirements
 
-- **NFR-001（运行模式）**：系统默认以非交互模式运行，等效于 `--ask-for-approval never`；默认沙箱为 `workspace-write` 且网络关闭，网络访问需通过配置显式开启或切换至受控环境
+- **NFR-001（运行模式）**：系统默认以非交互模式运行，等效于
+  `--ask-for-approval never`；默认沙箱为 `workspace-write`
+  且网络关闭，网络访问需通过配置显式开启或切换至受控环境
 
-- **NFR-002（安全与角色）**：角色必须在配置中声明 `allowedTools`、`permission-mode`、`sandbox` 等安全参数；编排器在创建会话时必须使之生效
+- **NFR-002（安全与角色）**：角色必须在配置中声明
+  `allowedTools`、`permission-mode`、`sandbox`
+  等安全参数；编排器在创建会话时必须使之生效
 
-- **NFR-003（输出格式）**：系统必须支持 JSON 与 Stream-JSON 两种输出格式；Stream-JSON 至少包含 start、tool_use、completion、error 事件
+- **NFR-003（输出格式）**：系统必须支持 JSON 与 Stream-JSON 两种输出格式；Stream-JSON 至少包含 start、tool_use、completion、error 事件；对外 stdout 仅由编排器输出，子进程输出不得直通 stdout（避免双路 JSON 冲突）
 
 - **NFR-004（审计与可观测性）**：系统必须以 JSONL 形式记录关键事件日志，至少包含 sessionId、taskId、timestamp、eventType、工具/命令摘要与结果摘要
 
@@ -180,7 +196,8 @@ _GATE: Automated checks run during main() execution_
 - [x] **No [NEEDS CLARIFICATION] markers remain** ✅ **所有问题已澄清**
 - [x] **Requirements are testable and unambiguous** ✅ **所有需求明确且可测试**
 - [x] Success criteria are measurable
-- [x] **Scope is clearly bounded** ✅ **范围明确：最多 10 并行、每任务超时 30 分钟、默认成功率阈值 90%、非交互运行、SWW 并发写策略**
+- [x] **Scope is clearly bounded** ✅
+      **范围明确：最多 10 并行、每任务超时 30 分钟、默认成功率阈值 90%、非交互运行、SWW 并发写策略**
 - [x] Dependencies and assumptions identified
 
 ---
@@ -237,6 +254,7 @@ fallback:
 ```
 
 最小可测算法（用于 FR-008 验证）：
+
 - 输入：`task.description`（必要）、`task.title`（可选）
 - 过程：对每条规则的每个关键词做子串匹配；命中记录（含命中位置/长度）
 - 决策：先比较命中关键词长度（长者优先），再比较规则在列表中的先后（先者优先）

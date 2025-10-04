@@ -100,12 +100,17 @@
 
 - 默认对失败任务自动重试 1 次（总尝试次数 2）。
 - 退避策略：指数退避，`initialDelayMs`，`maxDelayMs` 可配置。
-- 记录：在 JSONL 审计日志追加 `task_retry_scheduled`（含 `delayMs`、`attempt`）；如需对外提示，通过 `tool_use` 事件的数据字段表达。
+- 记录：在 JSONL 审计日志追加 `task_retry_scheduled`（含
+  `delayMs`、`attempt`）；如需对外提示，通过 `tool_use` 事件的数据字段表达。
 
 事件分层与兼容（与 008 对齐）：
 
-- Stream-JSON（对外实时流）严格遵循 `docs/schemas/stream-json-event.schema.json` 的枚举：`start|task_scheduled|task_started|tool_use|task_completed|task_failed|cancel_requested|orchestration_completed|orchestration_failed`。
-- 扩展事件如 `patch_applied|patch_failed|task_retry_scheduled|concurrency_reduced|concurrency_increased|resource_exhausted` 仅写入 JSONL 审计日志；对外需要提示时以 `tool_use`/`task_*` 搭配 `data` 字段表达。
+- Stream-JSON（对外实时流）严格遵循 `docs/schemas/stream-json-event.schema.json`
+  的枚举：`start|task_scheduled|task_started|tool_use|task_completed|task_failed|cancel_requested|orchestration_completed|orchestration_failed`。
+- 扩展事件如
+  `patch_applied|patch_failed|task_retry_scheduled|concurrency_reduced|concurrency_increased|resource_exhausted`
+  仅写入 JSONL 审计日志；对外需要提示时以 `tool_use`/`task_*` 搭配 `data`
+  字段表达。
 
 ---
 
@@ -912,7 +917,11 @@ class StateManager {
         taskId,
         role: task.role,
         seq: this.getNextSeq(orchestrationId),
-        data: { summary: 'retry scheduled', attempt: (task.attempts || 1) + 1, delayMs },
+        data: {
+          summary: 'retry scheduled',
+          attempt: (task.attempts || 1) + 1,
+          delayMs,
+        },
       });
       this.scheduleRetry(orchestrationId, taskId, delayMs);
     }
@@ -1294,7 +1303,8 @@ type PatchStatus =
 
 ### CLI 退出码约定
 
-- 退出码 `0`：成功率 ≥ 配置阈值，且无任何补丁失败（以 JSONL 审计中的 `patch_failed` 计数为 0）。
+- 退出码 `0`：成功率 ≥ 配置阈值，且无任何补丁失败（以 JSONL 审计中的
+  `patch_failed` 计数为 0）。
 - 退出码 `1`：不满足上述条件（包括成功率低于阈值或审计中存在任意补丁失败）。
 - 其他非零：进程级异常（如配置读取失败、资源监控模块崩溃）。
 
@@ -1417,7 +1427,59 @@ applyPatchFallbackOnFailure: true # 当首选策略失败时，自动启用回�
 
 ### Stream-JSON 输出接口（对外）与审计（对内）
 
-**事件格式（Stream-JSON）**：严格遵循 `docs/schemas/stream-json-event.schema.json`（枚举事件）。扩展运营类事件写入 JSONL 审计（样例在本节末）。
+**事件格式（Stream-JSON）**：严格遵循
+`docs/schemas/stream-json-event.schema.json`（枚举事件）。扩展运营类事件写入 JSONL 审计（样例在本节末）。
+
+#### 子进程输出管线与 stdout 规约
+
+- 唯一对外标准输出源：仅编排器将标准化的 Stream-JSON 事件写入 stdout。任何子进程（包括
+  `codex exec`）的输出均不得直接透传至父进程 stdout。
+- 子进程 JSON 事件处理：
+  - 当以 `codex exec --json` 运行时，设置子进程
+    `stdio=['ignore','pipe','pipe']`，捕获并解析 JSONL；根据需要映射为编排器事件（通常收敛为
+    `tool_use`、`task_*`），并写入 JSONL 审计。
+  - 子进程的 JSON 行不会直接写入父进程 stdout，避免与编排器的 Stream-JSON 双路混杂。
+- 非 JSON 模式处理：未使用 `--json`
+  时，子进程 stdout 仅作为结果文本捕获，stderr 仅用于诊断；两者都不直通 stdout。必要时以
+  `tool_use` 概要或 `TaskOutput(type='log')` 记录到审计。
+- 事件顺序与编号：编排器维护全局单调递增
+  `seq`，仅对自身发射的 Stream-JSON 赋值；子进程事件不影响全局序列。
+- 敏感信息：对子进程输出进行脱敏与截断（长度/频率限制），再写入审计或汇总为
+  `tool_use`。
+
+建议的最小映射（不穷举）：
+
+- 子进程 `thread.started` → 编排器 `tool_use`（data.summary='thread started'）
+- 子进程 `turn.completed` → 编排器 `task_completed`（含用时/摘要）或 `tool_use`
+- 子进程 `turn.failed` → 编排器 `task_failed`（含错误摘要）
+- 子进程 `item.file_change`/`item.command_execution` → 编排器
+  `tool_use`（敏感信息脱敏）
+
+伪代码（要点）：
+
+```ts
+const child = spawn('codex', args, { stdio: ['ignore', 'pipe', 'pipe'], env });
+child.stdout.setEncoding('utf8');
+child.stdout.on('data', (chunk) => {
+  for (const line of splitLines(chunk)) {
+    if (looksLikeJSON(line)) {
+      try {
+        const evt = JSON.parse(line);
+        handleChildJsonEvent(evt);
+      } catch {
+        /* audit parse_error */
+      }
+    } else {
+      // 作为非结构化输出：汇总为 tool_use 或写入审计 JSONL（脱敏）
+      appendAudit('child_stdout', { summary: truncate(line) });
+    }
+  }
+});
+child.stderr.on('data', (chunk) =>
+  appendAudit('child_stderr', { summary: truncate(chunk) })
+);
+// 仅由 orchestrator.emitEvent() 向 stdout 打印 Stream-JSON（见本节规则）
+```
 
 ```json
 // 编排开始
@@ -1681,13 +1743,13 @@ codex exec resume <SESSION_ID> --json <prompt>
 
 ### A. 与 MVP1 的兼容性
 
-| MVP1 模块            | 复用方式 | 改动                                   |
-| -------------------- | -------- | -------------------------------------- |
-| SessionManager       | 复用     | 扩展为管理多会话                       |
-| EventLogger          | 复用     | 扩展支持 Stream-JSON                   |
+| MVP1 模块            | 复用方式 | 改动                                                        |
+| -------------------- | -------- | ----------------------------------------------------------- |
+| SessionManager       | 复用     | 扩展为管理多会话                                            |
+| EventLogger          | 复用     | 扩展支持 Stream-JSON                                        |
 | BridgeLayer          | 保留     | 本特性不依赖 MCP；默认使用 `codex exec`，后续可演进对接 MCP |
-| SingleProcessManager | 升级     | 升级为 ProcessOrchestrator（多进程池） |
-| ApprovalPolicy       | 简化     | 默认 `--ask-for-approval never`        |
+| SingleProcessManager | 升级     | 升级为 ProcessOrchestrator（多进程池）                      |
+| ApprovalPolicy       | 简化     | 默认 `--ask-for-approval never`                             |
 
 ### B. 与 PRD-006 的对齐
 
