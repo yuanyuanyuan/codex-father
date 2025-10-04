@@ -56,6 +56,7 @@ export class MCPServer {
   private bridgeLayer: BridgeLayer;
   private eventMapper: EventMapper;
   private config: MCPServerConfig;
+  private handlersRegistered = false;
 
   constructor(config: MCPServerConfig = {}) {
     this.config = {
@@ -144,8 +145,8 @@ export class MCPServer {
       debug: !!this.config.debug,
     });
 
-    // 注册 MCP 协议处理器
-    this.registerHandlers();
+    // 注意: 处理器注册依赖于已启动的 ProcessManager，
+    // 移至 start() 中在 processManager.start() 之后执行
   }
 
   /**
@@ -158,6 +159,9 @@ export class MCPServer {
 
     // 启动进程管理器
     await this.processManager.start();
+
+    // 启动后再注册处理器，确保 CodexClient 可用
+    this.registerHandlers();
 
     // 连接传输层
     await this.server.connect(this.transport);
@@ -190,6 +194,9 @@ export class MCPServer {
    * 注册 MCP 协议处理器 (私有方法)
    */
   private registerHandlers(): void {
+    if (this.handlersRegistered) {
+      return;
+    }
     // 处理 tools/list 请求
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       if (this.config.debug) {
@@ -310,6 +317,8 @@ export class MCPServer {
     if (this.config.debug) {
       console.log('[MCPServer] Handlers registered');
     }
+
+    this.handlersRegistered = true;
   }
 
   /**

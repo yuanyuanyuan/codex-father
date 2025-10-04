@@ -31,7 +31,7 @@
    npm install -g @openai/codex@0.44.0
 
    # 或测试 0.42（降级模式）
-   npm install -g @openai/codex@0.42.5
+   npm install -g @openai/codex@0.42.0
    ```
 
 2. **安装 codex-father**:

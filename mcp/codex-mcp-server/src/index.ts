@@ -73,6 +73,147 @@ function run(
   });
 }
 
+// ---------------------------------------
+// Codex 版本检测与参数兼容性校验（严格模式）
+// ---------------------------------------
+
+let CACHED_CODEX_VERSION: string | null = null;
+
+function normalizeSemver(v: string): string | null {
+  const m = v.match(/(\d+)\.(\d+)(?:\.(\d+))?/);
+  if (!m) {
+    return null;
+  }
+  return `${m[1]}.${m[2]}.${m[3] ?? '0'}`;
+}
+
+function cmpSemver(a: string, b: string): number {
+  const pa = a.split('.').map((n) => Number(n));
+  const pb = b.split('.').map((n) => Number(n));
+  for (let i = 0; i < 3; i++) {
+    const da = pa[i] ?? 0;
+    const db = pb[i] ?? 0;
+    if (da !== db) {
+      return da - db;
+    }
+  }
+  return 0;
+}
+
+async function detectCodexVersion(): Promise<string> {
+  if (CACHED_CODEX_VERSION) {
+    return CACHED_CODEX_VERSION;
+  }
+  const override = process.env.CODEX_VERSION_OVERRIDE;
+  if (override) {
+    const n = normalizeSemver(override);
+    if (!n) {
+      throw new Error(`Invalid CODEX_VERSION_OVERRIDE: ${override}`);
+    }
+    CACHED_CODEX_VERSION = n;
+    return CACHED_CODEX_VERSION;
+  }
+  const { code, stdout, stderr } = await run('codex', ['--version']);
+  if (code !== 0) {
+    throw new Error(`Failed to detect Codex version: ${stderr || stdout || `exit=${code}`}`);
+  }
+  const out = stdout.trim() || stderr.trim();
+  const m = out.match(/(\d+\.\d+(?:\.\d+)?)/);
+  if (!m) {
+    throw new Error(`Unable to parse Codex version from output: ${out}`);
+  }
+  const norm = normalizeSemver(m[1]!);
+  if (!norm) {
+    throw new Error(`Invalid semantic version detected: ${m[1]}`);
+  }
+  CACHED_CODEX_VERSION = norm;
+  return CACHED_CODEX_VERSION;
+}
+
+function listIncompatibleCliParams(p: any, version: string, rawArgs: string[]): string[] {
+  const incompatible: string[] = [];
+  // 0.44-only CLI convenience fields
+  if (p?.profile && cmpSemver(version, '0.44.0') < 0) {
+    incompatible.push('profile');
+  }
+  if (p?.fullAuto && cmpSemver(version, '0.44.0') < 0) {
+    incompatible.push('fullAuto');
+  }
+  if (p?.dangerouslyBypass && cmpSemver(version, '0.44.0') < 0) {
+    incompatible.push('dangerouslyBypass');
+  }
+
+  // 透传 args 中的 0.44-only 标记（尽力识别）
+  const args = Array.isArray(rawArgs) ? rawArgs.map(String) : [];
+  const hasFlag = (flag: string) => args.includes(flag);
+  if (hasFlag('--profile') && cmpSemver(version, '0.44.0') < 0) {
+    incompatible.push('cli.--profile');
+  }
+  if (hasFlag('--full-auto') && cmpSemver(version, '0.44.0') < 0) {
+    incompatible.push('cli.--full-auto');
+  }
+  if (hasFlag('--dangerously-bypass-approvals-and-sandbox') && cmpSemver(version, '0.44.0') < 0) {
+    incompatible.push('cli.--dangerously-bypass-approvals-and-sandbox');
+  }
+  return incompatible;
+}
+
+function listIncompatibleConfigKeys(
+  cfg: Record<string, unknown> | undefined,
+  version: string
+): string[] {
+  if (!cfg || typeof cfg !== 'object') {
+    return [];
+  }
+  const keys = Object.keys(cfg);
+  const vlt = cmpSemver(version, '0.44.0') < 0;
+  const v44Only = new Set([
+    'model_reasoning_effort',
+    'model_reasoning_summary',
+    'model_supports_reasoning_summaries',
+    'model_verbosity',
+    'profile',
+  ]);
+  const hit: string[] = [];
+  if (vlt) {
+    for (const k of keys) {
+      if (v44Only.has(k)) {
+        hit.push(k);
+      }
+    }
+  }
+  return hit;
+}
+
+function buildIncompatErrorPayload(
+  toolName: string,
+  currentVersion: string,
+  cliParams: string[],
+  cfgKeys: string[]
+) {
+  const parts: string[] = [];
+  if (cliParams.length) {
+    parts.push(`CLI: [${cliParams.join(', ')}]`);
+  }
+  if (cfgKeys.length) {
+    parts.push(`Config: [${cfgKeys.join(', ')}]`);
+  }
+  const details = parts.join('; ');
+  const text =
+    `Invalid params for Codex ${currentVersion}: require Codex >= 0.44 to use these options. ` +
+    (details ? `Violations → ${details}. ` : '') +
+    `Please remove these parameters or upgrade Codex to 0.44+.`;
+  return {
+    content: [
+      {
+        type: 'text',
+        text,
+      },
+    ],
+    isError: true as const,
+  };
+}
+
 function toolsSpec(): ListToolsResult {
   return {
     tools: [
@@ -274,6 +415,14 @@ async function handleCall(req: CallToolRequest) {
   const name = req.params.name;
   const p = (req.params.arguments ?? {}) as any;
   try {
+    // 版本与入参严格校验（不匹配时直接拒绝执行）
+    const version = await detectCodexVersion();
+    const rawArgs = Array.isArray(p.args) ? p.args : [];
+    const cliViolations = listIncompatibleCliParams(p, version, rawArgs);
+    const cfgViolations = listIncompatibleConfigKeys(p?.codexConfig, version);
+    if (cliViolations.length || cfgViolations.length) {
+      return buildIncompatErrorPayload(name, version, cliViolations, cfgViolations);
+    }
     switch (name) {
       case 'codex.exec': {
         const args: string[] = Array.isArray(p.args) ? p.args.map(String) : [];

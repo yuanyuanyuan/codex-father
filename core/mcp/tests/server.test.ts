@@ -219,15 +219,17 @@ describe('MCPServer', () => {
   });
 
   describe('MCP 协议处理', () => {
-    it('应该注册 tools/list 处理器', () => {
-      createMCPServer();
+    it('应该注册 tools/list 处理器', async () => {
+      const server = createMCPServer();
+      await server.start();
 
       // 验证 setRequestHandler 被调用了两次 (tools/list 和 tools/call)
       expect(mockServer.setRequestHandler).toHaveBeenCalledTimes(2);
     });
 
     it('应该处理 tools/list 请求', async () => {
-      createMCPServer();
+      const server = createMCPServer();
+      await server.start();
 
       // 获取 tools/list 处理器
       const listToolsHandler = mockServer.setRequestHandler.mock.calls[0][1];
@@ -250,7 +252,8 @@ describe('MCPServer', () => {
     });
 
     it('应该处理 tools/call 请求 (成功)', async () => {
-      createMCPServer();
+      const server = createMCPServer();
+      await server.start();
 
       // 获取 tools/call 处理器
       const callToolHandler = mockServer.setRequestHandler.mock.calls[1][1];
@@ -276,7 +279,8 @@ describe('MCPServer', () => {
     });
 
     it('应该处理 tools/call 请求 (无参数)', async () => {
-      createMCPServer();
+      const server = createMCPServer();
+      await server.start();
 
       const callToolHandler = mockServer.setRequestHandler.mock.calls[1][1];
 
@@ -293,7 +297,8 @@ describe('MCPServer', () => {
     });
 
     it('应该处理 tools/call 请求错误', async () => {
-      createMCPServer();
+      const server = createMCPServer();
+      await server.start();
 
       // Mock callTool 抛出错误
       mockBridgeLayer.callTool.mockRejectedValueOnce(new Error('Tool execution failed'));
@@ -315,14 +320,16 @@ describe('MCPServer', () => {
   });
 
   describe('事件转发', () => {
-    it('应该注册 Codex 事件监听器', () => {
-      createMCPServer();
+    it('应该注册 Codex 事件监听器', async () => {
+      const server = createMCPServer();
+      await server.start();
 
       expect(mockCodexClient.on).toHaveBeenCalledWith('notification', expect.any(Function));
     });
 
-    it('应该转发 Codex 通知为 MCP 通知', () => {
-      createMCPServer();
+    it('应该转发 Codex 通知为 MCP 通知', async () => {
+      const server = createMCPServer();
+      await server.start();
 
       // 获取事件监听器
       const notificationListener = mockCodexClient.on.mock.calls[0][1];
