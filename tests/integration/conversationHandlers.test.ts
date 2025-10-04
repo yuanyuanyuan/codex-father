@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import Ajv from 'ajv';
 
-import archiveSchema from '../../specs/008-ultrathink-codex-0/contracts/archiveConversation.schema.json';
-import resumeSchema from '../../specs/008-ultrathink-codex-0/contracts/resumeConversation.schema.json';
-import interruptSchema from '../../specs/008-ultrathink-codex-0/contracts/interruptConversation.schema.json';
-import listSchema from '../../specs/008-ultrathink-codex-0/contracts/listConversations.schema.json';
+import archiveSchema from '../../specs/_archived/008-ultrathink-codex-0/contracts/archiveConversation.schema.json';
+import resumeSchema from '../../specs/_archived/008-ultrathink-codex-0/contracts/resumeConversation.schema.json';
+import interruptSchema from '../../specs/_archived/008-ultrathink-codex-0/contracts/interruptConversation.schema.json';
+import listSchema from '../../specs/_archived/008-ultrathink-codex-0/contracts/listConversations.schema.json';
 import {
   handleArchiveConversation,
   handleResumeConversation,

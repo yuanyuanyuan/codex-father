@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Ajv from 'ajv';
 
-import schema from '../../specs/008-ultrathink-codex-0/contracts/codex-event.schema.json';
+import schema from '../../specs/_archived/008-ultrathink-codex-0/contracts/codex-event.schema.json';
 
 // 被测对象
 import {
