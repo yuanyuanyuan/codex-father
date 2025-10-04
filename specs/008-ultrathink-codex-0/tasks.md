@@ -48,7 +48,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
 
 ### 核心方法契约（1 个）
 
-- [ ] **T001** [P] 创建 `codex/event` 通知契约
+- [x] **T001** [P] 创建 `codex/event` 通知契约
   - **输入**:
     refer-research/openai-codex/codex-rs/docs/codex_mcp_interface.md:76-79,
     contracts/\_template.schema.json
@@ -59,14 +59,14 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
 
 ### 审批方法契约（2 个）
 
-- [ ] **T002** [P] 创建 `applyPatchApproval` 契约（Server → Client）
+- [x] **T002** [P] 创建 `applyPatchApproval` 契约（Server → Client）
   - **输入**: codex_mcp_interface.md:87, \_template.schema.json
   - **输出**:
     - `specs/008-ultrathink-codex-0/contracts/applyPatchApproval.schema.json`
     - `specs/008-ultrathink-codex-0/contracts/applyPatchApproval.contract.test.ts`
   - **验证**: Schema 包含 conversationId, callId, fileChanges, reason 字段
 
-- [ ] **T003** [P] 创建 `execCommandApproval` 契约（Server → Client）
+- [x] **T003** [P] 创建 `execCommandApproval` 契约（Server → Client）
   - **输入**: codex_mcp_interface.md:88, \_template.schema.json
   - **输出**:
     - `specs/008-ultrathink-codex-0/contracts/execCommandApproval.schema.json`
@@ -75,100 +75,100 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
 
 ### 会话管理契约（4 个）
 
-- [ ] **T004** [P] 创建 `interruptConversation` 契约
+- [x] **T004** [P] 创建 `interruptConversation` 契约
   - **输入**: codex_mcp_interface.md:70
   - **输出**: Schema + 测试
   - **验证**: 请求包含 conversationId，响应包含成功状态
 
-- [ ] **T005** [P] 创建 `listConversations` 契约
+- [x] **T005** [P] 创建 `listConversations` 契约
   - **输入**: codex_mcp_interface.md:72
   - **输出**: Schema + 测试
   - **验证**: 响应包含会话数组（id, model, createdAt 等）
 
-- [ ] **T006** [P] 创建 `resumeConversation` 契约
+- [x] **T006** [P] 创建 `resumeConversation` 契约
   - **输入**: codex_mcp_interface.md:72
   - **输出**: Schema + 测试
   - **验证**: 请求包含 conversationId
 
-- [ ] **T007** [P] 创建 `archiveConversation` 契约
+- [x] **T007** [P] 创建 `archiveConversation` 契约
   - **输入**: codex_mcp_interface.md:72
   - **输出**: Schema + 测试
   - **验证**: 请求包含 conversationId
 
 ### 认证方法契约（7 个）
 
-- [ ] **T008** [P] 创建 `loginApiKey` 契约
+- [x] **T008** [P] 创建 `loginApiKey` 契约
   - **输入**: codex_mcp_interface.md:96
   - **输出**: Schema + 测试
   - **验证**: 请求包含 apiKey 字段
 
-- [ ] **T009** [P] 创建 `loginChatGpt` 契约
+- [x] **T009** [P] 创建 `loginChatGpt` 契约
   - **输入**: codex_mcp_interface.md:97
   - **输出**: Schema + 测试
   - **验证**: 响应包含 loginId, authUrl
 
-- [ ] **T010** [P] 创建 `cancelLoginChatGpt` 契约
+- [x] **T010** [P] 创建 `cancelLoginChatGpt` 契约
   - **输入**: codex_mcp_interface.md:98
   - **输出**: Schema + 测试
   - **验证**: 请求包含 loginId
 
-- [ ] **T011** [P] 创建 `logoutChatGpt` 契约
+- [x] **T011** [P] 创建 `logoutChatGpt` 契约
   - **输入**: codex_mcp_interface.md:98
   - **输出**: Schema + 测试
   - **验证**: 无参数请求，响应包含成功状态
 
-- [ ] **T012** [P] 创建 `getAuthStatus` 契约
+- [x] **T012** [P] 创建 `getAuthStatus` 契约
   - **输入**: codex_mcp_interface.md:98
   - **输出**: Schema + 测试
   - **验证**: 可选参数 includeToken, refreshToken
 
-- [ ] **T013** [P] 创建 `loginChatGptComplete` 通知契约
+- [x] **T013** [P] 创建 `loginChatGptComplete` 通知契约
   - **输入**: codex_mcp_interface.md:79
   - **输出**: Schema + 测试
   - **验证**: 通知包含登录结果
 
-- [ ] **T014** [P] 创建 `authStatusChange` 通知契约
+- [x] **T014** [P] 创建 `authStatusChange` 通知契约
   - **输入**: codex_mcp_interface.md:79
   - **输出**: Schema + 测试
   - **验证**: 通知包含新的认证状态
 
 ### 配置和信息契约（4 个）
 
-- [ ] **T015** [P] 创建 `getUserSavedConfig` 契约
+- [x] **T015** [P] 创建 `getUserSavedConfig` 契约
   - **输入**: codex_mcp_interface.md:21
   - **输出**: Schema + 测试
   - **验证**: 响应包含用户配置对象
 
-- [ ] **T016** [P] 创建 `setDefaultModel` 契约
+- [x] **T016** [P] 创建 `setDefaultModel` 契约
   - **输入**: codex_mcp_interface.md:21
   - **输出**: Schema + 测试
   - **验证**: 请求包含 model 字段
 
-- [ ] **T017** [P] 创建 `getUserAgent` 契约
+- [x] **T017** [P] 创建 `getUserAgent` 契约
   - **输入**: codex_mcp_interface.md:21
   - **输出**: Schema + 测试
   - **验证**: 响应包含 userAgent 字符串
 
-- [ ] **T018** [P] 创建 `userInfo` 契约
+- [x] **T018** [P] 创建 `userInfo` 契约
   - **输入**: codex_mcp_interface.md:21
   - **输出**: Schema + 测试
   - **验证**: 响应包含用户信息（id, email 等）
 
 ### 工具方法契约（2 个）
 
-- [ ] **T019** [P] 创建 `gitDiffToRemote` 契约
+- [x] **T019** [P] 创建 `gitDiffToRemote` 契约
   - **输入**: codex_mcp_interface.md:25
   - **输出**: Schema + 测试
   - **验证**: 响应包含 diff 字符串
 
-- [ ] **T020** [P] 创建 `execOneOffCommand` 契约
+- [x] **T020** [P] 创建 `execOneOffCommand` 契约
   - **输入**: codex_mcp_interface.md:25
   - **输出**: Schema + 测试
   - **验证**: 请求包含 command，响应包含 output
 
 ### 补充已有契约的测试（2 个）
 
-- [ ] **T021** [P] 补充 `sendUserMessage` 契约测试
+- [x] **T021** [P] 补充 `sendUserMessage` 契约测试
   - **输入**:
     specs/008-ultrathink-codex-0/contracts/sendUserMessage.schema.json,
     newConversation.contract.test.ts (模板)
@@ -176,7 +176,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
     `specs/008-ultrathink-codex-0/contracts/sendUserMessage.contract.test.ts`
   - **验证**: 至少 6 个测试用例（有效请求、无效类型、items 验证等）
 
-- [ ] **T022** [P] 补充 `sendUserTurn` 契约测试
+- [x] **T022** [P] 补充 `sendUserTurn` 契约测试
   - **输入**: specs/008-ultrathink-codex-0/contracts/sendUserTurn.schema.json,
     newConversation.contract.test.ts (模板)
   - **输出**:
