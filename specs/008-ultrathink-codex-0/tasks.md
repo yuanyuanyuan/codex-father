@@ -472,7 +472,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
     - 交互式修正流程（Y/n 确认）
     - Profile 写入成功
 
-- [ ] **T052** 集成测试：新特性支持（0.44 环境）
+- [x] **T052** 集成测试：新特性支持（0.44 环境）
   - **依赖**: T049
   - **输入**: quickstart.md#D1-D2
   - **输出**: `tests/integration/new-features.test.ts`
