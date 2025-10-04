@@ -1,96 +1,89 @@
 import { describe, it, expect } from 'vitest';
 import Ajv from 'ajv';
 
-import schema from '../../specs/008-ultrathink-codex-0/contracts/execCommandApproval.schema.json';
-import { handleExecCommandApproval } from '../../src/mcp/approvalHandlers';
+import schema from '../../specs/008-ultrathink-codex-0/contracts/applyPatchApproval.schema.json';
+import { handleApplyPatchApproval } from '../../src/mcp/approvalHandlers';
 
 const ajv = new Ajv({ strict: false });
 
-describe('approvalHandlers.execCommandApproval', () => {
-  it('应处理有效的 JSON-RPC 请求并返回 allow 决策', async () => {
+describe('approvalHandlers.applyPatchApproval', () => {
+  it('应返回 allow 决策并符合响应契约', async () => {
     const validateResponse = ajv.compile(schema.response);
 
     const request = {
       jsonrpc: '2.0' as const,
       id: 'req-1',
-      method: 'execCommandApproval',
+      method: 'applyPatchApproval',
       params: {
         conversationId: 'c7b0a1e3-4d5f-6a7b-8c9d-0e1f23456789',
-        callId: 'call-789',
-        command: 'npm test',
-        cwd: '/data/codex-father',
+        callId: 'call-123',
+        fileChanges: [{ path: 'src/app.ts', type: 'modify' as const, diff: '--- old\n+++ new' }],
       },
     };
 
-    const res = await handleExecCommandApproval(request, () => 'allow');
+    const res = await handleApplyPatchApproval(request, () => 'allow');
 
     expect(res.jsonrpc).toBe('2.0');
     expect(res.id).toBe('req-1');
-    expect(res.result).toBeDefined();
-    expect(res.result?.decision).toBe('allow');
+    expect(res.result).toEqual({ decision: 'allow' });
 
-    // 契约校验（响应）
+    // 契约校验
     expect(validateResponse(res.result)).toBe(true);
   });
 
-  it('应支持返回带 note 的 deny 决策', async () => {
+  it('应返回 deny 决策并可附加 note', async () => {
     const validateResponse = ajv.compile(schema.response);
 
     const request = {
       jsonrpc: '2.0' as const,
       id: 2,
-      method: 'execCommandApproval',
+      method: 'applyPatchApproval',
       params: {
         conversationId: 'c7b0a1e3-4d5f-6a7b-8c9d-0e1f23456789',
-        callId: 'call-321',
-        command: 'rm -rf build',
-        cwd: '/tmp/project',
-        reason: 'Retry without sandbox',
+        callId: 'call-999',
+        fileChanges: [{ path: '/etc/config', type: 'delete' as const, diff: '--- removed' }],
+        reason: 'Requires privileged access',
       },
     };
-
-    const res = await handleExecCommandApproval(request, () => ({
+    const res = await handleApplyPatchApproval(request, () => ({
       decision: 'deny',
-      note: 'Command escalated due to destructive pattern',
+      note: 'Requires manual inspection',
     }));
 
-    expect(res.result?.decision).toBe('deny');
-    expect(res.result?.note).toContain('destructive');
+    expect(res.result).toEqual({ decision: 'deny', note: 'Requires manual inspection' });
     expect(validateResponse(res.result)).toBe(true);
   });
 
-  it('应拒绝无效 method 的请求', async () => {
-    const bad = {
-      jsonrpc: '2.0' as const,
-      id: 'x',
-      method: 'applyPatchApproval', // 错误的方法
-      params: {
-        conversationId: 'c7b0a1e3-4d5f-6a7b-8c9d-0e1f23456789',
-        callId: 'call-1',
-        command: 'echo hi',
-        cwd: '/tmp',
-      },
-    };
-
-    await expect(handleExecCommandApproval(bad as any, () => 'allow')).rejects.toThrow(
-      /invalid method/i
-    );
+  it('应在 method 不匹配时返回错误', async () => {
+    const bad = { ...baseRequest, method: 'unknown' } as any;
+    await expect(handleApplyPatchApproval(bad, () => 'allow')).rejects.toThrow(/invalid method/i);
   });
 
-  it('应拒绝缺少必需字段的请求 (缺少 cwd)', async () => {
-    const bad = {
+  it('应在缺少必要参数时抛出错误', async () => {
+    const badParams = {
       jsonrpc: '2.0' as const,
-      id: 3,
-      method: 'execCommandApproval',
+      id: 'req-3',
+      method: 'applyPatchApproval',
       params: {
         conversationId: 'c7b0a1e3-4d5f-6a7b-8c9d-0e1f23456789',
-        callId: 'call-2',
-        command: 'ls',
+        callId: 'call-3',
       },
-    };
+    } as any;
 
-    await expect(handleExecCommandApproval(bad as any, () => 'allow')).rejects.toThrow(
-      /invalid execcommandapproval request parameters/i
+    await expect(handleApplyPatchApproval(badParams, () => 'allow')).rejects.toThrow(
+      /invalid applypatchapproval request parameters/i
     );
   });
 });
+
+// 基础请求模板（便于复用）
+const baseRequest = {
+  jsonrpc: '2.0' as const,
+  id: 'req-base',
+  method: 'applyPatchApproval' as const,
+  params: {
+    conversationId: 'c7b0a1e3-4d5f-6a7b-8c9d-0e1f23456789',
+    callId: 'call-base',
+    fileChanges: [{ path: 'a.txt', type: 'modify' as const, diff: '---\n+++' }],
+  },
+};
