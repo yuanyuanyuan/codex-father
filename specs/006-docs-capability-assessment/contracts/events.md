@@ -4,7 +4,7 @@
 
 - Schema 路径：`docs/schemas/stream-json-event.schema.json`
 
-## 事件类型与语义
+## 事件类型与语义（Stream-JSON）
 
 - `start`：编排开始，包含总任务数
 - `task_scheduled`：任务已进入调度队列
@@ -15,6 +15,8 @@
 - `cancel_requested`：收到用户取消信号
 - `orchestration_completed`：整体成功完成（含成功率）
 - `orchestration_failed`：整体失败（含失败清单）
+
+附注（与 008 对齐）：扩展运营类事件（如 `patch_applied`、`patch_failed`、`task_retry_scheduled`、`concurrency_reduced` 等）仅写入 JSONL 审计日志；如需对外提示，请通过 `tool_use` 或相关 `task_*` 事件的 `data` 字段表达。
 
 ## 样例（节选）
 

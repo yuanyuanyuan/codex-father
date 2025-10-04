@@ -50,10 +50,10 @@
 
 ## 关联文档
 
-- 规格与设计：`specs/_archived/008-ultrathink-codex-0/spec.md`
-- 数据模型：`specs/_archived/008-ultrathink-codex-0/data-model.md`
-- 快速上手：`specs/_archived/008-ultrathink-codex-0/quickstart.md`
-- 计划与验收：`specs/_archived/008-ultrathink-codex-0/plan.md`,
+- 规格与设计：`specs/__archive/008-ultrathink-codex-0/spec.md`
+- 数据模型：`specs/__archive/008-ultrathink-codex-0/data-model.md`
+- 快速上手：`specs/__archive/008-ultrathink-codex-0/quickstart.md`
+- 计划与验收：`specs/__archive/008-ultrathink-codex-0/plan.md`,
   `T058_acceptance_report.md`
 
 ### 部署补充

@@ -85,11 +85,11 @@
 ### 📚 文档
 
 - README.md - 项目概述和使用指南
-- CLAUDE.md - 开发指南
-- docs/mcp-integration.md - MCP 集成详细文档
-- docs/mvp1-manual-test-plan.md - 完整测试计划
-- docs/mvp1-quick-test-guide.md - 快速测试指南
-- RELEASE_NOTES.md - 发布说明
+- docs/developer/DEVELOPMENT.md - 开发指南
+- docs/architecture/mcp-integration.md - MCP 集成详细文档
+- docs/__archive/old-docs/mvp1-manual-test-plan.md - 完整测试计划
+- docs/__archive/old-docs/mvp1-quick-test-guide.md - 快速测试指南
+- docs/releases/RELEASE_NOTES.md - 发布说明
 - CHANGELOG.md - 变更日志
 
 ### 🏗️ 技术栈
@@ -150,10 +150,10 @@ codex-father/
 
 ### 🔗 相关链接
 
-- [完整发布说明](RELEASE_NOTES.md)
+- [完整发布说明](docs/releases/RELEASE_NOTES.md)
 - [项目文档](README.md)
-- [开发指南](CLAUDE.md)
-- [MCP 集成文档](docs/mcp-integration.md)
+- [开发指南](docs/developer/DEVELOPMENT.md)
+- [MCP 集成文档](docs/architecture/mcp-integration.md)
 
 ---
 

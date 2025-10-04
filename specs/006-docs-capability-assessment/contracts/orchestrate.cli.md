@@ -39,11 +39,15 @@ codex-father orchestrate <requirement> [options]
   `orchestration_failed`
 - 示例：见 `../quickstart.md`
 
+附注：扩展运营类事件（`patch_applied`、`patch_failed`、`task_retry_scheduled`、`concurrency_reduced` 等）仅写入 JSONL 审计；如需在流式输出中提示，使用 `tool_use` 或将信息并入 `task_*` 事件的 `data`。
+
 ## 退出码
 
 - `0`：成功率 ≥ 阈值 且 无 `patch_failed`
 - `1`：不满足成功条件（含任一补丁失败或成功率不足）
 - 非 0 非 1：进程级异常（配置/环境错误等）
+
+注：`patch_failed` 为 JSONL 审计中的扩展事件，流式事件不包含该枚举。
 
 ## 约束与行为
 

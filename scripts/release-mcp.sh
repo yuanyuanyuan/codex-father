@@ -5,8 +5,8 @@ PROJECT_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${PROJECT_ROOT_DIR}"
 
 MCP_DIR="mcp/codex-mcp-server"
-DOC_VERSION_FILE="docs/VERSION_MCP_1.2.0.md"
-DOC_FLOW_FILE="docs/RELEASE_FLOW_MCP.md"
+DOC_VERSION_FILE="docs/releases/VERSION_MCP_1.2.0.md"
+DOC_FLOW_FILE="docs/releases/RELEASE_FLOW_MCP.md"
 
 usage() {
   cat <<'EOF'

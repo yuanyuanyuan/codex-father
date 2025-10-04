@@ -40,7 +40,7 @@
   `405/401/429/500`
 - MCP 方法门禁：在 tools/call 前做版本/参数校验，确保上游可预期
 
-参考：`docs/VERSION_MCP_1.2.0.md`、`docs/mcp-integration.md`
+参考：`docs/releases/VERSION_MCP_1.2.0.md`、`docs/architecture/mcp-integration.md`
 
 ### MCP 工具（当前实现）
 
@@ -197,7 +197,7 @@ args = ["-y", "@starkdev020/codex-father-mcp-server"]
 - **故障排除**: [故障排除指南](mcp/codex-mcp-server/README.md#🆘-故障排除)
 - **Codex rMCP 集成**:
   [关于 Codex rMCP](mcp/codex-mcp-server/README.md#🔗-关于-codex-rmcp-支持)
-- **Codex 0.44 兼容指南**: [docs/mcp-integration.md](docs/mcp-integration.md)
+- **Codex 0.44 兼容指南**: [docs/architecture/mcp-integration.md](docs/architecture/mcp-integration.md)
 
 ## 🛠️ 开发
 
@@ -334,16 +334,28 @@ npm run benchmark
 
 ## 📚 文档
 
-### 用户文档
+### 🚀 新手必读（开箱即用）
 
-- **[MCP 服务器使用指南](mcp/codex-mcp-server/README.md)** - 完整的使用文档和配置说明
-- **[Codex 0.44 兼容与集成](docs/mcp-integration.md)** - 版本检测/参数映射/Profile 自动修复/错误码
-- [非交互模式说明](docs/MVP3/codex-non-interactive.md) - CLI 非交互模式使用
+1. **[⚡ 5分钟快速开始](docs/user/quick-start.md)** - 最快的上手方式 ⭐ **强烈推荐**
+2. **[📦 安装指南](docs/user/installation.md)** - 详细安装步骤和系统要求
+3. **[⚙️ 配置指南](docs/user/configuration.md)** - 配置 Claude Desktop/Code/Codex CLI
+4. **[🚀 首次运行测试](docs/user/first-run.md)** - 10 个测试验证所有功能
 
-### 开发文档
+### 📖 完整文档导航
 
-- [架构设计](specs/_archived/005-docs-prd-draft/) - MVP1 设计文档（已归档）
-- [数据模型](specs/_archived/005-docs-prd-draft/data-model.md) - 数据结构说明（已归档）
+- **[📚 文档总入口](docs/README.md)** - 所有文档的导航中心
+
+**按类别浏览**：
+- [👤 用户文档](docs/user/README.md) - 使用指南、场景化应用、故障排除
+- [🔧 开发文档](docs/developer/README.md) - 开发环境、技术栈、贡献指南
+- [🏗️ 架构文档](docs/architecture/README.md) - 系统架构、MCP 集成、API 参考
+- [🚀 运维文档](docs/operations/README.md) - 部署指南、运维手册
+- [📋 版本发布](docs/releases/README.md) - 发布说明、变更日志
+
+**按角色导航**：
+- **第一次使用**：[快速开始](docs/user/quick-start.md) → [首次测试](docs/user/first-run.md) → [使用场景](docs/user/use-cases/README.md)
+- **开发者**：[开发指南](docs/developer/DEVELOPMENT.md) → [架构概览](docs/architecture/overview.md) → [贡献指南](docs/developer/contributing.md)
+- **运维人员**：[部署指南](docs/operations/DEPLOY.md) → [配置指南](docs/user/configuration.md) → [故障排除](docs/user/troubleshooting.md)
 
 ## 🤝 贡献
 
@@ -401,26 +413,18 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 如需完整规范与进度，请参见：`specs/006-docs-capability-assessment/*`。
 
-## 📚 完整文档
+## 💡 使用场景
 
-详细的使用文档请参考：
+Codex Father 可以帮您：
 
-### 📖 [MCP 服务器使用指南](mcp/codex-mcp-server/README.md)
+- **代码审查** - 自动识别代码质量问题、类型安全、错误处理
+- **重构优化** - 发现重复代码，提供重构建议
+- **文档生成** - 自动生成 API 文档、使用说明
+- **测试生成** - 自动生成单元测试、集成测试
+- **Bug 修复** - 快速定位并修复问题
+- **性能优化** - 识别性能瓶颈，提供优化方案
 
-包含以下内容：
-
-- **5 分钟快速上手** - npx 一键启动、多客户端配置
-- **实战示例** - Claude Desktop、Codex CLI、Claude Code 实际使用场景
-- **MCP 工具详解** - 完整的 API 参数说明
-- **高级配置** - 安全策略、环境变量、自动化示例
-- **故障排除** - 常见问题及解决方案
-- **Codex rMCP 支持** - 与 Codex CLI 的深度集成
-
-### 🛠️ 开发文档
-
-- [架构设计文档](docs/) - 技术架构和设计决策
-- [API 参考](specs/) - 完整的 API 规范
-- [贡献指南](#贡献) - 如何参与项目开发
+查看 **[15+ 场景化使用示例](docs/user/use-cases/examples.md)** 了解更多。
 
 ## 📦 发布
 

@@ -100,7 +100,12 @@
 
 - 默认对失败任务自动重试 1 次（总尝试次数 2）。
 - 退避策略：指数退避，`initialDelayMs`，`maxDelayMs` 可配置。
-- 事件：新增 `task_retry_scheduled`，包含 `delayMs` 与 `attempt`。
+- 记录：在 JSONL 审计日志追加 `task_retry_scheduled`（含 `delayMs`、`attempt`）；如需对外提示，通过 `tool_use` 事件的数据字段表达。
+
+事件分层与兼容（与 008 对齐）：
+
+- Stream-JSON（对外实时流）严格遵循 `docs/schemas/stream-json-event.schema.json` 的枚举：`start|task_scheduled|task_started|tool_use|task_completed|task_failed|cancel_requested|orchestration_completed|orchestration_failed`。
+- 扩展事件如 `patch_applied|patch_failed|task_retry_scheduled|concurrency_reduced|concurrency_increased|resource_exhausted` 仅写入 JSONL 审计日志；对外需要提示时以 `tool_use`/`task_*` 搭配 `data` 字段表达。
 
 ---
 
@@ -482,7 +487,7 @@ class TaskScheduler {
 
 **复用 MVP2 设计**：
 
-- 参考 `docs/_archive/mvp2-spec.md` 的 ProcessOrchestrator 设计
+- 参考 `docs/__archive/old-docs/mvp2-spec.md` 的 ProcessOrchestrator 设计
 - 扩展资源监控和自动降并发能力
 
 **关键接口**：
@@ -538,10 +543,16 @@ class ProcessOrchestrator {
       const prev = this.currentConcurrency;
       this.currentConcurrency = Math.max(1, this.currentConcurrency - 1);
       if (this.currentConcurrency < prev) {
-        this.emitEvent('concurrency_reduced', {
+        // 审计记录并以 tool_use 提示（保持流事件兼容 Schema）
+        this.appendAudit('concurrency_reduced', {
           from: prev,
           to: this.currentConcurrency,
           reason: usage.cpu > cpuHigh ? 'high_cpu' : 'high_memory',
+        });
+        this.emitEvent('tool_use', {
+          summary: 'concurrency adjusted (down)',
+          from: prev,
+          to: this.currentConcurrency,
         });
         this.lastAdjustAt = now;
       }
@@ -560,10 +571,15 @@ class ProcessOrchestrator {
         this.currentConcurrency + 1
       );
       if (this.currentConcurrency > prev) {
-        this.emitEvent('concurrency_increased', {
+        this.appendAudit('concurrency_increased', {
           from: prev,
           to: this.currentConcurrency,
           reason: 'resources_recovered',
+        });
+        this.emitEvent('tool_use', {
+          summary: 'concurrency adjusted (up)',
+          from: prev,
+          to: this.currentConcurrency,
         });
         this.lastAdjustAt = now;
       }
@@ -626,8 +642,9 @@ Agent_i (隔离工作区)                SWWCoordinator                    主�
     |                                | 快速校验                        |
     |                                |---- quickValidate() ----------->| (按配置执行 steps)
     |                                |                                 |
-    |                                | [成功] emit patch_applied       |
-    |                                | [失败] emit patch_failed        |
+    |                                | [成功] audit patch_applied      |
+    |                                | [失败] audit patch_failed（并以  |
+    |                                |        task_failed/tool_use 提示）|
     |                                | 释放写窗口，处理下一个          |
 ```
 
@@ -683,26 +700,32 @@ class SWWCoordinator {
       if (!applyResult.success || !validateResult.success) {
         // 标记补丁失败并上报
         this.markPatchFailed(patch, applyResult.error || validateResult.error);
-        this.emitEvent('patch_failed', {
+        this.appendAudit('patch_failed', {
           patchId: patch.id,
           taskId: nextWriter.id,
           reason: applyResult.error || validateResult.error,
         });
-        this.reportToUser({
-          type: 'patch_failed',
+        // 流式以 task_failed/tool_use 呈现
+        this.emitEvent('task_failed', {
           taskId: nextWriter.id,
+          summary: 'patch apply/validate failed',
           patchId: patch.id,
           reason: applyResult.error || validateResult.error,
         });
       } else {
         this.markPatchSuccess(patch);
-        this.emitEvent('patch_applied', {
+        this.appendAudit('patch_applied', {
           patchId: patch.id,
           taskId: nextWriter.id,
           targetFiles: patch.targetFiles,
           sequence: patch.sequence,
           usedFallback: Boolean((applyResult as any).usedFallback),
           strategy: (applyResult as any).strategy || this.applyPatchStrategy,
+        });
+        this.emitEvent('tool_use', {
+          summary: 'patch applied',
+          taskId: nextWriter.id,
+          patchId: patch.id,
         });
       }
     } finally {
@@ -877,14 +900,19 @@ class StateManager {
       this.shouldRetry(orchestrationId, task)
     ) {
       const delayMs = this.computeBackoffDelay(orchestrationId, task);
+      // 审计记录重试计划；如需对外提示，使用 tool_use 事件表达
+      this.appendAudit('task_retry_scheduled', {
+        attempt: (task.attempts || 1) + 1,
+        delayMs,
+      });
       this.emitEvent({
-        event: 'task_retry_scheduled',
+        event: 'tool_use',
         timestamp: new Date().toISOString(),
         orchestrationId,
         taskId,
         role: task.role,
         seq: this.getNextSeq(orchestrationId),
-        data: { attempt: (task.attempts || 1) + 1, delayMs },
+        data: { summary: 'retry scheduled', attempt: (task.attempts || 1) + 1, delayMs },
       });
       this.scheduleRetry(orchestrationId, taskId, delayMs);
     }
@@ -1266,8 +1294,8 @@ type PatchStatus =
 
 ### CLI 退出码约定
 
-- 退出码 `0`：成功率 ≥ 配置阈值，且无任何补丁失败（`patch_failed` 计数为 0）。
-- 退出码 `1`：不满足上述条件（包括成功率低于阈值或存在任意补丁失败）。
+- 退出码 `0`：成功率 ≥ 配置阈值，且无任何补丁失败（以 JSONL 审计中的 `patch_failed` 计数为 0）。
+- 退出码 `1`：不满足上述条件（包括成功率低于阈值或审计中存在任意补丁失败）。
 - 其他非零：进程级异常（如配置读取失败、资源监控模块崩溃）。
 
 ### CLI 接口
@@ -1387,9 +1415,9 @@ applyPatchFallbackOnFailure: true # 当首选策略失败时，自动启用回�
 }
 ```
 
-### Stream-JSON 输出接口
+### Stream-JSON 输出接口（对外）与审计（对内）
 
-**事件格式**（遵循 spec.md 附录 B）
+**事件格式（Stream-JSON）**：严格遵循 `docs/schemas/stream-json-event.schema.json`（枚举事件）。扩展运营类事件写入 JSONL 审计（样例在本节末）。
 
 ```json
 // 编排开始
@@ -1410,26 +1438,32 @@ applyPatchFallbackOnFailure: true # 当首选策略失败时，自动启用回�
 // 任务失败
 {"event":"task_failed","timestamp":"2025-10-02T10:05:00Z","orchestrationId":"orc_1","taskId":"t2","role":"developer","seq":6,"data":{"reason":"timeout","errorType":"TASK_TIMEOUT"}}
 
-// 失败重试已安排
-{"event":"task_retry_scheduled","timestamp":"2025-10-02T10:05:01Z","orchestrationId":"orc_1","taskId":"t2","role":"developer","seq":6,"data":{"attempt":2,"delayMs":2000}}
+// 失败重试已安排（以 tool_use 描述）
+{"event":"tool_use","timestamp":"2025-10-02T10:05:01Z","orchestrationId":"orc_1","taskId":"t2","role":"developer","seq":6,"data":{"summary":"retry scheduled","attempt":2,"delayMs":2000}}
 
-// 并发降级
-{"event":"concurrency_reduced","timestamp":"2025-10-02T10:10:00Z","orchestrationId":"orc_1","seq":7,"data":{"from":10,"to":9,"reason":"high_cpu"}}
+// 并发调整（以 tool_use 描述）
+{"event":"tool_use","timestamp":"2025-10-02T10:10:00Z","orchestrationId":"orc_1","seq":7,"data":{"summary":"concurrency adjusted (down)","from":10,"to":9}}
+{"event":"tool_use","timestamp":"2025-10-02T10:20:00Z","orchestrationId":"orc_1","seq":8,"data":{"summary":"concurrency adjusted (up)","from":9,"to":10}}
 
-// 并发回升
-{"event":"concurrency_increased","timestamp":"2025-10-02T10:20:00Z","orchestrationId":"orc_1","seq":8,"data":{"from":9,"to":10,"reason":"resources_recovered"}}
+// 补丁应用成功（以 tool_use 描述）
+{"event":"tool_use","timestamp":"2025-10-02T10:21:00Z","orchestrationId":"orc_1","taskId":"t3","role":"developer","seq":9,"data":{"summary":"patch applied","patchId":"patch_12"}}
 
-// 补丁应用成功
-{"event":"patch_applied","timestamp":"2025-10-02T10:21:00Z","orchestrationId":"orc_1","taskId":"t3","role":"developer","seq":9,"data":{"patchId":"patch_12","targetFiles":["src/a.ts"],"sequence":12}}
+// 补丁应用失败（以 task_failed 描述）
+{"event":"task_failed","timestamp":"2025-10-02T10:22:00Z","orchestrationId":"orc_1","taskId":"t4","role":"developer","seq":10,"data":{"reason":"patch apply failed","patchId":"patch_13","errorType":"PATCH_CONFLICT"}}
 
-// 补丁应用失败
-{"event":"patch_failed","timestamp":"2025-10-02T10:22:00Z","orchestrationId":"orc_1","taskId":"t4","role":"developer","seq":10,"data":{"patchId":"patch_13","reason":"apply_conflict","errorType":"PATCH_CONFLICT"}}
-
-// 资源耗尽
-{"event":"resource_exhausted","timestamp":"2025-10-02T10:30:00Z","orchestrationId":"orc_1","seq":11,"data":{"reason":"memory","action":"reject_new_tasks"}}
+// 资源耗尽（以 tool_use 描述）
+{"event":"tool_use","timestamp":"2025-10-02T10:30:00Z","orchestrationId":"orc_1","seq":11,"data":{"summary":"resource exhausted","reason":"memory"}}
 
 // 编排完成
 {"event":"orchestration_completed","timestamp":"2025-10-02T12:00:00Z","orchestrationId":"orc_1","seq":100,"data":{"successRate":0.9,"totalDurationMs":7200000,"patchFailed":0,"exitCode":0}}
+
+// —— JSONL 审计（非 Stream-JSON 枚举的一部分）样例 ——
+{"event":"task_retry_scheduled","timestamp":"2025-10-02T10:05:01Z","orchestrationId":"orc_1","taskId":"t2","role":"developer","seq":6,"data":{"attempt":2,"delayMs":2000}}
+{"event":"concurrency_reduced","timestamp":"2025-10-02T10:10:00Z","orchestrationId":"orc_1","seq":7,"data":{"from":10,"to":9,"reason":"high_cpu"}}
+{"event":"concurrency_increased","timestamp":"2025-10-02T10:20:00Z","orchestrationId":"orc_1","seq":8,"data":{"from":9,"to":10,"reason":"resources_recovered"}}
+{"event":"patch_applied","timestamp":"2025-10-02T10:21:00Z","orchestrationId":"orc_1","taskId":"t3","role":"developer","seq":9,"data":{"patchId":"patch_12","targetFiles":["src/a.ts"],"sequence":12}}
+{"event":"patch_failed","timestamp":"2025-10-02T10:22:00Z","orchestrationId":"orc_1","taskId":"t4","role":"developer","seq":10,"data":{"patchId":"patch_13","reason":"apply_conflict","errorType":"PATCH_CONFLICT"}}
+{"event":"resource_exhausted","timestamp":"2025-10-02T10:30:00Z","orchestrationId":"orc_1","seq":11,"data":{"reason":"memory","action":"reject_new_tasks"}}
 ```
 
 ---
@@ -1651,7 +1685,7 @@ codex exec resume <SESSION_ID> --json <prompt>
 | -------------------- | -------- | -------------------------------------- |
 | SessionManager       | 复用     | 扩展为管理多会话                       |
 | EventLogger          | 复用     | 扩展支持 Stream-JSON                   |
-| BridgeLayer          | 废弃     | 不使用 MCP 模式，改用 `codex exec`     |
+| BridgeLayer          | 保留     | 本特性不依赖 MCP；默认使用 `codex exec`，后续可演进对接 MCP |
 | SingleProcessManager | 升级     | 升级为 ProcessOrchestrator（多进程池） |
 | ApprovalPolicy       | 简化     | 默认 `--ask-for-approval never`        |
 

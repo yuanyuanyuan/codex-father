@@ -97,7 +97,8 @@
 - [ ] T013 Implement `process-orchestrator.ts`: pool management (size ≤10),
       spawn `codex exec`, health check, graceful shutdown (60s)
 - [ ] T014 Implement `sww-coordinator.ts`: Single Writer Window + two‑phase
-      write, queue, sequence, emit `patch_applied`/`patch_failed`
+      write, queue, sequence; append audit `patch_applied`/`patch_failed`;
+      stream提示使用 `tool_use`/`task_failed`（保持与事件 Schema 一致）
 - [ ] T015 Implement `patch-applier.ts`: prefer `git apply`, fallback to native;
       return strategy + usedFallback
 - [ ] T016 Implement `quick-validate.ts`: run configured steps, fail on missing
@@ -168,7 +169,7 @@
 - [ ] T029 [P] Performance smoke: concurrent 10 agents baseline log in
       `core/orchestrator/tests/performance.smoke.test.ts`
 - [ ] T030 Repository hygiene: eslint/prettier run; ensure no unused deps;
-      update `AGENTS.md` pointers if paths changed
+      update `docs/developer/AGENTS.md` pointers if paths changed
 
 ## Dependencies
 
