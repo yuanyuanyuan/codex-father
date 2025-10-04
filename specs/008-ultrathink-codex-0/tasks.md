@@ -444,7 +444,7 @@ CRITICAL**: 所有契约测试必须在实现前完成，并且必须失败（�
 
 **⚠️ PREREQUISITE**: Phase 3.3 必须完成（所有 MCP 方法实现）
 
-- [ ] **T049** 集成测试：基础功能（0.42/0.44 通用）
+- [x] **T049** 集成测试：基础功能（0.42/0.44 通用）
   - **依赖**: T031-T048
   - **输入**: quickstart.md#A1-A3
   - **输出**: `tests/integration/basic-features.test.ts`
