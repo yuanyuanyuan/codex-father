@@ -49,6 +49,133 @@ if ! declare -F classify_exit >/dev/null 2>&1; then
   }
 fi
 
+codex_write_session_state() {
+  local file="$1"
+  local payload="$2"
+  umask 077
+  printf '%s\n' "$payload" > "${file}.tmp"
+  mv -f "${file}.tmp" "$file"
+}
+
+codex_update_session_state() {
+  [[ -n "${CODEX_SESSION_DIR:-}" ]] || return 0
+  local state_file="${CODEX_SESSION_DIR}/state.json"
+  [[ -f "$state_file" ]] || return 0
+
+  local job_id; job_id=$(basename "$CODEX_SESSION_DIR")
+  local updated_at; updated_at=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+
+  set +e
+  local created_at
+  created_at=$(grep -E '"created_at"' "$state_file" | sed -E 's/.*"created_at"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local tag
+  tag=$(grep -E '"tag"' "$state_file" | sed -E 's/.*"tag"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local cwd
+  cwd=$(grep -E '"cwd"' "$state_file" | sed -E 's/.*"cwd"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local existing_title
+  existing_title=$(grep -E '"title"' "$state_file" | sed -E 's/.*"title"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local existing_log_file
+  existing_log_file=$(grep -E '"log_file"' "$state_file" | sed -E 's/.*"log_file"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local existing_meta_glob
+  existing_meta_glob=$(grep -E '"meta_glob"' "$state_file" | sed -E 's/.*"meta_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local existing_last_glob
+  existing_last_glob=$(grep -E '"last_message_glob"' "$state_file" | sed -E 's/.*"last_message_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  set -e
+
+  [[ -n "$created_at" ]] || created_at="$updated_at"
+  [[ -n "$cwd" ]] || cwd="$(pwd)"
+
+  local log_file="${CODEX_LOG_FILE:-$existing_log_file}"
+  [[ -n "$log_file" ]] || log_file="$existing_log_file"
+
+  local meta_glob="${CODEX_SESSION_DIR}/*.meta.json"
+  [[ -n "$existing_meta_glob" ]] && meta_glob="$existing_meta_glob"
+  local last_glob="${CODEX_SESSION_DIR}/*.last.txt"
+  [[ -n "$existing_last_glob" ]] && last_glob="$existing_last_glob"
+
+  local exit_code="${CODEX_EXIT:-}"
+  local state="failed"
+  local exit_json="null"
+  if [[ "$exit_code" =~ ^-?[0-9]+$ ]]; then
+    if (( exit_code == 0 )); then
+      state="completed"
+      exit_json="$exit_code"
+    elif (( exit_code < 0 )); then
+      state="stopped"
+    else
+      state="failed"
+      exit_json="$exit_code"
+    fi
+  fi
+
+  local cls="${CLASSIFICATION:-}"
+  if [[ "$state" == "stopped" && -z "$cls" ]]; then
+    cls="user_cancelled"
+  fi
+  local classification_json="null"
+  if [[ -n "$cls" ]]; then
+    classification_json="\"$(json_escape "$cls")\""
+  fi
+
+  local tokens_json="null"
+  local tok="${TOKENS_USED:-}"
+  if [[ "$tok" =~ ^[0-9]+$ ]]; then
+    tokens_json="$tok"
+  fi
+
+  local eff_sandbox_json="null"
+  if [[ -n "${EFFECTIVE_SANDBOX:-}" ]]; then
+    eff_sandbox_json="\"$(json_escape "${EFFECTIVE_SANDBOX:-}")\""
+  fi
+  local eff_network_json="null"
+  if [[ -n "${EFFECTIVE_NETWORK_ACCESS:-}" ]]; then
+    eff_network_json="\"$(json_escape "${EFFECTIVE_NETWORK_ACCESS:-}")\""
+  fi
+  local eff_approval_json="null"
+  if [[ -n "${EFFECTIVE_APPROVAL_POLICY:-}" ]]; then
+    eff_approval_json="\"$(json_escape "${EFFECTIVE_APPROVAL_POLICY:-}")\""
+  fi
+  local sandbox_bypass_json="null"
+  if [[ -n "${EFFECTIVE_BYPASS:-}" && "${EFFECTIVE_BYPASS:-}" =~ ^[0-9]+$ ]]; then
+    sandbox_bypass_json="${EFFECTIVE_BYPASS:-}"
+  fi
+
+  local title_value="${INSTR_TITLE:-}"; [[ -n "$title_value" ]] || title_value="$existing_title"
+  local title_json="null"
+  if [[ -n "$title_value" ]]; then
+    title_json="\"$(json_escape "$title_value")\""
+  fi
+
+  local tag_json="\"$(json_escape "${tag:-}")\""
+  local state_json
+  state_json=$(cat <<EOF
+{
+  "id": "$(json_escape "$job_id")",
+  "pid": null,
+  "state": "$(json_escape "$state")",
+  "exit_code": ${exit_json},
+  "classification": ${classification_json},
+  "tokens_used": ${tokens_json},
+  "effective_sandbox": ${eff_sandbox_json},
+  "effective_network_access": ${eff_network_json},
+  "effective_approval_policy": ${eff_approval_json},
+  "sandbox_bypass": ${sandbox_bypass_json},
+  "cwd": "$(json_escape "$cwd")",
+  "created_at": "$(json_escape "$created_at")",
+  "updated_at": "$(json_escape "$updated_at")",
+  "tag": ${tag_json},
+  "log_file": "$(json_escape "$log_file")",
+  "meta_glob": "$(json_escape "$meta_glob")",
+  "last_message_glob": "$(json_escape "$last_glob")",
+  "title": ${title_json}
+}
+EOF
+  )
+
+  codex_write_session_state "$state_file" "$state_json"
+  rm -f "${CODEX_SESSION_DIR}/pid" 2>/dev/null || true
+}
+
 classify_exit "${RUN_LAST_MSG_FILE}" "${CODEX_LOG_FILE}" "${CODEX_EXIT}"
 INSTR_TITLE=$(awk 'NF {print; exit}' "${INSTR_FILE}" 2>/dev/null || echo "")
 RUN_ID="codex-${TS}${TAG_SUFFIX}"
@@ -124,6 +251,7 @@ if (( DO_LOOP == 0 )); then
   if (( DO_LOOP == 0 )); then
     # 执行结果摘要（单轮）
     echo "[debug] JSON_OUTPUT=${JSON_OUTPUT} writing summary (single-run)" >> "${CODEX_LOG_FILE}"
+    codex_update_session_state || true
     if [[ "${JSON_OUTPUT}" == "1" ]]; then
       set +e
       # 直接输出 meta JSON；若文件缺失则使用内存中的 META_JSON；再退化为即时拼装
@@ -423,6 +551,7 @@ done
 
 # 最终摘要（多轮）
 if [[ "${JSON_OUTPUT}" == "1" ]]; then
+  codex_update_session_state || true
   set +e
   # 输出最后一轮的 meta JSON（若无则回退第一次；仍无则即时拼装简版 JSON）
   LAST_META_FILE=$(ls -1t "${CODEX_LOG_FILE%.log}"*.meta.json 2>/dev/null | head -n1 || true)
@@ -435,6 +564,7 @@ if [[ "${JSON_OUTPUT}" == "1" ]]; then
   fi
   set -e
 else
+  codex_update_session_state || true
   echo "Codex 运行完成。退出码: ${CODEX_EXIT}"
   echo "日志文件: ${CODEX_LOG_FILE}"
   echo "指令文件: ${INSTR_FILE}"
