@@ -9,7 +9,8 @@
 
 ### Bug Fixes
 
-- **release:** 发布前校验 dist 构建产物，修复缺失 env.js 导致的 npx 崩溃
+- **release:**
+  发布前重新构建并校验 dist 构建产物，修复缺失 env.js 导致的 npx 崩溃
 
 # [1.3.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.2.0...mcp-v1.3.0) (2025-10-05)
 
