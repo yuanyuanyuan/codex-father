@@ -9,6 +9,7 @@ export class StateManager {
   private orchestrationId?: string;
   private eventLogger?: { logEvent: Function };
   private seq: number = 0;
+  private redactionPatterns?: (RegExp | string)[];
 
   /**
    * 使用可选初始状态创建管理器。
@@ -19,6 +20,9 @@ export class StateManager {
     if (initial && ('orchestrationId' in initial || 'eventLogger' in initial)) {
       this.orchestrationId = initial.orchestrationId;
       this.eventLogger = initial.eventLogger;
+      if ('redactionPatterns' in initial) {
+        this.redactionPatterns = initial.redactionPatterns as (RegExp | string)[];
+      }
       this.snapshot = {
         completedTasks: 0,
         failedTasks: 0,
@@ -68,13 +72,46 @@ export class StateManager {
     if (!this.eventLogger) {
       return;
     }
+    const redact = (val: unknown): unknown => {
+      if (!this.redactionPatterns || this.redactionPatterns.length === 0) {
+        return val;
+      }
+      const applyOne = (s: string): string => {
+        let out = s;
+        for (const pat of this.redactionPatterns!) {
+          if (pat instanceof RegExp) {
+            out = out.replace(pat, '[REDACTED]');
+          } else if (typeof pat === 'string' && pat.length > 0) {
+            // 文字子串替换（全部）
+            out = out.split(pat).join('[REDACTED]');
+          }
+        }
+        return out;
+      };
+      if (typeof val === 'string') {
+        return applyOne(val);
+      }
+      if (val && typeof val === 'object') {
+        if (Array.isArray(val)) {
+          return val.map((v) => redact(v));
+        }
+        const obj: Record<string, unknown> = {};
+        for (const k of Object.keys(val as Record<string, unknown>)) {
+          const v = (val as Record<string, unknown>)[k];
+          obj[k] = typeof v === 'string' || typeof v === 'object' ? redact(v) : v;
+        }
+        return obj;
+      }
+      return val;
+    };
+    const redactedData = redact(payload.data);
     await this.eventLogger.logEvent({
       event: payload.event,
       orchestrationId: this.orchestrationId,
       seq: this.seq,
       taskId: payload.taskId,
       role: payload.role,
-      data: payload.data,
+      data: redactedData,
     });
   }
 }
