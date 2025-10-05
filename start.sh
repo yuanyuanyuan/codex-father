@@ -84,7 +84,7 @@ KNOWN_FLAGS=(
   "--task" "--require-change-in" "--require-git-commit" "--auto-commit-on-done"
   "--auto-commit-message" "--no-overflow-retry" "--overflow-retries" "--repeat-until"
   "--max-runs" "--sleep-seconds" "--no-carry-context" "--no-compress-context"
-  "--context-head" "--context-grep" "--sandbox" "--ask-for-approval" "--approval-mode" "--approvals" "--profile"
+  "--context-head" "--context-grep" "--sandbox" "--ask-for-approval" "--approval-mode" "--approvals" "--profile" "--model"
   "--full-auto" "--dangerously-bypass-approvals-and-sandbox" "--codex-config"
   "--codex-arg" "--no-aggregate" "--aggregate-file" "--aggregate-jsonl-file"
   "--redact" "--redact-pattern" "--prepend" "--append" "--prepend-file"
@@ -207,6 +207,7 @@ flag_help_line() {
     --docs-dir) echo "--docs-dir <dir>     指定目录内的文档（递归 *.md）" ;;
     -f|--file) echo "-f, --file <path>    叠加文件（支持通配符/多值/@列表/目录）" ;;
     -F|--file-override) echo "-F, --file-override <path> 覆盖基底为指定文件" ;;
+    --model) echo "--model <name>       指定 Codex 模型（转为 config model=<name>）" ;;
     -h|--help) echo "-h, --help           查看完整帮助" ;;
     *) echo "$1" ;;
   esac
@@ -340,6 +341,8 @@ usage() {
       --append <txt>   在指令后追加文本
       --prepend-file <p> 从文件读入前置文本
       --append-file <p>  从文件读入后置文本
+      --model <name>     指定 Codex 模型（内部转为 --config model=<name>，兼容 0.42/0.44）
+      --codex-config <kv> 追加 Codex 配置项（等价于 --config key=value，可多次）
       --patch-mode      启用“补丁模式”：自动追加 policy-note，要求模型仅输出补丁（patch/diff）而不直接写仓库
       --dry-run        仅生成文件与日志头，不实际执行 codex
       --json           以 JSON 输出（打印最终 meta.json 内容到 STDOUT，并尽量减少人类可读回显）
@@ -422,6 +425,30 @@ set_codex_flag_value() {
     ((i+=1))
   done
   CODEX_GLOBAL_ARGS=("${new_args[@]}" "$flag" "$value")
+}
+
+# 将 --config key=value 形式的配置去重后设置，避免相同键多次出现导致旧值覆盖逻辑不确定
+set_codex_config_kv() {
+  local key="$1" value="$2"
+  local -a rebuilt=()
+  local i=0
+  while (( i < ${#CODEX_GLOBAL_ARGS[@]} )); do
+    local current="${CODEX_GLOBAL_ARGS[$i]}"
+    if [[ "$current" == "--config" ]] && (( i + 1 < ${#CODEX_GLOBAL_ARGS[@]} )); then
+      local kv="${CODEX_GLOBAL_ARGS[$((i+1))]}"
+      local existing_key="${kv%%=*}"
+      if [[ "$existing_key" == "$key" ]]; then
+        i=$((i+2))
+        continue
+      fi
+      rebuilt+=("--config" "$kv")
+      i=$((i+2))
+      continue
+    fi
+    rebuilt+=("$current")
+    i=$((i+1))
+  done
+  CODEX_GLOBAL_ARGS=("${rebuilt[@]}" "--config" "${key}=${value}")
 }
 
 normalize_sandbox_and_approvals() {
@@ -701,6 +728,9 @@ while [[ $# -gt 0 ]]; do
       CODEX_GLOBAL_ARGS+=("--full-auto"); shift 1 ;;
     --dangerously-bypass-approvals-and-sandbox)
       CODEX_GLOBAL_ARGS+=("--dangerously-bypass-approvals-and-sandbox"); shift 1 ;;
+    --model)
+      [[ $# -ge 2 ]] || { echo "错误: --model 需要一个模型名称" >&2; exit 2; }
+      set_codex_config_kv "model" "${2}"; shift 2 ;;
     --codex-config)
       [[ $# -ge 2 ]] || { echo "错误: --codex-config 需要一个 key=value" >&2; exit 2; }
       CODEX_GLOBAL_ARGS+=("--config" "${2}"); shift 2 ;;
@@ -1298,6 +1328,16 @@ if ! declare -F json_escape >/dev/null 2>&1; then
     s=${s//$'\r'/}
     s=${s//$'\t'/\\t}
     printf '%s' "$s"
+  }
+fi
+
+if ! declare -F classify_exit >/dev/null 2>&1; then
+  classify_exit() {
+    local _last="$1" _log="$2" _code="${3:-0}"
+    CLASSIFICATION=$([[ "${_code}" -eq 0 ]] && echo "normal" || echo "error")
+    CONTROL_FLAG=""
+    EXIT_REASON=$([[ "${_code}" -eq 0 ]] && echo "Run completed normally" || echo "Unknown error")
+    TOKENS_USED=""
   }
 fi
 

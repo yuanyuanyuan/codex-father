@@ -17,3 +17,4 @@ docs/api/
 codex-father-*.tgz
 mcp/codex-mcp-server/*.tgz
 .tsbuildinfo.build
+tmp
