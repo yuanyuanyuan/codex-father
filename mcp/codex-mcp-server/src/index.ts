@@ -230,9 +230,57 @@ function toolsSpec(): ListToolsResult {
           additionalProperties: false,
         },
       },
+      // --- Aliases (underscore naming) ---
+      {
+        name: 'codex_help',
+        description: 'Alias of codex.help (same behavior).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            tool: { type: 'string' },
+            format: { type: 'string', enum: ['markdown', 'json'] },
+          },
+          additionalProperties: false,
+        },
+      },
       {
         name: 'codex.exec',
         description: 'Run a synchronous codex execution; returns when finished.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            args: { type: 'array', items: { type: 'string' } },
+            tag: { type: 'string' },
+            cwd: { type: 'string' },
+            approvalPolicy: {
+              type: 'string',
+              enum: ['untrusted', 'on-failure', 'on-request', 'never'],
+            },
+            sandbox: {
+              type: 'string',
+              enum: ['read-only', 'workspace-write', 'danger-full-access'],
+            },
+            network: { type: 'boolean' },
+            fullAuto: { type: 'boolean' },
+            dangerouslyBypass: { type: 'boolean' },
+            profile: { type: 'string' },
+            codexConfig: { type: 'object', additionalProperties: true },
+            preset: { type: 'string' },
+            carryContext: { type: 'boolean' },
+            compressContext: { type: 'boolean' },
+            contextHead: { type: 'integer' },
+            patchMode: { type: 'boolean' },
+            requireChangeIn: { type: 'array', items: { type: 'string' } },
+            requireGitCommit: { type: 'boolean' },
+            autoCommitOnDone: { type: 'boolean' },
+            autoCommitMessage: { type: 'string' },
+          },
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'codex_exec',
+        description: 'Alias of codex.exec (same behavior).',
         inputSchema: {
           type: 'object',
           properties: {
@@ -301,8 +349,53 @@ function toolsSpec(): ListToolsResult {
         },
       },
       {
+        name: 'codex_start',
+        description: 'Alias of codex.start (same behavior).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            args: { type: 'array', items: { type: 'string' } },
+            tag: { type: 'string' },
+            cwd: { type: 'string' },
+            approvalPolicy: {
+              type: 'string',
+              enum: ['untrusted', 'on-failure', 'on-request', 'never'],
+            },
+            sandbox: {
+              type: 'string',
+              enum: ['read-only', 'workspace-write', 'danger-full-access'],
+            },
+            network: { type: 'boolean' },
+            fullAuto: { type: 'boolean' },
+            dangerouslyBypass: { type: 'boolean' },
+            profile: { type: 'string' },
+            codexConfig: { type: 'object', additionalProperties: true },
+            preset: { type: 'string' },
+            carryContext: { type: 'boolean' },
+            compressContext: { type: 'boolean' },
+            contextHead: { type: 'integer' },
+            patchMode: { type: 'boolean' },
+            requireChangeIn: { type: 'array', items: { type: 'string' } },
+            requireGitCommit: { type: 'boolean' },
+            autoCommitOnDone: { type: 'boolean' },
+            autoCommitMessage: { type: 'string' },
+          },
+          additionalProperties: false,
+        },
+      },
+      {
         name: 'codex.status',
         description: 'Get job status (from runs/<jobId>/state.json).',
+        inputSchema: {
+          type: 'object',
+          properties: { jobId: { type: 'string' } },
+          required: ['jobId'],
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'codex_status',
+        description: 'Alias of codex.status (same behavior).',
         inputSchema: {
           type: 'object',
           properties: { jobId: { type: 'string' } },
@@ -321,13 +414,47 @@ function toolsSpec(): ListToolsResult {
         },
       },
       {
+        name: 'codex_stop',
+        description: 'Alias of codex.stop (same behavior).',
+        inputSchema: {
+          type: 'object',
+          properties: { jobId: { type: 'string' }, force: { type: 'boolean' } },
+          required: ['jobId'],
+          additionalProperties: false,
+        },
+      },
+      {
         name: 'codex.list',
         description: 'List known jobs (runs/*).',
         inputSchema: { type: 'object', properties: {}, additionalProperties: false },
       },
       {
+        name: 'codex_list',
+        description: 'Alias of codex.list (same behavior).',
+        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      },
+      {
         name: 'codex.logs',
         description: 'Read job log (bytes or lines mode).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            jobId: { type: 'string' },
+            mode: { type: 'string', enum: ['bytes', 'lines'] },
+            offset: { type: 'integer' },
+            limit: { type: 'integer' },
+            offsetLines: { type: 'integer' },
+            limitLines: { type: 'integer' },
+            tailLines: { type: 'integer' },
+            grep: { type: 'string' },
+          },
+          required: ['jobId'],
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'codex_logs',
+        description: 'Alias of codex.logs (same behavior).',
         inputSchema: {
           type: 'object',
           properties: {
@@ -424,12 +551,34 @@ function applyConvenienceOptions(args: string[], p: any) {
   }
 }
 
+function normalizeToolName(n: string): string {
+  switch (n) {
+    case 'codex_exec':
+      return 'codex.exec';
+    case 'codex_start':
+      return 'codex.start';
+    case 'codex_status':
+      return 'codex.status';
+    case 'codex_stop':
+      return 'codex.stop';
+    case 'codex_list':
+      return 'codex.list';
+    case 'codex_logs':
+      return 'codex.logs';
+    case 'codex_help':
+      return 'codex.help';
+    default:
+      return n;
+  }
+}
+
 async function handleCall(req: CallToolRequest) {
   const name = req.params.name;
   const p = (req.params.arguments ?? {}) as any;
   try {
     // 提前处理 help，不依赖本地 codex 可用性
-    if (name === 'codex.help') {
+    const normalizedForHelp = normalizeToolName(name);
+    if (normalizedForHelp === 'codex.help') {
       const spec = toolsSpec();
       const fmt = (p.format || 'markdown') as 'markdown' | 'json';
       const wanted = typeof p.tool === 'string' ? String(p.tool) : '';
@@ -550,14 +699,15 @@ async function handleCall(req: CallToolRequest) {
     }
 
     // 版本与入参严格校验（不匹配时直接拒绝执行）
+    const normalized = normalizeToolName(name);
     const version = await detectCodexVersion();
     const rawArgs = Array.isArray(p.args) ? p.args : [];
     const cliViolations = listIncompatibleCliParams(p, version, rawArgs);
     const cfgViolations = listIncompatibleConfigKeys(p?.codexConfig, version);
     if (cliViolations.length || cfgViolations.length) {
-      return buildIncompatErrorPayload(name, version, cliViolations, cfgViolations);
+      return buildIncompatErrorPayload(normalized, version, cliViolations, cfgViolations);
     }
-    switch (name) {
+    switch (normalized) {
       case 'codex.exec': {
         const args: string[] = Array.isArray(p.args) ? p.args.map(String) : [];
         applyConvenienceOptions(args, p);

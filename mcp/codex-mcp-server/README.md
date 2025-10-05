@@ -225,6 +225,16 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
 
 ## 🛠️ MCP 工具详解
 
+> 命名与别名：所有工具提供“点号”和“下划线”两种命名，功能等价。
+>
+> - 点号：`codex.exec`, `codex.start`, `codex.status`, `codex.logs`,
+>   `codex.stop`, `codex.list`, `codex.help`
+> - 下划线：`codex_exec`, `codex_start`, `codex_status`, `codex_logs`,
+>   `codex_stop`, `codex_list`, `codex_help`
+>
+> 在多数客户端中，完整调用名为 `mcp__<server-id>__<tool>`，其中 `<server-id>`
+> 来自你的 MCP 配置键（如 `codex-father` 或 `codex-father-prod`）。
+
 ### `codex.help` - 工具自发现
 
 快速查看可用的 `codex.*` 方法、参数 Schema 与示例调用。无需安装 Codex
@@ -250,6 +260,8 @@ CLI 也可运行。
 
 > 提示：在多数客户端中，完整调用名为 `mcp__<server-id>__<tool>`；`<server-id>`
 > 为你的 MCP 配置键名（如 `codex-father` 或 `codex-father-prod`）。
+
+同名下划线别名：`codex_help`
 
 ### `codex.exec` - 同步执行
 
@@ -292,6 +304,8 @@ CLI 也可运行。
 }
 ```
 
+同名下划线别名：`codex_exec`
+
 ### `codex.start` - 异步启动
 
 立即返回 `jobId`，任务在后台运行。
@@ -306,6 +320,8 @@ CLI 也可运行。
   "message": "Task started successfully"
 }
 ```
+
+同名下划线别名：`codex_start`
 
 ### `codex.status` - 查询状态
 
@@ -322,6 +338,8 @@ CLI 也可运行。
   "startTime": "2025-10-03T10:00:00Z"
 }
 ```
+
+同名下划线别名：`codex_status`
 
 > ℹ️ **提示**：工单 schema 禁止额外字段，如果你需要切换 `job.sh`
 > 工作目录，请结合下方“高级配置”中的环境变量或在目标目录内启动 MCP 服务器。
@@ -348,6 +366,9 @@ CLI 也可运行。
     "size": 16384
   }
   ```
+
+同名下划线别名：`codex_logs`
+
 - `mode = "lines"`：
   ```json
   {
@@ -363,6 +384,8 @@ CLI 也可运行。
 - `jobId` (string) - 任务 ID
 - `force` (boolean, 可选) - 强制停止
 
+同名下划线别名：`codex_stop`
+
 ### `codex.list` - 列出所有任务
 
 **参数**：无（不接受额外字段）
@@ -374,6 +397,8 @@ CLI 也可运行。
   "jobs": [{ "jobId": "job-1", "status": "running", "tag": "refactor-auth" }]
 }
 ```
+
+同名下划线别名：`codex_list`
 
 > ℹ️ **提示**：同
 > `codex.status`，此工具不接受额外参数，请通过环境变量或工作目录切换控制作用范围。

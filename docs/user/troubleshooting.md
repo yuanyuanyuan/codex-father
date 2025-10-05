@@ -67,6 +67,31 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 
 ---
 
+### 工具名称对不上（Unknown tool）
+
+**症状**：
+
+- 工具调用报错：`Unknown tool: codex.exec` 或 `codex_exec`
+- 客户端工具列表显示的名称与文档不一致
+
+**原因**：
+
+- 不同客户端对工具命名风格有差异（点号 vs 下划线）
+- 前缀 `mcp__<server-id>__` 使用的是你的 MCP 配置键名
+
+**解决**：
+
+- 本服务器已提供等价别名：
+  - 点号：`codex.exec`, `codex.start`, `codex.status`, `codex.logs`,
+    `codex.stop`, `codex.list`, `codex.help`
+  - 下划线：`codex_exec`, `codex_start`, `codex_status`, `codex_logs`,
+    `codex_stop`, `codex_list`, `codex_help`
+- 不确定时调用 `codex.help`：
+  - 全部概览：`{ "name": "codex.help", "arguments": {"format": "markdown"} }`
+  - 单个详情：`{ "name": "codex.help", "arguments": {"tool": "codex.exec", "format": "json"} }`
+- 确认前缀 `mcp__<server-id>__` 中的 `<server-id>` 与配置一致（如 `codex-father`
+  或 `codex-father-prod`）。
+
 ## ❌ 命令执行失败
 
 ### 症状

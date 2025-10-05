@@ -89,7 +89,7 @@ npm start
 
 **预期结果**：
 
-- Claude 会调用 `codex.exec` 工具
+- Claude 会调用 `codex.exec`（或等价的 `codex_exec`）工具
 - 返回项目中的 Markdown 文件列表
 - 如果看到文件列表，说明连接成功！✅
 
@@ -108,6 +108,13 @@ npm start
 - 检查项目目录，应该能看到 `hello.txt` 文件
 
 ---
+
+### 工具命名小贴士
+
+- 同一工具有两种等价命名：点号（如 `codex.exec`）和下划线（如 `codex_exec`）。
+- 在多数客户端中，完整调用名为 `mcp__<server-id>__<tool>`，其中 `<server-id>`
+  是你的 MCP 配置键名（如 `codex-father`）。
+- 不确定时，先调用 `codex.help` 获取全部方法与示例。
 
 ## ✅ 验证成功标志
 
