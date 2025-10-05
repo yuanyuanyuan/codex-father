@@ -5,6 +5,8 @@
 ## 📚 版本列表
 
 - [发布说明](RELEASE_NOTES.md) - 最新版本发布说明
+- [版本 1.4.0 MCP](VERSION_MCP_1.4.0.md) - 可发现性与传输增强版
+- [版本 1.3.0 MCP](VERSION_MCP_1.3.0.md) - 工具别名与命名策略
 - [版本 1.2.0 MCP](VERSION_MCP_1.2.0.md) - MCP 集成版本
 - [版本 1.0.0](VERSION_1.0.0.md) - MVP1 发布说明
 - [发布流程](RELEASE_FLOW_MCP.md) - MCP 发布流程

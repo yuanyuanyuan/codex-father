@@ -45,7 +45,7 @@ cat ~/Library/Application\ Support/Claude/claude_desktop_config.json | jq .
 npx -y @starkdev020/codex-father-mcp-server
 
 # 如果使用全局安装
-codex-father-mcp-server --version
+codex-mcp-server --version
 ```
 
 #### 3. 检查 Node.js 版本
