@@ -18,7 +18,7 @@
    → Update Progress Tracking: Initial Constitution Check
 5. Execute Phase 0 → research.md
    → If NEEDS CLARIFICATION remain: ERROR "Resolve unknowns"
-6. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (e.g., `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for GitHub Copilot, `GEMINI.md` for Gemini CLI, `QWEN.md` for Qwen Code or `AGENTS.md` for opencode).
+6. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (e.g., `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for GitHub Copilot, `GEMINI.md` for Gemini CLI, `QWEN.md` for Qwen Code, or `AGENTS.md` for all other agents).
 7. Re-evaluate Constitution Check section
    → If new violations: Refactor design, return to Phase 1
    → Update Progress Tracking: Post-Design Constitution Check
@@ -57,37 +57,7 @@ CLARIFICATION]
 
 _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-基于 Codex Father 项目宪章 v1.0.0 的合规性检查：
-
-### 代码质量与可维护性
-
-- [ ] 设计遵循 DRY、KISS、YAGNI 原则
-- [ ] 命名规范：Shell 使用 snake_case，TypeScript 使用 camelCase
-- [ ] 复杂逻辑有清晰的文档说明
-
-### 测试优先开发（TDD - 非协商项）
-
-- [ ] 所有新功能都规划了测试优先的开发流程
-- [ ] 契约测试覆盖所有 MCP 工具接口和 CLI 命令
-- [ ] 测试覆盖率目标：核心功能 ≥80%，关键路径 100%
-
-### 用户体验一致性
-
-- [ ] CLI 参数命名遵循现有模式（--task、--dry-run、--json）
-- [ ] 支持 --help 参数和清晰的错误消息
-- [ ] 输出格式统一（人类可读 + 机器可解析）
-
-### 性能与效率要求
-
-- [ ] CLI 命令启动时间 < 1s，MCP 工具响应 < 500ms
-- [ ] 内存占用：Shell 脚本 < 100MB，MCP 服务器 < 200MB
-- [ ] 性能关键路径有基准测试计划
-
-### 安全与可靠性
-
-- [ ] 默认使用安全策略（--sandbox workspace-write）
-- [ ] 输入验证和敏感信息脱敏设计
-- [ ] 错误恢复和审计日志机制
+[Gates determined based on constitution file]
 
 ## Project Structure
 
@@ -198,7 +168,7 @@ _Prerequisites: research.md complete_
    - Quickstart test = story validation steps
 
 5. **Update agent file incrementally** (O(1) operation):
-   - Run `.specify/scripts/bash/update-agent-context.sh claude` **IMPORTANT**:
+   - Run `.specify/scripts/bash/update-agent-context.sh gemini` **IMPORTANT**:
      Execute it exactly as specified above. Do not add or remove any arguments.
    - If exists: Add only NEW tech from current plan
    - Preserve manual additions between markers
