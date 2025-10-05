@@ -215,264 +215,345 @@ function buildIncompatErrorPayload(
 }
 
 function toolsSpec(): ListToolsResult {
-  return {
-    tools: [
-      {
-        name: 'codex.help',
-        description:
-          'Discover available codex.* tools and see usage examples. Optionally provide a specific tool name.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            tool: { type: 'string' },
-            format: { type: 'string', enum: ['markdown', 'json'] },
+  const nameStyle = String(process.env.CODEX_MCP_NAME_STYLE || '').toLowerCase();
+  const prefix = String(process.env.CODEX_MCP_TOOL_PREFIX || '').trim();
+  const hideOriginal =
+    String(process.env.CODEX_MCP_HIDE_ORIGINAL || '') === '1' ||
+    String(process.env.CODEX_MCP_HIDE_ORIGINAL || '').toLowerCase() === 'true';
+
+  const base: ListToolsResult['tools'] = [
+    {
+      name: 'codex.help',
+      description:
+        'Discover available codex.* tools and see usage examples. Optionally provide a specific tool name.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          tool: { type: 'string' },
+          format: { type: 'string', enum: ['markdown', 'json'] },
+        },
+        additionalProperties: false,
+      },
+    },
+    // --- Aliases (underscore naming) ---
+    {
+      name: 'codex_help',
+      description: 'Alias of codex.help (same behavior).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          tool: { type: 'string' },
+          format: { type: 'string', enum: ['markdown', 'json'] },
+        },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'codex.exec',
+      description: 'Run a synchronous codex execution; returns when finished.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          args: { type: 'array', items: { type: 'string' } },
+          tag: { type: 'string' },
+          cwd: { type: 'string' },
+          approvalPolicy: {
+            type: 'string',
+            enum: ['untrusted', 'on-failure', 'on-request', 'never'],
           },
-          additionalProperties: false,
-        },
-      },
-      // --- Aliases (underscore naming) ---
-      {
-        name: 'codex_help',
-        description: 'Alias of codex.help (same behavior).',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            tool: { type: 'string' },
-            format: { type: 'string', enum: ['markdown', 'json'] },
+          sandbox: {
+            type: 'string',
+            enum: ['read-only', 'workspace-write', 'danger-full-access'],
           },
-          additionalProperties: false,
+          network: { type: 'boolean' },
+          fullAuto: { type: 'boolean' },
+          dangerouslyBypass: { type: 'boolean' },
+          profile: { type: 'string' },
+          codexConfig: { type: 'object', additionalProperties: true },
+          preset: { type: 'string' },
+          carryContext: { type: 'boolean' },
+          compressContext: { type: 'boolean' },
+          contextHead: { type: 'integer' },
+          patchMode: { type: 'boolean' },
+          requireChangeIn: { type: 'array', items: { type: 'string' } },
+          requireGitCommit: { type: 'boolean' },
+          autoCommitOnDone: { type: 'boolean' },
+          autoCommitMessage: { type: 'string' },
         },
+        additionalProperties: false,
       },
-      {
-        name: 'codex.exec',
-        description: 'Run a synchronous codex execution; returns when finished.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            args: { type: 'array', items: { type: 'string' } },
-            tag: { type: 'string' },
-            cwd: { type: 'string' },
-            approvalPolicy: {
-              type: 'string',
-              enum: ['untrusted', 'on-failure', 'on-request', 'never'],
-            },
-            sandbox: {
-              type: 'string',
-              enum: ['read-only', 'workspace-write', 'danger-full-access'],
-            },
-            network: { type: 'boolean' },
-            fullAuto: { type: 'boolean' },
-            dangerouslyBypass: { type: 'boolean' },
-            profile: { type: 'string' },
-            codexConfig: { type: 'object', additionalProperties: true },
-            preset: { type: 'string' },
-            carryContext: { type: 'boolean' },
-            compressContext: { type: 'boolean' },
-            contextHead: { type: 'integer' },
-            patchMode: { type: 'boolean' },
-            requireChangeIn: { type: 'array', items: { type: 'string' } },
-            requireGitCommit: { type: 'boolean' },
-            autoCommitOnDone: { type: 'boolean' },
-            autoCommitMessage: { type: 'string' },
+    },
+    {
+      name: 'codex_exec',
+      description: 'Alias of codex.exec (same behavior).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          args: { type: 'array', items: { type: 'string' } },
+          tag: { type: 'string' },
+          cwd: { type: 'string' },
+          approvalPolicy: {
+            type: 'string',
+            enum: ['untrusted', 'on-failure', 'on-request', 'never'],
           },
-          additionalProperties: false,
-        },
-      },
-      {
-        name: 'codex_exec',
-        description: 'Alias of codex.exec (same behavior).',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            args: { type: 'array', items: { type: 'string' } },
-            tag: { type: 'string' },
-            cwd: { type: 'string' },
-            approvalPolicy: {
-              type: 'string',
-              enum: ['untrusted', 'on-failure', 'on-request', 'never'],
-            },
-            sandbox: {
-              type: 'string',
-              enum: ['read-only', 'workspace-write', 'danger-full-access'],
-            },
-            network: { type: 'boolean' },
-            fullAuto: { type: 'boolean' },
-            dangerouslyBypass: { type: 'boolean' },
-            profile: { type: 'string' },
-            codexConfig: { type: 'object', additionalProperties: true },
-            preset: { type: 'string' },
-            carryContext: { type: 'boolean' },
-            compressContext: { type: 'boolean' },
-            contextHead: { type: 'integer' },
-            patchMode: { type: 'boolean' },
-            requireChangeIn: { type: 'array', items: { type: 'string' } },
-            requireGitCommit: { type: 'boolean' },
-            autoCommitOnDone: { type: 'boolean' },
-            autoCommitMessage: { type: 'string' },
+          sandbox: {
+            type: 'string',
+            enum: ['read-only', 'workspace-write', 'danger-full-access'],
           },
-          additionalProperties: false,
+          network: { type: 'boolean' },
+          fullAuto: { type: 'boolean' },
+          dangerouslyBypass: { type: 'boolean' },
+          profile: { type: 'string' },
+          codexConfig: { type: 'object', additionalProperties: true },
+          preset: { type: 'string' },
+          carryContext: { type: 'boolean' },
+          compressContext: { type: 'boolean' },
+          contextHead: { type: 'integer' },
+          patchMode: { type: 'boolean' },
+          requireChangeIn: { type: 'array', items: { type: 'string' } },
+          requireGitCommit: { type: 'boolean' },
+          autoCommitOnDone: { type: 'boolean' },
+          autoCommitMessage: { type: 'string' },
         },
+        additionalProperties: false,
       },
-      {
-        name: 'codex.start',
-        description: 'Start a non-blocking codex run; returns jobId immediately.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            args: { type: 'array', items: { type: 'string' } },
-            tag: { type: 'string' },
-            cwd: { type: 'string' },
-            approvalPolicy: {
-              type: 'string',
-              enum: ['untrusted', 'on-failure', 'on-request', 'never'],
-            },
-            sandbox: {
-              type: 'string',
-              enum: ['read-only', 'workspace-write', 'danger-full-access'],
-            },
-            network: { type: 'boolean' },
-            fullAuto: { type: 'boolean' },
-            dangerouslyBypass: { type: 'boolean' },
-            profile: { type: 'string' },
-            codexConfig: { type: 'object', additionalProperties: true },
-            preset: { type: 'string' },
-            carryContext: { type: 'boolean' },
-            compressContext: { type: 'boolean' },
-            contextHead: { type: 'integer' },
-            patchMode: { type: 'boolean' },
-            requireChangeIn: { type: 'array', items: { type: 'string' } },
-            requireGitCommit: { type: 'boolean' },
-            autoCommitOnDone: { type: 'boolean' },
-            autoCommitMessage: { type: 'string' },
+    },
+    {
+      name: 'codex.start',
+      description: 'Start a non-blocking codex run; returns jobId immediately.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          args: { type: 'array', items: { type: 'string' } },
+          tag: { type: 'string' },
+          cwd: { type: 'string' },
+          approvalPolicy: {
+            type: 'string',
+            enum: ['untrusted', 'on-failure', 'on-request', 'never'],
           },
-          additionalProperties: false,
-        },
-      },
-      {
-        name: 'codex_start',
-        description: 'Alias of codex.start (same behavior).',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            args: { type: 'array', items: { type: 'string' } },
-            tag: { type: 'string' },
-            cwd: { type: 'string' },
-            approvalPolicy: {
-              type: 'string',
-              enum: ['untrusted', 'on-failure', 'on-request', 'never'],
-            },
-            sandbox: {
-              type: 'string',
-              enum: ['read-only', 'workspace-write', 'danger-full-access'],
-            },
-            network: { type: 'boolean' },
-            fullAuto: { type: 'boolean' },
-            dangerouslyBypass: { type: 'boolean' },
-            profile: { type: 'string' },
-            codexConfig: { type: 'object', additionalProperties: true },
-            preset: { type: 'string' },
-            carryContext: { type: 'boolean' },
-            compressContext: { type: 'boolean' },
-            contextHead: { type: 'integer' },
-            patchMode: { type: 'boolean' },
-            requireChangeIn: { type: 'array', items: { type: 'string' } },
-            requireGitCommit: { type: 'boolean' },
-            autoCommitOnDone: { type: 'boolean' },
-            autoCommitMessage: { type: 'string' },
+          sandbox: {
+            type: 'string',
+            enum: ['read-only', 'workspace-write', 'danger-full-access'],
           },
-          additionalProperties: false,
+          network: { type: 'boolean' },
+          fullAuto: { type: 'boolean' },
+          dangerouslyBypass: { type: 'boolean' },
+          profile: { type: 'string' },
+          codexConfig: { type: 'object', additionalProperties: true },
+          preset: { type: 'string' },
+          carryContext: { type: 'boolean' },
+          compressContext: { type: 'boolean' },
+          contextHead: { type: 'integer' },
+          patchMode: { type: 'boolean' },
+          requireChangeIn: { type: 'array', items: { type: 'string' } },
+          requireGitCommit: { type: 'boolean' },
+          autoCommitOnDone: { type: 'boolean' },
+          autoCommitMessage: { type: 'string' },
         },
+        additionalProperties: false,
       },
-      {
-        name: 'codex.status',
-        description: 'Get job status (from runs/<jobId>/state.json).',
-        inputSchema: {
-          type: 'object',
-          properties: { jobId: { type: 'string' } },
-          required: ['jobId'],
-          additionalProperties: false,
-        },
-      },
-      {
-        name: 'codex_status',
-        description: 'Alias of codex.status (same behavior).',
-        inputSchema: {
-          type: 'object',
-          properties: { jobId: { type: 'string' } },
-          required: ['jobId'],
-          additionalProperties: false,
-        },
-      },
-      {
-        name: 'codex.stop',
-        description: 'Stop a running job by id.',
-        inputSchema: {
-          type: 'object',
-          properties: { jobId: { type: 'string' }, force: { type: 'boolean' } },
-          required: ['jobId'],
-          additionalProperties: false,
-        },
-      },
-      {
-        name: 'codex_stop',
-        description: 'Alias of codex.stop (same behavior).',
-        inputSchema: {
-          type: 'object',
-          properties: { jobId: { type: 'string' }, force: { type: 'boolean' } },
-          required: ['jobId'],
-          additionalProperties: false,
-        },
-      },
-      {
-        name: 'codex.list',
-        description: 'List known jobs (runs/*).',
-        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-      },
-      {
-        name: 'codex_list',
-        description: 'Alias of codex.list (same behavior).',
-        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-      },
-      {
-        name: 'codex.logs',
-        description: 'Read job log (bytes or lines mode).',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            jobId: { type: 'string' },
-            mode: { type: 'string', enum: ['bytes', 'lines'] },
-            offset: { type: 'integer' },
-            limit: { type: 'integer' },
-            offsetLines: { type: 'integer' },
-            limitLines: { type: 'integer' },
-            tailLines: { type: 'integer' },
-            grep: { type: 'string' },
+    },
+    {
+      name: 'codex_start',
+      description: 'Alias of codex.start (same behavior).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          args: { type: 'array', items: { type: 'string' } },
+          tag: { type: 'string' },
+          cwd: { type: 'string' },
+          approvalPolicy: {
+            type: 'string',
+            enum: ['untrusted', 'on-failure', 'on-request', 'never'],
           },
-          required: ['jobId'],
-          additionalProperties: false,
-        },
-      },
-      {
-        name: 'codex_logs',
-        description: 'Alias of codex.logs (same behavior).',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            jobId: { type: 'string' },
-            mode: { type: 'string', enum: ['bytes', 'lines'] },
-            offset: { type: 'integer' },
-            limit: { type: 'integer' },
-            offsetLines: { type: 'integer' },
-            limitLines: { type: 'integer' },
-            tailLines: { type: 'integer' },
-            grep: { type: 'string' },
+          sandbox: {
+            type: 'string',
+            enum: ['read-only', 'workspace-write', 'danger-full-access'],
           },
-          required: ['jobId'],
-          additionalProperties: false,
+          network: { type: 'boolean' },
+          fullAuto: { type: 'boolean' },
+          dangerouslyBypass: { type: 'boolean' },
+          profile: { type: 'string' },
+          codexConfig: { type: 'object', additionalProperties: true },
+          preset: { type: 'string' },
+          carryContext: { type: 'boolean' },
+          compressContext: { type: 'boolean' },
+          contextHead: { type: 'integer' },
+          patchMode: { type: 'boolean' },
+          requireChangeIn: { type: 'array', items: { type: 'string' } },
+          requireGitCommit: { type: 'boolean' },
+          autoCommitOnDone: { type: 'boolean' },
+          autoCommitMessage: { type: 'string' },
         },
+        additionalProperties: false,
       },
-    ],
+    },
+    {
+      name: 'codex.status',
+      description: 'Get job status (from runs/<jobId>/state.json).',
+      inputSchema: {
+        type: 'object',
+        properties: { jobId: { type: 'string' } },
+        required: ['jobId'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'codex_status',
+      description: 'Alias of codex.status (same behavior).',
+      inputSchema: {
+        type: 'object',
+        properties: { jobId: { type: 'string' } },
+        required: ['jobId'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'codex.stop',
+      description: 'Stop a running job by id.',
+      inputSchema: {
+        type: 'object',
+        properties: { jobId: { type: 'string' }, force: { type: 'boolean' } },
+        required: ['jobId'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'codex_stop',
+      description: 'Alias of codex.stop (same behavior).',
+      inputSchema: {
+        type: 'object',
+        properties: { jobId: { type: 'string' }, force: { type: 'boolean' } },
+        required: ['jobId'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'codex.list',
+      description: 'List known jobs (runs/*).',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'codex_list',
+      description: 'Alias of codex.list (same behavior).',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'codex.logs',
+      description: 'Read job log (bytes or lines mode).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          jobId: { type: 'string' },
+          mode: { type: 'string', enum: ['bytes', 'lines'] },
+          offset: { type: 'integer' },
+          limit: { type: 'integer' },
+          offsetLines: { type: 'integer' },
+          limitLines: { type: 'integer' },
+          tailLines: { type: 'integer' },
+          grep: { type: 'string' },
+        },
+        required: ['jobId'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'codex_logs',
+      description: 'Alias of codex.logs (same behavior).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          jobId: { type: 'string' },
+          mode: { type: 'string', enum: ['bytes', 'lines'] },
+          offset: { type: 'integer' },
+          limit: { type: 'integer' },
+          offsetLines: { type: 'integer' },
+          limitLines: { type: 'integer' },
+          tailLines: { type: 'integer' },
+          grep: { type: 'string' },
+        },
+        required: ['jobId'],
+        additionalProperties: false,
+      },
+    },
+  ];
+
+  // Add prefix aliases if configured
+  let tools = base.slice();
+  const addPrefixed = (prefixName: string) => {
+    const p = prefixName;
+    const defs: Array<{ from: string; to: string }> = [
+      { from: 'codex.help', to: `${p}.help` },
+      { from: 'codex.exec', to: `${p}.exec` },
+      { from: 'codex.start', to: `${p}.start` },
+      { from: 'codex.status', to: `${p}.status` },
+      { from: 'codex.stop', to: `${p}.stop` },
+      { from: 'codex.list', to: `${p}.list` },
+      { from: 'codex.logs', to: `${p}.logs` },
+      { from: 'codex_help', to: `${p}_help` },
+      { from: 'codex_exec', to: `${p}_exec` },
+      { from: 'codex_start', to: `${p}_start` },
+      { from: 'codex_status', to: `${p}_status` },
+      { from: 'codex_stop', to: `${p}_stop` },
+      { from: 'codex_list', to: `${p}_list` },
+      { from: 'codex_logs', to: `${p}_logs` },
+    ];
+    for (const d of defs) {
+      const found = base.find((t) => t.name === d.from);
+      if (found) {
+        tools.push({
+          ...found,
+          name: d.to,
+          description: found.description?.replace(
+            'Alias of codex',
+            `Alias of ${d.from.includes('.') ? 'codex' : 'codex'}`
+          ),
+        });
+      }
+    }
   };
+  if (prefix) {
+    addPrefixed(prefix);
+  }
+
+  // Optional hide originals
+  if (hideOriginal) {
+    const originals = new Set([
+      'codex.help',
+      'codex.exec',
+      'codex.start',
+      'codex.status',
+      'codex.stop',
+      'codex.list',
+      'codex.logs',
+      'codex_help',
+      'codex_exec',
+      'codex_start',
+      'codex_status',
+      'codex_stop',
+      'codex_list',
+      'codex_logs',
+    ]);
+    tools = tools.filter((t) => !originals.has(t.name));
+  }
+
+  // Name style filter
+  if (nameStyle === 'underscore-only') {
+    tools = tools.filter((t) => !t.name.includes('.'));
+  } else if (nameStyle === 'dot-only') {
+    tools = tools.filter((t) => t.name.includes('.'));
+  }
+
+  // De-duplicate by name (in case of overlap)
+  const seen = new Set<string>();
+  const uniq: typeof tools = [];
+  for (const t of tools) {
+    if (!seen.has(t.name)) {
+      seen.add(t.name);
+      uniq.push(t);
+    }
+  }
+  return { tools: uniq };
 }
 
 function toTomlValue(v: any): string {
@@ -552,6 +633,7 @@ function applyConvenienceOptions(args: string[], p: any) {
 }
 
 function normalizeToolName(n: string): string {
+  const prefix = String(process.env.CODEX_MCP_TOOL_PREFIX || '').trim();
   switch (n) {
     case 'codex_exec':
       return 'codex.exec';
@@ -568,6 +650,52 @@ function normalizeToolName(n: string): string {
     case 'codex_help':
       return 'codex.help';
     default:
+      if (prefix) {
+        // underscore prefixed
+        if (n === `${prefix}_exec`) {
+          return 'codex.exec';
+        }
+        if (n === `${prefix}_start`) {
+          return 'codex.start';
+        }
+        if (n === `${prefix}_status`) {
+          return 'codex.status';
+        }
+        if (n === `${prefix}_stop`) {
+          return 'codex.stop';
+        }
+        if (n === `${prefix}_list`) {
+          return 'codex.list';
+        }
+        if (n === `${prefix}_logs`) {
+          return 'codex.logs';
+        }
+        if (n === `${prefix}_help`) {
+          return 'codex.help';
+        }
+        // dot prefixed
+        if (n === `${prefix}.exec`) {
+          return 'codex.exec';
+        }
+        if (n === `${prefix}.start`) {
+          return 'codex.start';
+        }
+        if (n === `${prefix}.status`) {
+          return 'codex.status';
+        }
+        if (n === `${prefix}.stop`) {
+          return 'codex.stop';
+        }
+        if (n === `${prefix}.list`) {
+          return 'codex.list';
+        }
+        if (n === `${prefix}.logs`) {
+          return 'codex.logs';
+        }
+        if (n === `${prefix}.help`) {
+          return 'codex.help';
+        }
+      }
       return n;
   }
 }

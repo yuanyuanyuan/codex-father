@@ -235,6 +235,34 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
 > 在多数客户端中，完整调用名为 `mcp__<server-id>__<tool>`，其中 `<server-id>`
 > 来自你的 MCP 配置键（如 `codex-father` 或 `codex-father-prod`）。
 
+#### 命名定制（可选）
+
+- `CODEX_MCP_NAME_STYLE`：控制导出名称风格
+  - `underscore-only`（推荐，兼容 Codex 0.44 responses）
+  - `dot-only`（仅在允许 `.` 的客户端使用）
+  - 省略则两者都导出
+- `CODEX_MCP_TOOL_PREFIX`：为所有工具增加自定义前缀别名（同时提供 `prefix.*` 与
+  `prefix_*` 两种形式，受 `NAME_STYLE` 过滤）
+  - 示例：`CODEX_MCP_TOOL_PREFIX=cf` → 导出 `cf_exec`, `cf_start`, ...（如设置
+    `underscore-only` 则只留下划线版本）
+- `CODEX_MCP_HIDE_ORIGINAL`：隐藏默认的 `codex.*`/`codex_*`
+  名称，仅保留前缀别名（`1`/`true` 生效）
+
+示例（Codex 0.44 responses 下的推荐组合）：
+
+```toml
+[mcp_servers.codex-father-prod]
+command = "npx"
+args = ["-y", "@starkdev020/codex-father-mcp-server"]
+env.NODE_ENV = "production"
+env.CODEX_MCP_NAME_STYLE = "underscore-only"
+env.CODEX_MCP_TOOL_PREFIX = "cf"
+env.CODEX_MCP_HIDE_ORIGINAL = "1"
+```
+
+上述配置下，tools/list 仅会出现 `cf_exec`, `cf_start`, `cf_status`, `cf_logs`,
+`cf_stop`, `cf_list`, `cf_help`。
+
 ### `codex.help` - 工具自发现
 
 快速查看可用的 `codex.*` 方法、参数 Schema 与示例调用。无需安装 Codex
