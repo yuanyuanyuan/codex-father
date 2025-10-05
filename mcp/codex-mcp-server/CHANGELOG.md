@@ -1,9 +1,25 @@
-## [1.4.3](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.2...mcp-v1.4.3) (2025-10-05)
+## [1.5.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.3...mcp-v1.5.0) (2025-10-05)
 
+### Features
+
+- **protocol:** initialize 请求缺少 `protocolVersion` 时直接返回
+  `InvalidParams`，并在握手完成前阻断 tools 请求，避免客户端误继续调用。
+- **runtime:** 当仓库缺少 `start.sh`/`job.sh` 时启用内置 fallback
+  runtime，仍可处理 codex.exec/start/status/logs/list/stop/clean/metrics。
+- **errors:** 统一工具错误载荷，将结构化 JSON 暴露在
+  `structuredContent.error`，同时保留人类可读摘要。
+
+### Tests
+
+- 新增 `mcp_initialize_guard_e2e.sh`
+  覆盖握手校验，`mcp_fallback_exec_start.sh` + `mcp_fallback_e2e.js`
+  覆盖 fallback 模式执行路径。
+
+## [1.4.3](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.2...mcp-v1.4.3) (2025-10-05)
 
 ### Bug Fixes
 
-* **release:** prepublish 阶段强制全量编译 ([c79b402](https://github.com/yuanyuanyuan/codex-father/commit/c79b402e5130d20d60af0f2548c9581e92d5682c))
+- **release:** prepublish 阶段强制全量编译 ([c79b402](https://github.com/yuanyuanyuan/codex-father/commit/c79b402e5130d20d60af0f2548c9581e92d5682c))
 
 ## [1.4.2](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.1...mcp-v1.4.2) (2025-10-05)
 

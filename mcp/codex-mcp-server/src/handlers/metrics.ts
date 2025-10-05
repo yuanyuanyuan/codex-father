@@ -32,8 +32,13 @@ export async function handleMetrics(
       example: { name: 'codex.metrics', arguments: { states: ['running', 'failed'] } },
     });
   }
-  for (const st of states) {
-    pass.push('--state', String(st));
+  const normalizedStates = states.map((st) => String(st).trim());
+  for (const st of normalizedStates) {
+    pass.push('--state', st);
+  }
+
+  if (!ctx.jobShExists && ctx.fallback?.supportsJobs) {
+    return ctx.fallback.metrics({ states: normalizedStates });
   }
 
   const result = await run(ctx.jobSh, pass);

@@ -103,6 +103,25 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 - 确认前缀 `mcp__<server-id>__` 中的 `<server-id>` 与配置一致（如 `codex-father`
   或 `codex-father-prod`）。
 
+### 报错：-p / --instruction-override 参数已移除
+
+**症状**：CLI 直接退出并打印 `错误: -p 参数已移除` 或
+`错误: --instruction-override 参数已移除`。
+
+**原因**：自 v1.0 起，预设和任务描述仅接受长参数；旧版缩写 `-p` 与
+`--instruction-override` 已被彻底删除。
+
+**解决**：
+
+- 使用 `--preset <name>` 指定预设（如 `codex-father-preview`、`sprint`）。
+- 使用 `--task <text>` 传递任务说明；`--tag <name>`
+  可选但强烈推荐，方便按标签检索日志。
+- 对于 MCP 客户端，请更新工具调用参数为
+  `{"args":["--preset","codex-father-preview","--task","……","--tag","your-tag"]}`。
+- Codex CLI 会在启动前估算上下文体积：若任务输入超过默认
+  `INPUT_TOKEN_LIMIT=32000`（以 tokens 粗略估算），会即时拒绝并提示拆分；可根据需要在调用环境中调整
+  `INPUT_TOKEN_LIMIT`/`INPUT_TOKEN_SOFT_LIMIT`。
+
 ## ❌ 命令执行失败
 
 ### 症状

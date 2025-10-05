@@ -278,6 +278,9 @@ while [[ $# -gt 0 ]]; do
     --overflow-retries)
       [[ $# -ge 2 ]] || { echo "错误: --overflow-retries 需要一个数字参数" >&2; exit 2; }
       ON_CONTEXT_OVERFLOW_MAX_RETRIES="${2}"; shift 2 ;;
+    -p)
+      echo "错误: -p 参数已移除。请使用 --preset <name>，并搭配 --task <text>（建议加上 --tag <name>）" >&2
+      exit 2 ;;
     --preset)
       [[ $# -ge 2 ]] || { echo "错误: --preset 需要一个名称 (sprint|analysis|secure|fast)" >&2; exit 2; }
       PRESET_NAME="${2}"; shift 2 ;;
@@ -314,6 +317,9 @@ while [[ $# -gt 0 ]]; do
         echo "错误: 目录不存在: $DOCS_DIR_IN" >&2; exit 2
       fi
       shift 2 ;;
+    --instruction-override)
+      echo "错误: --instruction-override 参数已移除。请使用 --task <text> 传递任务说明，并搭配 --tag <name> 区分日志" >&2
+      exit 2 ;;
     --task)
       [[ $# -ge 2 ]] || { echo "错误: --task 需要文本参数" >&2; exit 2; }
       SRC_TYPES+=("C"); SRC_VALUES+=("${2}"); shift 2 ;;
@@ -430,6 +436,7 @@ if [[ -n "${CODEX_LOG_TAG}" ]]; then
   SAFE_TAG="$(printf '%s' "${CODEX_LOG_TAG}" | tr -cs 'A-Za-z0-9_.-' '-' | sed 's/^-\+//; s/-\+$//')"
   TAG_SUFFIX="-${SAFE_TAG}"
 else
+  echo "[hint] 未指定 --tag，日志目录将使用默认标签 untagged；建议调用时通过 --tag <name> 区分任务" >&2
   TAG_SUFFIX=""
 fi
 TS="$(date +%Y%m%d_%H%M%S)"

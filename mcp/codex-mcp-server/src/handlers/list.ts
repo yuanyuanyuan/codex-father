@@ -47,8 +47,9 @@ export async function handleList(
       example: { name: 'codex.list', arguments: { state: ['running', 'completed'], limit: 10 } },
     });
   }
-  for (const st of states) {
-    pass.push('--state', String(st));
+  const normalizedStates = states.map((st) => String(st).trim());
+  for (const st of normalizedStates) {
+    pass.push('--state', st);
   }
   if (params.tagContains !== undefined) {
     if (typeof params.tagContains !== 'string' || !params.tagContains.trim()) {
@@ -61,6 +62,10 @@ export async function handleList(
     }
     pass.push('--tag-contains', params.tagContains.trim());
   }
+  const tagContains =
+    typeof params.tagContains === 'string' && params.tagContains.trim()
+      ? params.tagContains.trim()
+      : undefined;
   const parsedLimit = parseOptionalInteger(params.limit);
   if (parsedLimit === null || (parsedLimit !== undefined && parsedLimit < 0)) {
     return createErrorResult({
@@ -84,6 +89,14 @@ export async function handleList(
   }
   if (parsedOffset !== undefined) {
     pass.push('--offset', String(parsedOffset));
+  }
+  if (!ctx.jobShExists && ctx.fallback?.supportsJobs) {
+    return ctx.fallback.list({
+      states: normalizedStates,
+      tagContains,
+      limit: parsedLimit,
+      offset: parsedOffset,
+    });
   }
   const result = await run(ctx.jobSh, pass);
   if (result.code !== 0) {

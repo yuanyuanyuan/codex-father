@@ -29,6 +29,9 @@ export async function handleStop(
       },
     });
   }
+  if (!ctx.jobShExists && ctx.fallback?.supportsJobs) {
+    return ctx.fallback.stop(jobId, Boolean(params.force));
+  }
   const pass = ['stop', jobId, '--json'];
   if (params.force) {
     pass.push('--force');

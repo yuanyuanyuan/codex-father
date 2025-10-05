@@ -50,7 +50,11 @@ export async function handleLogs(
       },
     });
   }
-  const baseDir = params.cwd ? String(params.cwd) : path.dirname(ctx.jobSh);
+  const baseDir = params.cwd
+    ? String(params.cwd)
+    : ctx.jobShExists
+      ? path.dirname(ctx.jobSh)
+      : ctx.projectRoot;
   const sessionsRoot = path.resolve(baseDir, '.codex-father', 'sessions');
   const logFile = path.join(sessionsRoot, jobId, 'job.log');
   if (!fs.existsSync(logFile)) {

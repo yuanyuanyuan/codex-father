@@ -23,6 +23,9 @@ export async function handleStatus(
       example: { name: 'codex.status', arguments: { jobId: 'cdx-20240313_090000-demo' } },
     });
   }
+  if (!ctx.jobShExists && ctx.fallback?.supportsJobs) {
+    return ctx.fallback.status(jobId);
+  }
   const pass = ['status', jobId, '--json'] as string[];
   const base = params.cwd ? String(params.cwd) : path.dirname(ctx.jobSh);
   if (base) {

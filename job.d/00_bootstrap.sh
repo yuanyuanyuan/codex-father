@@ -49,9 +49,29 @@ err() { echo "$*" >&2; }
 now_iso() { date -u "+%Y-%m-%dT%H:%M:%SZ"; }
 
 sessions_dir() {
-  # Usage: sessions_dir [base_dir]
-  local base="${1:-$PWD}"
+  # Usage: sessions_dir [workspace_dir]
+  local hint="${1:-}"
+  if [[ -n "${CODEX_SESSIONS_ROOT:-}" ]]; then
+    printf '%s' "${CODEX_SESSIONS_ROOT%/}"
+    return
+  fi
+  local base
+  if [[ -n "$hint" ]]; then
+    base="$hint"
+  else
+    base="$JOB_ROOT_DIR"
+  fi
   printf '%s/.codex-father/sessions' "$base"
+}
+
+resolve_workspace_base() {
+  # Usage: resolve_workspace_base [cwd_override]
+  local explicit="${1:-}"
+  if [[ -n "$explicit" ]]; then
+    printf '%s' "$explicit"
+  else
+    printf '%s' "$JOB_ROOT_DIR"
+  fi
 }
 
 safe_tag() {

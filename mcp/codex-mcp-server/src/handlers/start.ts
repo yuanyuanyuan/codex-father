@@ -16,6 +16,9 @@ export async function handleStart(
   if (jobMissing) {
     return jobMissing;
   }
+  if (!(ctx.jobShExists && ctx.startShExists) && ctx.fallback?.supportsJobs) {
+    return ctx.fallback.start(params);
+  }
   if (!ctx.startShExists) {
     return createErrorResult({
       code: 'START_SH_NOT_FOUND',
