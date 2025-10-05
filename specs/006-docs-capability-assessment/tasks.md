@@ -53,10 +53,10 @@
       `contracts/orchestrate.cli.md` in
       `core/cli/tests/orchestrate-exit.contract.test.ts`
       （npx vitest run core/cli/tests/orchestrate-exit.contract.test.ts）
-- [ ] T007 [P] Schema test: stream events conform to
+- [x] T007 [P] Schema test: stream events conform to
       `docs/schemas/stream-json-event.schema.json` in
       `core/orchestrator/tests/events.schema.test.ts`
-      （docs/schemas/stream-json-event.schema.json 缺少 concurrency/resource/patch 事件枚举）
+      （已补全事件枚举，保持与契约一致：start/task_scheduled/task_started/tool_use/task_completed/task_failed/patch_applied/patch_failed/concurrency_reduced/concurrency_increased/resource_exhausted/cancel_requested/orchestration_completed/orchestration_failed；见 docs/schemas/stream-json-event.schema.json）
 - [x] T008 [P] Data model test: zod schemas for Orchestration/Task/Agent/Patch
       in `core/orchestrator/tests/data-model.test.ts` based on `data-model.md`
       （core/orchestrator/types.ts 导出 Orchestration/Task/Agent/Patch schema）
@@ -299,4 +299,3 @@ Task: "JSON/JSONL contracts & redaction"   (core/orchestrator/tests/json-output.
   1. T031（core/orchestrator/tests/task-decomposer.manual.test.ts）—补齐 TaskDecomposer 手动模式实现以解锁后续依赖
   2. T037（core/orchestrator/tests/json-output.contract.test.ts）—补上 orchestrate JSON summary 分支
   3. T039（core/orchestrator/tests/redaction.security.test.ts）—实现事件/日志脱敏管线
-
