@@ -1,3 +1,10 @@
+## [1.4.3](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.2...mcp-v1.4.3) (2025-10-05)
+
+
+### Bug Fixes
+
+* **release:** prepublish 阶段强制全量编译 ([c79b402](https://github.com/yuanyuanyuan/codex-father/commit/c79b402e5130d20d60af0f2548c9581e92d5682c))
+
 ## [1.4.2](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.1...mcp-v1.4.2) (2025-10-05)
 
 ### Bug Fixes
