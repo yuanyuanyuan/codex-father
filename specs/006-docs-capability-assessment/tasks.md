@@ -89,9 +89,10 @@
 - [ ] T036 [P] Task understanding restatement check (fail on mismatch) in
       `core/orchestrator/tests/understanding-check.test.ts`
       （实现已添加：core/orchestrator/understanding-check.ts；可插拔 evaluator，失败抛出问题点）
-- [ ] T037 [P] Contract test: JSON summary output mode in
+- [x] T037 [P] Contract test: JSON summary output mode in
       `core/orchestrator/tests/json-output.contract.test.ts`
       （orchestrate-command.ts 尚未输出 JSON summary 模式）
+      （core/orchestrator/tests/json-output.contract.test.ts 已存在）
 - [ ] T038 [P] Contract test: JSONL audit log append-only + required fields in
       `core/orchestrator/tests/audit-jsonl.contract.test.ts`
       （state-manager.ts 未实现 emitEvent 与 JSONL 追加）
