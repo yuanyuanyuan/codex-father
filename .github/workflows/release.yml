@@ -41,7 +41,7 @@ jobs:
 
       - name: Install dependencies (mcp package)
         working-directory: mcp/codex-mcp-server
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Build (mcp package)
         working-directory: mcp/codex-mcp-server

@@ -29,6 +29,7 @@ function printHelp() {
     '  --transport    指定传输协议：',
     '                 - ndjson（默认，与 @modelcontextprotocol/sdk stdio 行为一致）',
     '                 - content-length（兼容 Content-Length 分帧的客户端）',
+    '                 提示：若你的客户端严格要求 Content-Length，请显式添加 --transport=content-length。',
     '  --help, -h     显示本帮助信息后退出。',
     '  --version, -V  显示版本信息后退出。',
     '',
