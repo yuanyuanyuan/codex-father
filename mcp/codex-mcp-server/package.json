@@ -1,6 +1,6 @@
 {
   "name": "@starkdev020/codex-father-mcp-server",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "MCP server for Codex Father, implemented with @modelcontextprotocol/sdk. Exposes codex.start/status/logs/stop/list tools by delegating to job.sh.",
   "type": "module",
   "license": "MIT",

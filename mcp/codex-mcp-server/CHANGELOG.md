@@ -1,3 +1,10 @@
+## [1.4.2](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.1...mcp-v1.4.2) (2025-10-05)
+
+
+### Bug Fixes
+
+* **release:** prepublish 前自动构建 ([7ab7138](https://github.com/yuanyuanyuan/codex-father/commit/7ab7138c24e6d9d467b3a864b29804414edb4f35))
+
 ## [1.4.1](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.0...mcp-v1.4.1) (2025-10-05)
 
 
