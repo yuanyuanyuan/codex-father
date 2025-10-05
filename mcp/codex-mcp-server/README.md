@@ -225,6 +225,32 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
 
 ## 🛠️ MCP 工具详解
 
+### `codex.help` - 工具自发现
+
+快速查看可用的 `codex.*` 方法、参数 Schema 与示例调用。无需安装 Codex
+CLI 也可运行。
+
+示例（显示所有工具与示例）：
+
+```json
+{
+  "name": "codex.help",
+  "arguments": { "format": "markdown" }
+}
+```
+
+查看单个工具详情（JSON 格式，便于程序消费）：
+
+```json
+{
+  "name": "codex.help",
+  "arguments": { "tool": "codex.exec", "format": "json" }
+}
+```
+
+> 提示：在多数客户端中，完整调用名为 `mcp__<server-id>__<tool>`；`<server-id>`
+> 为你的 MCP 配置键名（如 `codex-father` 或 `codex-father-prod`）。
+
 ### `codex.exec` - 同步执行
 
 阻塞执行直到任务完成，适合快速任务。

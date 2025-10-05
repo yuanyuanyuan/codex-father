@@ -218,6 +218,19 @@ function toolsSpec(): ListToolsResult {
   return {
     tools: [
       {
+        name: 'codex.help',
+        description:
+          'Discover available codex.* tools and see usage examples. Optionally provide a specific tool name.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            tool: { type: 'string' },
+            format: { type: 'string', enum: ['markdown', 'json'] },
+          },
+          additionalProperties: false,
+        },
+      },
+      {
         name: 'codex.exec',
         description: 'Run a synchronous codex execution; returns when finished.',
         inputSchema: {
@@ -415,6 +428,127 @@ async function handleCall(req: CallToolRequest) {
   const name = req.params.name;
   const p = (req.params.arguments ?? {}) as any;
   try {
+    // 提前处理 help，不依赖本地 codex 可用性
+    if (name === 'codex.help') {
+      const spec = toolsSpec();
+      const fmt = (p.format || 'markdown') as 'markdown' | 'json';
+      const wanted = typeof p.tool === 'string' ? String(p.tool) : '';
+
+      function sampleArgsFor(toolName: string): any {
+        switch (toolName) {
+          case 'codex.exec':
+            return {
+              args: ['--task', '分析项目代码质量，给出改进建议'],
+              sandbox: 'read-only',
+              approvalPolicy: 'on-request',
+            };
+          case 'codex.start':
+            return {
+              args: ['--task', '重构认证模块'],
+              tag: 'refactor-auth',
+              sandbox: 'workspace-write',
+            };
+          case 'codex.status':
+            return { jobId: 'job-abc123' };
+          case 'codex.logs':
+            return { jobId: 'job-abc123', mode: 'lines', tailLines: 50 };
+          case 'codex.stop':
+            return { jobId: 'job-abc123', force: true };
+          case 'codex.list':
+            return {};
+          default:
+            return {};
+        }
+      }
+
+      function mdForTool(t: any): string {
+        const ex = sampleArgsFor(t.name);
+        const jsonEx = JSON.stringify({ name: t.name, arguments: ex }, null, 2);
+        return [
+          `### ${t.name}`,
+          '',
+          t.description || '',
+          '',
+          '**调用示例 (tools/call)**',
+          '```json',
+          jsonEx,
+          '```',
+        ].join('\n');
+      }
+
+      if (wanted) {
+        const t = spec.tools.find((x) => x.name === wanted);
+        if (!t) {
+          return {
+            content: [{ type: 'text', text: `ERROR: Unknown tool: ${wanted}` }],
+            isError: true,
+          };
+        }
+        if (fmt === 'json') {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    tool: t,
+                    example: { name: t.name, arguments: sampleArgsFor(t.name) },
+                    clientHints: {
+                      info: '在多数客户端中，完整调用名为 mcp__<server-id>__<tool>；其中 <server-id> 是你配置的 mcpServers 的键名（例如 codex-father 或 codex-father-prod）。',
+                    },
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        }
+        const out = [
+          '# codex.help',
+          '',
+          mdForTool(t),
+          '',
+          '提示：在多数客户端中，完整调用名为 `mcp__<server-id>__<tool>`，其中 `<server-id>` 来自你的 MCP 配置键（如 `codex-father-prod`）。',
+        ].join('\n');
+        return { content: [{ type: 'text', text: out }] };
+      }
+
+      if (fmt === 'json') {
+        const items = spec.tools.map((t) => ({
+          tool: t,
+          example: { name: t.name, arguments: sampleArgsFor(t.name) },
+        }));
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  tools: items,
+                  clientHints: {
+                    info: '完整调用名通常为 mcp__<server-id>__<tool>；<server-id> 是配置键名（例如 codex-father / codex-father-prod）。',
+                  },
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+      const md = [
+        '# Codex Father — 工具总览',
+        '',
+        '以下是可用的 MCP 工具以及示例调用：',
+        '',
+        ...spec.tools.map((t) => mdForTool(t)),
+        '',
+        '提示：在多数客户端中，完整调用名为 `mcp__<server-id>__<tool>`，其中 `<server-id>` 来自你的 MCP 配置键（如 `codex-father` 或 `codex-father-prod`）。',
+      ].join('\n');
+      return { content: [{ type: 'text', text: md }] };
+    }
+
     // 版本与入参严格校验（不匹配时直接拒绝执行）
     const version = await detectCodexVersion();
     const rawArgs = Array.isArray(p.args) ? p.args : [];
