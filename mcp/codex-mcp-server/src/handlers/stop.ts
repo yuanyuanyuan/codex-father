@@ -29,9 +29,7 @@ export async function handleStop(
       },
     });
   }
-  if (!ctx.jobShExists && ctx.fallback?.supportsJobs) {
-    return ctx.fallback.stop(jobId, Boolean(params.force));
-  }
+  // 不再启用 fallback，缺失时由 ensureJobSh 返回明确错误
   const pass = ['stop', jobId, '--json'];
   if (params.force) {
     pass.push('--force');

@@ -33,14 +33,15 @@
     ".": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "assets/runtime"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/index.ts",
     "check:dist": "node ./scripts/check-dist.mjs",
     "prepare": "npm run build",
-    "prepublishOnly": "npm exec -- tsc --build tsconfig.json --force && npm run check:dist"
+    "prepublishOnly": "node ./scripts/copy-runtime.mjs && npm exec -- tsc --build tsconfig.json --force && npm run check:dist"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.1"

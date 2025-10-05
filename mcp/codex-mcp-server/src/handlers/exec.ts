@@ -19,9 +19,7 @@ export async function handleExec(
   if (startMissing) {
     return startMissing;
   }
-  if (!ctx.startShExists && ctx.fallback?.supportsSyncExec) {
-    return ctx.fallback.exec(params);
-  }
+  // 不再启用 fallback，缺失时由 ensureStartSh 返回明确错误
   const args: string[] = Array.isArray(params.args) ? params.args.map(String) : [];
   applyConvenienceOptions(args, params);
   const tag = params.tag ? String(params.tag) : '';

@@ -17,6 +17,7 @@ import { CliLogger } from './logger.js';
 import { toolsSpec } from './tools/spec.js';
 import { handleCall } from './handlers/index.js';
 import { resolvePaths } from './utils/resolvePaths.js';
+import { ensureEmbeddedRuntime } from './utils/installRuntime.js';
 import { createTransport, describeTransport } from './transport/factory.js';
 import type { HandlerContext } from './handlers/types.js';
 import { FallbackRuntime } from './fallback/runtime.js';
@@ -77,11 +78,27 @@ async function main() {
   const envConfig = parseEnv();
   const logger = new CliLogger(envConfig.logLevel);
 
-  const resolvedPaths = resolvePaths();
-  const fallbackRuntime =
-    !resolvedPaths.jobSh.exists || !resolvedPaths.startSh.exists
-      ? new FallbackRuntime(resolvedPaths.projectRoot, logger)
-      : null;
+  // Resolve scripts; if missing, attempt to install embedded runtime into .codex-father
+  let resolvedPaths = resolvePaths();
+  if (!resolvedPaths.jobSh.exists || !resolvedPaths.startSh.exists) {
+    const install = ensureEmbeddedRuntime(resolvedPaths.projectRoot);
+    if (install.jobShPath && install.startShPath) {
+      const fs = require('node:fs');
+      const jobExists = fs.existsSync(install.jobShPath);
+      const startExists = fs.existsSync(install.startShPath);
+      if (jobExists && startExists) {
+        resolvedPaths = {
+          projectRoot: resolvedPaths.projectRoot,
+          jobSh: { path: install.jobShPath, exists: true },
+          startSh: { path: install.startShPath, exists: true },
+        };
+        logger.info(`已安装内置脚本到 ${install.destRoot} 并将使用该副本。`);
+      }
+    }
+  }
+
+  // Do NOT enable fallback: if still missing, handlers will return explicit errors.
+  const fallbackRuntime = null;
 
   const banner = [
     `${pkg.name || 'codex-mcp-server'} v${pkg.version || 'unknown'} (${process.pid})`,
@@ -119,17 +136,14 @@ async function main() {
   };
 
   if (!context.jobShExists) {
-    logger.warn(
-      `未在 ${context.jobSh} 找到 job.sh，可通过 CODEX_MCP_PROJECT_ROOT 或 CODEX_JOB_SH 覆盖。`
+    logger.error(
+      `未在 ${context.jobSh} 找到 job.sh。将对相关工具直接报错，请设置 CODEX_MCP_PROJECT_ROOT 或 CODEX_JOB_SH 指向包含脚本的目录。`
     );
   }
   if (!context.startShExists) {
-    logger.warn(
-      `未在 ${context.startSh} 找到 start.sh，可通过 CODEX_MCP_PROJECT_ROOT 或 CODEX_START_SH 覆盖。`
+    logger.error(
+      `未在 ${context.startSh} 找到 start.sh。将对相关工具直接报错，请设置 CODEX_MCP_PROJECT_ROOT 或 CODEX_START_SH 指向包含脚本的目录。`
     );
-  }
-  if (fallbackRuntime) {
-    logger.warn('未检测到核心脚本，已启用 fallback 执行模式。');
   }
 
   const server = new Server(
