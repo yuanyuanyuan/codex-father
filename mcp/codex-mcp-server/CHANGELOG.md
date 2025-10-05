@@ -1,3 +1,20 @@
+# [1.4.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.3.0...mcp-v1.4.0) (2025-10-05)
+
+
+### Bug Fixes
+
+* **docs:** update log file paths in quick-start and troubleshooting guides ([1ac44fb](https://github.com/yuanyuanyuan/codex-father/commit/1ac44fb0e434f2e5f991e74c53f951435b938ed5))
+
+
+### Features
+
+* Add feature specification and task generation commands ([865143e](https://github.com/yuanyuanyuan/codex-father/commit/865143e16c4d568ca11b445689a5fc021e93c18b))
+* **github:** add Gemini-powered GitHub Actions workflows ([0c775a2](https://github.com/yuanyuanyuan/codex-father/commit/0c775a2e61e8e8b8a160b06e10e84e1cf668e06b))
+* **mcp:** add codex.help discovery tool and docs ([cb2de48](https://github.com/yuanyuanyuan/codex-father/commit/cb2de48bdfb1f0e632677747cb34d2a7ca67dde9))
+* **mcp:** add startup hint for Content-Length clients; ci: use npm ci --legacy-peer-deps in release workflow ([d155ec5](https://github.com/yuanyuanyuan/codex-father/commit/d155ec58a27bc282aeb417fb0580cf60bba8c664))
+* **mcp:** add underscore tool aliases (codex_*), update docs and quick-start/troubleshooting ([c2c88a6](https://github.com/yuanyuanyuan/codex-father/commit/c2c88a6efea642481f4921798d4919d5b306a2ca))
+* **mcp:** configurable tool prefix (CODEX_MCP_TOOL_PREFIX) + hide originals (CODEX_MCP_HIDE_ORIGINAL); docs + e2e ([300fb81](https://github.com/yuanyuanyuan/codex-father/commit/300fb8178d3ea81e995d336b8be469f187bfa639))
+
 # [1.3.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.2.0...mcp-v1.3.0) (2025-10-05)
 
 
