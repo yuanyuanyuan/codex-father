@@ -70,9 +70,10 @@
 
 ### Additional Tests for Missing FR/NFR Coverage
 
-- [ ] T031 [P] TaskDecomposer manual mode + cycle detection in
+- [x] T031 [P] TaskDecomposer manual mode + cycle detection in
       `core/orchestrator/tests/task-decomposer.manual.test.ts`
       （实现已添加：core/orchestrator/task-decomposer.ts；待按契约执行测试与验证）
+      （实现：core/orchestrator/task-decomposer.ts；测试：core/orchestrator/tests/task-decomposer.manual.test.ts）
 - [ ] T032 [P] TaskDecomposer LLM mode (structured output parsing with mocked
       codex) in `core/orchestrator/tests/task-decomposer.llm.test.ts`
       （实现已包含 LLM 模式解析与错误处理：core/orchestrator/task-decomposer.ts；待验证）
