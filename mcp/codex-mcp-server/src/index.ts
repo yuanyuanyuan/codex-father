@@ -25,7 +25,7 @@ import { FallbackRuntime } from './fallback/runtime.js';
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json') as { name?: string; version?: string };
 
-function printHelp() {
+function printHelp(): void {
   const binary = pkg.name || 'codex-mcp-server';
   const lines = [
     `${binary} v${pkg.version || 'unknown'} — Codex Father MCP Server`,
@@ -57,12 +57,12 @@ function printHelp() {
   process.stdout.write(`${lines.join('\n')}\n`);
 }
 
-function printVersion() {
+function printVersion(): void {
   const binary = pkg.name || 'codex-mcp-server';
   process.stdout.write(`${binary} ${pkg.version || 'unknown'}\n`);
 }
 
-async function main() {
+async function main(): Promise<void> {
   const parsedCli = parseCliArgs(process.argv.slice(2));
 
   if (parsedCli.showHelp) {
@@ -92,7 +92,25 @@ async function main() {
           jobSh: { path: install.jobShPath, exists: true },
           startSh: { path: install.startShPath, exists: true },
         };
-        logger.info(`已安装内置脚本到 ${install.destRoot} 并将使用该副本。`);
+        if (install.updatedFiles.length || install.removedFiles.length || install.installed) {
+          const changed = install.updatedFiles.length + install.removedFiles.length;
+          logger.info(
+            `已同步内置脚本 (${changed} 项变更) 至 ${install.destRoot}，runtime 版本 ${install.runtimeVersion}。`
+          );
+          if (install.removedFiles.length) {
+            logger.info(`已移除过期脚本：${install.removedFiles.map((file) => file).join(', ')}`);
+          }
+        } else {
+          logger.info(`已安装内置脚本到 ${install.destRoot} 并将使用该副本。`);
+        }
+        if (install.skippedFiles.length) {
+          logger.warn(
+            `检测到 ${install.skippedFiles.length} 个已手动修改的脚本未被覆盖：${install.skippedFiles.join(', ')}`
+          );
+          logger.warn(
+            `如果需要恢复官方副本，可删除上述文件或人工备份后重新运行 ${pkg.name || 'codex-mcp-server'}。`
+          );
+        }
       }
     }
   }
@@ -180,7 +198,7 @@ async function main() {
     });
   }
 
-  const ensureInitialized = (method: string) => {
+  const ensureInitialized = (method: string): void => {
     if (!initializeSucceeded) {
       throw new McpError(ErrorCode.InvalidRequest, '尚未完成 MCP initialize 握手。', {
         method,
@@ -197,16 +215,16 @@ async function main() {
     return handleCall(req, context);
   });
 
-  server.oninitialized = () => {
+  server.oninitialized = (): void => {
     initializeSucceeded = true;
     logger.info('已完成 MCP initialize 握手。');
   };
 
-  server.onclose = () => {
+  server.onclose = (): void => {
     logger.warn('传输已关闭，进程将退出。');
   };
 
-  server.onerror = (error: unknown) => {
+  server.onerror = (error: unknown): void => {
     const err = error instanceof Error ? error : new Error(String(error));
     logger.error(`传输错误：${err.message}`);
     if (/content-length/i.test(err.message)) {
@@ -216,7 +234,7 @@ async function main() {
 
   const transport = createTransport(parsedCli.transport, logger);
   let shuttingDown = false;
-  const shutdown = async (signal: NodeJS.Signals) => {
+  const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     if (shuttingDown) {
       return;
     }

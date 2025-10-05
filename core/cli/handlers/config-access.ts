@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync, chmodSync
 import { resolve, join } from 'node:path';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import type { DecipherGCM } from 'node:crypto';
+import { PROJECT_VERSION } from '../../lib/version.js';
 
 export interface ConfigMetadata {
   createdAt: string;
@@ -118,7 +119,7 @@ function ensureConfigDirectory(baseDirectory: string): {
       metadata: {
         createdAt: now,
         updatedAt: now,
-        version: '1.0.0',
+        version: PROJECT_VERSION,
       },
     };
     writeFileSync(configPath, JSON.stringify(initial, null, 2), 'utf8');
@@ -147,7 +148,7 @@ function loadStore(configPath: string): ConfigStore {
       metadata: parsed.metadata ?? {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        version: '1.0.0',
+        version: PROJECT_VERSION,
       },
     };
   } catch (error) {

@@ -17,7 +17,7 @@ export interface LogRotateOptions {
 export class LogStorage {
   constructor(private baseDir = 'logs') {}
 
-  private ensureDir(path: string) {
+  private ensureDir(path: string): void {
     const dir = dirname(path);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });

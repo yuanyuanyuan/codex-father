@@ -17,14 +17,18 @@
 
 - `CODEX_JOB_SH`
   - 作用：覆盖 `job.sh` 路径，管理 start/status/stop/list 等异步作业
-  - 默认：优先用 `CWD/job.sh`，否则包内 `<repo-root>/job.sh`
+  - 默认：优先使用
+    `<repo-root>/.codex-father/job.sh`（MCP 启动时自动同步内置脚本），若手动提供
+    `CODEX_JOB_SH` 或顶层 `job.sh` 可覆盖
   - 取值：任意可执行路径
   - 来源：mcp/codex-mcp-server/src/index.ts:19
 
 - `CODEX_START_SH`
   - 作用：覆盖 `start.sh` 路径；若设置，则 `codex.start` 走“stub”直调 `start.sh`
     分支
-  - 默认：优先用 `CWD/start.sh`，否则包内 `<repo-root>/start.sh`
+  - 默认：优先使用
+    `<repo-root>/.codex-father/start.sh`（由 MCP 自动落地并保持更新），若显式指定或顶层存在
+    `start.sh` 则覆盖
   - 取值：任意可执行路径
   - 来源：mcp/codex-mcp-server/src/index.ts:37（stub 检测见 937）
 

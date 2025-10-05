@@ -100,6 +100,7 @@ TaskOutput:
 
 ## 约束与校验
 
-- 成功判定：successRate ≥ threshold 且 审计日志中无 `patch_failed` 记录（流式事件不包含该枚举）
+- 成功判定：successRate ≥ threshold 且 审计日志中无 `patch_failed`
+  记录（流式事件不包含该枚举）
 - 依赖：拓扑排序，无循环；违反即拒绝执行
 - 快速校验：缺失可执行工具链则判失败（FAST_VALIDATE_UNAVAILABLE）

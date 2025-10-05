@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.codex-father/
+.git/
+coverage/
+.nyc_output/
+tmp/
+refer-research/
+specs/
+docs/
+test-results/
+*.tsbuildinfo*
+mcp/codex-mcp-server/node_modules/
+mcp/codex-mcp-server/dist/

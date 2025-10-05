@@ -24,7 +24,7 @@ export interface TaskFilter {
   updatedAfter?: Date;
   hasError?: boolean;
   hasResult?: boolean;
-  payloadContains?: Record<string, any>;
+  payloadContains?: Record<string, unknown>;
 }
 
 /**
@@ -434,8 +434,8 @@ export class TaskStatusQuery {
    */
   private applySort(tasks: Task[], sort: TaskSortOptions): Task[] {
     return tasks.sort((a, b) => {
-      let valueA: any;
-      let valueB: any;
+      let valueA: number | string = 0;
+      let valueB: number | string = 0;
 
       switch (sort.field) {
         case 'createdAt':

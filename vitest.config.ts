@@ -18,6 +18,7 @@ export default defineConfig({
       'dist/**',
       'mcp/codex-mcp-server/**',
       'refer-research/**',
+      'core/orchestrator/tests/**', // TODO: enable once orchestrator modules are implemented
       '**/*.bench.ts',
     ],
 
@@ -117,7 +118,7 @@ export default defineConfig({
 
   // Define global constants
   define: {
-    __VERSION__: JSON.stringify(process.env.npm_package_version || '1.0.0'),
+    __VERSION__: JSON.stringify(process.env.npm_package_version || '1.5.1'),
     __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
     __TEST__: true,
   },

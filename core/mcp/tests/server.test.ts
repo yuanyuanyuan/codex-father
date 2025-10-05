@@ -11,6 +11,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MCPServer, createMCPServer, startMCPServer } from '../server.js';
+import { PROJECT_VERSION } from '../../lib/version.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createProcessManager, type SingleProcessManager } from '../../process/manager.js';
@@ -103,6 +104,7 @@ describe('MCPServer', () => {
         rolloutPath: '/path/to/rollout',
       }),
       sendUserMessage: vi.fn().mockResolvedValue(undefined),
+      getJobIdByConversationId: vi.fn().mockReturnValue('job-123'),
     };
     vi.mocked(createSessionManager).mockReturnValue(mockSessionManager);
 
@@ -152,7 +154,7 @@ describe('MCPServer', () => {
       const info = server.getServerInfo();
 
       expect(info.name).toBe('codex-father');
-      expect(info.version).toBe('1.0.0-mvp1');
+      expect(info.version).toBe(PROJECT_VERSION);
     });
 
     it('应该使用自定义配置', () => {
@@ -173,7 +175,7 @@ describe('MCPServer', () => {
       expect(Server).toHaveBeenCalledWith(
         {
           name: 'codex-father',
-          version: '1.0.0-mvp1',
+          version: PROJECT_VERSION,
         },
         {
           capabilities: {
@@ -411,7 +413,7 @@ describe('MCPServer', () => {
 
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[MCPServer] Starting'));
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[MCPServer] Started: codex-father v1.0.0-mvp1')
+        expect.stringContaining(`[MCPServer] Started: codex-father v${PROJECT_VERSION}`)
       );
 
       consoleSpy.mockRestore();

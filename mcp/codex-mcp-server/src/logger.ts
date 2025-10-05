@@ -19,33 +19,33 @@ export class CliLogger {
     this.level = level;
   }
 
-  setLevel(level: LogLevel) {
+  setLevel(level: LogLevel): void {
     this.level = level;
   }
 
-  debug(message: string) {
+  debug(message: string): void {
     this.log('debug', message);
   }
 
-  info(message: string) {
+  info(message: string): void {
     this.log('info', message);
   }
 
-  warn(message: string) {
+  warn(message: string): void {
     this.log('warn', message);
   }
 
-  error(message: string) {
+  error(message: string): void {
     this.log('error', message);
   }
 
-  banner(lines: string[]) {
+  banner(lines: string[]): void {
     for (const line of lines) {
       this.info(line);
     }
   }
 
-  private log(level: LogLevel, message: string) {
+  private log(level: LogLevel, message: string): void {
     if (LOG_LEVEL_PRIORITY[level] < LOG_LEVEL_PRIORITY[this.level]) {
       return;
     }

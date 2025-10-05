@@ -9,6 +9,27 @@ import { existsSync, mkdirSync } from 'fs';
 import type { LoggingConfig, LogOutput } from '../lib/types.js';
 import { getConfig, getConfigValue, isConfigLoaded } from './config-loader.js';
 
+type LogMetadata = Record<string, unknown>;
+
+interface ContextLogger {
+  error(message: string, meta?: LogMetadata): void;
+  warn(message: string, meta?: LogMetadata): void;
+  info(message: string, meta?: LogMetadata): void;
+  debug(message: string, meta?: LogMetadata): void;
+}
+
+interface AsyncLogMethods {
+  error(message: string, meta?: LogMetadata): Promise<void>;
+  warn(message: string, meta?: LogMetadata): Promise<void>;
+  info(message: string, meta?: LogMetadata): Promise<void>;
+  debug(message: string, meta?: LogMetadata): Promise<void>;
+}
+
+interface PerformanceLogger {
+  start(operation: string): void;
+  end(operation: string, meta?: LogMetadata): void;
+}
+
 /**
  * 日志级别映射
  */
@@ -263,9 +284,11 @@ export class LoggerManager {
             transport = TransportFactory.createSyslogTransport(config.level, config.format);
             break;
 
-          default:
-            console.warn(`Unknown log output type: ${(output as any).type}`);
+          default: {
+            const unknownType = (output as LogOutput & { type?: string }).type ?? 'unknown';
+            console.warn(`Unknown log output type: ${unknownType}`);
             continue;
+          }
         }
 
         transports.push(transport);
@@ -381,12 +404,12 @@ export class LogPathFactory {
  * 日志上下文增强器
  */
 export class LogContext {
-  private static context: Record<string, any> = {};
+  private static context: LogMetadata = {};
 
   /**
    * 设置全局上下文
    */
-  static setGlobalContext(context: Record<string, any>): void {
+  static setGlobalContext(context: LogMetadata): void {
     this.context = { ...this.context, ...context };
   }
 
@@ -400,22 +423,32 @@ export class LogContext {
   /**
    * 获取当前上下文
    */
-  static getContext(): Record<string, any> {
+  static getContext(): LogMetadata {
     return { ...this.context };
   }
 
   /**
    * 创建带上下文的日志方法
    */
-  static createContextLogger(additionalContext?: Record<string, any>) {
+  static createContextLogger(additionalContext?: LogMetadata): ContextLogger {
     const logger = LoggerManager.getLogger();
-    const context = { ...this.context, ...additionalContext };
+    const context = { ...this.context, ...(additionalContext ?? {}) };
+
+    const mergeMeta = (meta?: LogMetadata): LogMetadata => ({ ...context, ...(meta ?? {}) });
 
     return {
-      error: (message: string, meta?: any) => logger.error(message, { ...context, ...meta }),
-      warn: (message: string, meta?: any) => logger.warn(message, { ...context, ...meta }),
-      info: (message: string, meta?: any) => logger.info(message, { ...context, ...meta }),
-      debug: (message: string, meta?: any) => logger.debug(message, { ...context, ...meta }),
+      error: (message: string, meta?: LogMetadata): void => {
+        logger.error(message, mergeMeta(meta));
+      },
+      warn: (message: string, meta?: LogMetadata): void => {
+        logger.warn(message, mergeMeta(meta));
+      },
+      info: (message: string, meta?: LogMetadata): void => {
+        logger.info(message, mergeMeta(meta));
+      },
+      debug: (message: string, meta?: LogMetadata): void => {
+        logger.debug(message, mergeMeta(meta));
+      },
     };
   }
 }
@@ -438,22 +471,38 @@ async function getQuickLogger(): Promise<winston.Logger> {
 /**
  * 导出的快捷日志方法
  */
-export const log = {
-  error: async (message: string, meta?: any) => {
+export const log: AsyncLogMethods = {
+  error: async (message: string, meta?: LogMetadata): Promise<void> => {
     const logger = await getQuickLogger();
-    logger.error(message, meta);
+    if (meta) {
+      logger.error(message, meta);
+    } else {
+      logger.error(message);
+    }
   },
-  warn: async (message: string, meta?: any) => {
+  warn: async (message: string, meta?: LogMetadata): Promise<void> => {
     const logger = await getQuickLogger();
-    logger.warn(message, meta);
+    if (meta) {
+      logger.warn(message, meta);
+    } else {
+      logger.warn(message);
+    }
   },
-  info: async (message: string, meta?: any) => {
+  info: async (message: string, meta?: LogMetadata): Promise<void> => {
     const logger = await getQuickLogger();
-    logger.info(message, meta);
+    if (meta) {
+      logger.info(message, meta);
+    } else {
+      logger.info(message);
+    }
   },
-  debug: async (message: string, meta?: any) => {
+  debug: async (message: string, meta?: LogMetadata): Promise<void> => {
     const logger = await getQuickLogger();
-    logger.debug(message, meta);
+    if (meta) {
+      logger.debug(message, meta);
+    } else {
+      logger.debug(message);
+    }
   },
 };
 
@@ -484,19 +533,22 @@ export function setupDevelopmentLogging(): void {
 /**
  * 性能日志辅助函数
  */
-export function createPerformanceLogger() {
+export function createPerformanceLogger(): PerformanceLogger {
   const logger = LoggerManager.getLogger();
   const performanceEntries = new Map<string, number>();
 
   return {
-    start: (operation: string) => {
+    start: (operation: string): void => {
       performanceEntries.set(operation, Date.now());
     },
-    end: (operation: string, meta?: any) => {
+    end: (operation: string, meta?: LogMetadata): void => {
       const startTime = performanceEntries.get(operation);
       if (startTime) {
         const duration = Date.now() - startTime;
-        logger.info(`Performance: ${operation}`, { duration, ...meta });
+        logger.info(`Performance: ${operation}`, {
+          duration,
+          ...(meta ?? {}),
+        });
         performanceEntries.delete(operation);
       }
     },

@@ -1,5 +1,7 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 export type InstallResult = {
@@ -7,28 +9,71 @@ export type InstallResult = {
   destRoot: string;
   jobShPath: string;
   startShPath: string;
+  manifestPath: string;
+  runtimeVersion: string;
+  updatedFiles: string[];
+  removedFiles: string[];
+  skippedFiles: string[];
 };
 
-function ensureDir(p: string) {
+function ensureDir(p: string): void {
   if (!fs.existsSync(p)) {
     fs.mkdirSync(p, { recursive: true });
   }
 }
 
-function copyRecursive(src: string, dest: string) {
-  const stat = fs.statSync(src);
-  if (stat.isDirectory()) {
-    ensureDir(dest);
-    for (const entry of fs.readdirSync(src)) {
-      copyRecursive(path.join(src, entry), path.join(dest, entry));
+type RuntimeManifest = {
+  version: string;
+  files: Record<string, { hash: string }>;
+};
+
+const require = createRequire(import.meta.url);
+
+function normalizeRelative(root: string, target: string): string {
+  return path.relative(root, target).split(path.sep).join('/');
+}
+
+function hashFile(filePath: string): string {
+  const hash = crypto.createHash('sha256');
+  hash.update(fs.readFileSync(filePath));
+  return hash.digest('hex');
+}
+
+function collectFiles(root: string, base = root): string[] {
+  const entries = fs.readdirSync(root, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const abs = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...collectFiles(abs, base));
+      continue;
     }
-  } else {
-    // Only copy if target doesn't exist to avoid clobbering user's local edits
-    if (!fs.existsSync(dest)) {
-      ensureDir(path.dirname(dest));
-      fs.copyFileSync(src, dest);
+    if (entry.isFile()) {
+      files.push(normalizeRelative(base, abs));
     }
   }
+  return files;
+}
+
+function readManifest(manifestPath: string): RuntimeManifest | null {
+  if (!fs.existsSync(manifestPath)) {
+    return null;
+  }
+  try {
+    const content = fs.readFileSync(manifestPath, 'utf8');
+    const parsed = JSON.parse(content) as RuntimeManifest;
+    if (!parsed || typeof parsed.version !== 'string' || typeof parsed.files !== 'object') {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeManifest(manifestPath: string, manifest: RuntimeManifest): void {
+  ensureDir(path.dirname(manifestPath));
+  fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 }
 
 /**
@@ -42,33 +87,77 @@ export function ensureEmbeddedRuntime(projectRoot: string): InstallResult {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
   const assetsRoot = path.resolve(__dirname, '..', '..', 'assets', 'runtime');
+  const manifestPath = path.join(destRoot, '.runtime-manifest.json');
+  const pkg = require('../../package.json') as { version?: string };
+  const runtimeVersion = pkg.version || '0.0.0';
 
   let installed = false;
-  try {
-    const required = [
-      'job.sh',
-      'start.sh',
-      path.join('job.d'),
-      path.join('start.d'),
-      path.join('lib'),
-    ];
+  const updatedFiles: string[] = [];
+  const removedFiles: string[] = [];
+  const skippedFiles: string[] = [];
 
-    // If both top-level launchers exist already, we still ensure subfolders exist
+  try {
     ensureDir(destRoot);
-    for (const seg of required) {
-      const src = path.join(assetsRoot, seg);
-      const dst = path.join(destRoot, seg);
-      if (!fs.existsSync(src)) {
-        // Assets not bundled; skip silently and allow upstream fallback
+    const assetFiles = collectFiles(assetsRoot);
+    const nextManifest: RuntimeManifest = {
+      version: runtimeVersion,
+      files: {},
+    };
+    const prevManifest = readManifest(manifestPath);
+    const managedPaths = new Set(assetFiles);
+
+    for (const relative of assetFiles) {
+      const src = path.join(assetsRoot, relative);
+      const dst = path.join(destRoot, relative);
+      const srcHash = hashFile(src);
+      nextManifest.files[relative] = { hash: srcHash };
+
+      const dstExists = fs.existsSync(dst);
+      if (!dstExists) {
+        ensureDir(path.dirname(dst));
+        fs.copyFileSync(src, dst);
+        updatedFiles.push(relative);
+        installed = true;
         continue;
       }
-      const before = fs.existsSync(dst);
-      copyRecursive(src, dst);
-      const after = fs.existsSync(dst);
-      if (!before && after) {
+
+      const dstHash = hashFile(dst);
+      if (dstHash === srcHash) {
+        continue;
+      }
+
+      const prevHash = prevManifest?.files?.[relative]?.hash;
+      if (prevHash && prevHash === dstHash) {
+        ensureDir(path.dirname(dst));
+        fs.copyFileSync(src, dst);
+        updatedFiles.push(relative);
         installed = true;
+        continue;
+      }
+
+      // Detected manual edits; do not clobber but record for logging.
+      skippedFiles.push(relative);
+    }
+
+    if (prevManifest) {
+      for (const relative of Object.keys(prevManifest.files)) {
+        if (managedPaths.has(relative)) {
+          continue;
+        }
+        const dst = path.join(destRoot, relative);
+        if (!fs.existsSync(dst)) {
+          continue;
+        }
+        const dstHash = hashFile(dst);
+        if (prevManifest.files[relative]?.hash === dstHash) {
+          fs.rmSync(dst);
+          removedFiles.push(relative);
+          installed = true;
+        }
       }
     }
+
+    writeManifest(manifestPath, nextManifest);
 
     // Make launchers executable if present
     if (fs.existsSync(destJob)) {
@@ -94,5 +183,10 @@ export function ensureEmbeddedRuntime(projectRoot: string): InstallResult {
     destRoot,
     jobShPath: destJob,
     startShPath: destStart,
+    manifestPath,
+    runtimeVersion,
+    updatedFiles,
+    removedFiles,
+    skippedFiles,
   };
 }

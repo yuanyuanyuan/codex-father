@@ -41,10 +41,10 @@ class Framer {
     if (MODE === 'ndjson') {
       while (true) {
         const idx = this.buffer.indexOf('\n');
-        if (idx === -1) return;
+        if (idx === -1) {return;}
         const line = this.buffer.slice(0, idx).toString('utf8').trim();
         this.buffer = this.buffer.slice(idx + 1);
-        if (!line) continue;
+        if (!line) {continue;}
         try {
           const msg = JSON.parse(line);
           this.onMessage(msg);
@@ -55,7 +55,7 @@ class Framer {
     } else {
       while (true) {
         const headerEnd = this.buffer.indexOf('\r\n\r\n');
-        if (headerEnd === -1) return; // Wait for more
+        if (headerEnd === -1) {return;} // Wait for more
         const header = this.buffer.slice(0, headerEnd).toString('utf8');
         const match = header.match(/Content-Length:\s*(\d+)/i);
         if (!match) {
@@ -78,7 +78,7 @@ class Framer {
         }
         const length = parseInt(match[1], 10);
         const totalNeeded = headerEnd + 4 + length; // 4 for \r\n\r\n
-        if (this.buffer.length < totalNeeded) return; // Wait
+        if (this.buffer.length < totalNeeded) {return;} // Wait
 
         const body = this.buffer.slice(headerEnd + 4, headerEnd + 4 + length).toString('utf8');
         try {

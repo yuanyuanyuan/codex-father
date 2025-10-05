@@ -14,6 +14,7 @@
 import type { CLIParser } from '../parser.js';
 import type { CommandContext, CommandResult } from '../../lib/types.js';
 import { MCPServer, createMCPServer } from '../../mcp/server.js';
+import { PROJECT_VERSION } from '../../lib/version.js';
 
 /**
  * MCP 命令配置选项
@@ -211,7 +212,7 @@ export function registerMCPCommand(parser: CLIParser): void {
         { flags: '--server-name <name>', description: 'Server name (default: codex-father)' },
         {
           flags: '--server-version <version>',
-          description: 'Server version (default: 1.0.0-mvp1)',
+          description: `Server version (default: ${PROJECT_VERSION})`,
         },
         {
           flags: '--codex-command <command>',
@@ -250,7 +251,7 @@ export function registerMCPCommand(parser: CLIParser): void {
  * @param context 命令上下文
  */
 function setupGracefulShutdown(server: MCPServer, context: CommandContext): void {
-  const handleShutdown = async (signal: string) => {
+  const handleShutdown = async (signal: string): Promise<void> => {
     if (!context.json) {
       console.log(`\n\n🛑 Received ${signal}, shutting down gracefully...\n`);
     }

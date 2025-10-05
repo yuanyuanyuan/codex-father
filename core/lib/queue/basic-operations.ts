@@ -277,7 +277,7 @@ export class BasicQueueOperations {
   async updateTaskStatus(
     taskId: string,
     newStatus: TaskStatus,
-    result?: any,
+    result?: unknown,
     error?: string,
     updates?: Partial<Task>
   ): Promise<boolean> {

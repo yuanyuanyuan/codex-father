@@ -36,12 +36,12 @@ describe('Orchestrate Command Interface (T001)', () => {
     const optionFlags = orchestrateCommand?.options.map((opt) => opt.flags) ?? [];
     expect(optionFlags).toEqual(
       expect.arrayContaining([
-        '--mode <mode>',
+        '--mode <manual|llm>',
         '--tasks-file <path>',
-        '--max-concurrency <count>',
+        '--max-concurrency <n>',
         '--task-timeout <minutes>',
-        '--success-threshold <ratio>',
-        '--output-format <format>',
+        '--success-threshold <0-1>',
+        '--output-format <json|stream-json>',
         '--config <path>',
       ])
     );

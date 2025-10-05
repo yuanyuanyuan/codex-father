@@ -8,7 +8,7 @@ export interface FormattingConfig {
 export interface LintingConfig {
   tool: 'eslint' | 'tslint';
   configFile: string;
-  rules: Record<string, any>;
+  rules: Record<string, unknown>;
   ignorePatterns: string[];
 }
 

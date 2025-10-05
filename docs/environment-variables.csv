@@ -1,6 +1,6 @@
 name,description,type,components,default,allowed,sources
-CODEX_JOB_SH,Override path to job.sh used to start/status/stop/list asynchronous runs.,string,"mcp-server|cli-wrapper","<repo-root>/job.sh (fallback from CWD)",,"mcp/codex-mcp-server/src/index.ts:19|core/cli/scripts.ts:94"
-CODEX_START_SH,Override path to start.sh; also enables 'stub' mode in MCP start tool when set.,string,"mcp-server|shell/job.sh|cli-wrapper","<repo-root>/start.sh (fallback from CWD)",,"mcp/codex-mcp-server/src/index.ts:37|job.sh:9|core/cli/scripts.ts:93"
+CODEX_JOB_SH,Override path to job.sh used to start/status/stop/list asynchronous runs.,string,"mcp-server|cli-wrapper","<repo-root>/.codex-father/job.sh (auto-managed)",,"mcp/codex-mcp-server/src/index.ts:19|core/cli/scripts.ts:94"
+CODEX_START_SH,Override path to start.sh; also enables 'stub' mode in MCP start tool when set.,string,"mcp-server|shell/job.sh|cli-wrapper","<repo-root>/.codex-father/start.sh (auto-managed)",,"mcp/codex-mcp-server/src/index.ts:37|job.sh:9|core/cli/scripts.ts:93"
 CODEX_VERSION_OVERRIDE,Force Codex CLI version for compatibility checks (e.g., '0.44.0').,string,"mcp-server|shell/start.sh",,,"mcp/codex-mcp-server/src/index.ts:107|start.sh:133"
 CODEX_MCP_NAME_STYLE,Filter tool names: 'underscore-only' or 'dot-only'.,string,mcp-server,,"underscore-only|dot-only","mcp/codex-mcp-server/src/index.ts:218"
 CODEX_MCP_TOOL_PREFIX,Prefix for additional tool aliases (both dot and underscore variants).,string,mcp-server,,,"mcp/codex-mcp-server/src/index.ts:219"

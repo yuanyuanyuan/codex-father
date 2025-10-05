@@ -12,11 +12,21 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { performance } from 'perf_hooks';
 
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+export type UnknownRecord = Record<string, unknown>;
+
 // ===== 类型定义 =====
 
 export interface ValidationRule {
   name: string;
-  validator: (value: any) => boolean;
+  validator: (value: unknown) => boolean;
   message: string;
   required?: boolean;
 }
@@ -30,7 +40,7 @@ export interface ValidationResult {
 export interface ValidationError {
   field: string;
   message: string;
-  value?: any;
+  value?: unknown;
   rule?: string;
 }
 
@@ -52,7 +62,7 @@ export interface PerformanceMetric {
   startTime: number;
   endTime?: number;
   duration?: number;
-  metadata?: Record<string, any>;
+  metadata?: UnknownRecord;
 }
 
 export interface LogEntry {
@@ -60,17 +70,17 @@ export interface LogEntry {
   message: string;
   timestamp: Date;
   source?: string;
-  metadata?: Record<string, any>;
+  metadata?: UnknownRecord;
   stack?: string;
 }
 
 export interface ConfigValue {
   key: string;
-  value: any;
+  value: unknown;
   type: 'string' | 'number' | 'boolean' | 'object' | 'array';
   description?: string;
   required?: boolean;
-  defaultValue?: any;
+  defaultValue?: unknown;
 }
 
 export interface Environment {
@@ -138,7 +148,7 @@ export function generateSnowflakeId(): string {
 export const ValidationRules = {
   required: (message: string = 'Field is required'): ValidationRule => ({
     name: 'required',
-    validator: (value: any) => value !== null && value !== undefined && value !== '',
+    validator: (value: unknown) => value !== null && value !== undefined && value !== '',
     message,
     required: true,
   }),
@@ -151,37 +161,50 @@ export const ValidationRules = {
 
   minLength: (min: number, message?: string): ValidationRule => ({
     name: 'minLength',
-    validator: (value: string) => value && value.length >= min,
+    validator: (value: unknown) => typeof value === 'string' && value.length >= min,
     message: message || `Minimum length is ${min}`,
   }),
 
   maxLength: (max: number, message?: string): ValidationRule => ({
     name: 'maxLength',
-    validator: (value: string) => !value || value.length <= max,
+    validator: (value: unknown) => typeof value !== 'string' || value.length <= max,
     message: message || `Maximum length is ${max}`,
   }),
 
   pattern: (regex: RegExp, message: string = 'Invalid format'): ValidationRule => ({
     name: 'pattern',
-    validator: (value: string) => !value || regex.test(value),
+    validator: (value: unknown) =>
+      typeof value !== 'string' || value.length === 0 || regex.test(value),
     message,
   }),
 
   numeric: (message: string = 'Must be a number'): ValidationRule => ({
     name: 'numeric',
-    validator: (value: any) => !isNaN(Number(value)),
+    validator: (value: unknown) => {
+      if (typeof value === 'number') {
+        return !Number.isNaN(value);
+      }
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        return trimmed.length > 0 && !Number.isNaN(Number(trimmed));
+      }
+      return false;
+    },
     message,
   }),
 
   range: (min: number, max: number, message?: string): ValidationRule => ({
     name: 'range',
-    validator: (value: number) => value >= min && value <= max,
+    validator: (value: unknown) => typeof value === 'number' && value >= min && value <= max,
     message: message || `Value must be between ${min} and ${max}`,
   }),
 
   url: (message: string = 'Invalid URL format'): ValidationRule => ({
     name: 'url',
-    validator: (value: string) => {
+    validator: (value: unknown) => {
+      if (typeof value !== 'string' || value.length === 0) {
+        return false;
+      }
       try {
         new URL(value);
         return true;

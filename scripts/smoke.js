@@ -73,7 +73,11 @@ async function main() {
   try {
     const pkg = readJSON(path.join(cwd, 'package.json'));
     const pass = Boolean(pkg.name) && Boolean(pkg.version);
-    results.push({ name: '解析包名与版本', pass, details: { name: pkg.name, version: pkg.version } });
+    results.push({
+      name: '解析包名与版本',
+      pass,
+      details: { name: pkg.name, version: pkg.version },
+    });
     pass ? ok(`包信息: ${pkg.name} v${pkg.version}`) : err('package.json 缺少 name/version');
   } catch (e) {
     results.push({ name: '解析包名与版本', pass: false, details: String(e) });
@@ -81,13 +85,7 @@ async function main() {
   }
 
   // Check 4: key files/dirs
-  const paths = [
-    'tsconfig.build.json',
-    'vitest.config.ts',
-    'start.sh',
-    'job.sh',
-    'core',
-  ];
+  const paths = ['tsconfig.build.json', 'vitest.config.ts', 'start.sh', 'job.sh', 'core'];
   for (const rel of paths) {
     const p = path.join(cwd, rel);
     const pass = exists(p);
@@ -121,4 +119,3 @@ main().catch((e) => {
   err(`执行失败: ${e?.stack || e}`);
   process.exit(1);
 });
-

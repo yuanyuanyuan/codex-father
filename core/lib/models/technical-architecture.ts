@@ -69,7 +69,7 @@ export function detectModuleCircularDependencies(mods: ModuleDefinition[]): stri
   const stack = new Set<string>();
   const cycles: string[][] = [];
 
-  function dfs(node: string, path: string[]) {
+  function dfs(node: string, path: string[]): void {
     if (stack.has(node)) {
       const idx = path.indexOf(node);
       cycles.push(path.slice(idx).concat(node));

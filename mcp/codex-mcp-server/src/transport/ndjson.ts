@@ -19,7 +19,7 @@ export class NdjsonServerTransport {
     this.sessionId = undefined;
   }
 
-  async start() {
+  async start(): Promise<void> {
     if (this.started) {
       throw new Error('NDJSON 传输已启动。');
     }
@@ -28,14 +28,14 @@ export class NdjsonServerTransport {
     this.stdin.on('error', this.handleError);
   }
 
-  async close() {
+  async close(): Promise<void> {
     this.stdin.off('data', this.handleData);
     this.stdin.off('error', this.handleError);
     this.buffer = '';
     this.onclose?.();
   }
 
-  async send(message: unknown) {
+  async send(message: unknown): Promise<void> {
     const payload = `${JSON.stringify(message)}\n`;
     return new Promise<void>((resolve) => {
       if (this.stdout.write(payload)) {
@@ -46,7 +46,7 @@ export class NdjsonServerTransport {
     });
   }
 
-  private handleData = (chunk: Buffer | string) => {
+  private handleData = (chunk: Buffer | string): void => {
     this.buffer += chunk.toString();
     let newlineIndex = this.buffer.indexOf('\n');
     while (newlineIndex !== -1) {
@@ -69,7 +69,7 @@ export class NdjsonServerTransport {
     }
   };
 
-  private handleError = (error: Error) => {
+  private handleError = (error: Error): void => {
     this.logger.error(`NDJSON 传输错误：${error.message}`);
     this.onerror?.(error);
   };

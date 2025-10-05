@@ -7,10 +7,14 @@ import { performance } from 'perf_hooks';
 import type { Task } from '../types.js';
 import { BasicQueueOperations } from './basic-operations.js';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 /**
  * 任务处理器函数类型
  */
-export type TaskHandler = (payload: Record<string, any>) => Promise<any> | any;
+export type TaskHandler = (payload: Record<string, unknown>) => Promise<unknown> | unknown;
 
 /**
  * 任务执行选项
@@ -39,7 +43,7 @@ export interface BasicTaskExecutorOptions {
  */
 export interface ExecutionResult {
   success: boolean;
-  result?: any;
+  result?: unknown;
   error?: string;
   executionTime: number;
   retryCount: number;
@@ -52,6 +56,14 @@ export interface ExecutionMetrics {
   waitTimeMs?: number;
   handlerLatencyMs?: number;
   memoryUsage?: NodeJS.MemoryUsage;
+}
+
+export interface ExecutionStats {
+  totalExecutions: number;
+  successCount: number;
+  failureCount: number;
+  averageExecutionTime: number;
+  successRate: number;
 }
 
 export interface TaskExecutorCapabilities {
@@ -223,13 +235,7 @@ export class BasicTaskExecutor {
   /**
    * 获取执行统计信息
    */
-  getExecutionStats(): {
-    totalExecutions: number;
-    successCount: number;
-    failureCount: number;
-    averageExecutionTime: number;
-    successRate: number;
-  } {
+  getExecutionStats(): ExecutionStats {
     const total = this.executionLog.length;
     const successful = this.executionLog.filter((r) => r.success).length;
     const avgTime =
@@ -348,11 +354,11 @@ export class BasicTaskExecutor {
   /**
    * 带超时的任务执行
    */
-  private async executeWithTimeout<T>(
+  private async executeWithTimeout(
     handler: TaskHandler,
-    payload: Record<string, any>,
+    payload: Record<string, unknown>,
     timeout: number
-  ): Promise<T> {
+  ): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         reject(new Error(`Task execution timed out after ${timeout}ms`));
@@ -437,17 +443,20 @@ export class BasicTaskExecutor {
   private registerBuiltInHandlers(): void {
     // Shell 命令执行器
     this.registerTaskHandler(BUILT_IN_TASK_TYPES.SHELL_COMMAND, async (payload) => {
-      const { command, args = [] } = payload;
-      if (!command) {
+      const commandValue = payload.command;
+      if (typeof commandValue !== 'string' || commandValue.trim() === '') {
         throw new Error('Shell command is required');
       }
+
+      const argsValue = payload.args;
+      const normalizedArgs = Array.isArray(argsValue) ? argsValue.map((arg) => String(arg)) : [];
 
       // 这里可以集成 child_process 来执行 shell 命令
       // 为了安全起见，现在只返回模拟结果
       return {
-        command,
-        args,
-        output: `Mock execution of: ${command} ${args.join(' ')}`,
+        command: commandValue,
+        args: normalizedArgs,
+        output: `Mock execution of: ${commandValue} ${normalizedArgs.join(' ')}`,
         exitCode: 0,
         executedAt: new Date().toISOString(),
       };
@@ -455,95 +464,126 @@ export class BasicTaskExecutor {
 
     // 文件操作处理器
     this.registerTaskHandler(BUILT_IN_TASK_TYPES.FILE_OPERATION, async (payload) => {
-      const { operation, path, content } = payload;
-      if (!operation || !path) {
+      const operationValue = payload.operation;
+      const pathValue = payload.path;
+      if (typeof operationValue !== 'string' || typeof pathValue !== 'string') {
         throw new Error('File operation and path are required');
       }
 
+      const contentValue = payload.content;
+
       // 模拟文件操作
       return {
-        operation,
-        path,
+        operation: operationValue,
+        path: pathValue,
         success: true,
         timestamp: new Date().toISOString(),
-        message: `Mock ${operation} operation on ${path}`,
-        ...(content !== undefined ? { contentSnapshot: content } : {}),
+        message: `Mock ${operationValue} operation on ${pathValue}`,
+        ...(contentValue !== undefined ? { contentSnapshot: contentValue } : {}),
       };
     });
 
     // HTTP 请求处理器
     this.registerTaskHandler(BUILT_IN_TASK_TYPES.HTTP_REQUEST, async (payload) => {
-      const { method = 'GET', url, headers = {}, body } = payload;
-      if (!url) {
+      const methodValue = typeof payload.method === 'string' ? payload.method : 'GET';
+      const urlValue = payload.url;
+      if (typeof urlValue !== 'string' || urlValue.trim() === '') {
         throw new Error('URL is required for HTTP request');
       }
 
+      const headersValue = isRecord(payload.headers)
+        ? Object.fromEntries(
+            Object.entries(payload.headers).map(([key, value]) => [key, String(value)])
+          )
+        : {};
+      const bodyValue = payload.body;
+
       // 模拟 HTTP 请求
       return {
-        method,
-        url,
+        method: methodValue,
+        url: urlValue,
         status: 200,
         statusText: 'OK',
-        data: `Mock response from ${method} ${url}`,
+        data: `Mock response from ${methodValue} ${urlValue}`,
         headers: { 'content-type': 'application/json' },
-        requestHeaders: headers,
-        body,
+        requestHeaders: headersValue,
+        body: bodyValue,
         timestamp: new Date().toISOString(),
       };
     });
 
     // 数据处理器
     this.registerTaskHandler(BUILT_IN_TASK_TYPES.DATA_PROCESSING, async (payload) => {
-      const { data, operation, options } = payload;
-      if (!data || !operation) {
-        throw new Error('Data and operation are required');
+      const dataValue = payload.data;
+      const operationValue = payload.operation;
+      if (dataValue === undefined || dataValue === null) {
+        throw new Error('Data is required');
       }
+      if (typeof operationValue !== 'string' || operationValue.trim() === '') {
+        throw new Error('Data operation is required');
+      }
+
+      const optionsValue = payload.options;
 
       // 模拟数据处理
       return {
-        operation,
-        originalSize: Array.isArray(data) ? data.length : 1,
-        processedData: `Processed data with operation: ${operation}`,
+        operation: operationValue,
+        originalSize: Array.isArray(dataValue) ? dataValue.length : 1,
+        processedData: `Processed data with operation: ${operationValue}`,
         timestamp: new Date().toISOString(),
-        ...(options ? { optionsUsed: options } : {}),
+        ...(optionsValue !== undefined ? { optionsUsed: optionsValue } : {}),
       };
     });
 
     // 验证处理器
     this.registerTaskHandler(BUILT_IN_TASK_TYPES.VALIDATION, async (payload) => {
-      const { data, rules = [], strict = false } = payload;
-      if (!data) {
+      const dataValue = payload.data;
+      if (dataValue === undefined || dataValue === null) {
         throw new Error('Data is required for validation');
       }
+
+      const rulesValue = Array.isArray(payload.rules) ? payload.rules : [];
+      const strictValue = typeof payload.strict === 'boolean' ? payload.strict : false;
 
       // 模拟验证
       return {
         valid: true,
-        data,
-        appliedRules: rules,
+        data: dataValue,
+        appliedRules: rulesValue,
         errors: [],
         warnings: [],
-        strict,
+        strict: strictValue,
         timestamp: new Date().toISOString(),
       };
     });
 
     // 通知处理器
     this.registerTaskHandler(BUILT_IN_TASK_TYPES.NOTIFICATION, async (payload) => {
-      const { type, recipient, message, options = {} } = payload;
-      if (!type || !recipient || !message) {
+      const typeValue = payload.type;
+      const recipientValue = payload.recipient;
+      const messageValue = payload.message;
+      if (
+        typeof typeValue !== 'string' ||
+        typeValue.trim() === '' ||
+        typeof recipientValue !== 'string' ||
+        recipientValue.trim() === '' ||
+        typeof messageValue !== 'string' ||
+        messageValue.trim() === ''
+      ) {
         throw new Error('Type, recipient, and message are required for notification');
       }
 
+      const optionsValue = isRecord(payload.options) ? payload.options : {};
+
       // 模拟通知发送
       return {
-        type,
-        recipient,
-        message,
+        type: typeValue,
+        recipient: recipientValue,
+        message: messageValue,
         sent: true,
         messageId: `msg_${Date.now()}`,
         timestamp: new Date().toISOString(),
-        options,
+        options: optionsValue,
       };
     });
   }

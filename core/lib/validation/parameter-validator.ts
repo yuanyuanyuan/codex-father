@@ -1,5 +1,5 @@
 export class ParameterValidatorLib {
-  static validateRequired(value: any, name: string): void {
+  static validateRequired(value: unknown, name: string): void {
     if (value === undefined || value === null || value === '') {
       throw new Error(`Required parameter '${name}' is missing`);
     }

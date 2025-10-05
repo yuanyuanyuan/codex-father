@@ -207,8 +207,7 @@ export class PolicyEngine {
             `Invalid regex pattern in whitelist: "${rule.pattern}" - ${(error as Error).message}`
           );
         }
-        // 非严格模式下忽略无效规则
-        console.warn(`Skipping invalid regex pattern in whitelist: "${rule.pattern}"`, error);
+        // 在非严格模式下静默忽略无效规则，防止噪声日志干扰测试输出
       }
     }
 

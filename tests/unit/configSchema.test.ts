@@ -7,6 +7,7 @@ import {
   CodexConfigSchema,
 } from '../../src/lib/configSchema';
 import fs from 'node:fs';
+import path from 'node:path';
 
 describe('configSchema: 基础类型验证', () => {
   it('接受有效的 approval_policy 值', () => {
@@ -156,7 +157,19 @@ describe('configSchema: 性能测试', () => {
 
 describe('configSchema: 实际案例（research.md 行 77-84）', () => {
   it('解析 research.md 中的示例配置', () => {
-    const text = fs.readFileSync('specs/008-ultrathink-codex-0/research.md', 'utf-8');
+    const researchPathCandidates = [
+      'specs/__archive/008-ultrathink-codex-0/research.md',
+      'specs/008-ultrathink-codex-0/research.md',
+    ];
+    const researchPath = researchPathCandidates
+      .map((candidate) => path.resolve(process.cwd(), candidate))
+      .find((candidatePath) => fs.existsSync(candidatePath));
+
+    if (!researchPath) {
+      throw new Error('无法定位 research.md 示例配置');
+    }
+
+    const text = fs.readFileSync(researchPath, 'utf-8');
     // 提取片段中的 model 与 wire_api
     const modelMatch = text.match(/\n\s*model\s*=\s*"([^"]+)"/);
     const wireApiMatch = text.match(/\n\s*wire_api\s*=\s*"([^"]+)"/);

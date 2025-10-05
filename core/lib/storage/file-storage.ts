@@ -21,7 +21,7 @@ export class FileLock {
 export class FileStorage {
   constructor(private baseDir: string) {}
 
-  private ensureDir(path: string) {
+  private ensureDir(path: string): void {
     const dir = dirname(path);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
@@ -32,13 +32,13 @@ export class FileStorage {
     return resolve(this.baseDir, path);
   }
 
-  readJSON<T = any>(path: string): T {
+  readJSON<T = unknown>(path: string): T {
     const abs = this.resolvePath(path);
     const data = readFileSync(abs, 'utf8');
     return JSON.parse(data) as T;
   }
 
-  writeJSON(path: string, data: any): void {
+  writeJSON<T>(path: string, data: T): void {
     const abs = this.resolvePath(path);
     this.ensureDir(abs);
     const tmp = `${abs}.tmp.${process.pid}`;

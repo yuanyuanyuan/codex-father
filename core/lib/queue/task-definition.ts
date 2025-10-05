@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { Task, TaskDefinition, TaskMetadata, TaskRetryPolicy, TaskStatus } from '../types.js';
+import { PROJECT_VERSION } from '../version.js';
 
 export interface CreateTaskOptions {
   now?: Date;
@@ -18,7 +19,7 @@ export const DEFAULT_TASK_RETRY_POLICY: TaskRetryPolicy = Object.freeze({
   retryableErrors: [],
 });
 
-const DEFAULT_VERSION = process.env.npm_package_version ?? '1.0.0';
+const DEFAULT_VERSION = process.env.npm_package_version ?? PROJECT_VERSION;
 
 export const DEFAULT_TASK_METADATA: TaskMetadata = Object.freeze({
   source: 'cli',

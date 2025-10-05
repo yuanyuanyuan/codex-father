@@ -166,13 +166,35 @@ class CodexFatherCLI {
       const finalMemory = process.memoryUsage();
       const executionTime = Date.now() - startTime;
 
-      const formatMemorySnapshot = (snapshot: NodeJS.MemoryUsage) => {
+      type MemorySnapshot = {
+        rssBytes: number;
+        heapTotalBytes: number;
+        heapUsedBytes: number;
+        externalBytes: number;
+        arrayBuffersBytes: number;
+        sharedArrayBuffersBytes: number;
+        rssMB: number;
+        heapUsedMB: number;
+      };
+
+      const extractSharedArrayBuffers = (snapshot: NodeJS.MemoryUsage): number => {
+        if ('sharedArrayBuffers' in snapshot) {
+          const value = (snapshot as { sharedArrayBuffers?: unknown }).sharedArrayBuffers;
+          return typeof value === 'number' ? value : 0;
+        }
+        return 0;
+      };
+
+      const formatMemorySnapshot = (
+        snapshot: NodeJS.MemoryUsage,
+        sharedOverride?: number
+      ): MemorySnapshot => {
         const rss = snapshot.rss;
         const heapTotal = snapshot.heapTotal;
         const heapUsed = snapshot.heapUsed;
         const external = snapshot.external ?? 0;
         const arrayBuffers = snapshot.arrayBuffers ?? 0;
-        const sharedArrayBuffers = (snapshot as any).sharedArrayBuffers ?? 0;
+        const sharedArrayBuffers = sharedOverride ?? extractSharedArrayBuffers(snapshot);
 
         return {
           rssBytes: rss,
@@ -189,17 +211,16 @@ class CodexFatherCLI {
       const memoryUsage = {
         initial: formatMemorySnapshot(initialMemory),
         final: formatMemorySnapshot(finalMemory),
-        peak: formatMemorySnapshot({
-          rss: Math.max(initialMemory.rss, finalMemory.rss),
-          heapTotal: Math.max(initialMemory.heapTotal, finalMemory.heapTotal),
-          heapUsed: Math.max(initialMemory.heapUsed, finalMemory.heapUsed),
-          external: Math.max(initialMemory.external ?? 0, finalMemory.external ?? 0),
-          arrayBuffers: Math.max(initialMemory.arrayBuffers ?? 0, finalMemory.arrayBuffers ?? 0),
-          sharedArrayBuffers: Math.max(
-            (initialMemory as any).sharedArrayBuffers ?? 0,
-            (finalMemory as any).sharedArrayBuffers ?? 0
-          ),
-        } as NodeJS.MemoryUsage),
+        peak: formatMemorySnapshot(
+          {
+            rss: Math.max(initialMemory.rss, finalMemory.rss),
+            heapTotal: Math.max(initialMemory.heapTotal, finalMemory.heapTotal),
+            heapUsed: Math.max(initialMemory.heapUsed, finalMemory.heapUsed),
+            external: Math.max(initialMemory.external ?? 0, finalMemory.external ?? 0),
+            arrayBuffers: Math.max(initialMemory.arrayBuffers ?? 0, finalMemory.arrayBuffers ?? 0),
+          },
+          Math.max(extractSharedArrayBuffers(initialMemory), extractSharedArrayBuffers(finalMemory))
+        ),
         delta: {
           rssBytes: finalMemory.rss - initialMemory.rss,
           heapUsedBytes: finalMemory.heapUsed - initialMemory.heapUsed,

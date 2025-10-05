@@ -28,7 +28,7 @@ export interface DMTask {
   id: string;
   type: string;
   priority: number;
-  payload: Record<string, any>;
+  payload: Record<string, unknown>;
   status: DMTaskStatus;
   createdAt: Date;
   updatedAt: Date;

@@ -437,9 +437,7 @@ export class SessionManager {
     // 刷新并落盘所有日志，确保退出前无丢失
     const loggerFlushes: Promise<void>[] = [];
     for (const logger of this.eventLoggers.values()) {
-      if (typeof (logger as any).flush === 'function') {
-        loggerFlushes.push((logger as unknown as { flush: () => Promise<void> }).flush());
-      }
+      loggerFlushes.push(logger.flush());
     }
     await Promise.all(loggerFlushes);
 

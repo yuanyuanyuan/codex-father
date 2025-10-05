@@ -377,20 +377,17 @@ export async function validateScript(scriptPath: string): Promise<boolean> {
 /**
  * 获取所有脚本的状态信息
  */
-export async function getScriptStatus(): Promise<
-  Record<
-    string,
-    {
-      path: string;
-      exists: boolean;
-      executable: boolean;
-      migrationStatus: 'migrated' | 'planned' | 'keepAsShell' | 'unknown';
-      source: 'env' | 'package';
-      envVar?: string;
-    }
-  >
-> {
-  const status: Record<string, any> = {};
+type ScriptStatus = {
+  path: string;
+  exists: boolean;
+  executable: boolean;
+  migrationStatus: 'migrated' | 'planned' | 'keepAsShell' | 'unknown';
+  source: 'env' | 'package';
+  envVar?: string;
+};
+
+export async function getScriptStatus(): Promise<Record<string, ScriptStatus>> {
+  const status: Record<string, ScriptStatus> = {};
 
   for (const [name, path] of Object.entries(LEGACY_SCRIPTS)) {
     const { exists, executable } = await checkScriptStatus(path);
@@ -410,14 +407,19 @@ export async function getScriptStatus(): Promise<
     const envVar = REQUIRED_SCRIPT_ENVS[name as keyof typeof LEGACY_SCRIPTS];
     const envValue = envVar ? process.env[envVar] : undefined;
 
-    status[name] = {
+    const scriptStatus: ScriptStatus = {
       path,
       exists,
       executable,
       migrationStatus,
       source: envValue ? 'env' : 'package',
-      envVar,
     };
+
+    if (envVar) {
+      scriptStatus.envVar = envVar;
+    }
+
+    status[name] = scriptStatus;
   }
 
   return status;

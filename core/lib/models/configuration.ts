@@ -24,7 +24,7 @@ export interface ConfigSchema {
 
 export interface ValidationRule {
   field: string;
-  validator: (value: any) => boolean;
+  validator: (value: unknown) => boolean;
   message: string;
 }
 
@@ -47,12 +47,12 @@ export interface ConfigurationManagement {
 
 export function validateConfiguration(
   config: ConfigurationManagement,
-  obj: Record<string, any>
+  obj: Record<string, unknown>
 ): ValidationResult {
   const errors: ValidationError[] = [];
   // schema validation (minimal)
   for (const [key, field] of Object.entries(config.schema.fields)) {
-    const val = (obj as any)[key];
+    const val = obj[key];
     if (field.required && (val === undefined || val === null)) {
       errors.push({ field: key, message: 'is required', code: 'CFG_REQUIRED' });
       continue;
@@ -71,7 +71,7 @@ export function validateConfiguration(
   }
   // custom rules
   for (const rule of config.validation) {
-    const v = (obj as any)[rule.field];
+    const v = obj[rule.field];
     if (!rule.validator(v)) {
       errors.push({ field: rule.field, message: rule.message, code: 'CFG_RULE' });
     }

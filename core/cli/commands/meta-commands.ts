@@ -7,6 +7,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 // import { fileURLToPath } from 'url';
 import type { CommandContext, CommandResult } from '../../lib/types.js';
+import { PROJECT_NAME, PROJECT_VERSION } from '../../lib/version.js';
 
 /**
  * 动态查找项目根目录
@@ -47,12 +48,20 @@ function getPackageInfo(): PackageInfo {
     const projectRoot = findProjectRoot();
     const packagePath = resolve(projectRoot, 'package.json');
     const packageContent = readFileSync(packagePath, 'utf8');
-    return JSON.parse(packageContent);
+    const pkg = JSON.parse(packageContent);
+    return {
+      name: pkg.name ?? PROJECT_NAME,
+      version: pkg.version ?? PROJECT_VERSION,
+      description: pkg.description ?? 'TypeScript-based CLI tool for project management',
+      author: pkg.author,
+      homepage: pkg.homepage,
+      bugs: pkg.bugs,
+    };
   } catch (error) {
     // 回退到默认信息
     return {
-      name: 'codex-father',
-      version: '1.0.0',
+      name: PROJECT_NAME,
+      version: PROJECT_VERSION,
       description: 'TypeScript-based CLI tool for project management',
     };
   }

@@ -9,7 +9,26 @@ function toTomlValue(v: unknown): string {
   return `"${s}"`;
 }
 
-export function applyConvenienceOptions(args: string[], p: Record<string, unknown>) {
+type ConvenienceOptions = {
+  sandbox?: string;
+  dangerouslyBypass?: boolean;
+  approvalPolicy?: string;
+  fullAuto?: boolean;
+  profile?: string;
+  network?: boolean;
+  codexConfig?: Record<string, unknown>;
+  preset?: string | number;
+  carryContext?: boolean;
+  compressContext?: boolean;
+  contextHead?: number;
+  patchMode?: boolean;
+  requireChangeIn?: Array<string | number>;
+  requireGitCommit?: boolean;
+  autoCommitOnDone?: boolean;
+  autoCommitMessage?: string | number;
+};
+
+export function applyConvenienceOptions(args: string[], p: ConvenienceOptions): void {
   const hasSandbox = args.includes('--sandbox');
   const hasBypassArg = args.includes('--dangerously-bypass-approvals-and-sandbox');
   if (p?.sandbox && typeof p.sandbox === 'string') {
@@ -52,14 +71,14 @@ export function applyConvenienceOptions(args: string[], p: Record<string, unknow
   if (p?.compressContext === false) {
     args.push('--no-compress-context');
   }
-  if (Number.isFinite((p as any)?.contextHead)) {
-    args.push('--context-head', String((p as any).contextHead));
+  if (typeof p.contextHead === 'number' && Number.isFinite(p.contextHead)) {
+    args.push('--context-head', String(p.contextHead));
   }
   if (p?.patchMode) {
     args.push('--patch-mode');
   }
-  if (Array.isArray((p as any)?.requireChangeIn)) {
-    for (const g of (p as any).requireChangeIn) {
+  if (Array.isArray(p.requireChangeIn)) {
+    for (const g of p.requireChangeIn) {
       args.push('--require-change-in', String(g));
     }
   }

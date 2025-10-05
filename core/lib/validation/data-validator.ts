@@ -29,7 +29,7 @@ export class DataValidator {
     const stack = new Set<string>();
     const cycles: string[][] = [];
 
-    function dfs(n: string, path: string[]) {
+    function dfs(n: string, path: string[]): void {
       if (stack.has(n)) {
         const idx = path.indexOf(n);
         cycles.push(path.slice(idx).concat(n));
@@ -53,7 +53,7 @@ export class DataValidator {
 
   // Minimal schema validator supporting required + type
   static validateAgainstSchema(
-    obj: Record<string, any>,
+    obj: Record<string, unknown>,
     schema: Record<string, { type: string; required?: boolean }>
   ): ValidationResult {
     const errors: ValidationError[] = [];

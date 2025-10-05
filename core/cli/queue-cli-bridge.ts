@@ -4,19 +4,28 @@
  */
 
 import chalk from 'chalk';
-import type { CommandContext, CommandResult, TaskDefinition } from '../lib/types.js';
+import type {
+  CommandContext,
+  CommandResult,
+  Task,
+  TaskDefinition,
+  TaskStatus,
+} from '../lib/types.js';
 import { BasicQueueOperations } from '../lib/queue/basic-operations.js';
 import {
   TaskStatusQuery,
   TaskFilter,
   TaskSortOptions,
   PaginationOptions,
+  TaskStatistics,
 } from '../lib/queue/status-query.js';
 import {
   BasicTaskExecutor,
   ExecutionOptions,
   ExecutionResult,
   BUILT_IN_TASK_TYPES,
+  type ExecutionStats,
+  type TaskHandler,
 } from '../lib/queue/basic-executor.js';
 
 /**
@@ -44,6 +53,26 @@ export interface CLIQueryOptions {
   order?: 'asc' | 'desc'; // 排序方向
   format?: 'table' | 'json' | 'list'; // 输出格式
 }
+
+const TASK_STATUS_VALUES: TaskStatus[] = [
+  'pending',
+  'scheduled',
+  'processing',
+  'retrying',
+  'completed',
+  'failed',
+  'cancelled',
+  'timeout',
+];
+
+type QueueHealthSnapshot = Awaited<ReturnType<TaskStatusQuery['getQueueHealth']>>;
+
+type QueueStatsSummary = {
+  queue: Record<TaskStatus, number>;
+  tasks: TaskStatistics;
+  execution: ExecutionStats;
+  health: QueueHealthSnapshot;
+};
 
 /**
  * 任务队列 CLI 桥梁类
@@ -218,17 +247,19 @@ export class QueueCLIBridge {
 
       // 构建过滤器
       const filter: TaskFilter = {};
-      if (options.status) {
-        filter.status = options.status as any[];
+      const statusFilters = this.parseStatusFilters(options.status);
+      if (statusFilters) {
+        filter.status = statusFilters;
       }
       if (options.type) {
         filter.type = options.type;
       }
 
       // 构建排序选项
-      const sort: TaskSortOptions | undefined = options.sort
+      const sortField = this.parseSortField(options.sort);
+      const sort: TaskSortOptions | undefined = sortField
         ? {
-            field: options.sort as any,
+            field: sortField,
             direction: options.order || 'desc',
           }
         : undefined;
@@ -395,7 +426,7 @@ export class QueueCLIBridge {
         this.statusQuery.getQueueHealth(),
       ]);
 
-      const stats = {
+      const stats: QueueStatsSummary = {
         queue: queueStats,
         tasks: taskStats,
         execution: executionStats,
@@ -433,7 +464,7 @@ export class QueueCLIBridge {
   /**
    * 注册任务处理器命令
    */
-  registerTaskHandler(taskType: string, handler: any): void {
+  registerTaskHandler(taskType: string, handler: TaskHandler): void {
     this.executor.registerTaskHandler(taskType, handler);
   }
 
@@ -447,7 +478,7 @@ export class QueueCLIBridge {
   /**
    * 格式化任务列表
    */
-  private formatTaskList(tasks: any[], format: string): string {
+  private formatTaskList(tasks: Task[], format: string): string {
     if (tasks.length === 0) {
       return '📭 No tasks found';
     }
@@ -483,7 +514,7 @@ export class QueueCLIBridge {
   /**
    * 格式化任务详情
    */
-  private formatTaskDetails(task: any): string {
+  private formatTaskDetails(task: Task): string {
     const lines = [
       `📋 Task Details: ${chalk.cyan(task.id)}`,
       '',
@@ -511,7 +542,7 @@ export class QueueCLIBridge {
   /**
    * 格式化队列统计
    */
-  private formatQueueStats(stats: any): string {
+  private formatQueueStats(stats: QueueStatsSummary): string {
     const lines = [
       '📊 Queue Statistics',
       '',
@@ -548,10 +579,30 @@ export class QueueCLIBridge {
     );
 
     if (!stats.health.healthy) {
-      lines.push('Issues:', ...stats.health.issues.map((issue: string) => `  - ${issue}`));
+      lines.push('Issues:', ...stats.health.issues.map((issue) => `  - ${issue}`));
     }
 
     return lines.join('\\n');
+  }
+
+  private parseStatusFilters(statuses?: string[]): TaskStatus[] | undefined {
+    if (!statuses || statuses.length === 0) {
+      return undefined;
+    }
+    const normalized = statuses
+      .map((status) => status?.toLowerCase().trim())
+      .filter((status): status is TaskStatus => TASK_STATUS_VALUES.includes(status as TaskStatus));
+    return normalized.length > 0 ? normalized : undefined;
+  }
+
+  private parseSortField(field?: string): TaskSortOptions['field'] | undefined {
+    if (!field) {
+      return undefined;
+    }
+    const allowed: TaskSortOptions['field'][] = ['createdAt', 'updatedAt', 'type', 'status'];
+    return allowed.includes(field as TaskSortOptions['field'])
+      ? (field as TaskSortOptions['field'])
+      : undefined;
   }
 
   /**
@@ -588,7 +639,7 @@ export class QueueCLIBridge {
     const bottomBorder = '└' + colWidths.map((w) => '─'.repeat(w + 2)).join('┴') + '┘';
 
     // 格式化行
-    const formatRow = (row: string[]) => {
+    const formatRow = (row: string[]): string => {
       return (
         '│' +
         row

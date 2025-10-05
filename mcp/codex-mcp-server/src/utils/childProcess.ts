@@ -14,7 +14,7 @@ export async function run(
     let err = '';
     let settled = false;
 
-    const finalize = (code: number) => {
+    const finalize = (code: number): void => {
       if (settled) {
         return;
       }

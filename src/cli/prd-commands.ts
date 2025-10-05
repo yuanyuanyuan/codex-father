@@ -413,12 +413,12 @@ export class PRDCLIParser {
       const packagePath = resolve(__dirname, '../../package.json');
       if (existsSync(packagePath)) {
         const packageData = JSON.parse(readFileSync(packagePath, 'utf-8'));
-        return packageData.version || '1.0.0';
+        return packageData.version || process.env.npm_package_version || '1.5.1';
       }
     } catch (error) {
       // 忽略版本读取错误
     }
-    return '1.0.0';
+    return process.env.npm_package_version || '1.5.1';
   }
 
   /**

@@ -206,12 +206,12 @@ export class TerminalUI {
    * @param timeout 超时时间(毫秒)
    * @returns 超时 Promise
    */
-  private createTimeoutPromise(timeout: number): Promise<ApprovalDecision> {
-    return new Promise((resolve) => {
+  private createTimeoutPromise(timeout: number): Promise<never> {
+    return new Promise((_, reject) => {
       setTimeout(() => {
+        const error = new Error(`Approval timeout after ${timeout}ms`);
         console.log(`\n⏱️  Approval timeout (${timeout}ms) - 自动拒绝\n`);
-        // 超时降级为拒绝，避免抛出异常中断上层流程
-        resolve('deny');
+        reject(error);
       }, timeout);
     });
   }

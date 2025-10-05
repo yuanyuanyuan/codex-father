@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type {
   MCPPerformanceMetrics,
   MCPPerformanceThresholds,
-} from '../../../specs/_archived/001-docs-readme-phases/contracts/mcp-service.js';
+} from '../../../specs/__archive/001-docs-readme-phases/contracts/mcp-service.js';
 
 function simulateLatency(samples: number[]): MCPPerformanceMetrics {
   const total = samples.length;

@@ -38,7 +38,7 @@ export class ConfigStorage {
     return this.fs.readJSON<T>(this.map(category));
   }
 
-  write(category: ConfigCategory, data: any): void {
+  write<T>(category: ConfigCategory, data: T): void {
     this.fs.writeJSON(this.map(category), data);
   }
 

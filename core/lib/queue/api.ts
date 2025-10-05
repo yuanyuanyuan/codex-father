@@ -1,4 +1,4 @@
-import type { EnqueueResult, Task, TaskStatus } from '../types.js';
+import type { CancelResult, EnqueueResult, RetryResult, Task, TaskStatus } from '../types.js';
 import { BasicQueueOperations } from './basic-operations.js';
 import { BasicTaskExecutor, type ExecutionOptions } from './basic-executor.js';
 import { ensureQueueStructure } from './tools.js';
@@ -16,7 +16,7 @@ export class TaskQueueAPI {
   enqueue(def: {
     type: string;
     priority?: number;
-    payload?: Record<string, any>;
+    payload?: Record<string, unknown>;
   }): Promise<EnqueueResult> {
     return this.ops.enqueueTask({
       type: def.type,
@@ -31,16 +31,16 @@ export class TaskQueueAPI {
   list(status?: TaskStatus): Promise<Task[]> {
     return this.ops.listTasks(status);
   }
-  cancel(id: string, reason?: string) {
+  cancel(id: string, reason?: string): Promise<CancelResult> {
     return this.ops.cancelTask(id, reason);
   }
-  retry(id: string) {
+  retry(id: string): Promise<RetryResult> {
     return this.ops.retryTask(id);
   }
-  stats() {
+  stats(): Promise<Record<TaskStatus, number>> {
     return this.ops.getQueueStats();
   }
-  execute(id: string, options?: ExecutionOptions) {
+  execute(id: string, options?: ExecutionOptions): ReturnType<BasicTaskExecutor['executeTask']> {
     return this.executor.executeTask(id, options);
   }
 }

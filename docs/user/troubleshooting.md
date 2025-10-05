@@ -145,12 +145,53 @@ codex --version
 codex exec "ls -la"
 ```
 
+#### 3. 检查模型配置
+
+```bash
+# 仅模型
+./start.sh --task "check" --model gpt-5-codex --patch-mode
+
+# 模型 + 推理力度
+./start.sh --task "check" --model "gpt-5-codex high" --patch-mode
+```
+
+如果返回 `400 Unsupported model`：
+
+- 会话 `job.meta.json`/`aggregate.jsonl` 中会显示 `classification: config_error`
+  和 `reason: Unsupported or invalid model`；
+- 说明后端不支持该模型名，请改用受支持的模型或检查 provider 映射；
+- 若需要推理力度，请只使用 `minimal|low|medium|high` 四个枚举值。
+
 #### 3. 查看日志
 
 ```bash
 # 查看 Codex 日志
 cat .codex-father/logs/latest.log
 ```
+
+### 看到 `<instructions-section type="policy-note">` / `Patch Mode: on`
+
+**说明**：已启用补丁模式（`--patch-mode`），系统会追加 policy-note，要求仅输出可应用的补丁。
+
+**如何关闭**：移除 `--patch-mode`，即可恢复为正常执行（允许写盘等）。
+
+### `effective_network_access` 显示为 `restricted`
+
+**说明**：默认网络为受限模式；如果需要联网，请显式开启。
+
+**开启方式**：
+
+```bash
+# CLI 直接使用
+./start.sh --task "need network" \
+  --codex-config sandbox_workspace_write.network_access=true
+
+# MCP 工具参数
+{ "name": "codex.exec", "arguments": { "network": true } }
+```
+
+运行后，`<session>/job.meta.json` 中的 `effective_network_access` 将显示为
+`enabled`。
 
 ### 解决方案
 

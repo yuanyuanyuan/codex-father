@@ -366,7 +366,38 @@ while [[ $# -gt 0 ]]; do
       CODEX_GLOBAL_ARGS+=("--dangerously-bypass-approvals-and-sandbox"); shift 1 ;;
     --model)
       [[ $# -ge 2 ]] || { echo "错误: --model 需要一个模型名称" >&2; exit 2; }
-      set_codex_config_kv "model" "${2}"; shift 2 ;;
+      # 支持两种形式：
+      #  1) --model gpt-5-codex
+      #  2) --model "gpt-5-codex high" 或 --model gpt-5-codex high （附带推理力度）
+      __raw_model_val="${2}"
+      __model_name="${__raw_model_val}"
+      __effort=""
+      # 情况 A：值本身包含空格（被调用方作为单个参数传入）
+      if [[ "${__raw_model_val}" =~ ^([^[:space:]]+)[[:space:]]+(minimal|low|medium|high)$ ]]; then
+        __model_name="${BASH_REMATCH[1]}"; __effort="${BASH_REMATCH[2]}"
+        shift 2
+      else
+        # 情况 B：下一位置单独给出 effort
+        if [[ $# -ge 3 ]]; then
+          case "${3}" in
+            minimal|low|medium|high)
+              __effort="${3}"; shift 3 ;;
+            *)
+              shift 2 ;;
+          esac
+        else
+          shift 2
+        fi
+      fi
+      set_codex_config_kv "model" "${__model_name}"
+      if [[ -n "${__effort}" ]]; then
+        set_codex_config_kv "model_reasoning_effort" "${__effort}"
+      fi
+      # 预检提示：当 --model 值中包含空格但未识别为合法 effort，提醒用户检查写法
+      if [[ "${__raw_model_val}" =~ [[:space:]]+ ]] && [[ ! "${__raw_model_val}" =~ ^([^[:space:]]+)[[:space:]]+(minimal|low|medium|high)$ ]]; then
+        MODEL_NOTE="检测到 --model 包含空格但未识别推理力度；将整体视为模型名。若需设置推理力度，请使用 minimal|low|medium|high，例如 --model \"<model> high\"。"
+      fi
+      ;;
     --codex-config)
       [[ $# -ge 2 ]] || { echo "错误: --codex-config 需要一个 key=value" >&2; exit 2; }
       CODEX_GLOBAL_ARGS+=("--config" "${2}"); shift 2 ;;

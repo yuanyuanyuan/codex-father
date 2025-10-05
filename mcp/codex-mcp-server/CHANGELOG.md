@@ -1,9 +1,20 @@
-# [1.5.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.3...mcp-v1.5.0) (2025-10-05)
+## [1.5.1](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.5.0...mcp-v1.5.1) (2025-10-06)
 
+### Bug Fixes
+
+- **runtime:** 在检测到包版本更新或缺失文件时刷新 `.codex-father`
+  内置脚本，防止继续使用旧版 `job.sh`/`start.sh`。
+
+### Docs
+
+- 记录内置脚本同步策略与错误提示，移除“系统 fallback”相关描述。
+
+# [1.5.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.3...mcp-v1.5.0) (2025-10-05)
 
 ### Features
 
-* **mcp:** guard handshake and add fallback runtime ([190dafe](https://github.com/yuanyuanyuan/codex-father/commit/190dafee6644b8e3e528bb419e4348f6b86783a8))
+- **mcp:** guard handshake and add fallback runtime
+  ([190dafe](https://github.com/yuanyuanyuan/codex-father/commit/190dafee6644b8e3e528bb419e4348f6b86783a8))
 
 ## [1.5.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.3...mcp-v1.5.0) (2025-10-05)
 
@@ -26,7 +37,8 @@
 
 ### Bug Fixes
 
-- **release:** prepublish 阶段强制全量编译 ([c79b402](https://github.com/yuanyuanyuan/codex-father/commit/c79b402e5130d20d60af0f2548c9581e92d5682c))
+- **release:**
+  prepublish 阶段强制全量编译 ([c79b402](https://github.com/yuanyuanyuan/codex-father/commit/c79b402e5130d20d60af0f2548c9581e92d5682c))
 
 ## [1.4.2](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.1...mcp-v1.4.2) (2025-10-05)
 

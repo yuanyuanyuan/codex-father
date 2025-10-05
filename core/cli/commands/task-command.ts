@@ -27,6 +27,8 @@ const REQUIRED_QUEUE_DIRS = [
   'tmp',
 ];
 
+type TaskCommandOptions = Record<string, unknown>;
+
 export function registerTaskCommand(parser: CLIParser): void {
   parser.registerCommand(
     'task',
@@ -123,12 +125,52 @@ function ensureQueueStructure(workingDirectory: string): string {
   return basePath;
 }
 
+function getStringOption(options: TaskCommandOptions, key: string): string | undefined {
+  const value = options[key];
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+  return undefined;
+}
+
+function parseJsonObject(value: string): Record<string, unknown> {
+  const parsed = JSON.parse(value) as unknown;
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Payload must be a JSON object');
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function getStatusFilter(value: unknown): string[] | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    const statuses = value.filter(
+      (entry): entry is string => typeof entry === 'string' && entry.length > 0
+    );
+    return statuses.length > 0 ? statuses : undefined;
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return [value];
+  }
+
+  return undefined;
+}
+
 async function handleCreate(
   queueOps: BasicQueueOperations,
   context: CommandContext,
   startedAt: number
 ): Promise<CommandResult> {
-  const { type, payload, priority, scheduledAt } = context.options as Record<string, any>;
+  const options = context.options as TaskCommandOptions;
+  const type = getStringOption(options, 'type');
+  const payload = getStringOption(options, 'payload');
+  const priority = options.priority;
+  const scheduledAt = getStringOption(options, 'scheduledAt');
 
   if (!type) {
     return {
@@ -139,10 +181,10 @@ async function handleCreate(
     };
   }
 
-  let parsedPayload: Record<string, any> = {};
+  let parsedPayload: Record<string, unknown> = {};
   if (payload) {
     try {
-      parsedPayload = JSON.parse(payload);
+      parsedPayload = parseJsonObject(payload);
     } catch (error) {
       return {
         success: false,
@@ -157,8 +199,8 @@ async function handleCreate(
     type,
     priority: toInteger(priority, 5),
     payload: parsedPayload,
-    scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
-  } as TaskDefinition;
+    ...(scheduledAt ? { scheduledAt: new Date(scheduledAt) } : {}),
+  };
 
   const enqueueResult = await queueOps.enqueueTask(definition);
   const data = {
@@ -189,8 +231,8 @@ async function handleList(
   context: CommandContext,
   startedAt: number
 ): Promise<CommandResult> {
-  const options = context.options as Record<string, any>;
-  const statuses = Array.isArray(options.status) ? options.status : undefined;
+  const options = context.options as TaskCommandOptions;
+  const statuses = getStatusFilter(options.status);
 
   const tasks = await queueOps.listTasks();
   const filtered =
@@ -289,7 +331,8 @@ async function handleCancel(
     };
   }
 
-  const { reason } = context.options as Record<string, any>;
+  const options = context.options as TaskCommandOptions;
+  const reason = getStringOption(options, 'reason');
   const result = await queueOps.cancelTask(taskId, reason);
 
   if (!result.cancelled) {
