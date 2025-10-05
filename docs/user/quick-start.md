@@ -82,11 +82,13 @@ npm start
 ### 测试 1：连接测试
 
 **您输入**：
+
 ```
 请帮我列出当前项目的所有 .md 文件
 ```
 
 **预期结果**：
+
 - Claude 会调用 `codex.exec` 工具
 - 返回项目中的 Markdown 文件列表
 - 如果看到文件列表，说明连接成功！✅
@@ -94,11 +96,13 @@ npm start
 ### 测试 2：简单任务测试
 
 **您输入**：
+
 ```
 帮我创建一个 hello.txt 文件，内容是 "Hello, Codex Father!"
 ```
 
 **预期结果**：
+
 - Claude 会执行文件创建任务
 - 返回成功信息
 - 检查项目目录，应该能看到 `hello.txt` 文件
@@ -134,6 +138,7 @@ New-Item -Path "$env:APPDATA\Claude\claude_desktop_config.json" -ItemType File
 ### 问题 2：服务器显示"未连接"
 
 **解决步骤**：
+
 1. 完全退出 Claude Desktop（不是最小化）
 2. 等待 5 秒
 3. 重新打开 Claude Desktop
@@ -142,6 +147,7 @@ New-Item -Path "$env:APPDATA\Claude\claude_desktop_config.json" -ItemType File
 ### 问题 3：测试指令无响应
 
 **解决步骤**：
+
 1. 检查是否有 Codex CLI 安装在系统中
 2. 运行 `codex --version` 验证
 3. 如果没有，访问 [Codex CLI 官网](https://docs.codex.dev) 安装
@@ -161,10 +167,12 @@ New-Item -Path "$env:APPDATA\Claude\claude_desktop_config.json" -ItemType File
 
 ## 💡 提示
 
-- **审批策略**：首次使用时，Codex Father 会询问您是否批准执行命令，这是正常的安全机制
+- **审批策略**：首次使用时，Codex
+  Father 会询问您是否批准执行命令，这是正常的安全机制
 - **性能优化**：可以在配置中添加 `"approval-policy": "on-failure"` 减少审批次数
-- **日志查看**：遇到问题时，可以查看 `~/.codex/logs/` 目录下的日志文件
+- **日志查看**：遇到问题时，可以查看 `.codex-father/logs/` 目录下的日志文件
 
 ---
 
-**🎉 享受使用 Codex Father！如有问题，请查看 [完整文档](../README.md) 或提交 Issue。**
+**🎉 享受使用 Codex Father！如有问题，请查看 [完整文档](../README.md)
+或提交 Issue。**

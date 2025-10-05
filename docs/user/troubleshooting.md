@@ -94,7 +94,7 @@ codex exec "ls -la"
 
 ```bash
 # 查看 Codex 日志
-cat ~/.codex/logs/latest.log
+cat .codex-father/logs/latest.log
 ```
 
 ### 解决方案
@@ -185,7 +185,7 @@ ps aux | grep codex
 #### 2. 检查日志大小
 
 ```bash
-du -sh ~/.codex/logs/
+du -sh .codex-father/logs/
 ```
 
 ### 解决方案
@@ -208,7 +208,7 @@ du -sh ~/.codex/logs/
 
 ```bash
 # 清理旧日志
-rm ~/.codex/logs/*.log.old
+rm .codex-father/logs/*.log.old
 ```
 
 ---
@@ -277,6 +277,7 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 ```
 
 Inspector 提供：
+
 - 实时工具调用监控
 - 详细错误堆栈
 - 请求/响应日志
