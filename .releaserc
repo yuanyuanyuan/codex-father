@@ -3,14 +3,10 @@
   "tagFormat": "mcp-v${version}",
   "plugins": [
     "@semantic-release/commit-analyzer",
-    "@semantic-release/release-notes-generator",
-    [
-      "@semantic-release/changelog",
-      { "changelogFile": "mcp/codex-mcp-server/CHANGELOG.md" }
-    ],
     [
       "@semantic-release/exec",
       {
+        "generateNotesCmd": "node scripts/mcp-extract-changelog.mjs ${nextRelease.version}",
         "prepareCmd": "bash -lc 'node -e \"const fs=require(\\\"fs\\\");const p=\\\"mcp/codex-mcp-server/package.json\\\";const pkg=JSON.parse(fs.readFileSync(p));pkg.version=\\\"${nextRelease.version}\\\";fs.writeFileSync(p, JSON.stringify(pkg, null, 2)+\\\"\\n\\\");console.log(\\\"set version to ${nextRelease.version}\\\");\"; cd mcp/codex-mcp-server && npm pack'",
         "publishCmd": "bash -lc 'if [ -n \"$NPM_TOKEN\" ]; then cd mcp/codex-mcp-server && npm publish --access public --registry https://registry.npmjs.org/; else echo \"[semantic-release] skip npmjs publish: NPM_TOKEN missing\"; fi'"
       }
@@ -19,7 +15,6 @@
       "@semantic-release/git",
       {
         "assets": [
-          "mcp/codex-mcp-server/CHANGELOG.md",
           "mcp/codex-mcp-server/package.json"
         ],
         "message": "chore(release): mcp v${nextRelease.version} [skip ci]\\n\\n${nextRelease.notes}"
