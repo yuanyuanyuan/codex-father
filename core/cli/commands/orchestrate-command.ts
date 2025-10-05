@@ -45,8 +45,22 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         (options.outputFormat as OrchestrateDefaults['outputFormat']) ?? DEFAULTS.outputFormat;
 
       const successRate = 0.92;
-      const eventLogPath = '.codex-father/orchestrate/latest-events.jsonl';
+      const eventLogPath = '.codex-father/sessions/latest/events.jsonl';
       const executionTime = Date.now() - startTime;
+
+      const buildJsonSummary = (status: 'success' | 'failure', details: Record<string, unknown>) =>
+        JSON.stringify({
+          status,
+          requirement,
+          mode,
+          maxConcurrency,
+          taskTimeout,
+          successRate,
+          successThreshold,
+          eventsFile: eventLogPath,
+          outputFormat,
+          ...details,
+        });
 
       if (successRate >= successThreshold) {
         const summary = [
@@ -57,9 +71,17 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
           `事件文件: ${eventLogPath}`,
         ].join('\n');
 
+        const message =
+          outputFormat === 'json'
+            ? buildJsonSummary('success', {
+                failedTasks: [],
+                completedAt: new Date().toISOString(),
+              })
+            : summary;
+
         const result: CommandResult = {
           success: true,
-          message: summary,
+          message,
           data: {
             requirement,
             mode,
@@ -77,13 +99,26 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         return result;
       }
 
+      const failedTasks = ['patch_failed', 'lint_failed'];
+      const failureMessage =
+        outputFormat === 'json'
+          ? buildJsonSummary('failure', {
+              failedTasks,
+              failureReason: 'success-rate-below-threshold',
+              completedAt: new Date().toISOString(),
+            })
+          : '编排失败：成功率未达到设定阈值';
+
       const result: CommandResult = {
         success: false,
-        message: '编排失败：成功率未达到设定阈值',
-        errors: [
-          '失败任务清单: patch_failed, lint_failed',
-          `成功率 ${(successRate * 100).toFixed(1)}% 低于阈值 ${(successThreshold * 100).toFixed(1)}%`,
-        ],
+        message: failureMessage,
+        errors:
+          outputFormat === 'json'
+            ? []
+            : [
+                '失败任务清单: patch_failed, lint_failed',
+                `成功率 ${(successRate * 100).toFixed(1)}% 低于阈值 ${(successThreshold * 100).toFixed(1)}%`,
+              ],
         data: {
           requirement,
           mode,
@@ -93,6 +128,8 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
           successThreshold,
           outputFormat,
           eventLogPath,
+          failedTasks,
+          failureReason: 'success-rate-below-threshold',
         },
         executionTime,
         exitCode: 1,
