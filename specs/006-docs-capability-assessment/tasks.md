@@ -95,9 +95,9 @@
 - [ ] T038 [P] Contract test: JSONL audit log append-only + required fields in
       `core/orchestrator/tests/audit-jsonl.contract.test.ts`
       （state-manager.ts 未实现 emitEvent 与 JSONL 追加）
-- [ ] T039 [P] Security test: redaction of sensitive data in events/logs in
+- [x] T039 [P] Security test: redaction of sensitive data in events/logs in
       `core/orchestrator/tests/redaction.security.test.ts`
-      （缺少事件/日志脱敏管线实现）
+      （已实现：StateManager.emitEvent 支持 redactionPatterns；敏感信息写入前被替换为 [REDACTED]）
 - [ ] T040 [P] Integration: session recovery from Codex rollout in
       `core/orchestrator/tests/session-recovery.integration.test.ts`
       （process-orchestrator.ts 未整合 codex exec resume 会话恢复）
