@@ -50,6 +50,10 @@
 4. `codex.logs` — 读取任务日志（字节/行两种模式）
 5. `codex.stop` — 停止任务（可 `--force`）
 6. `codex.list` — 枚举已知任务
+7. `codex.help` — 工具自发现与示例输出
+
+> 命名与别名：同时提供下划线等价别名 `codex_exec`, `codex_start`,
+> `codex_status`, `codex_logs`, `codex_stop`, `codex_list`, `codex_help`。
 
 > 注：早期文档中出现的
 > `codex-chat`/`codex-execute`/`codex-read-file`/`codex-apply-patch`
@@ -173,12 +177,13 @@ args = ["-y", "@starkdev020/codex-father-mcp-server"]
 
 当前版本提供以下 MCP 工具：
 
-1. **`codex.exec`** - 同步执行 Codex 任务
-2. **`codex.start`** - 异步启动任务（返回 jobId）
-3. **`codex.status`** - 查询任务状态
-4. **`codex.logs`** - 读取任务日志
-5. **`codex.stop`** - 停止运行中的任务
-6. **`codex.list`** - 列出所有任务
+1. **`codex.exec`** - 同步执行 Codex 任务（= `codex_exec`）
+2. **`codex.start`** - 异步启动任务（返回 jobId）（= `codex_start`）
+3. **`codex.status`** - 查询任务状态（= `codex_status`）
+4. **`codex.logs`** - 读取任务日志（= `codex_logs`）
+5. **`codex.stop`** - 停止运行中的任务（= `codex_stop`）
+6. **`codex.list`** - 列出所有任务（= `codex_list`）
+7. **`codex.help`** - 工具自发现（= `codex_help`）
 
 ### 使用示例
 
