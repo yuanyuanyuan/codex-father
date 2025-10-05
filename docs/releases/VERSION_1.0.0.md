@@ -166,10 +166,10 @@ npm start
 
 ## 📞 获取帮助
 
-- 📖 **文档**: [README.md](../README.md)
-- 📋 **发布说明**: [RELEASE_NOTES.md](../RELEASE_NOTES.md)
-- 📝 **变更日志**: [CHANGELOG.md](../CHANGELOG.md)
-- 🔧 **开发指南**: [CLAUDE.md](../CLAUDE.md)
+- 📖 **文档**: [README.md](../../README.md)
+- 📋 **发布说明**: [RELEASE_NOTES.md](RELEASE_NOTES.md)
+- 📝 **变更日志**: [CHANGELOG.md](../../CHANGELOG.md)
+- 🔧 **开发指南**: [DEVELOPMENT.md](../developer/DEVELOPMENT.md)
 - 🐛 **问题报告**:
   [GitHub Issues](https://github.com/your-org/codex-father/issues)
 
@@ -189,12 +189,12 @@ npm start
 
 ## 📄 完整文档
 
-- [完整发布说明](../RELEASE_NOTES.md) - 详细的发布信息
-- [变更日志](../CHANGELOG.md) - 所有版本变更记录
-- [项目说明](../README.md) - 项目概述和使用指南
-- [开发指南](../CLAUDE.md) - 技术栈和开发规范
-- [MCP 集成](mcp-integration.md) - MCP 协议集成详解
-- [测试计划](mvp1-manual-test-plan.md) - 完整测试指南
+- [完整发布说明](RELEASE_NOTES.md) - 详细的发布信息
+- [变更日志](../../CHANGELOG.md) - 所有版本变更记录
+- [项目说明](../../README.md) - 项目概述和使用指南
+- [开发指南](../developer/DEVELOPMENT.md) - 技术栈和开发规范
+- [MCP 集成](../architecture/mcp-integration.md) - MCP 协议集成详解
+- [测试计划](../__archive/old-docs/mvp1-manual-test-plan.md) - 完整测试指南
 
 ---
 

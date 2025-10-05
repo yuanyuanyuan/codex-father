@@ -145,8 +145,8 @@ git push origin :refs/tags/v1.0.0
 ## 📚 完整文档
 
 - **[DEPLOY.md](DEPLOY.md)** - 完整部署指南（已更新支持 GH Packages）
-- **[RELEASE_NOTES.md](RELEASE_NOTES.md)** - 发布说明
-- **[CHANGELOG.md](CHANGELOG.md)** - 变更日志
+- **[RELEASE_NOTES.md](../releases/RELEASE_NOTES.md)** - 发布说明
+- **[CHANGELOG.md](../../CHANGELOG.md)** - 变更日志
 
 ---
 

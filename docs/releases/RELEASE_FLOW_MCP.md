@@ -18,8 +18,8 @@ semantic-release 为主，支持本地 dry-run 预览与一键触发。发布标
 
 ## 2. 文档与说明
 
-- 新增版本说明：`docs/VERSION_MCP_1.2.0.md`
-- 更新使用文档：`README.md` 与 `docs/mcp-integration.md`（如涉及）
+- 新增版本说明：`docs/releases/VERSION_MCP_1.2.0.md`
+- 更新使用文档：`README.md` 与 `docs/architecture/mcp-integration.md`（如涉及）
 - 顶层变更：`CHANGELOG.md`/`RELEASE_NOTES.md` 增加链接或摘要（可选）
 
 ---

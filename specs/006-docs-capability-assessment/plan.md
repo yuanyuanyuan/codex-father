@@ -1,7 +1,7 @@
 # Implementation Plan: Multi-Agent Parallel Task Orchestration
 
 **Branch**: `006-docs-capability-assessment` | **Date**: 2025-10-03 | **Spec**:
-specs/006-docs-capability-assessment/spec.md **Input**: Feature specification
+spec.md **Input**: Feature specification
 from `specs/006-docs-capability-assessment/spec.md`
 
 ## Execution Flow (/plan command scope)
@@ -130,7 +130,7 @@ docs/schemas/                          # 事件 Stream-JSON schema（已存在�
 - 数据模型：`data-model.md`（Orchestration/Task/Agent/Role/Patch/Feedback）
 - 契约：`contracts/orchestrate.cli.md`（CLI 行为与参数）、`contracts/events.md`（事件类型与样例，指向现有 schema）
 - 快速上手：`quickstart.md`（运行示例、事件流说明、成功判定）
-- Agent 文件：将通过脚本增量更新 `CLAUDE.md`
+- Agent 文件：将通过脚本增量更新 `docs/developer/DEVELOPMENT.md`
 
 ## Phase 2: Task Planning Approach（不在本命令执行）
 

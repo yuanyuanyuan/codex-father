@@ -178,7 +178,7 @@ coverage/
 
 # 文档（仅保留必要的）
 docs/*.md
-!docs/mcp-integration.md
+!docs/architecture/mcp-integration.md
 
 # 临时文件
 *.log
@@ -391,10 +391,10 @@ install && npm run build npm start \```
 
 ### 📚 文档
 
-- [完整发布说明](https://github.com/yuanyuanyuan/codex-father/blob/main/RELEASE_NOTES.md)
+- [完整发布说明](https://github.com/yuanyuanyuan/codex-father/blob/main/docs/releases/RELEASE_NOTES.md)
 - [变更日志](https://github.com/yuanyuanyuan/codex-father/blob/main/CHANGELOG.md)
 - [使用指南](https://github.com/yuanyuanyuan/codex-father/blob/main/README.md)
-- [MCP 集成文档](https://github.com/yuanyuanyuan/codex-father/blob/main/docs/mcp-integration.md)
+- [MCP 集成文档](https://github.com/yuanyuanyuan/codex-father/blob/main/docs/architecture/mcp-integration.md)
 
 ---
 

@@ -108,6 +108,6 @@
 
 ## 8. 参考与扩展阅读
 
-- 版本说明：`docs/VERSION_MCP_1.2.0.md`
-- 规范材料：`specs/_archived/008-ultrathink-codex-0/*`
+- 版本说明：`docs/releases/VERSION_MCP_1.2.0.md`
+- 规范材料：`specs/__archive/008-ultrathink-codex-0/*`
 - 使用指南：`mcp/codex-mcp-server/README.md`

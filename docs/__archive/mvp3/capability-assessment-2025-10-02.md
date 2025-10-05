@@ -191,7 +191,7 @@ grep -r "multi.*codex\|codex.*pool\|process.*pool" core/
 
 **MVP2 规划状态**:
 
-- 📋 设计文档在归档目录：`docs/_archive/mvp2-spec.md`、`docs/_archive/mvp2-prd.md`
+- 📋 设计文档在归档目录：`docs/__archive/old-docs/mvp2-spec.md`、`docs/__archive/old-docs/mvp2-prd.md`
 - ❌ 实现代码未开始（规划阶段）
 - 📅 预计开发周期：2-3 周（依据规划文档）
 
@@ -1260,7 +1260,7 @@ CLI 本身不支持某些功能（如并行、hooks），codex-father 也无能�
 - 并发与隔离优先采用“无头/非交互”链路：`codex exec --json`（每作业独立进程），天然具备多实例并行与隔离能力；需要恢复可用
   `codex exec resume`。
 - 在 MVP2 引入进程池：由进程编排器统一调度多个 `codex exec` 进程（参见
-  `docs/_archive/mvp2-spec.md`），结合队列/优先级/超时/重试策略实现稳定并发。
+  `docs/__archive/old-docs/mvp2-spec.md`），结合队列/优先级/超时/重试策略实现稳定并发。
 - MCP 模式建议用于轻量、单作业交互；重负载/需隔离/需恢复的任务切换到
   `codex exec` 无头模式。
 
@@ -1331,8 +1331,8 @@ CLI 本身不支持某些功能（如并行、hooks），codex-father 也无能�
 
 **MVP2 设计文档**:
 
-- `docs/_archive/mvp2-prd.md` - MVP2 产品需求文档
-- `docs/_archive/mvp2-spec.md` - MVP2 技术规范
+- `docs/__archive/old-docs/mvp2-prd.md` - MVP2 产品需求文档
+- `docs/__archive/old-docs/mvp2-spec.md` - MVP2 技术规范
 
 **官方参数与无头模式整理**:
 

@@ -28,6 +28,11 @@ codex-father orchestrate --tasks-file ./tasks.json --mode manual
   - 退出码 `0`：成功率 ≥ 阈值 且无 `patch_failed`
   - 退出码 `1`：不满足成功条件（或存在补丁失败）
 
+注意（STDOUT 规约）：
+
+- 对外 stdout 仅由编排器输出统一的 Stream-JSON 事件；`codex exec` 子进程即使开启
+  `--json`，其 stdout 会被编排器捕获解析，不会直通 stdout，以避免双路 JSON 冲突。
+
 ## 常见配置
 
 YAML 示例（与 `ConfigLoader` 合并）：

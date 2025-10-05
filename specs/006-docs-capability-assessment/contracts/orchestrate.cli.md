@@ -39,11 +39,26 @@ codex-father orchestrate <requirement> [options]
   `orchestration_failed`
 - 示例：见 `../quickstart.md`
 
+附注：扩展运营类事件（`patch_applied`、`patch_failed`、`task_retry_scheduled`、`concurrency_reduced`
+等）仅写入 JSONL 审计；如需在流式输出中提示，使用 `tool_use` 或将信息并入
+`task_*` 事件的 `data`。
+
+### STDOUT 规约（防止双路 JSON 混杂）
+
+- 对外 stdout 仅由编排器发射符合 Schema 的 Stream-JSON 事件。
+- 子进程（`codex exec`）即使开启
+  `--json`，其 stdout 也只被编排器捕获与解析，不会直通至父进程 stdout；必要信息通过
+  `tool_use`/`task_*` 统一对外呈现。
+- 子进程 stderr/非结构化输出写入 JSONL 审计或摘要化后合入
+  `tool_use`，并做脱敏与长度/频率限制。
+
 ## 退出码
 
 - `0`：成功率 ≥ 阈值 且 无 `patch_failed`
 - `1`：不满足成功条件（含任一补丁失败或成功率不足）
 - 非 0 非 1：进程级异常（配置/环境错误等）
+
+注：`patch_failed` 为 JSONL 审计中的扩展事件，流式事件不包含该枚举。
 
 ## 约束与行为
 
@@ -51,6 +66,8 @@ codex-father orchestrate <requirement> [options]
 - 并发上限：10；资源不足自动降并发（最低 1）
 - 写入策略：SWW 单写者窗口 + 两阶段写；每次写入后快速校验
 - 重试：失败任务自动重试 1 次（指数退避）
+- 子进程 CWD 隔离：每个 `codex exec`
+  子进程在隔离工作区（会话目录下）运行，生成补丁与摘要；仅由编排器在主工作区串行应用补丁
 
 ## 示例
 

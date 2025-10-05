@@ -6,7 +6,7 @@
 ## 1. 背景与目标
 
 - 背景
-  - 项目在 `docs/MVP4/prd.draft.md:8` 已明确“使用 git
+  - 项目在 `docs/mvp/mvp4/prd.draft.md:8` 已明确“使用 git
     worktree 管理不同任务的文件变更”。
   - 现有工程重心是 CLI + 队列 + MCP/会话编排；暂无 UI 需求。
 - 目标
