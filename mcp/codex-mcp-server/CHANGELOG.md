@@ -1,13 +1,15 @@
-## [1.5.1](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.5.0...mcp-v1.5.1) (2025-10-06)
+## [1.6.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.5.0...mcp-v1.6.0) (2025-10-06)
 
-### Bug Fixes
+### Features
 
-- **runtime:** 在检测到包版本更新或缺失文件时刷新 `.codex-father`
-  内置脚本，防止继续使用旧版 `job.sh`/`start.sh`。
+- **runtime:** 默认禁用系统 fallback，启动时自动将内置 `job.sh`/`start.sh`
+  及依赖落地到 `.codex-father/`，缺失时直接报错。
+- **runtime:** 自动同步 `job.d/`、`start.d/`、`lib/`
+  下的运行时脚本，检测手动修改后保留用户版本并给出警告。
 
 ### Docs
 
-- 记录内置脚本同步策略与错误提示，移除“系统 fallback”相关描述。
+- 更新环境变量参考、发行说明与 README，说明新的内置脚本托管策略及错误提示。
 
 # [1.5.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.3...mcp-v1.5.0) (2025-10-05)
 

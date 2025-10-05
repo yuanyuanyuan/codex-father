@@ -1,6 +1,6 @@
 # Release Notes - Codex Father
 
-> 最新亮点：MCP 子包 v1.5.1 发布（内置脚本自动同步，缺失即显式报错）
+> 最新亮点：MCP 子包 v1.6.0 发布（内置脚本自动同步，缺失即显式报错）
 
 ---
 
@@ -8,7 +8,7 @@
 
 这是 **Codex Father** 的发布汇总页。MCP 子包已完成以下关键版本：
 
-- v1.5.1：移除系统 fallback，自动同步 `.codex-father` 内置脚本并提供显式缺失错误
+- v1.6.0：移除系统 fallback，自动同步 `.codex-father` 内置脚本并提供显式缺失错误
 - v1.4.0：可发现性与传输增强（默认 NDJSON；`--transport=content-length`；`codex.clean`/`codex.metrics`；`codex.logs`
   增强）
 - v1.3.0：工具别名与命名策略（`CODEX_MCP_NAME_STYLE`/`CODEX_MCP_TOOL_PREFIX`/`CODEX_MCP_HIDE_ORIGINAL`；`codex.help`）

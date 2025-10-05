@@ -15,4 +15,4 @@ try {
 }
 
 export const PROJECT_NAME = process.env.npm_package_name ?? packageName ?? 'codex-father';
-export const PROJECT_VERSION = process.env.npm_package_version ?? packageVersion ?? '1.5.1';
+export const PROJECT_VERSION = process.env.npm_package_version ?? packageVersion ?? '1.6.0';
