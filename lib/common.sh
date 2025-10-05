@@ -136,19 +136,36 @@ classify_exit() {
   if [[ -f "$log_file" ]]; then
     local tok
     # Be resilient under 'set -e -o pipefail': allow no-match
-    tok="$( (grep -Ei 'tokens used' "$log_file" 2>/dev/null | tail -n1 | sed -E 's/.*tokens used[^0-9]*([0-9,]+).*/\1/i' | tr -d ',') || true )"
+    tok="$(awk 'BEGIN{IGNORECASE=1}
+      /tokens used/ {
+        if (match($0, /[0-9][0-9,]*/)) {
+          num = substr($0, RSTART, RLENGTH);
+          gsub(/,/, "", num);
+          print num;
+          exit;
+        }
+        if (getline line) {
+          if (match(line, /[0-9][0-9,]*/)) {
+            num = substr(line, RSTART, RLENGTH);
+            gsub(/,/, "", num);
+            print num;
+            exit;
+          }
+        }
+      }
+    ' "$log_file" 2>/dev/null || true)"
     [[ -n "$tok" ]] && TOKENS_USED="$tok"
   fi
   # Classification
   if [[ "$code" -ne 0 ]]; then
-    if grep -Eqi 'context|token|length|too long|exceed|truncat' "$log_file" "$last_msg_file" 2>/dev/null; then
+    if grep -Eqi 'timeout|timed out|deadlineexceeded|fetch failed|network|enotfound|econn|getaddrinfo' "$log_file" "$last_msg_file" 2>/dev/null; then
+      CLASSIFICATION='network_error'; EXIT_REASON='Network error or timeout'
+    elif grep -Eqi '(context|token).*(limit|overflow|exceed|max|length|truncat|too (long|large))|maximum context|prompt too large' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='context_overflow'; EXIT_REASON='Context or token limit exceeded'
     elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='approval_required'; EXIT_REASON='Approval policy blocked a command'
     elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='sandbox_denied'; EXIT_REASON='Sandbox policy denied operation'
-    elif grep -Eqi 'network|ENOTFOUND|ECONN|timeout|fetch failed|getaddrinfo' "$log_file" "$last_msg_file" 2>/dev/null; then
-      CLASSIFICATION='network_error'; EXIT_REASON='Network error or restriction'
     elif grep -Eqi 'unauthorized|forbidden|invalid api key|401|403' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='auth_error'; EXIT_REASON='Authentication/authorization error'
     elif grep -Eqi 'too many requests|rate limit|429' "$log_file" "$last_msg_file" 2>/dev/null; then

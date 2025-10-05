@@ -10,7 +10,7 @@ cmd_start() {
   done
 
   local job_id; job_id=$(gen_job_id "$tag")
-  local base_dir="${cwd:-$PWD}"
+  local base_dir; base_dir=$(resolve_workspace_base "$cwd")
   local sess_root; sess_root=$(sessions_dir "$base_dir")
   mkdir -p "$sess_root"
   local run_dir="${sess_root}/${job_id}"
@@ -92,8 +92,9 @@ cmd_status() {
   [[ $# -ge 1 ]] || { err "用法: job.sh status <job-id> [--json] [--cwd <dir>]"; exit 2; }
   local job_id="$1"; shift || true
   while [[ $# -gt 0 ]]; do case "$1" in --json) json_out=1; shift ;; --cwd) [[ $# -ge 2 ]] || { err "--cwd 需要路径"; exit 2; }; cwd="$2"; shift 2 ;; *) shift ;; esac; done
+  local base_dir; base_dir=$(resolve_workspace_base "$cwd")
   local run_dir
-  run_dir="$(sessions_dir "${cwd:-$PWD}")/${job_id}"
+  run_dir="$(sessions_dir "$base_dir")/${job_id}"
   [[ -d "$run_dir" ]] || { err "未找到任务目录: ${run_dir}"; exit 2; }
   status_compute_and_update "$run_dir" "$json_out"
 }
@@ -110,8 +111,9 @@ cmd_logs() {
       *) shift ;;
     esac
   done
+  local base_dir; base_dir=$(resolve_workspace_base "$cwd")
   local log_file
-  log_file="$(sessions_dir "${cwd:-$PWD}")/${job_id}/job.log"
+  log_file="$(sessions_dir "$base_dir")/${job_id}/job.log"
   [[ -f "$log_file" ]] || { err "日志不存在: ${log_file}"; exit 2; }
   if (( follow == 1 )); then
     if [[ -n "$tail_n" ]]; then tail -n "$tail_n" -F "$log_file"; else tail -n 50 -F "$log_file"; fi
@@ -134,8 +136,9 @@ cmd_stop() {
       *) shift ;;
     esac
   done
+  local base_dir; base_dir=$(resolve_workspace_base "$cwd")
   local run_dir
-  run_dir="$(sessions_dir "${cwd:-$PWD}")/${job_id}"
+  run_dir="$(sessions_dir "$base_dir")/${job_id}"
   if [[ ! -d "$run_dir" ]]; then
     if (( json_out == 1 )); then
       cat <<JSON
@@ -240,7 +243,8 @@ cmd_list() {
     esac
   done
 
-  local sess_root; sess_root=$(sessions_dir "${cwd:-$PWD}")
+  local base_dir; base_dir=$(resolve_workspace_base "$cwd")
+  local sess_root; sess_root=$(sessions_dir "$base_dir")
   mkdir -p "$sess_root"
 
   local first=1
@@ -332,7 +336,8 @@ cmd_clean() {
     states=("completed" "failed" "stopped")
   fi
 
-  local sess_root; sess_root=$(sessions_dir "${cwd:-$PWD}")
+  local base_dir; base_dir=$(resolve_workspace_base "$cwd")
+  local sess_root; sess_root=$(sessions_dir "$base_dir")
   mkdir -p "$sess_root"
 
   local -a targets=()
@@ -435,7 +440,8 @@ cmd_metrics() {
     esac
   done
 
-  local sess_root; sess_root=$(sessions_dir "${cwd:-$PWD}")
+  local base_dir; base_dir=$(resolve_workspace_base "$cwd")
+  local sess_root; sess_root=$(sessions_dir "$base_dir")
   mkdir -p "$sess_root"
 
   local total=0

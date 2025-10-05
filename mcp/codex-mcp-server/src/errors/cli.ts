@@ -1,4 +1,3 @@
-import { formatJson } from '../utils/format.js';
 import type { ToolResult } from '../handlers/types.js';
 import type { RunResult } from '../utils/childProcess.js';
 
@@ -27,8 +26,13 @@ export function createErrorResult({
   if (details && Object.keys(details).length) {
     payload.details = details;
   }
+  const textLines = [message];
+  if (hint) {
+    textLines.push(`提示：${hint}`);
+  }
   return {
-    content: [{ type: 'text', text: formatJson(payload) }],
+    content: [{ type: 'text', text: textLines.join('\n') }],
+    structuredContent: { error: payload },
     isError: true,
   };
 }

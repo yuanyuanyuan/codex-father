@@ -19,15 +19,19 @@ export async function handleExec(
   if (startMissing) {
     return startMissing;
   }
+  if (!ctx.startShExists && ctx.fallback?.supportsSyncExec) {
+    return ctx.fallback.exec(params);
+  }
   const args: string[] = Array.isArray(params.args) ? params.args.map(String) : [];
   applyConvenienceOptions(args, params);
   const tag = params.tag ? String(params.tag) : '';
   const cwd = params.cwd ? String(params.cwd) : '';
-  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
+  const isoTs = new Date().toISOString().replace(/[-:TZ.]/g, '');
+  const ts = isoTs.slice(0, 14);
   const safeTag = tag ? tag.replace(/[^A-Za-z0-9_.-]/g, '-').replace(/^-+|-+$/g, '') : 'untagged';
   const baseDir = cwd || ctx.projectRoot;
   const sessionsRoot = path.resolve(baseDir, '.codex-father', 'sessions');
-  const runId = `exec-${ts}-${safeTag}`;
+  const runId = safeTag ? `exec-${ts}-${safeTag}` : `exec-${ts}`;
   const runDir = path.join(sessionsRoot, runId);
   fs.mkdirSync(runDir, { recursive: true });
   const logFile = path.join(runDir, 'job.log');
@@ -42,6 +46,7 @@ export async function handleExec(
     CODEX_LOG_AGGREGATE_FILE: aggTxt,
     CODEX_LOG_AGGREGATE_JSONL_FILE: aggJsonl,
     CODEX_LOG_SUBDIRS: '0',
+    CODEX_LOG_TAG: safeTag,
   } as NodeJS.ProcessEnv;
 
   let code = 0;

@@ -155,6 +155,48 @@ fi
 
 ## 注意：上面的“日志路径提前初始化”已完成上述逻辑，以下保留变量用于后续步骤。
 
+# 粗略估算输入上下文体积，提前阻断显著超限的任务
+estimate_instruction_tokens() {
+  local content="$1"
+  local bytes
+  bytes=$(printf '%s' "$content" | LC_ALL=C wc -c | awk '{print $1}')
+  # 约定 4 字节 ≈ 1 token，向上取整
+  printf '%s\n' $(((bytes + 3) / 4))
+}
+
+INPUT_TOKEN_LIMIT=${INPUT_TOKEN_LIMIT:-32000}
+INPUT_TOKEN_SOFT_LIMIT=${INPUT_TOKEN_SOFT_LIMIT:-30000}
+ESTIMATED_TOKENS=$(estimate_instruction_tokens "${INSTRUCTIONS}")
+
+if (( ESTIMATED_TOKENS > INPUT_TOKEN_LIMIT )); then
+  {
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "Script: $(basename "$0")  PWD: $(pwd)"
+    echo "Log: ${CODEX_LOG_FILE}"
+    echo "Meta: ${META_FILE}"
+    echo "[input-check] Estimated tokens ${ESTIMATED_TOKENS} exceed hard limit ${INPUT_TOKEN_LIMIT}"
+    printf 'Sources:\n'
+    printf '  • %s\n' "${SOURCE_LINES[@]}"
+  } >> "${CODEX_LOG_FILE}"
+
+  cat <<EOF >&2
+错误: 任务输入内容过大 (约 ${ESTIMATED_TOKENS} tokens)，超过当前限制 ${INPUT_TOKEN_LIMIT}。
+
+请拆分任务或精简输入，例如：
+- 先单独运行一轮任务读取/总结长文档，再用下一轮执行写入；
+- 只传入关键片段，或结合 --docs / --context-head / --context-grep 控制范围；
+- 通过 --tag <name> 为拆分后的子任务打上统一标签，方便检索日志。
+
+如需临时放宽限制，可设置环境变量 INPUT_TOKEN_LIMIT=<token 上限> 后重试。
+EOF
+  exit 2
+fi
+
+if (( ESTIMATED_TOKENS > INPUT_TOKEN_SOFT_LIMIT )); then
+  printf '[info] 输入体积约 %s tokens，已接近限制 %s；建议拆分任务或精简上下文。\n' \
+    "${ESTIMATED_TOKENS}" "${INPUT_TOKEN_LIMIT}" >&2
+fi
+
 # 如果早前检测到参数冲突，则现在写入日志并退出
 if [[ -n "${VALIDATION_ERROR}" ]]; then
   {

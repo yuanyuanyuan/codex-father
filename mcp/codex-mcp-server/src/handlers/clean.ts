@@ -66,8 +66,9 @@ export async function handleClean(
       },
     });
   }
-  for (const st of states) {
-    pass.push('--state', String(st));
+  const normalizedStates = states.map((st) => String(st).trim());
+  for (const st of normalizedStates) {
+    pass.push('--state', st);
   }
   const olderThan = parseOptionalNumber(params.olderThanHours);
   if (olderThan === null || (olderThan !== undefined && olderThan < 0)) {
@@ -95,6 +96,16 @@ export async function handleClean(
   }
   if (params.dryRun) {
     pass.push('--dry-run');
+  }
+  const dryRun = Boolean(params.dryRun);
+
+  if (!ctx.jobShExists && ctx.fallback?.supportsJobs) {
+    return ctx.fallback.clean({
+      states: normalizedStates,
+      olderThanHours: olderThan,
+      limit,
+      dryRun,
+    });
   }
 
   const result = await run(ctx.jobSh, pass);

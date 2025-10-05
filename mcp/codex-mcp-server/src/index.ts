@@ -4,7 +4,13 @@ import os from 'node:os';
 import process from 'node:process';
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  InitializeRequestSchema,
+  McpError,
+  ErrorCode,
+} from '@modelcontextprotocol/sdk/types.js';
 
 import { parseCliArgs, parseEnv } from './config/env.js';
 import { CliLogger } from './logger.js';
@@ -13,6 +19,7 @@ import { handleCall } from './handlers/index.js';
 import { resolvePaths } from './utils/resolvePaths.js';
 import { createTransport, describeTransport } from './transport/factory.js';
 import type { HandlerContext } from './handlers/types.js';
+import { FallbackRuntime } from './fallback/runtime.js';
 
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json') as { name?: string; version?: string };
@@ -71,6 +78,10 @@ async function main() {
   const logger = new CliLogger(envConfig.logLevel);
 
   const resolvedPaths = resolvePaths();
+  const fallbackRuntime =
+    !resolvedPaths.jobSh.exists || !resolvedPaths.startSh.exists
+      ? new FallbackRuntime(resolvedPaths.projectRoot, logger)
+      : null;
 
   const banner = [
     `${pkg.name || 'codex-mcp-server'} v${pkg.version || 'unknown'} (${process.pid})`,
@@ -104,6 +115,7 @@ async function main() {
     projectRoot: resolvedPaths.projectRoot,
     jobShExists: resolvedPaths.jobSh.exists,
     startShExists: resolvedPaths.startSh.exists,
+    fallback: fallbackRuntime,
   };
 
   if (!context.jobShExists) {
@@ -116,16 +128,63 @@ async function main() {
       `未在 ${context.startSh} 找到 start.sh，可通过 CODEX_MCP_PROJECT_ROOT 或 CODEX_START_SH 覆盖。`
     );
   }
+  if (fallbackRuntime) {
+    logger.warn('未检测到核心脚本，已启用 fallback 执行模式。');
+  }
 
   const server = new Server(
     { name: 'codex-father-mcp', version: pkg.version || '0.1.0' },
     { capabilities: { tools: {} } }
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => toolsSpec());
-  server.setRequestHandler(CallToolRequestSchema, async (req) => handleCall(req, context));
+  let initializeSucceeded = false;
+
+  const internalHandlers = (
+    server as unknown as {
+      _requestHandlers: Map<string, (req: unknown, extra: unknown) => unknown>;
+    }
+  )._requestHandlers;
+  const defaultInitialize = internalHandlers.get('initialize');
+  if (defaultInitialize) {
+    internalHandlers.set('initialize', (request: unknown, extra: unknown) => {
+      const parsed = InitializeRequestSchema.safeParse(request);
+      if (!parsed.success) {
+        const protocolIssue = parsed.error.issues.find(
+          (issue) => Array.isArray(issue.path) && issue.path.join('.') === 'params.protocolVersion'
+        );
+        const message = protocolIssue
+          ? 'initialize 请求缺少 protocolVersion 字段。'
+          : 'initialize 请求格式不合法。';
+        logger.error(message);
+        throw new McpError(ErrorCode.InvalidParams, message, {
+          issues: parsed.error.issues,
+        });
+      }
+      const result = defaultInitialize(parsed.data, extra);
+      initializeSucceeded = true;
+      return Promise.resolve(result);
+    });
+  }
+
+  const ensureInitialized = (method: string) => {
+    if (!initializeSucceeded) {
+      throw new McpError(ErrorCode.InvalidRequest, '尚未完成 MCP initialize 握手。', {
+        method,
+      });
+    }
+  };
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    ensureInitialized('tools/list');
+    return toolsSpec();
+  });
+  server.setRequestHandler(CallToolRequestSchema, async (req) => {
+    ensureInitialized('tools/call');
+    return handleCall(req, context);
+  });
 
   server.oninitialized = () => {
+    initializeSucceeded = true;
     logger.info('已完成 MCP initialize 握手。');
   };
 
