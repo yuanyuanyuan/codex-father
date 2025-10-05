@@ -1,16 +1,16 @@
 ## [1.4.2](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.1...mcp-v1.4.2) (2025-10-05)
 
-
 ### Bug Fixes
 
-* **release:** prepublish 前自动构建 ([7ab7138](https://github.com/yuanyuanyuan/codex-father/commit/7ab7138c24e6d9d467b3a864b29804414edb4f35))
+- **release:** prepublish 阶段强制全量编译并校验 dist，避免增量缓存缺少 env.js
+  ([7ab7138](https://github.com/yuanyuanyuan/codex-father/commit/7ab7138c24e6d9d467b3a864b29804414edb4f35))
 
 ## [1.4.1](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.0...mcp-v1.4.1) (2025-10-05)
 
-
 ### Bug Fixes
 
-* **mcp:** 发布前校验 dist 构建产物 ([7525b5d](https://github.com/yuanyuanyuan/codex-father/commit/7525b5d295b4dee4cf4d38d476cdf0b083134e1f))
+- **mcp:**
+  发布前校验 dist 构建产物 ([7525b5d](https://github.com/yuanyuanyuan/codex-father/commit/7525b5d295b4dee4cf4d38d476cdf0b083134e1f))
 
 # [1.4.1](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.0...mcp-v1.4.1) (2025-10-05)
 
