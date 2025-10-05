@@ -170,9 +170,9 @@
 - [x] T051 Ensure JSONL audit logging: append-only + required fields; add
       validator hooks in `state-manager.ts`
       （已实现：StateManager.emitEvent 通过 EventLogger 追加 JSONL，包含 orchestrationId/seq/timestamp/事件字段；见 core/orchestrator/state-manager.ts）
-- [ ] T052 Implement redaction pipeline for events/logs (respect repo redaction
+- [x] T052 Implement redaction pipeline for events/logs (respect repo redaction
       settings; sanitize tool_use summaries)
-      （事件/日志脱敏策略尚未落地）
+      （已实现：StateManager.emitEvent 支持 redactionPatterns，写入前对敏感子串替换为 [REDACTED]）
 - [ ] T053 Implement session recovery from Codex rollout
       (`codex exec resume <SESSION_ID>` integration) in
       `process-orchestrator.ts`
