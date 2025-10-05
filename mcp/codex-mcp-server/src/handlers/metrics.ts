@@ -37,9 +37,7 @@ export async function handleMetrics(
     pass.push('--state', st);
   }
 
-  if (!ctx.jobShExists && ctx.fallback?.supportsJobs) {
-    return ctx.fallback.metrics({ states: normalizedStates });
-  }
+  // 不再启用 fallback，缺失时由 ensureJobSh 返回明确错误
 
   const result = await run(ctx.jobSh, pass);
   if (result.code !== 0) {

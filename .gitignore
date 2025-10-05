@@ -24,3 +24,5 @@ tsconfig.tsbuildinfo
 
 .gemini/
 gha-creds-*.json
+assets/runtime
+.cache/

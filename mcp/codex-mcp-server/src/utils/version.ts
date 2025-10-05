@@ -66,21 +66,25 @@ export function listIncompatibleCliParams(
   rawArgs: string[]
 ): string[] {
   const incompatible: string[] = [];
-  if (!p) {
-    p = {};
-  }
-  if (p.profile && cmpSemver(version, '0.44.0') < 0) {
+  type AdvancedCliParams = {
+    profile?: unknown;
+    fullAuto?: unknown;
+    dangerouslyBypass?: unknown;
+  };
+  const params: AdvancedCliParams = p ?? {};
+
+  if (params.profile && cmpSemver(version, '0.44.0') < 0) {
     incompatible.push('profile');
   }
-  if ((p as any).fullAuto && cmpSemver(version, '0.44.0') < 0) {
+  if (params.fullAuto && cmpSemver(version, '0.44.0') < 0) {
     incompatible.push('fullAuto');
   }
-  if ((p as any).dangerouslyBypass && cmpSemver(version, '0.44.0') < 0) {
+  if (params.dangerouslyBypass && cmpSemver(version, '0.44.0') < 0) {
     incompatible.push('dangerouslyBypass');
   }
 
   const args = Array.isArray(rawArgs) ? rawArgs.map(String) : [];
-  const hasFlag = (flag: string) => args.includes(flag);
+  const hasFlag = (flag: string): boolean => args.includes(flag);
   if (hasFlag('--profile') && cmpSemver(version, '0.44.0') < 0) {
     incompatible.push('cli.--profile');
   }

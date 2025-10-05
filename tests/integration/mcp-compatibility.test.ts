@@ -17,6 +17,8 @@ import { BridgeLayer } from '../../core/mcp/bridge-layer.js';
 import type { ISessionManager } from '../../core/mcp/bridge-layer.js';
 import { SessionManager, type IProcessManager } from '../../core/session/session-manager.js';
 import { ApprovalMode, EventType, SandboxPolicy } from '../../core/lib/types.js';
+
+const CONTRACT_ROOT = path.join('specs', '__archive', '008-ultrathink-codex-0', 'contracts');
 import type {
   CodexClient,
   CodexNewConversationParams,
@@ -207,7 +209,7 @@ describe('T054 MCP 协议兼容性集成测试', () => {
   // F1: 所有 MCP 方法可用（基于文档与已存在的 Schema/契约文件进行一致性核验）
   it('场景 F1: 验证所有 MCP 方法契约覆盖 + Bridge 工具可见性', async () => {
     // 1) 读取 contracts-checklist.md 提取方法名
-    const checklistPath = 'specs/008-ultrathink-codex-0/contracts/contracts-checklist.md';
+    const checklistPath = path.join(CONTRACT_ROOT, 'contracts-checklist.md');
     const text = await fs.readFile(checklistPath, 'utf-8');
     const methodSet = new Set<string>();
 
@@ -280,15 +282,9 @@ describe('T054 MCP 协议兼容性集成测试', () => {
       const missing: string[] = [];
       for (const m of methods) {
         const base = normalizeMethodToFileBase(m);
-        const schemaPathA = path.join(
-          'specs/008-ultrathink-codex-0/contracts',
-          `${base}.schema.json`
-        );
+        const schemaPathA = path.join(CONTRACT_ROOT, `${base}.schema.json`);
         const contractPathA = path.join('tests/contract', `${base}.contract.test.ts`);
-        const contractPathB = path.join(
-          'specs/008-ultrathink-codex-0/contracts',
-          `${base}.contract.test.ts`
-        );
+        const contractPathB = path.join(CONTRACT_ROOT, `${base}.contract.test.ts`);
 
         const exists = await Promise.all([
           fs
@@ -317,13 +313,11 @@ describe('T054 MCP 协议兼容性集成测试', () => {
             const alt = normalizeMethodToFileBase(m);
             const altExists = await Promise.all([
               fs
-                .access(path.join('specs/008-ultrathink-codex-0/contracts', `${alt}.schema.json`))
+                .access(path.join(CONTRACT_ROOT, `${alt}.schema.json`))
                 .then(() => true)
                 .catch(() => false),
               fs
-                .access(
-                  path.join('specs/008-ultrathink-codex-0/contracts', `${alt}.contract.test.ts`)
-                )
+                .access(path.join(CONTRACT_ROOT, `${alt}.contract.test.ts`))
                 .then(() => true)
                 .catch(() => false),
             ]);
@@ -382,10 +376,7 @@ describe('T054 MCP 协议兼容性集成测试', () => {
       // 3) 校验请求参数契约（JSON Schema）
       const ajv = new Ajv({ strict: false });
       const schema = JSON.parse(
-        await fs.readFile(
-          'specs/008-ultrathink-codex-0/contracts/applyPatchApproval.schema.json',
-          'utf-8'
-        )
+        await fs.readFile(path.join(CONTRACT_ROOT, 'applyPatchApproval.schema.json'), 'utf-8')
       );
       // request 引用了顶层 definitions，编译时合并 definitions 以便 $ref 可解析
       const validateReq = ajv.compile({

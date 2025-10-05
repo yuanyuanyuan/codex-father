@@ -36,4 +36,10 @@ if [ -n "$STAGED_TEST_FILES" ]; then
   fi
 fi
 
+echo "⚡ Running daily fast checks (check:all:fast)..."
+if ! npm run -s check:all:fast; then
+  echo "❌ Fast checks failed. Fix issues or use --no-verify to bypass (not recommended)."
+  exit 1
+fi
+
 echo "✅ Pre-commit checks completed"

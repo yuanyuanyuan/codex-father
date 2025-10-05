@@ -24,6 +24,29 @@ semantic-release 为主，支持本地 dry-run 预览与一键触发。发布标
 
 ---
 
+## 2.1 Release Notes 自动化（必做）
+
+自 `chore/release-notes-automation` 起，CI 发布工作流会直接读取
+`mcp/codex-mcp-server/CHANGELOG.md` 中对应版本的条目，并将其作为 GitHub
+Release 的正文。如果缺少该条目，CI 会失败。因此在合并前务必完成：
+
+1. 更新 `CHANGELOG.md`：在文件顶部追加本次版本的完整描述，推荐包含
+   `Features`/`Fixes`/`Tests` 等小节和要点列表。
+2. 验证输出：
+
+   ```bash
+   node scripts/mcp-extract-changelog.mjs <版本号>
+   ```
+
+   若脚本输出为空或报错，说明 `CHANGELOG.md` 未准备好，需要先修复。
+
+3. 提交到版本库后再走发布流程，CI 就会自动生成带完整说明的 Release。
+
+> 提示：无需再在 commit 描述里堆砌所有 bullet，保持 changelog 结构即可。Release 生成时仍会使用 conventional
+> commits 写入标签消息与 npm 发布。
+
+---
+
 ## 3. 预检（本地）
 
 ```bash

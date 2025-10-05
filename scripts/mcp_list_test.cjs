@@ -27,7 +27,9 @@ function createReader(onMessage) {
     while ((idx = pending.indexOf('\n')) >= 0) {
       const line = pending.slice(0, idx).replace(/\r$/, '');
       pending = pending.slice(idx + 1);
-      if (!line.trim()) continue;
+      if (!line.trim()) {
+        continue;
+      }
       try {
         const msg = JSON.parse(line);
         onMessage(msg);

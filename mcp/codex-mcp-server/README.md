@@ -8,6 +8,8 @@ Desktop 或任何 MCP 客户端都能直接调用 Codex CLI，实现智能代码
 ## ✨ 核心特性
 
 - **零配置启动** - 5 分钟内完成从安装到运行
+- **内置脚本托管** - 启动时自动同步 `.codex-father/job.sh` 与
+  `start.sh`，缺失即给出显式修复提示
 - **异步任务管理** - 支持长时间运行的任务，可随时查询状态和日志
 - **灵活的安全策略** - 从只读到完全访问，可自由配置
 - **多客户端支持**（Ubuntu） - 支持 Codex CLI (rMCP)、Claude Code CLI（Claude
@@ -228,6 +230,46 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
 - 在 Codex 的对话流程中无缝集成
 - 可以利用 Codex 的上下文管理
 - 支持 rMCP 协议的双向通信
+
+## 🧭 首次使用快速提示（避坑清单）
+
+> 下面的提示专为第一次使用 MCP 工具的同学准备，避免常见配置问题。
+
+- 模型与推理力度（两种写法，二选一）：
+  - 通过 `args`：`{"args":["--model","gpt-5-codex high"]}` 或
+    `{"args":["--model","gpt-5-codex","high"]}`
+  - 通过
+    `codexConfig`：`{"codexConfig": {"model": "gpt-5-codex", "model_reasoning_effort": "high"}}`
+  - 如后端返回 400 Unsupported model，聚合元数据会标记
+    `classification=config_error`，`reason=Unsupported or invalid model`；请改用受支持模型或更新 provider 映射。
+- 联网开关：
+  - 默认网络为 `restricted`。需要联网时在工具入参传
+    `"network": true`（服务器会自动追加
+    `--codex-config sandbox_workspace_write.network_access=true`）。
+  - 运行后，`<session>/job.meta.json` 的 `effective_network_access` 应显示
+    `enabled`（我们会以运行日志为准回填真实状态）。
+- 审批与沙箱：
+  - `workspace-write + never` 会被规范化为 `on-request`
+    以避免只读降级；日志中会有 `[arg-normalize]` 提示。
+  - 如需无人值守，建议 `on-failure`；或显式
+    `dangerouslyBypass=true`（高风险，仅限隔离环境）。
+- 补丁模式：
+  - 仅在需要“只输出补丁（patch/diff）”时设置 `patchMode=true`；日志会显示
+    `Patch Mode: on` 并注入 `policy-note`。
+- 快速自检（MCP 工具调用示例）：
+  - 单次执行（联网 + 补丁模式）：
+    ```json
+    {
+      "name": "codex.exec",
+      "arguments": {
+        "args": ["--task", "init", "--model", "gpt-5-codex high"],
+        "sandbox": "workspace-write",
+        "approvalPolicy": "on-request",
+        "network": true,
+        "patchMode": true
+      }
+    }
+    ```
 
 ---
 
@@ -609,7 +651,7 @@ Error: EACCES: permission denied
 
 **解决方案**：
 
-```bash
+````bash
 # 1. 检查文件权限
 ls -la /path/to/codex-father
 
@@ -617,11 +659,46 @@ ls -la /path/to/codex-father
 sudo chown -R $(whoami) ~/.npm
 sudo chown -R $(whoami) /path/to/codex-father
 
+### 问题 5：返回 `400 Unsupported model`
+
+**症状**：执行 `codex.exec/start` 时，日志出现 `Unsupported model`。
+
+**定位**：
+
+- 查看会话目录 `<session>/job.meta.json` 或 `aggregate.jsonl`，应显示：
+  - `classification: config_error`
+  - `reason: Unsupported or invalid model`
+
+**解决**：
+
+- 确认后端支持的模型名；
+- 若需要推理力度，使用这两种写法之一：
+  1) `args`: `["--model","<model> high"]` 或 `["--model","<model>","high"]`
+  2) `codexConfig`: `{ "model": "<model>", "model_reasoning_effort": "high" }`
+
+### 问题 6：`effective_network_access` 显示为 `restricted`
+
+**原因**：默认网络受限。若需联网：
+
+```json
+{
+  "name": "codex.exec",
+  "arguments": {
+    "args": ["--task", "need network"],
+    "network": true
+  }
+}
+````
+
+运行后，`<session>/job.meta.json` 中 `effective_network_access` 将显示
+`enabled`（我们会据运行日志回填真实状态）。
+
 # 3. 重新安装依赖
-cd /path/to/codex-father/mcp/codex-mcp-server
-rm -rf node_modules package-lock.json
-npm install
-```
+
+cd /path/to/codex-father/mcp/codex-mcp-server rm -rf node_modules
+package-lock.json npm install
+
+````
 
 ### 问题 5：日志输出乱码
 
@@ -640,7 +717,7 @@ npm install
     "tailLines": 50,
   },
 }
-```
+````
 
 ---
 

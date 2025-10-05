@@ -188,11 +188,11 @@ function createAlias(tool: ToolDef, name: string): ToolDef {
   };
 }
 
-function addPrefixAliases(tools: ToolDef[], canonical: ToolDef[], prefix: string) {
+function addPrefixAliases(tools: ToolDef[], canonical: ToolDef[], prefix: string): void {
   if (!prefix) {
     return;
   }
-  const suffix = (name: string) => name.replace(/^codex[._]/, '');
+  const suffix = (name: string): string => name.replace(/^codex[._]/, '');
   const canonicalByName = new Map(canonical.map((t) => [t.name, t]));
   for (const tool of canonical) {
     const base = canonicalByName.get(tool.name);

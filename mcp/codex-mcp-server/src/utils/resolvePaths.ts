@@ -65,7 +65,8 @@ export function resolvePaths(): ResolvedPaths {
   let projectRoot = roots[0];
   for (const root of roots) {
     const jobCandidate = path.resolve(root, 'job.sh');
-    if (fs.existsSync(jobCandidate)) {
+    const jobCandidateAlt = path.resolve(root, '.codex-father', 'job.sh');
+    if (fs.existsSync(jobCandidate) || fs.existsSync(jobCandidateAlt)) {
       projectRoot = root;
       break;
     }
@@ -74,8 +75,17 @@ export function resolvePaths(): ResolvedPaths {
   const jobOverride = process.env.CODEX_JOB_SH;
   const startOverride = process.env.CODEX_START_SH;
 
-  const jobSh = resolveExecutableFile(projectRoot, 'job.sh', jobOverride);
-  const startSh = resolveExecutableFile(projectRoot, 'start.sh', startOverride);
+  let jobSh = resolveExecutableFile(projectRoot, 'job.sh', jobOverride);
+  let startSh = resolveExecutableFile(projectRoot, 'start.sh', startOverride);
+  // Also accept scripts under .codex-father if top-level missing
+  if (!jobSh.exists) {
+    const alt = path.resolve(projectRoot, '.codex-father', 'job.sh');
+    jobSh = { path: alt, exists: fs.existsSync(alt) };
+  }
+  if (!startSh.exists) {
+    const alt = path.resolve(projectRoot, '.codex-father', 'start.sh');
+    startSh = { path: alt, exists: fs.existsSync(alt) };
+  }
 
   return {
     projectRoot,

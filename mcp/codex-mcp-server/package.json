@@ -1,6 +1,6 @@
 {
   "name": "@starkdev020/codex-father-mcp-server",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "MCP server for Codex Father, implemented with @modelcontextprotocol/sdk. Exposes codex.start/status/logs/stop/list tools by delegating to job.sh.",
   "type": "module",
   "license": "MIT",
@@ -33,14 +33,15 @@
     ".": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "assets/runtime"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/index.ts",
     "check:dist": "node ./scripts/check-dist.mjs",
     "prepare": "npm run build",
-    "prepublishOnly": "npm exec -- tsc --build tsconfig.json --force && npm run check:dist"
+    "prepublishOnly": "node ./scripts/copy-runtime.mjs && npm exec -- tsc --build tsconfig.json --force && npm run check:dist"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.1"

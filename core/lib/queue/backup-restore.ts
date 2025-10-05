@@ -50,7 +50,7 @@ export class QueueBackupManager {
       mkdirSync(dest, { recursive: true });
       let restoredFiles = 0;
       let skippedFiles = 0;
-      const copy = (dir: string, rel = '') => {
+      const copy = (dir: string, rel = ''): void => {
         const entries = readdirSync(dir, { withFileTypes: true });
         for (const e of entries) {
           const p = join(dir, e.name);
@@ -79,12 +79,12 @@ export class QueueBackupManager {
         errors: [],
         duration: Date.now() - started,
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       return {
         success: false,
         restoredFiles: 0,
         skippedFiles: 0,
-        errors: [String(err?.message || err)],
+        errors: [err instanceof Error ? err.message : String(err)],
         duration: Date.now() - started,
       };
     }
@@ -96,7 +96,7 @@ export class QueueBackupManager {
     }
     let fileCount = 0;
     let totalSize = 0;
-    const walk = (p: string) => {
+    const walk = (p: string): void => {
       const entries = readdirSync(p, { withFileTypes: true });
       for (const e of entries) {
         const fp = join(p, e.name);

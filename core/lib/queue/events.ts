@@ -5,9 +5,11 @@ import type {
   QueueEventListener,
 } from '../types.js';
 
-const globalStructuredClone: ((value: unknown) => any) | undefined =
-  typeof (globalThis as Record<string, any>).structuredClone === 'function'
-    ? (globalThis as Record<string, any>).structuredClone.bind(globalThis)
+const globalStructuredClone: (<T>(value: T) => T) | undefined =
+  typeof (globalThis as { structuredClone?: unknown }).structuredClone === 'function'
+    ? ((globalThis as { structuredClone: (value: unknown) => unknown }).structuredClone.bind(
+        globalThis
+      ) as <T>(value: T) => T)
     : undefined;
 
 function cloneDetails<T>(details: T): T {
@@ -15,7 +17,7 @@ function cloneDetails<T>(details: T): T {
     return globalStructuredClone(details);
   }
   try {
-    return JSON.parse(JSON.stringify(details));
+    return JSON.parse(JSON.stringify(details)) as T;
   } catch {
     return details;
   }
@@ -67,7 +69,7 @@ export class QueueEventEmitterImpl implements QueueEventEmitter {
     const basePayload: QueueEventData = {
       event,
       timestamp: normalizeTimestamp(data.timestamp),
-      details: cloneDetails(data.details ?? {}),
+      details: cloneDetails<Record<string, unknown>>(data.details ?? {}),
       ...(data.taskId ? { taskId: data.taskId } : {}),
     };
 
@@ -76,7 +78,7 @@ export class QueueEventEmitterImpl implements QueueEventEmitter {
         const payloadForListener: QueueEventData = {
           event: basePayload.event,
           timestamp: basePayload.timestamp,
-          details: cloneDetails(basePayload.details),
+          details: cloneDetails<Record<string, unknown>>(basePayload.details),
           ...(basePayload.taskId ? { taskId: basePayload.taskId } : {}),
         };
         listener(payloadForListener);

@@ -158,8 +158,12 @@ classify_exit() {
   fi
   # Classification
   if [[ "$code" -ne 0 ]]; then
-    if grep -Eqi 'timeout|timed out|deadlineexceeded|fetch failed|network|enotfound|econn|getaddrinfo' "$log_file" "$last_msg_file" 2>/dev/null; then
+    # 更精确的网络错误判定：避免将“network access enabled”等正常提示误判为网络错误
+    if grep -Eqi 'timeout|timed[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed|ENOTFOUND|EAI_AGAIN|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='network_error'; EXIT_REASON='Network error or timeout'
+    # 显式识别“模型不支持/无效模型”之类的配置错误
+    elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" "$last_msg_file" 2>/dev/null; then
+      CLASSIFICATION='config_error'; EXIT_REASON='Unsupported or invalid model'
     elif grep -Eqi '(context|token).*(limit|overflow|exceed|max|length|truncat|too (long|large))|maximum context|prompt too large' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='context_overflow'; EXIT_REASON='Context or token limit exceeded'
     elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" "$last_msg_file" 2>/dev/null; then

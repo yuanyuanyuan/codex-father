@@ -3,6 +3,7 @@ import { Command } from 'commander';
 
 import { CLIParser } from '../parser.js';
 import type { CommandResult } from '../../lib/types.js';
+import { PROJECT_VERSION } from '../../lib/version.js';
 
 describe('Main Command Interface (T001)', () => {
   let command: Command;
@@ -45,7 +46,7 @@ describe('Main Command Interface (T001)', () => {
   });
 
   it('exposes CLI version information', () => {
-    expect(command.version()).toBe('1.0.0');
+    expect(command.version()).toBe(PROJECT_VERSION);
   });
 
   it('outputs JSON when global json flag is provided', async () => {

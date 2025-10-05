@@ -53,6 +53,15 @@ classify_exit "${RUN_LAST_MSG_FILE}" "${CODEX_LOG_FILE}" "${CODEX_EXIT}"
 INSTR_TITLE=$(awk 'NF {print; exit}' "${INSTR_FILE}" 2>/dev/null || echo "")
 RUN_ID="codex-${TS}${TAG_SUFFIX}"
 
+# 根据运行时日志回填网络实际生效状态，避免仅依据入参产生偏差
+if [[ -f "${CODEX_LOG_FILE}" ]]; then
+  if grep -Eqi 'network access enabled' "${CODEX_LOG_FILE}" 2>/dev/null; then
+    EFFECTIVE_NETWORK_ACCESS="enabled"
+  elif grep -Eqi 'network access (disabled|restricted)' "${CODEX_LOG_FILE}" 2>/dev/null; then
+    EFFECTIVE_NETWORK_ACCESS="restricted"
+  fi
+fi
+
 TOKENS_JSON="null"
 if [[ -n "${TOKENS_USED}" ]]; then
   if [[ "${TOKENS_USED}" =~ ^[0-9]+$ ]]; then
@@ -85,6 +94,13 @@ EOF
 )
 
 printf '%s\n' "${META_JSON}" > "${META_FILE}"
+
+# 如网络为受限模式，给出新手友好提示（仅写入日志，不影响 JSON）
+if [[ "${EFFECTIVE_NETWORK_ACCESS}" == "restricted" ]]; then
+  {
+    echo "[hint] 网络为受限模式：如需联网，请添加 --codex-config sandbox_workspace_write.network_access=true 或在 MCP 工具入参传 network=true。"
+  } >> "${CODEX_LOG_FILE}"
+fi
 
 if [[ "${CODEX_LOG_AGGREGATE}" == "1" ]]; then
   mkdir -p "$(dirname "${CODEX_LOG_AGGREGATE_JSONL_FILE}")"

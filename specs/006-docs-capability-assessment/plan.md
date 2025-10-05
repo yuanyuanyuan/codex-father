@@ -1,8 +1,8 @@
 # Implementation Plan: Multi-Agent Parallel Task Orchestration
 
 **Branch**: `006-docs-capability-assessment` | **Date**: 2025-10-03 | **Spec**:
-spec.md **Input**: Feature specification
-from `specs/006-docs-capability-assessment/spec.md`
+spec.md **Input**: Feature specification from
+`specs/006-docs-capability-assessment/spec.md`
 
 ## Execution Flow (/plan command scope)
 

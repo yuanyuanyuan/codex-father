@@ -30,7 +30,7 @@ function timestampSegment(): string {
   return isoTs.slice(0, 14);
 }
 
-function ensureDir(dir: string) {
+function ensureDir(dir: string): void {
   fs.mkdirSync(dir, { recursive: true });
 }
 
@@ -501,7 +501,7 @@ export class FallbackRuntime {
     return runDir;
   }
 
-  private writeMeta(pathname: string, meta: Record<string, unknown>) {
+  private writeMeta(pathname: string, meta: Record<string, unknown>): void {
     try {
       fs.writeFileSync(pathname, JSON.stringify(meta, null, 2), 'utf8');
     } catch (error) {
@@ -516,7 +516,7 @@ export class FallbackRuntime {
     startedAt: Date,
     finishedAt: Date,
     result: RunResult
-  ) {
+  ): void {
     const lines = [
       '# Fallback codex.exec',
       `Command: ${shellCommand}`,

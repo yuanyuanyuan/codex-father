@@ -139,7 +139,7 @@ export class FileSystemQueue {
   async updateTaskStatus(
     taskId: string,
     status: TaskStatus,
-    result?: any,
+    result?: unknown,
     error?: string
   ): Promise<void> {
     await this.queueOps.updateTaskStatus(taskId, status, result, error);

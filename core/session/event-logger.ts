@@ -25,7 +25,7 @@ export interface EventLoggerConfig {
   logFileName?: string; // 日志文件名 (默认: events.jsonl)
   autoFlush?: boolean; // 是否自动刷新到磁盘 (默认: true)
   validateEvents?: boolean; // 是否验证事件格式 (默认: true)
-  asyncWrite?: boolean; // 是否异步写入(默认: true)，启用后 logEvent 不等待磁盘完成
+  asyncWrite?: boolean; // 是否异步写入（默认: autoFlush 为 false 时启用），启用后 logEvent 不等待磁盘完成
 }
 
 /**
@@ -49,12 +49,15 @@ export class EventLogger {
   private writeLock: Promise<void> = Promise.resolve();
 
   constructor(config: EventLoggerConfig) {
+    const autoFlush = config.autoFlush ?? true;
+    const asyncWrite = config.asyncWrite ?? !autoFlush;
+
     this.config = {
       logDir: config.logDir,
       logFileName: config.logFileName || 'events.jsonl',
-      autoFlush: config.autoFlush ?? true,
+      autoFlush,
       validateEvents: config.validateEvents ?? true,
-      asyncWrite: config.asyncWrite ?? true,
+      asyncWrite,
     };
 
     this.logFilePath = path.join(this.config.logDir, this.config.logFileName);
@@ -217,7 +220,19 @@ export class EventLogger {
 
     // 追加写入文件 (append mode)
     // 追加写入文件 (append mode)，首次创建文件使用 0600 权限
-    await fs.appendFile(this.logFilePath, jsonLine + '\n', { encoding: 'utf-8', mode: 0o600 });
+    try {
+      await fs.appendFile(this.logFilePath, jsonLine + '\n', { encoding: 'utf-8', mode: 0o600 });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        await this.ensureLogDirExists();
+        await fs.appendFile(this.logFilePath, jsonLine + '\n', {
+          encoding: 'utf-8',
+          mode: 0o600,
+        });
+      } else {
+        throw error;
+      }
+    }
   }
 
   /**

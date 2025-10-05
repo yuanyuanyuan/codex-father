@@ -155,17 +155,24 @@ export function validateQueueConfiguration(
 }
 
 function mergeDeep<T>(base: T, overrides: DeepPartial<T>): T {
-  const result: any = structuredClone(base);
+  const result = structuredClone(base);
 
-  for (const [key, value] of Object.entries(overrides)) {
+  for (const key of Object.keys(overrides) as Array<keyof T>) {
+    const value = overrides[key];
     if (value === undefined || value === null) {
       continue;
     }
-    const baseValue = (result as any)[key];
+
+    const targetKey = key as keyof T;
+    const baseValue = (result as T)[targetKey];
+
     if (isPlainObject(baseValue) && isPlainObject(value)) {
-      (result as any)[key] = mergeDeep(baseValue, value as any);
+      (result as T)[targetKey] = mergeDeep(
+        baseValue,
+        value as DeepPartial<typeof baseValue>
+      ) as T[typeof targetKey];
     } else {
-      (result as any)[key] = value;
+      (result as T)[targetKey] = value as T[typeof targetKey];
     }
   }
 
@@ -232,7 +239,7 @@ function clampRange(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function isPlainObject(value: unknown): value is Record<string, any> {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -240,9 +247,8 @@ function deepFreeze<T>(value: T): T {
   if (typeof value !== 'object' || value === null) {
     return value;
   }
-  const frozen = value as Record<string, any>;
-  for (const key of Object.keys(frozen)) {
-    const item = frozen[key];
+  const frozen = value as Record<string, unknown>;
+  for (const item of Object.values(frozen)) {
     if (typeof item === 'object' && item !== null) {
       deepFreeze(item);
     }

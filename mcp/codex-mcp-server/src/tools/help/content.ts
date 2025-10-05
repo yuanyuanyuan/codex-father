@@ -5,13 +5,23 @@ type ParamMeta = {
   values?: string[];
 };
 
+type GuideContentChunk = {
+  type: 'text';
+  text: string;
+};
+
+type SamplePayload = {
+  content: GuideContentChunk[];
+  isError?: boolean;
+};
+
 export type GuideMeta = {
   tagline: string;
   scenario: string;
   params: ParamMeta[];
   exampleArgs?: Record<string, unknown>;
-  sampleReturn: any;
-  sampleError?: any;
+  sampleReturn: SamplePayload;
+  sampleError?: SamplePayload;
   aliases?: string[];
   tips?: string[];
   returnsJsonString?: boolean;
@@ -90,6 +100,10 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
     tips: [
       '返回体包含日志路径，可用 codex.logs 查看详情。',
       '建议使用 tag 参数便于 list/stop 检索。',
+      '模型参数：可用 args 形式（例如 ["--model","gpt-5-codex high"] 或 ["--model","gpt-5-codex","high"])，也可用 codexConfig（{"model":"gpt-5-codex","model_reasoning_effort":"high"}）。',
+      '联网：入参传 network=true，服务器将注入 --codex-config sandbox_workspace_write.network_access=true；meta 的 effective_network_access 会回填运行时真实状态。',
+      '补丁模式：patchMode=true 将注入 policy-note，限制仅输出补丁（patch/diff）；如需正常执行请移除该选项。',
+      '审批与沙箱：workspace-write + never 会被规范化为 on-request（日志含 [arg-normalize] 提示）；无人值守建议 on-failure。',
     ],
     returnsJsonString: true,
   },
@@ -118,7 +132,13 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       content: [{ type: 'text', text: '{"jobId":"cdx-20240313_090000-release","logFile":"..."}' }],
     },
     aliases: ['codex_start'],
-    tips: ['结合 codex.status / codex.logs 查看进度。', 'tag 可帮助团队区分同一批任务。'],
+    tips: [
+      '结合 codex.status / codex.logs 查看进度。',
+      'tag 可帮助团队区分同一批任务。',
+      '模型与推理力度写法同 codex.exec，支持 "<model> high" 或通过 codexConfig 显式设置。',
+      '需要联网时传 network=true；effective_network_access 将在 meta 中反映真实状态。',
+      'patchMode=true 仅输出补丁；如需实际写入请勿开启。',
+    ],
     returnsJsonString: true,
   },
   'codex.status': {
@@ -288,6 +308,21 @@ export const faqItems = [
     answer:
       'codex.exec 会等待任务执行完毕后返回结果；codex.start 会立即返回 jobId，后续可用 status/logs 跟踪。',
   },
+  {
+    question: '出现 400 Unsupported model 怎么办？',
+    answer:
+      '请确认模型名受后端支持；未受支持时元数据会显示 classification=config_error 与 reason=Unsupported or invalid model。若需设置推理力度，使用 ["--model","<model> high"]、["--model","<model>","high"]，或 codexConfig:{"model":"<model>","model_reasoning_effort":"high"}。',
+  },
+  {
+    question: '为什么 meta 里 effective_network_access 是 restricted？',
+    answer:
+      '默认网络受限。若需要联网，请在 MCP 入参设置 network=true（服务器会注入 --codex-config sandbox_workspace_write.network_access=true）。运行时日志显示 network access enabled 时，元数据会回填为 enabled。',
+  },
+  {
+    question: '为什么指令里看到 policy-note？如何关闭补丁模式？',
+    answer:
+      '当启用 patchMode=true 或 CLI 传入 --patch-mode 时，会注入 policy-note 要求仅输出补丁。若要关闭，请去掉 patchMode/--patch-mode。',
+  },
 ];
 
 export const advancedNotes = [
@@ -295,4 +330,15 @@ export const advancedNotes = [
   'codex.logs 支持 bytes 与 lines 两种模式，可结合 grep、view 精准过滤。',
   'codex.clean 支持 dry-run，建议在批量删除前先预览影响。',
   '通过环境变量 CODEX_MCP_NAME_STYLE / CODEX_MCP_TOOL_PREFIX 可导出下划线别名或统一前缀，方便部分客户端显示。',
+  '模型与推理力度：支持 "<model> minimal|low|medium|high" 及 codexConfig 显式设置；不支持的模型会被归类为 config_error。',
+  '网络：入参 network=true 可显式开网，元数据按运行日志回填 enabled/restricted。',
+  '补丁模式：patchMode=true 会注入 policy-note，仅输出 patch/diff；关闭补丁模式即可恢复常规执行。',
+];
+
+// 首次使用者的统一“避坑提示”，便于 IDE 从 codex.help JSON 中直接读取
+export const onboardingTips: string[] = [
+  '模型与推理力度：args 用法 ["--model","<model> high"] 或 ["--model","<model>","high"]；或 codexConfig {"model":"<model>","model_reasoning_effort":"high"}。',
+  '联网：MCP 入参设置 network=true；运行日志显示 network access enabled 时，元数据 effective_network_access 会回填为 enabled。',
+  '补丁模式：patchMode=true 注入 policy-note，仅输出 patch/diff；移除该选项即可恢复常规执行。',
+  '审批与沙箱：workspace-write + never 将规范化为 on-request（日志含 [arg-normalize] 提示）；无人值守建议 on-failure。',
 ];

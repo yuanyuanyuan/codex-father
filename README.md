@@ -221,6 +221,36 @@ npm run rmcp:client -- --help
 
 **Claude** 会自动调用 `codex.exec` 工具执行分析任务。
 
+### 首次使用快速提示（避免常见坑）
+
+- 模型与推理力度：
+  - 仅模型：`--model gpt-5-codex`
+  - 模型+推理力度：`--model "gpt-5-codex high"` 或 `--model gpt-5-codex high`
+  - 若后端报 400 Unsupported model，日志/元数据会显示
+    `classification=config_error`，请改用后端支持的模型或调整 provider 映射。
+- 联网开关：
+  - 默认网络为
+    `restricted`；需要联网时添加：`--codex-config sandbox_workspace_write.network_access=true`
+  - 运行后在 `<session>/job.meta.json` 的 `effective_network_access` 应显示
+    `enabled`。
+- 审批与沙箱：
+  - 可写沙箱 + `never` 会被规范化为 `on-request`，日志中含 `[arg-normalize]`
+    提示。
+  - 如需无人值守，建议使用 `on-failure`，或显式开启 bypass（危险）。
+- 补丁模式：
+  - 仅在需要“只输出补丁”时添加 `--patch-mode`；看到日志 `Patch Mode: on`
+    即表示已注入 `policy-note`。
+- 快速自检：
+  - 联网+补丁模式示例：
+    ```bash
+    ./start.sh --task "init" \
+      --model "gpt-5-codex high" \
+      --sandbox workspace-write \
+      --ask-for-approval on-request \
+      --codex-config sandbox_workspace_write.network_access=true \
+      --patch-mode
+    ```
+
 ### 详细文档
 
 - **完整工具参数说明**:
@@ -287,7 +317,56 @@ npm run format:check
 
 # 完整检查
 npm run check:all
+
+# 分模块检查
+npm run check:core              # 仅 core/src 代码 + 单元测试
+npm run check:mcp               # 仅 MCP 子包 lint + mcp-* 集成测试
+npm run test:unit:core          # 只跑 tests/unit 下用例
+npm run test:integration:mcp    # 只跑 mcp 相关集成测试
 ```
+
+### 快速校验与缓存策略（推荐工作流）
+
+为加速本地开发，提供“快路径”与自动缓存守卫：
+
+- 快速全套检查（自动守卫 + 并行 + 智能测试）
+  - `npm run check:all:fast`
+  - 适用：日常开发提交前；自动检测配置/依赖变化并清理缓存；并行执行 typecheck/lint/format；测试仅跑与改动相关用例（自动回退全量）。
+
+- 并行的全量检查（自动守卫 + 并行 + 全量测试）
+  - `npm run check:all:parallel`
+  - 适用：需要全量测试但希望缩短墙钟时间的场景。
+
+- CI/发版路径（稳健、顺序执行）
+  - `npm run check:all`
+  - 现在也已内置“自动缓存守卫”，在执行前检测关键配置与依赖指纹变化并清理缓存，确保结果可靠。
+
+- 手动触发缓存清理（通常无需使用）
+  - `npm run clean:caches`
+  - 强制清理 ESLint/TS/Vitest 相关缓存；遇到跨大分支切换、工具链升级或异常时可使用。
+
+说明与原理：
+
+- 自动缓存守卫 `scripts/cache-guard.mjs`
+  会读取以下文件并计算指纹：`package.json`、`package-lock.json`、`eslint.config.js`、`tsconfig*.json`、`vitest.config.ts`、`.prettierignore`、`.prettierrc`，以及关键工具版本（eslint/@typescript-eslint/tsc/vitest/prettier）。
+- 指纹变化时会自动清理：`.cache/eslint/`、`.tsbuildinfo*`、`node_modules/.vite/`、`coverage/`、`.nyc_output/`、`vitest-temp/`。
+- 智能测试 `scripts/test-smart.sh` 会检测 `git diff HEAD` 的改动文件，优先执行
+  `vitest related <files...>`，无法判定时回退全量 `vitest run`。
+
+### Git Hook（提交前自动校验）
+
+项目已配置 Husky 的 `pre-commit` 钩子，在每次提交前自动执行：
+
+- `lint-staged`：仅对暂存区文件执行 ESLint/Prettier 修复与校验；
+- `npm run check:all:fast`：自动缓存守卫 + 并行检查 + 智能测试；不通过将阻止提交。
+  - 若变更不涉及 `core/`、`src/`、`tests/`，智能测试将跳过执行以提升提交速度。
+
+使用说明：
+
+- 安装 Husky：执行一次 `npm install` 会触发 `npm run prepare` 自动安装 Git
+  hooks；如无效运行 `npx husky install`。
+- 跳过钩子（不推荐）：`git commit -m "msg" --no-verify`
+- 本地复现钩子逻辑：`npm run check:all:fast`
 
 ### 调试
 

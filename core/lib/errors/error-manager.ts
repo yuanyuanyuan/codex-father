@@ -11,7 +11,7 @@ export class ErrorManager {
     this.registry.set(def.code, def);
   }
 
-  static create(code: string, details?: Record<string, any>): Error {
+  static create(code: string, details?: Record<string, unknown>): Error {
     const def = this.registry.get(code);
     if (!def) {
       return Object.assign(new Error(`Unknown error: ${code}`), { code, details });

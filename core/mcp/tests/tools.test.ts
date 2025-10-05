@@ -5,7 +5,7 @@ import type {
   MCPToolResult,
   MCPToolContext,
   MCPLogger,
-} from '../../../specs/_archived/001-docs-readme-phases/contracts/mcp-service.js';
+} from '../../../specs/__archive/001-docs-readme-phases/contracts/mcp-service.js';
 
 class NoopLogger implements MCPLogger {
   debug(): void {}

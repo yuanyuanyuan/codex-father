@@ -23,7 +23,7 @@ export class QueueOptimizer {
   async optimizeIndex(): Promise<number> {
     // Simulate indexing by counting JSON files
     let count = 0;
-    const walk = (dir: string) => {
+    const walk = (dir: string): void => {
       const entries = readdirSync(dir, { withFileTypes: true });
       for (const e of entries) {
         const p = join(dir, e.name);

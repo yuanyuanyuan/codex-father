@@ -22,6 +22,8 @@ import { SingleProcessManager, createProcessManager } from '../process/manager.j
 import { SessionManager, createSessionManager } from '../session/session-manager.js';
 import { BridgeLayer, createBridgeLayer } from './bridge-layer.js';
 import { EventMapper, createEventMapper } from './event-mapper.js';
+import { EventType } from '../lib/types.js';
+import { PROJECT_VERSION } from '../lib/version.js';
 
 /**
  * MCP 服务器配置
@@ -61,7 +63,7 @@ export class MCPServer {
   constructor(config: MCPServerConfig = {}) {
     this.config = {
       serverName: config.serverName || 'codex-father',
-      serverVersion: config.serverVersion || '1.0.0-mvp1',
+      serverVersion: config.serverVersion || PROJECT_VERSION,
       debug: config.debug || false,
     };
     if (config.codexCommand !== undefined) {
@@ -90,7 +92,7 @@ export class MCPServer {
     this.server = new Server(
       {
         name: this.config.serverName || 'codex-father',
-        version: this.config.serverVersion || '1.0.0-mvp1',
+        version: this.config.serverVersion || PROJECT_VERSION,
       },
       {
         capabilities: {
@@ -276,36 +278,42 @@ export class MCPServer {
         }
       }
 
-      if (!conversationId) {
-        if (this.config.debug) {
-          console.warn(
-            '[MCPServer] Codex notification missing conversationId; skip progress relay'
-          );
-        }
-        return;
-      }
-
-      const jobId = this.sessionManager.getJobIdByConversationId(conversationId);
-      if (!jobId) {
-        if (this.config.debug) {
-          console.warn(
-            `[MCPServer] No jobId mapping for conversationId=${conversationId}; skip progress relay`
-          );
-        }
-        return;
-      }
-
       // 映射事件
-      const mcpNotification = this.eventMapper.mapEvent(
-        {
-          eventId: (notification.params as any)?.eventId || 'unknown',
-          timestamp: new Date(),
-          jobId,
-          type: (notification.params as any)?.type || 'unknown',
-          data: (notification.params as any) || {},
-        },
-        jobId
-      );
+      const rawParams =
+        (typeof notification.params === 'object' && notification.params !== null
+          ? (notification.params as Record<string, unknown>)
+          : {}) ?? {};
+
+      if (!conversationId && this.config.debug) {
+        console.warn('[MCPServer] Notification missing conversationId; fallback to unknown jobId');
+      }
+
+      const mappedJobId =
+        conversationId !== undefined
+          ? this.sessionManager.getJobIdByConversationId(conversationId)
+          : undefined;
+
+      if (!mappedJobId && conversationId && this.config.debug) {
+        console.warn(
+          `[MCPServer] No jobId mapping for conversationId=${conversationId}; fallback to unknown jobId`
+        );
+      }
+
+      const jobId = mappedJobId ?? 'unknown-job';
+
+      const eventId = typeof rawParams.eventId === 'string' ? rawParams.eventId : 'unknown';
+      const eventType = this.normalizeEventType(rawParams.type);
+
+      const eventPayload = {
+        eventId,
+        timestamp: new Date(),
+        jobId,
+        type: eventType,
+        data: rawParams,
+        ...(conversationId ? { sessionId: conversationId } : {}),
+      } as const;
+
+      const mcpNotification = this.eventMapper.mapEvent(eventPayload, jobId);
 
       // 发送 MCP 通知 (使用 SDK 的格式)
       this.server.notification({
@@ -327,8 +335,24 @@ export class MCPServer {
   getServerInfo(): { name: string; version: string } {
     return {
       name: this.config.serverName || 'codex-father',
-      version: this.config.serverVersion || '1.0.0-mvp1',
+      version: this.config.serverVersion || PROJECT_VERSION,
     };
+  }
+
+  private normalizeEventType(value: unknown): EventType {
+    if (typeof value === 'string') {
+      const allowed = new Set(Object.values(EventType));
+      if (allowed.has(value as EventType)) {
+        return value as EventType;
+      }
+      if (this.config.debug) {
+        console.warn(`[MCPServer] Unknown event type from notification: ${value}`);
+      }
+    } else if (value !== undefined && this.config.debug) {
+      console.warn('[MCPServer] Received non-string event type from notification');
+    }
+
+    return EventType.CODEX_AGENT_MESSAGE;
   }
 }
 

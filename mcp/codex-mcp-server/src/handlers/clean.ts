@@ -99,14 +99,7 @@ export async function handleClean(
   }
   const dryRun = Boolean(params.dryRun);
 
-  if (!ctx.jobShExists && ctx.fallback?.supportsJobs) {
-    return ctx.fallback.clean({
-      states: normalizedStates,
-      olderThanHours: olderThan,
-      limit,
-      dryRun,
-    });
-  }
+  // 不再启用 fallback，缺失时由 ensureJobSh 返回明确错误
 
   const result = await run(ctx.jobSh, pass);
   if (result.code !== 0) {

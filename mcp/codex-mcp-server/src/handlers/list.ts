@@ -90,14 +90,7 @@ export async function handleList(
   if (parsedOffset !== undefined) {
     pass.push('--offset', String(parsedOffset));
   }
-  if (!ctx.jobShExists && ctx.fallback?.supportsJobs) {
-    return ctx.fallback.list({
-      states: normalizedStates,
-      tagContains,
-      limit: parsedLimit,
-      offset: parsedOffset,
-    });
-  }
+  // 不再启用 fallback，缺失时由 ensureJobSh 返回明确错误
   const result = await run(ctx.jobSh, pass);
   if (result.code !== 0) {
     return createCliExitError(`${ctx.jobSh} ${pass.join(' ')}`, result);

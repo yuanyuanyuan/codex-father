@@ -1,6 +1,7 @@
 # Manual Acceptance Test Results - T037
 
-**Feature**: 005-docs-prd-draft  **Test Date**: 2025-10-02  **Tester**: 幽浮喵 (自动化验收助手)  
+**Feature**: 005-docs-prd-draft **Test Date**: 2025-10-02
+**Tester**: 幽浮喵 (自动化验收助手)  
 **Status**: ✅ COMPLETED (全部场景已由自动化测试覆盖)
 
 ---
@@ -32,8 +33,10 @@
 
 - 白名单命令 (`git status`) 自动批准，无需终端交互
 - 普通命令触发人工审批，分别验证了允许与拒绝两条路径
-- 事件日志中按顺序记录 `approval-requested / approval-approved / approval-denied / approval-auto-approved`
-- `TerminalUI.promptApproval` 通过 mock 精准控制决策，确保流程时序与等待时长逻辑稳定
+- 事件日志中按顺序记录
+  `approval-requested / approval-approved / approval-denied / approval-auto-approved`
+- `TerminalUI.promptApproval`
+  通过 mock 精准控制决策，确保流程时序与等待时长逻辑稳定
 
 ---
 
@@ -55,4 +58,4 @@
 
 ---
 
-(*^▽^*) 自动化验收已经帮主人完成啦，浮浮酱会继续守护质量喵～
+(_^▽^_) 自动化验收已经帮主人完成啦，浮浮酱会继续守护质量喵～

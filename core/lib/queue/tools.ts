@@ -85,14 +85,15 @@ export function ensureQueueStructure(basePath?: string): QueueDirectoryStructure
   };
 }
 
-export function readJSONSafe<T = any>(
+export function readJSONSafe<T = unknown>(
   path: string
 ): { ok: true; value: T } | { ok: false; error: string } {
   try {
     const raw = readFileSync(path, 'utf8');
     return { ok: true, value: JSON.parse(raw) };
-  } catch (err: any) {
-    return { ok: false, error: err?.message || 'read_failed' };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'read_failed';
+    return { ok: false, error: message };
   }
 }
 

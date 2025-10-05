@@ -225,19 +225,17 @@ export class BridgeLayer {
       throw new Error('Invalid tool parameters: prompt is required and must be a string');
     }
 
-    // 生成快速返回所需的 jobId
-    const jobId = uuidv4();
-
     // 组装会话名（可读性 + 去抖）
     const sessionName =
       typedParams.sessionName || `task-${new Date().toISOString().split('T')[0]}-${Date.now()}`;
 
-    // 后台异步创建会话并发送首条消息（不阻塞 tools/call 返回）
-    (async () => {
+    const jobId = uuidv4();
+
+    const runBackgroundTask = async (): Promise<void> => {
       try {
         const { conversationId } = await this.sessionManager.createSession({
           sessionName,
-          jobId, // 使用预生成的 jobId，保证与快速返回一致
+          jobId,
           model: typedParams.model || this.config.defaultModel,
           cwd: typedParams.cwd || process.cwd(),
           approvalMode: typedParams.approvalPolicy || this.config.defaultApprovalMode,
@@ -247,12 +245,12 @@ export class BridgeLayer {
 
         await this.sessionManager.sendUserMessage(conversationId, typedParams.prompt);
       } catch (error) {
-        // 背景流程失败仅记录日志，通知链路由后续事件/日志体现
         console.error('[BridgeLayer] Background task failed:', (error as Error).message);
       }
-    })();
+    };
 
-    // 立即返回，满足 < 500ms 快速返回目标
+    void runBackgroundTask();
+
     return {
       status: 'accepted',
       jobId,

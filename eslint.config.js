@@ -15,9 +15,11 @@ export default [
       '**/refer-research/**',
       '**/specs/**',
       '**/test-results/**',
+      'tmp/**',
       '**/_archive/**',
       '**/_archived/**',
       '**/archive/**',
+      'docs/**',
       'vitest.config.ts',
       '**/.tsbuildinfo*',
       '**/tsconfig.*.tsbuildinfo',
@@ -64,6 +66,14 @@ export default [
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/explicit-function-return-type': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
+    },
+  },
+  {
+    // Legacy application code in src/ contains dynamic structures; relax strict typing rules there
+    files: ['src/**'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
     },
   },
   {

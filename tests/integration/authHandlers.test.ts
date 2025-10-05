@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import Ajv from 'ajv';
 
-import loginApiKeySchema from '../../specs/_archived/008-ultrathink-codex-0/contracts/loginApiKey.schema.json';
-import loginChatGptSchema from '../../specs/_archived/008-ultrathink-codex-0/contracts/loginChatGpt.schema.json';
-import loginChatGptCompleteSchema from '../../specs/_archived/008-ultrathink-codex-0/contracts/loginChatGptComplete.schema.json';
-import cancelLoginChatGptSchema from '../../specs/_archived/008-ultrathink-codex-0/contracts/cancelLoginChatGpt.schema.json';
-import logoutChatGptSchema from '../../specs/_archived/008-ultrathink-codex-0/contracts/logoutChatGpt.schema.json';
-import getAuthStatusSchema from '../../specs/_archived/008-ultrathink-codex-0/contracts/getAuthStatus.schema.json';
-import authStatusChangeSchema from '../../specs/_archived/008-ultrathink-codex-0/contracts/authStatusChange.schema.json';
+import loginApiKeySchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/loginApiKey.schema.json';
+import loginChatGptSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/loginChatGpt.schema.json';
+import loginChatGptCompleteSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/loginChatGptComplete.schema.json';
+import cancelLoginChatGptSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/cancelLoginChatGpt.schema.json';
+import logoutChatGptSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/logoutChatGpt.schema.json';
+import getAuthStatusSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/getAuthStatus.schema.json';
+import authStatusChangeSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/authStatusChange.schema.json';
 
 import {
   handleLoginApiKey,
@@ -378,4 +378,4 @@ describe('authHandlers.authStatusChange (notification)', () => {
 });
 
 // 引入 schema：authStatusChange
-import authStatusChangeSchema from '../../specs/_archived/008-ultrathink-codex-0/contracts/authStatusChange.schema.json';
+import authStatusChangeSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/authStatusChange.schema.json';

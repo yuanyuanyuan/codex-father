@@ -649,6 +649,7 @@ export interface CommandResult {
   errors?: string[]; // 错误列表
   warnings?: string[]; // 警告列表
   executionTime: number; // 执行时间(毫秒)
+  exitCode?: number; // 可选退出码覆盖
 }
 
 // ============================================================================

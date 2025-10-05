@@ -7,6 +7,7 @@ import { Command, program } from 'commander';
 import chalk from 'chalk';
 import type { CommandContext, CommandResult } from '../lib/types.js';
 import { handleMetaCommand, CommandDiscovery } from './commands/meta-commands.js';
+import { PROJECT_VERSION } from '../lib/version.js';
 
 /**
  * 全局选项接口
@@ -61,7 +62,7 @@ export class CLIParser {
       .description(
         'TypeScript-based CLI tool for project management with task queues and MCP integration'
       )
-      .version('1.0.0', '-v, --version', 'Display version information')
+      .version(PROJECT_VERSION, '-v, --version', 'Display version information')
       .helpOption('-h, --help', 'Display help information');
 
     // 全局选项
@@ -181,9 +182,14 @@ export class CLIParser {
     description: string,
     handler: CommandHandler,
     options?: {
+      usage?: string;
       aliases?: string[];
       arguments?: Array<{ name: string; description: string; required?: boolean }>;
-      options?: Array<{ flags: string; description: string; defaultValue?: any }>;
+      options?: Array<{
+        flags: string;
+        description: string;
+        defaultValue?: string | boolean | number | string[] | number[];
+      }>;
     }
   ): void {
     const subCommand = this.command.command(name).description(description);
@@ -204,31 +210,69 @@ export class CLIParser {
     // 添加选项
     if (options?.options) {
       options.options.forEach((opt) => {
-        subCommand.option(opt.flags, opt.description, opt.defaultValue);
+        if (typeof opt.defaultValue === 'number') {
+          subCommand.option(
+            opt.flags,
+            opt.description,
+            (value: string) => Number(value),
+            opt.defaultValue
+          );
+          return;
+        }
+
+        if (
+          Array.isArray(opt.defaultValue) &&
+          opt.defaultValue.every((item) => typeof item === 'number')
+        ) {
+          subCommand.option(
+            opt.flags,
+            opt.description,
+            (value: string, previous: unknown) => {
+              const prior = Array.isArray(previous) ? previous : [];
+              return [...prior, Number(value)];
+            },
+            opt.defaultValue
+          );
+          return;
+        }
+
+        const normalizedDefault = this.normalizeOptionDefault(opt.defaultValue);
+        if (normalizedDefault !== undefined) {
+          subCommand.option(opt.flags, opt.description, normalizedDefault);
+        } else {
+          subCommand.option(opt.flags, opt.description);
+        }
       });
     }
 
     // 注册处理器
     subCommand.action(async (...args) => {
+      let result: CommandResult | undefined;
       try {
-        // 构建命令上下文
         const context = this.buildCommandContext(args);
-
-        // 执行命令处理器
-        const result = await handler(context);
-
-        // 输出结果
+        result = await handler(context);
         this.outputResult(result);
-
-        // 设置退出码
-        if (!result.success) {
-          process.exit(1);
-        }
       } catch (error) {
         this.handleError(error);
         process.exit(1);
+        return;
+      }
+
+      if (!result) {
+        process.exit(1);
+        return;
+      }
+
+      if (typeof result.exitCode === 'number') {
+        process.exit(result.exitCode);
+      } else if (!result.success) {
+        process.exit(1);
       }
     });
+
+    if (options?.usage) {
+      subCommand.usage(options.usage);
+    }
 
     // 存储到注册表
     registeredCommands.set(name, handler);
@@ -237,21 +281,19 @@ export class CLIParser {
   /**
    * 构建命令上下文
    */
-  private buildCommandContext(args: any[]): CommandContext {
+  private buildCommandContext(args: unknown[]): CommandContext {
     // 最后一个参数通常是 Command 实例和选项
-    const command = args[args.length - 1];
-    let options = {};
+    const commandCandidate = args[args.length - 1];
+    let options: Record<string, unknown> = {};
 
     // 检查是否有有效的 Command 实例
-    if (command && typeof command.opts === 'function') {
-      options = command.opts();
+    if (this.isCommanderCommand(commandCandidate)) {
+      options = commandCandidate.opts();
     }
 
     // 前面的参数是命令参数
-    const commandArgs = args.slice(
-      0,
-      command && typeof command.opts === 'function' ? -1 : args.length
-    );
+    const rawArgs = args.slice(0, this.isCommanderCommand(commandCandidate) ? -1 : args.length);
+    const commandArgs = rawArgs.filter((arg): arg is string => typeof arg === 'string');
 
     return {
       args: commandArgs,
@@ -279,7 +321,7 @@ export class CLIParser {
   /**
    * JSON 格式输出
    */
-  private outputJSON(data: any): void {
+  private outputJSON(data: unknown): void {
     console.log(JSON.stringify(data, null, 2));
   }
 
@@ -318,20 +360,24 @@ export class CLIParser {
   /**
    * 错误处理
    */
-  private handleError(error: any): void {
+  private handleError(error: unknown): void {
+    const normalizedError = error instanceof Error ? error : new Error(String(error));
+    const code = this.extractErrorCode(error);
+
     if (this.globalOptions.json) {
       this.outputJSON({
         success: false,
-        error: error.message,
-        code: error.code,
-        stack: this.globalOptions.verbose ? error.stack : undefined,
+        error: normalizedError.message,
+        code,
+        stack: this.globalOptions.verbose ? normalizedError.stack : undefined,
       });
-    } else {
-      console.error(chalk.red(`❌ Error: ${error.message}`));
+      return;
+    }
 
-      if (this.globalOptions.verbose && error.stack) {
-        console.error(chalk.gray(error.stack));
-      }
+    console.error(chalk.red(`❌ Error: ${normalizedError.message}`));
+
+    if (this.globalOptions.verbose && normalizedError.stack) {
+      console.error(chalk.gray(normalizedError.stack));
     }
   }
 
@@ -371,6 +417,10 @@ export class CLIParser {
       // 解析常规命令
       await this.command.parseAsync(args);
     } catch (error) {
+      if (this.isProcessExitError(error)) {
+        throw error;
+      }
+
       this.handleError(error);
       process.exit(1);
     }
@@ -406,6 +456,44 @@ export class CLIParser {
       | 'warn'
       | 'error';
   }
+
+  private normalizeOptionDefault(
+    value: string | boolean | number | string[] | number[] | undefined
+  ): string | boolean | string[] | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (typeof value === 'string' || typeof value === 'boolean') {
+      return value;
+    }
+
+    if (Array.isArray(value) && value.every((item) => typeof item === 'string')) {
+      return value as string[];
+    }
+
+    return undefined;
+  }
+
+  private isCommanderCommand(value: unknown): value is Command {
+    return Boolean(value) && typeof (value as Command).opts === 'function';
+  }
+
+  private extractErrorCode(value: unknown): string | undefined {
+    if (typeof value === 'object' && value !== null && 'code' in value) {
+      const code = (value as { code?: unknown }).code;
+      return typeof code === 'string' ? code : undefined;
+    }
+    return undefined;
+  }
+
+  private isProcessExitError(error: unknown): error is Error {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    return error.message.startsWith('process.exit:');
+  }
 }
 
 /**
@@ -432,7 +520,7 @@ export class ParameterValidator {
   /**
    * 验证必需参数
    */
-  static validateRequired(value: any, name: string): void {
+  static validateRequired(value: unknown, name: string): void {
     if (value === undefined || value === null || value === '') {
       throw new Error(`Required parameter '${name}' is missing`);
     }

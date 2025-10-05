@@ -24,7 +24,7 @@ export class ContentLengthServerTransport {
     this.sessionId = undefined;
   }
 
-  async start() {
+  async start(): Promise<void> {
     if (this.started) {
       throw new Error('Content-Length 传输已启动。');
     }
@@ -33,14 +33,14 @@ export class ContentLengthServerTransport {
     this.stdin.on('error', this.handleError);
   }
 
-  async close() {
+  async close(): Promise<void> {
     this.stdin.off('data', this.handleData);
     this.stdin.off('error', this.handleError);
     this.buffer = Buffer.alloc(0);
     this.onclose?.();
   }
 
-  async send(message: unknown) {
+  async send(message: unknown): Promise<void> {
     const payload = Buffer.from(JSON.stringify(message), 'utf8');
     const header = Buffer.from(`Content-Length: ${payload.length}\r\n\r\n`, 'utf8');
     const frame = Buffer.concat([header, payload]);
@@ -53,13 +53,13 @@ export class ContentLengthServerTransport {
     });
   }
 
-  private handleData = (chunk: Buffer | string) => {
+  private handleData = (chunk: Buffer | string): void => {
     const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     this.buffer = this.buffer.length ? Buffer.concat([this.buffer, buf]) : buf;
     this.processBuffer();
   };
 
-  private processBuffer() {
+  private processBuffer(): void {
     // Process as many complete frames as available in the buffer
     while (true) {
       const headerEnd = this.indexOfSub(Buffer.from('\r\n\r\n'));
@@ -109,7 +109,7 @@ export class ContentLengthServerTransport {
     return this.buffer.indexOf(sub);
   }
 
-  private handleError = (error: Error) => {
+  private handleError = (error: Error): void => {
     this.logger.error(`Content-Length 传输错误：${error.message}`);
     this.onerror?.(error);
   };

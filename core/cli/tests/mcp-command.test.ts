@@ -20,6 +20,7 @@ import {
 } from '../commands/mcp-command.js';
 import { CLIParser } from '../parser.js';
 import type { MCPServer } from '../../mcp/server.js';
+import { PROJECT_VERSION } from '../../lib/version.js';
 
 // Mock MCPServer
 vi.mock('../../mcp/server.js', () => {
@@ -30,7 +31,7 @@ vi.mock('../../mcp/server.js', () => {
         stop: vi.fn().mockResolvedValue(undefined),
         getServerInfo: vi.fn().mockReturnValue({
           name: config?.serverName || 'codex-father',
-          version: config?.serverVersion || '1.0.0-mvp1',
+          version: config?.serverVersion || PROJECT_VERSION,
         }),
       };
       return mockServer as unknown as MCPServer;
@@ -234,7 +235,7 @@ describe('MCP Command', () => {
         message: expect.stringContaining('MCP Server started'),
         data: {
           serverName: 'codex-father',
-          serverVersion: '1.0.0-mvp1',
+          serverVersion: PROJECT_VERSION,
           transport: 'stdio',
           protocol: 'MCP 2024-11-05',
           capabilities: ['tools', 'notifications'],
@@ -298,7 +299,7 @@ describe('MCP Command', () => {
         stop: vi.fn().mockResolvedValue(undefined),
         getServerInfo: vi.fn().mockReturnValue({
           name: 'codex-father',
-          version: '1.0.0-mvp1',
+          version: PROJECT_VERSION,
         }),
       } as unknown as MCPServer);
 
@@ -334,7 +335,7 @@ describe('MCP Command', () => {
         stop: vi.fn().mockResolvedValue(undefined),
         getServerInfo: vi.fn().mockReturnValue({
           name: 'codex-father',
-          version: '1.0.0-mvp1',
+          version: PROJECT_VERSION,
         }),
       } as unknown as MCPServer);
 

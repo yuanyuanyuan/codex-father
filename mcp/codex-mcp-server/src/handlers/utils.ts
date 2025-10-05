@@ -6,7 +6,7 @@ export function ensureJobSh(
   toolName: string,
   exampleArgs: Record<string, unknown> = {}
 ): ToolResult | null {
-  if (ctx.jobShExists || ctx.fallback?.supportsJobs) {
+  if (ctx.jobShExists) {
     return null;
   }
   return createErrorResult({
@@ -25,7 +25,7 @@ export function ensureStartSh(
   toolName: string,
   exampleArgs: Record<string, unknown> = {}
 ): ToolResult | null {
-  if (ctx.startShExists || ctx.fallback?.supportsSyncExec) {
+  if (ctx.startShExists) {
     return null;
   }
   return createErrorResult({

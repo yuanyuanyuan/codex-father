@@ -4,6 +4,7 @@ import {
   canonicalOrder,
   faqItems,
   advancedNotes,
+  onboardingTips,
   type GuideMeta,
 } from '../tools/help/content.js';
 import { formatJson } from '../utils/format.js';
@@ -197,6 +198,7 @@ export function handleHelp(params: Record<string, unknown>): ToolResult {
           calls: scenario.calls,
         })),
       },
+      onboardingTips,
       tools: filteredGuides.map((g) => ({
         name: g.name,
         description: g.meta.tagline,

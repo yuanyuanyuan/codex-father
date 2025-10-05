@@ -170,8 +170,10 @@ safe_classify() {
       SC_CLASSIFICATION='approval_required'
     elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       SC_CLASSIFICATION='sandbox_denied'
-    elif grep -Eqi 'network|ENOTFOUND|ECONN|timeout|fetch failed|getaddrinfo' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'timeout|timed[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed|ENOTFOUND|EAI_AGAIN|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       SC_CLASSIFICATION='network_error'
+    elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+      SC_CLASSIFICATION='config_error'
     elif grep -Eqi 'unauthorized|forbidden|invalid api key|401|403' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       SC_CLASSIFICATION='auth_error'
     elif grep -Eqi 'too many requests|rate limit|429' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then

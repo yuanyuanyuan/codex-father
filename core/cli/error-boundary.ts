@@ -42,6 +42,8 @@ export enum ErrorCategory {
 /**
  * 错误信息接口
  */
+type ErrorContext = Record<string, unknown>;
+
 interface ErrorInfo {
   category: ErrorCategory;
   code: number;
@@ -49,7 +51,7 @@ interface ErrorInfo {
   userMessage?: string;
   suggestions?: string[];
   recovery?: string[];
-  context?: Record<string, any>;
+  context?: ErrorContext;
 }
 
 /**
@@ -61,7 +63,7 @@ export class AppError extends Error {
   public readonly userMessage?: string | undefined;
   public readonly suggestions?: string[] | undefined;
   public readonly recovery?: string[] | undefined;
-  public readonly context?: Record<string, any> | undefined;
+  public readonly context?: ErrorContext | undefined;
 
   constructor(info: ErrorInfo, cause?: Error) {
     super(info.message);
@@ -198,7 +200,20 @@ export class ErrorFormatter {
    * 格式化为 JSON
    */
   private static formatErrorAsJson(error: Error, verbose: boolean): string {
-    const errorObj: any = {
+    const errorObj: {
+      success: false;
+      error: {
+        message: string;
+        name: string;
+        category?: ErrorCategory;
+        code?: number;
+        userMessage?: string;
+        suggestions?: string[];
+        recovery?: string[];
+        context?: ErrorContext;
+        stack?: string;
+      };
+    } = {
       success: false,
       error: {
         message: error.message,
@@ -209,10 +224,18 @@ export class ErrorFormatter {
     if (error instanceof AppError) {
       errorObj.error.category = error.category;
       errorObj.error.code = error.code;
-      errorObj.error.userMessage = error.userMessage;
-      errorObj.error.suggestions = error.suggestions;
-      errorObj.error.recovery = error.recovery;
-      errorObj.error.context = error.context;
+      if (error.userMessage !== undefined) {
+        errorObj.error.userMessage = error.userMessage;
+      }
+      if (error.suggestions !== undefined) {
+        errorObj.error.suggestions = error.suggestions;
+      }
+      if (error.recovery !== undefined) {
+        errorObj.error.recovery = error.recovery;
+      }
+      if (error.context !== undefined) {
+        errorObj.error.context = error.context;
+      }
     }
 
     if (verbose && error.stack) {
@@ -565,7 +588,7 @@ export class ErrorBoundary {
  */
 export async function withErrorBoundary<T>(
   operation: () => Promise<T>,
-  context?: Record<string, any>
+  context?: ErrorContext
 ): Promise<T> {
   try {
     return await operation();
@@ -601,20 +624,25 @@ export async function withErrorBoundary<T>(
  * 快捷错误创建函数
  */
 export const createError = {
-  validation: (message: string, field?: string, suggestions?: string[]) =>
+  validation: (message: string, field?: string, suggestions?: string[]): ValidationError =>
     new ValidationError(message, field, suggestions),
 
-  configuration: (message: string, configPath?: string, suggestions?: string[]) =>
-    new ConfigurationError(message, configPath, suggestions),
+  configuration: (
+    message: string,
+    configPath?: string,
+    suggestions?: string[]
+  ): ConfigurationError => new ConfigurationError(message, configPath, suggestions),
 
-  network: (message: string, url?: string, statusCode?: number) =>
+  network: (message: string, url?: string, statusCode?: number): NetworkError =>
     new NetworkError(message, url, statusCode),
 
-  timeout: (operation: string, timeout: number) => new TimeoutError(operation, timeout),
+  timeout: (operation: string, timeout: number): TimeoutError =>
+    new TimeoutError(operation, timeout),
 
-  permission: (message: string, path?: string) => new PermissionError(message, path),
+  permission: (message: string, path?: string): PermissionError =>
+    new PermissionError(message, path),
 
-  internal: (message: string, context?: Record<string, any>) =>
+  internal: (message: string, context?: ErrorContext): AppError =>
     new AppError({
       category: ErrorCategory.INTERNAL,
       code: EXIT_CODES.INTERNAL_ERROR,

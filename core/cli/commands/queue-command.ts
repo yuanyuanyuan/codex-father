@@ -120,11 +120,12 @@ export function registerQueueCommand(parser: CLIParser): void {
               executionTime: Date.now() - started,
             };
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
         return {
           success: false,
           message: 'Queue command failed',
-          errors: [String(err?.message || err)],
+          errors: [errorMessage],
           executionTime: Date.now() - started,
         };
       }

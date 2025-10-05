@@ -7,6 +7,7 @@ import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { parse as parseYaml } from 'yaml';
 import type { ProjectConfig } from '../lib/types.js';
+import { PROJECT_VERSION } from '../lib/version.js';
 
 /**
  * 配置源类型
@@ -16,7 +17,7 @@ type ConfigSource = 'default' | 'file' | 'env' | 'cli';
 /**
  * 配置值元数据
  */
-interface ConfigValue<T = any> {
+interface ConfigValue<T = unknown> {
   value: T;
   source: ConfigSource;
   path: string;
@@ -55,7 +56,7 @@ const CONFIG_FILE_NAMES = [
  * 默认配置
  */
 const DEFAULT_CONFIG: ProjectConfig = {
-  version: '1.0.0',
+  version: PROJECT_VERSION,
   environment: 'development',
   logging: {
     level: 'info',
@@ -307,7 +308,7 @@ export class ConfigLoader {
   /**
    * 解析环境变量值
    */
-  private parseEnvironmentValue(value: string, configPath: string): any {
+  private parseEnvironmentValue(value: string, configPath: string): unknown {
     // 布尔值
     if (value.toLowerCase() === 'true') {
       return true;
@@ -386,7 +387,12 @@ export class ConfigLoader {
   /**
    * 设置配置值
    */
-  private setConfigValue(path: string, value: any, source: ConfigSource, sourcePath: string): void {
+  private setConfigValue(
+    path: string,
+    value: unknown,
+    source: ConfigSource,
+    sourcePath: string
+  ): void {
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       // 递归处理对象
       for (const [key, val] of Object.entries(value)) {
@@ -415,7 +421,7 @@ export class ConfigLoader {
     for (const priority of priorities) {
       for (const [path, configValue] of this.configValues.entries()) {
         if (configValue.source === priority && path) {
-          this.setNestedValue(config, path, configValue.value);
+          this.setNestedValue(config as Record<string, unknown>, path, configValue.value);
         }
       }
     }
@@ -426,18 +432,22 @@ export class ConfigLoader {
   /**
    * 设置嵌套对象值
    */
-  private setNestedValue(obj: any, path: string, value: any): void {
+  private setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
     const keys = path.split('.');
     let current = obj;
 
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
-      if (key && (!(key in current) || typeof current[key] !== 'object')) {
+      if (!key) {
+        continue;
+      }
+
+      const existing = current[key];
+      if (typeof existing !== 'object' || existing === null || Array.isArray(existing)) {
         current[key] = {};
       }
-      if (key) {
-        current = current[key];
-      }
+
+      current = current[key] as Record<string, unknown>;
     }
 
     const finalKey = keys[keys.length - 1];
@@ -547,17 +557,21 @@ export function getConfigValue<T>(path: string, defaultValue?: T): T | undefined
   }
 
   const keys = path.split('.');
-  let current: any = globalConfig;
+  let current: unknown = globalConfig;
 
   for (const key of keys) {
-    if (current && typeof current === 'object' && key in current) {
-      current = current[key];
+    if (current && typeof current === 'object' && key in (current as Record<string, unknown>)) {
+      current = (current as Record<string, unknown>)[key];
     } else {
       return defaultValue;
     }
   }
 
-  return current;
+  if (current === undefined) {
+    return defaultValue;
+  }
+
+  return current as T;
 }
 
 /**

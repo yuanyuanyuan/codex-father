@@ -16,6 +16,8 @@ import { BridgeLayer, createBridgeLayer, type ISessionManager } from '../bridge-
 import { ApprovalMode, SandboxPolicy, ApprovalRequest, ApprovalType } from '../../lib/types.js';
 import type { MCPTool, MCPToolsCallResult } from '../protocol/types.js';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 describe('BridgeLayer', () => {
   let mockSessionManager: ISessionManager;
   let bridge: BridgeLayer;
@@ -30,6 +32,7 @@ describe('BridgeLayer', () => {
       }),
       sendUserMessage: vi.fn().mockResolvedValue(undefined),
       handleApprovalRequest: vi.fn().mockResolvedValue('allow'),
+      getJobIdByConversationId: vi.fn().mockReturnValue('job-456'),
     };
 
     // 创建桥接层实例
@@ -108,9 +111,9 @@ describe('BridgeLayer', () => {
       });
 
       expect(result.status).toBe('accepted');
-      expect(result.jobId).toBe('job-456');
-      expect(result.conversationId).toBe('conv-123');
-      expect(result.message).toContain('Task started successfully');
+      expect(result.jobId).toMatch(UUID_REGEX);
+      expect(result.conversationId).toBeUndefined();
+      expect(result.message).toContain('Task accepted');
 
       // 验证调用了 createSession
       expect(mockSessionManager.createSession).toHaveBeenCalledWith(
@@ -123,7 +126,9 @@ describe('BridgeLayer', () => {
       );
 
       // 验证调用了 sendUserMessage
-      expect(mockSessionManager.sendUserMessage).toHaveBeenCalledWith('conv-123', 'Test prompt');
+      await vi.waitFor(() =>
+        expect(mockSessionManager.sendUserMessage).toHaveBeenCalledWith('conv-123', 'Test prompt')
+      );
     });
 
     it('应该使用自定义参数启动任务', async () => {
@@ -140,14 +145,16 @@ describe('BridgeLayer', () => {
       expect(result.status).toBe('accepted');
 
       // 验证使用了自定义参数
-      expect(mockSessionManager.createSession).toHaveBeenCalledWith({
-        sessionName: 'my-session',
-        model: 'gpt-4',
-        cwd: '/custom/path',
-        approvalMode: ApprovalMode.NEVER,
-        sandboxPolicy: SandboxPolicy.READ_ONLY,
-        timeout: 60000,
-      });
+      expect(mockSessionManager.createSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionName: 'my-session',
+          model: 'gpt-4',
+          cwd: '/custom/path',
+          approvalMode: ApprovalMode.NEVER,
+          sandboxPolicy: SandboxPolicy.READ_ONLY,
+          timeout: 60000,
+        })
+      );
     });
 
     it('应该自动生成会话名称', async () => {
@@ -171,19 +178,28 @@ describe('BridgeLayer', () => {
       expect(createSessionCall[0].cwd).toBe(process.cwd());
     });
 
-    it('应该在任务失败时返回 rejected 状态', async () => {
+    it('应该在后台任务失败时记录错误但仍快速返回', async () => {
       vi.mocked(mockSessionManager.createSession).mockRejectedValue(
         new Error('Session creation failed')
       );
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const result = await bridge.callTool('start-codex-task', {
         prompt: 'Test prompt',
       });
 
-      expect(result.status).toBe('rejected');
-      expect(result.jobId).toBe('none');
-      expect(result.message).toContain('Task failed');
-      expect(result.message).toContain('Session creation failed');
+      expect(result.status).toBe('accepted');
+      expect(result.jobId).toMatch(UUID_REGEX);
+      expect(result.message).toContain('Task accepted');
+
+      await vi.waitFor(() =>
+        expect(consoleSpy).toHaveBeenCalledWith(
+          '[BridgeLayer] Background task failed:',
+          'Session creation failed'
+        )
+      );
+
+      consoleSpy.mockRestore();
     });
 
     it('应该拒绝无效的工具参数 (非对象)', async () => {
@@ -244,7 +260,7 @@ describe('BridgeLayer', () => {
       expect(mockSessionManager.handleApprovalRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           requestId: 'call-456',
-          jobId: 'conv-123',
+          jobId: 'job-456',
           type: ApprovalType.APPLY_PATCH,
           details: {
             fileChanges: params.fileChanges,
@@ -316,7 +332,7 @@ describe('BridgeLayer', () => {
       expect(mockSessionManager.handleApprovalRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           requestId: 'call-456',
-          jobId: 'conv-123',
+          jobId: 'job-456',
           type: ApprovalType.EXEC_COMMAND,
           details: {
             command: 'npm install',
@@ -494,9 +510,11 @@ describe('BridgeLayer', () => {
       });
 
       expect(result.status).toBe('accepted');
-      expect(mockSessionManager.sendUserMessage).toHaveBeenCalledWith(
-        'conv-123',
-        'Line 1\nLine 2\tTabbed\n测试中文 🎉'
+      await vi.waitFor(() =>
+        expect(mockSessionManager.sendUserMessage).toHaveBeenCalledWith(
+          'conv-123',
+          'Line 1\nLine 2\tTabbed\n测试中文 🎉'
+        )
       );
     });
 
@@ -545,13 +563,23 @@ describe('BridgeLayer', () => {
       vi.mocked(mockSessionManager.sendUserMessage).mockRejectedValue(
         new Error('Message send failed')
       );
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const result = await bridge.callTool('start-codex-task', {
         prompt: 'Test prompt',
       });
 
-      expect(result.status).toBe('rejected');
-      expect(result.message).toContain('Message send failed');
+      expect(result.status).toBe('accepted');
+      expect(result.message).toContain('Task accepted');
+
+      await vi.waitFor(() =>
+        expect(consoleSpy).toHaveBeenCalledWith(
+          '[BridgeLayer] Background task failed:',
+          'Message send failed'
+        )
+      );
+
+      consoleSpy.mockRestore();
     });
 
     it('应该处理 handleApprovalRequest 抛出错误的情况', async () => {

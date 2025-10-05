@@ -747,6 +747,7 @@ const whitelist = [
 
 ## 11. 追加复核 (2025-10-02)
 
-- 已审阅新增自动化验收测试 `tests/acceptance/quickstart-acceptance.test.ts`，符合既定测试策略
+- 已审阅新增自动化验收测试
+  `tests/acceptance/quickstart-acceptance.test.ts`，符合既定测试策略
 - 未发现新的架构或质量风险；现有建议保持有效
 - 结论维持 **APPROVED**，建议将验收测试纳入持续集成

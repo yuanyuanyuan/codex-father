@@ -4,7 +4,7 @@
     "description": "Override path to job.sh used to start/status/stop/list asynchronous runs.",
     "type": "string",
     "components": ["mcp-server", "cli-wrapper"],
-    "default": "<repo-root>/job.sh (fallback from CWD)",
+    "default": "<repo-root>/.codex-father/job.sh (auto-managed)",
     "allowed": null,
     "sources": ["mcp/codex-mcp-server/src/index.ts:19", "core/cli/scripts.ts:94"]
   },
@@ -13,7 +13,7 @@
     "description": "Override path to start.sh; also enables 'stub' mode in MCP start tool when set.",
     "type": "string",
     "components": ["mcp-server", "shell/job.sh", "cli-wrapper"],
-    "default": "<repo-root>/start.sh (fallback from CWD)",
+    "default": "<repo-root>/.codex-father/start.sh (auto-managed)",
     "allowed": null,
     "sources": ["mcp/codex-mcp-server/src/index.ts:37", "job.sh:9", "core/cli/scripts.ts:93"]
   },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MCP_ERROR_CODES } from '../../../specs/_archived/001-docs-readme-phases/contracts/mcp-service.js';
+import { MCP_ERROR_CODES } from '../../../specs/__archive/001-docs-readme-phases/contracts/mcp-service.js';
 
 describe('MCP error codes and handling (T030)', () => {
   it('exposes all expected MCP error codes', () => {
