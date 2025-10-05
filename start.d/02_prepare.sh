@@ -3,7 +3,7 @@
 check_version_param_compatibility
 if [[ -n "${VALIDATION_ERROR}" ]]; then
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Meta: ${META_FILE}"
@@ -170,7 +170,7 @@ ESTIMATED_TOKENS=$(estimate_instruction_tokens "${INSTRUCTIONS}")
 
 if (( ESTIMATED_TOKENS > INPUT_TOKEN_LIMIT )); then
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Meta: ${META_FILE}"
@@ -200,7 +200,7 @@ fi
 # 如果早前检测到参数冲突，则现在写入日志并退出
 if [[ -n "${VALIDATION_ERROR}" ]]; then
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Meta: ${META_FILE}"
@@ -250,7 +250,7 @@ fi
 ## 重新组合指令（如 lib 已提供则不覆盖）
 if ! declare -F compose_instructions >/dev/null 2>&1; then
   compose_instructions() {
-    local ts_iso; ts_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local ts_iso; ts_iso=$(date +"%Y-%m-%dT%H:%M:%S%:z")
     SOURCE_LINES=()
     local sections=""
     if [[ -n "${PREPEND_FILE}" && -f "${PREPEND_FILE}" ]]; then
@@ -346,7 +346,7 @@ fi
 
 # 写入日志头部
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
   echo "Log: ${CODEX_LOG_FILE}"
   echo "Instructions: ${INSTR_FILE}"

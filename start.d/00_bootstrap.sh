@@ -56,6 +56,7 @@ RUN_LOGGED=0
 # 兜底：任何非零退出都至少写一条错误日志
 trap 'code=$?; if [[ $code -ne 0 ]]; then \
   ts=$(date +%Y%m%d_%H%M%S); \
+  ts_display=$(date +%Y-%m-%dT%H:%M:%S%:z); \
   # 若尚未确定日志文件，尽力用默认规则生成一个
   if [[ -z "${CODEX_LOG_FILE:-}" ]]; then \
     CODEX_LOG_DIR="${CODEX_LOG_DIR:-${SCRIPT_DIR}/.codex-father/sessions}"; \
@@ -65,7 +66,7 @@ trap 'code=$?; if [[ $code -ne 0 ]]; then \
   mkdir -p "$(dirname "${CODEX_LOG_FILE}")"; \
   if [[ "${RUN_LOGGED:-0}" -eq 0 ]]; then \
     { \
-      echo "===== Codex Run Start: ${ts} ====="; \
+      echo "===== Codex Run Start: ${ts} (${ts_display}) ====="; \
       echo "Script: $(basename "$0")  PWD: $(pwd)"; \
       echo "Log: ${CODEX_LOG_FILE}"; \
       echo "[trap] 非零退出（可能为早期错误或参数问题）。Exit Code: ${code}"; \

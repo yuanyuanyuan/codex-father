@@ -49,7 +49,7 @@ compress_context_file() {
 
 # Compose final instructions with explicit section wrappers
 compose_instructions() {
-  local ts_iso; ts_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local ts_iso; ts_iso=$(date +"%Y-%m-%dT%H:%M:%S%:z")
   SOURCE_LINES=()
   local sections=""
 

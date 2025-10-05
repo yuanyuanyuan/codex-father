@@ -471,6 +471,7 @@ else
   TAG_SUFFIX=""
 fi
 TS="$(date +%Y%m%d_%H%M%S)"
+TS_DISPLAY="$(date +%Y-%m-%dT%H:%M:%S%:z)"
 if [[ -z "${CODEX_LOG_FILE}" ]]; then
   if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
     mkdir -p "${CODEX_SESSION_DIR}"
@@ -503,7 +504,7 @@ fi
 validate_conflicting_codex_args
 if [[ -n "${VALIDATION_ERROR}" ]]; then
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Meta: ${META_FILE}"
@@ -520,7 +521,7 @@ fi
 normalize_sandbox_and_approvals
 if [[ -n "${VALIDATION_ERROR}" ]]; then
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Meta: ${META_FILE}"
