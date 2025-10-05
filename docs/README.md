@@ -32,7 +32,7 @@
 
 - **[开发文档总览](developer/README.md)**
 - [开发指南](developer/DEVELOPMENT.md) - 开发环境、技术栈、规范
-- [代理说明](developer/AGENTS.md) - Agent 系统说明
+- [代理说明](../AGENTS.md) - Agent 系统说明
 - [Gemini 相关](developer/GEMINI.md) - Gemini 集成说明
 - [贡献指南](developer/contributing.md) - 如何贡献代码
 - [环境变量（JSON/CSV 清单）](environment-variables-reference.md#机器可读导出)

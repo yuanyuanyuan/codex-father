@@ -182,6 +182,23 @@ args = ["-y", "@starkdev020/codex-father-mcp-server"]
 
 > 包含详细的配置说明、实战示例、故障排除和 rMCP 集成说明
 
+### 本地 rMCP CLI 快速体验
+
+若已克隆本仓库，可直接使用内置脚本快速体验 rMCP 流程：
+
+```bash
+# 启动 MCP 服务器（终端 1）
+npm run mcp:start
+
+# 在新终端（终端 2）列出可用工具
+npm run rmcp:client -- list-tools
+
+# 查看命令帮助或更多选项
+npm run rmcp:client -- --help
+```
+
+> 示例客户端基于 `@modelcontextprotocol/sdk` 实现，无需额外安装 Rust 工具链。
+
 ## 📖 使用指南
 
 ### MCP 工具列表
