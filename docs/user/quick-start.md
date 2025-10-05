@@ -65,6 +65,14 @@ npm start
 }
 ```
 
+> 命名策略与环境变量：
+>
+> - 不同客户端对工具名（点号 vs 下划线）支持不同；Codex
+>   0.44（responses）推荐仅下划线或带前缀 `cf_*`。
+> - 需要自定义导出名称或前缀时，请参考：
+>   - 人类可读版: ../environment-variables-reference.md#mcp-服务器typescript
+>   - 机器可读版: ../environment-variables.json
+
 **重启 Claude Desktop**：完全退出 Claude Desktop 并重新打开。
 
 **验证配置**：
@@ -77,11 +85,11 @@ npm start
 
 ## 🧪 步骤 3：运行第一个测试（1分钟）
 
-在 Claude Desktop 对话框中输入以下测试指令：
+在 Claude Code CLI 中输入以下测试指令：
 
 ### 测试 1：连接测试
 
-**您输入**：
+**Claude Code 中输入**：
 
 ```
 请帮我列出当前项目的所有 .md 文件
@@ -95,7 +103,7 @@ npm start
 
 ### 测试 2：简单任务测试
 
-**您输入**：
+**Claude Code 中输入**：
 
 ```
 帮我创建一个 hello.txt 文件，内容是 "Hello, Codex Father!"
@@ -119,11 +127,17 @@ npm start
 - 不确定时，先调用 `codex.help` 获取全部方法与示例；或直接看带前缀的
   `cf_help`（若已配置前缀）。
 
+更多命名/前缀相关变量详见：
+
+- 人类可读版: ../environment-variables-reference.md#mcp-服务器typescript
+- 机器可读版: ../environment-variables.json
+
 ## ✅ 验证成功标志
 
 如果以下三个条件都满足，恭喜您配置成功！🎉
 
-1. **服务器状态**：Claude Desktop 右下角显示 "codex-father 已连接"
+1. **客户端状态**：Claude Code CLI 中能正常调用 MCP 工具（例如
+   `cf_help`/`codex_help`）
 2. **测试通过**：测试 1 和测试 2 都返回了预期结果
 3. **无错误**：没有出现连接错误或权限错误
 
@@ -131,18 +145,22 @@ npm start
 
 ## ❌ 如果遇到问题
 
-### 问题 1：找不到配置文件
+### 问题 1：找不到配置文件（Claude Code）
 
-**解决**：手动创建配置文件
+**解决**：在项目根目录手动创建 `.claude/mcp_settings.json`
 
 ```bash
-# macOS
-mkdir -p ~/Library/Application\ Support/Claude
-touch ~/Library/Application\ Support/Claude/claude_desktop_config.json
-
-# Windows (PowerShell)
-New-Item -Path "$env:APPDATA\Claude" -ItemType Directory -Force
-New-Item -Path "$env:APPDATA\Claude\claude_desktop_config.json" -ItemType File
+mkdir -p .claude
+cat > .claude/mcp_settings.json <<'JSON'
+{
+  "mcpServers": {
+    "codex-father": {
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server"]
+    }
+  }
+}
+JSON
 ```
 
 ### 问题 2：服务器显示"未连接"

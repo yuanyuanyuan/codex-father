@@ -1,0 +1,308 @@
+[
+  {
+    "name": "CODEX_JOB_SH",
+    "description": "Override path to job.sh used to start/status/stop/list asynchronous runs.",
+    "type": "string",
+    "components": ["mcp-server", "cli-wrapper"],
+    "default": "<repo-root>/job.sh (fallback from CWD)",
+    "allowed": null,
+    "sources": ["mcp/codex-mcp-server/src/index.ts:19", "core/cli/scripts.ts:94"]
+  },
+  {
+    "name": "CODEX_START_SH",
+    "description": "Override path to start.sh; also enables 'stub' mode in MCP start tool when set.",
+    "type": "string",
+    "components": ["mcp-server", "shell/job.sh", "cli-wrapper"],
+    "default": "<repo-root>/start.sh (fallback from CWD)",
+    "allowed": null,
+    "sources": ["mcp/codex-mcp-server/src/index.ts:37", "job.sh:9", "core/cli/scripts.ts:93"]
+  },
+  {
+    "name": "CODEX_VERSION_OVERRIDE",
+    "description": "Force Codex CLI version for compatibility checks (e.g., '0.44.0').",
+    "type": "string",
+    "components": ["mcp-server", "shell/start.sh"],
+    "default": null,
+    "allowed": "semver string (major.minor[.patch])",
+    "sources": ["mcp/codex-mcp-server/src/index.ts:107", "start.sh:133"]
+  },
+  {
+    "name": "CODEX_MCP_NAME_STYLE",
+    "description": "Filter tool names: 'underscore-only' or 'dot-only'.",
+    "type": "string",
+    "components": ["mcp-server"],
+    "default": null,
+    "allowed": ["underscore-only", "dot-only"],
+    "sources": ["mcp/codex-mcp-server/src/index.ts:218"]
+  },
+  {
+    "name": "CODEX_MCP_TOOL_PREFIX",
+    "description": "Prefix for additional tool aliases (both dot and underscore variants).",
+    "type": "string",
+    "components": ["mcp-server"],
+    "default": null,
+    "allowed": null,
+    "sources": ["mcp/codex-mcp-server/src/index.ts:219"]
+  },
+  {
+    "name": "CODEX_MCP_HIDE_ORIGINAL",
+    "description": "When 'true' or '1', hide original codex.* and codex_* tools (keep only prefixed aliases).",
+    "type": "boolean-like",
+    "components": ["mcp-server"],
+    "default": "false",
+    "allowed": ["true", "false", "1", "0"],
+    "sources": ["mcp/codex-mcp-server/src/index.ts:221"]
+  },
+  {
+    "name": "CODEX_LOG_DIR",
+    "description": "Root directory for logs/sessions.",
+    "type": "string",
+    "components": ["shell/start.sh"],
+    "default": "<script-dir>/.codex-father/sessions",
+    "allowed": null,
+    "sources": ["start.sh:28"]
+  },
+  {
+    "name": "CODEX_LOG_FILE",
+    "description": "Absolute path to the log file; overrides computed session path.",
+    "type": "string",
+    "components": ["shell/start.sh"],
+    "default": null,
+    "allowed": null,
+    "sources": ["start.sh:29"]
+  },
+  {
+    "name": "CODEX_LOG_TAG",
+    "description": "Optional run tag used in session id/file names.",
+    "type": "string",
+    "components": ["shell/start.sh"],
+    "default": "",
+    "allowed": null,
+    "sources": ["start.sh:30"]
+  },
+  {
+    "name": "CODEX_LOG_SUBDIRS",
+    "description": "Use per-run subdirectories (1) or flat logs (0).",
+    "type": "boolean-like",
+    "components": ["shell/start.sh"],
+    "default": "1",
+    "allowed": ["1", "0"],
+    "sources": ["start.sh:31"]
+  },
+  {
+    "name": "CODEX_LOG_AGGREGATE",
+    "description": "Write aggregate summaries (text/JSONL).",
+    "type": "boolean-like",
+    "components": ["shell/start.sh"],
+    "default": "1",
+    "allowed": ["1", "0"],
+    "sources": ["start.sh:32"]
+  },
+  {
+    "name": "CODEX_LOG_AGGREGATE_FILE",
+    "description": "Path to aggregate text summary.",
+    "type": "string",
+    "components": ["shell/start.sh"],
+    "default": "<session-dir>/aggregate.txt",
+    "allowed": null,
+    "sources": ["start.sh:38"]
+  },
+  {
+    "name": "CODEX_LOG_AGGREGATE_JSONL_FILE",
+    "description": "Path to aggregate JSONL summary.",
+    "type": "string",
+    "components": ["shell/start.sh"],
+    "default": "<session-dir>/aggregate.jsonl",
+    "allowed": null,
+    "sources": ["start.sh:39"]
+  },
+  {
+    "name": "CODEX_ECHO_INSTRUCTIONS",
+    "description": "Echo composed instructions into logs.",
+    "type": "boolean-like",
+    "components": ["shell/start.sh"],
+    "default": "1",
+    "allowed": ["1", "0"],
+    "sources": ["start.sh:34"]
+  },
+  {
+    "name": "CODEX_ECHO_INSTRUCTIONS_LIMIT",
+    "description": "Max instruction lines to echo (0 = unlimited).",
+    "type": "number",
+    "components": ["shell/start.sh"],
+    "default": "0",
+    "allowed": null,
+    "sources": ["start.sh:36"]
+  },
+  {
+    "name": "REDACT_ENABLE",
+    "description": "Enable output redaction via default/custom patterns.",
+    "type": "boolean-like",
+    "components": ["shell/start.sh"],
+    "default": "0",
+    "allowed": ["1", "0"],
+    "sources": ["start.sh:42"]
+  },
+  {
+    "name": "REDACT_REPLACEMENT",
+    "description": "Replacement token used when redacting.",
+    "type": "string",
+    "components": ["shell/start.sh"],
+    "default": "***REDACTED***",
+    "allowed": null,
+    "sources": ["start.sh:55"]
+  },
+  {
+    "name": "CODEX_SESSION_DIR",
+    "description": "Explicit session directory; log becomes <dir>/job.log.",
+    "type": "string",
+    "components": ["shell/start.sh", "shell/job.sh (injects to child)"],
+    "default": null,
+    "allowed": null,
+    "sources": ["start.sh:807", "job.sh:309"]
+  },
+  {
+    "name": "CODEX_SESSIONS_ROOT",
+    "description": "Root directory used to create per-run session folders when session dir not preset.",
+    "type": "string",
+    "components": ["shell/start.sh"],
+    "default": "CODEX_LOG_DIR",
+    "allowed": null,
+    "sources": ["start.sh:811"]
+  },
+  {
+    "name": "INSTRUCTIONS",
+    "description": "Base instructions content when no other inputs provided (env fallback).",
+    "type": "string",
+    "components": ["shell/start.sh"],
+    "default": null,
+    "allowed": null,
+    "sources": ["start.sh:914"]
+  },
+  {
+    "name": "ON_CONTEXT_OVERFLOW_MAX_RETRIES",
+    "description": "Extra retries on context overflow (added to single-run).",
+    "type": "number",
+    "components": ["shell/start.sh"],
+    "default": "2",
+    "allowed": null,
+    "sources": ["start.sh:583"]
+  },
+  {
+    "name": "NODE_ENV",
+    "description": "Node environment (development/production/test) used across CLI, logging and error handling.",
+    "type": "string",
+    "components": ["cli-node"],
+    "default": "development",
+    "allowed": ["development", "production", "test"],
+    "sources": ["bin/codex-father:35", "core/cli/start.ts:36"]
+  },
+  {
+    "name": "DEBUG",
+    "description": "Enable extra debug output on CLI startup failures.",
+    "type": "boolean-like",
+    "components": ["cli-node"],
+    "default": "false",
+    "allowed": ["1", "0", "true", "false"],
+    "sources": ["bin/codex-father:82"]
+  },
+  {
+    "name": "CODEX_VERBOSE",
+    "description": "Show verbose warnings and error-boundary details.",
+    "type": "boolean-like",
+    "components": ["cli-node"],
+    "default": "false",
+    "allowed": ["1", "0", "true", "false"],
+    "sources": ["core/cli/start.ts:36", "core/cli/config-loader.ts:522"]
+  },
+  {
+    "name": "CODEX_JSON",
+    "description": "Emit JSON-formatted error output from the CLI error boundary.",
+    "type": "boolean-like",
+    "components": ["cli-node"],
+    "default": "false",
+    "allowed": ["1", "0", "true", "false"],
+    "sources": ["core/cli/start.ts:37"]
+  },
+  {
+    "name": "ENABLE_LOGGING",
+    "description": "When set in test env, do not silence logger output.",
+    "type": "boolean-like",
+    "components": ["cli-node"],
+    "default": "unset (logger silent when NODE_ENV=test)",
+    "allowed": ["1", "0", "true", "false"],
+    "sources": ["core/cli/logger-setup.ts:234"]
+  },
+  {
+    "name": "CODEX_SCRIPT_TIMEOUT",
+    "description": "Default timeout (ms) for script wrappers (start/job/tests) unless overridden per call.",
+    "type": "number",
+    "components": ["cli-node"],
+    "default": null,
+    "allowed": null,
+    "sources": ["core/cli/scripts.ts:152"]
+  },
+  {
+    "name": "CODEX_ENV",
+    "description": "Environment label attached to task metadata (fallback to NODE_ENV).",
+    "type": "string",
+    "components": ["cli-node"],
+    "default": "NODE_ENV or 'development'",
+    "allowed": null,
+    "sources": ["core/lib/queue/task-definition.ts:26"]
+  },
+  {
+    "name": "EDITOR",
+    "description": "Default editor used by PRD commands.",
+    "type": "string",
+    "components": ["cli-node"],
+    "default": "vim",
+    "allowed": null,
+    "sources": ["src/cli/prd-commands.ts:103"]
+  },
+  {
+    "name": "HOME",
+    "description": "User home directory used to locate default instructions file.",
+    "type": "string",
+    "components": ["shell/start.sh", "cli-node"],
+    "default": "OS dependent",
+    "allowed": null,
+    "sources": ["start.sh:11", "core/cli/config-loader.ts:125"]
+  },
+  {
+    "name": "USERPROFILE",
+    "description": "Windows user profile (fallback when HOME is not set).",
+    "type": "string",
+    "components": ["cli-node"],
+    "default": "OS dependent",
+    "allowed": null,
+    "sources": ["core/cli/config-loader.ts:125"]
+  },
+  {
+    "name": "APP_VERSION",
+    "description": "Build-time injected app version for environment reporting.",
+    "type": "string",
+    "components": ["cli-node"],
+    "default": null,
+    "allowed": null,
+    "sources": ["src/lib/utils.ts:1062"]
+  },
+  {
+    "name": "BUILD_DATE",
+    "description": "Build-time injected ISO date for environment reporting.",
+    "type": "string",
+    "components": ["cli-node"],
+    "default": null,
+    "allowed": null,
+    "sources": ["src/lib/utils.ts:1063"]
+  },
+  {
+    "name": "MCP_TS_SERVER",
+    "description": "Override TypeScript MCP server entry used by mcp/server.sh.",
+    "type": "string",
+    "components": ["mcp-shell"],
+    "default": "mcp/codex-mcp-server/dist/index.js",
+    "allowed": null,
+    "sources": ["mcp/server.sh:6"]
+  }
+]

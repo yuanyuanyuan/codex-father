@@ -85,7 +85,7 @@
 
 ## 🏗️ 架构
 
-### 系统架构
+### 系统架构（当前聚焦 Ubuntu + Claude Code CLI / Codex CLI）
 
 ```
 ┌─────────────────┐
@@ -362,6 +362,11 @@ npm run benchmark
 ### 📖 完整文档导航
 
 - **[📚 文档总入口](docs/README.md)** - 所有文档的导航中心
+
+- 环境变量参考与清单：
+  - 人类可读版: [环境变量参考](docs/environment-variables-reference.md)
+  - 机器可读版: [JSON](docs/environment-variables.json),
+    [CSV](docs/environment-variables.csv)
 
 **按类别浏览**：
 
