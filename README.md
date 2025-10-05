@@ -55,6 +55,17 @@
 > 命名与别名：同时提供下划线等价别名 `codex_exec`, `codex_start`,
 > `codex_status`, `codex_logs`, `codex_stop`, `codex_list`, `codex_help`。
 
+### 命名策略（0.44 responses 推荐）
+
+- Codex 0.44（responses wire
+  API）不接受带点号的工具名。建议仅导出下划线形式，并使用自定义前缀避免歧义。
+- 环境变量（配置在 MCP 服务器条目的 `env` 下）：
+  - `CODEX_MCP_NAME_STYLE=underscore-only`（只导出下划线工具名）
+  - `CODEX_MCP_TOOL_PREFIX=cf`（为所有工具增加 `cf_` 别名）
+  - `CODEX_MCP_HIDE_ORIGINAL=1`（隐藏默认的 `codex_*` 名称，仅保留 `cf_*`）
+- 生效后 tools/list 仅出现：`cf_exec`, `cf_start`, `cf_status`, `cf_logs`,
+  `cf_stop`, `cf_list`, `cf_help`。
+
 > 注：早期文档中出现的
 > `codex-chat`/`codex-execute`/`codex-read-file`/`codex-apply-patch`
 > 为构想接口，当前版本未提供这些工具的独立封装（请使用 `codex.exec/start`

@@ -81,7 +81,13 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 
 **解决**：
 
-- 本服务器已提供等价别名：
+- 若使用 Codex 0.44（responses）导致 400：设置
+  `CODEX_MCP_NAME_STYLE=underscore-only`，只导出下划线名。
+- 为避免混淆：
+  - 设置 `CODEX_MCP_TOOL_PREFIX=cf`，并配合 `CODEX_MCP_HIDE_ORIGINAL=1` 仅保留
+    `cf_*` 工具。
+  - 这样工具列表更清晰：`cf_exec/cf_start/cf_status/cf_logs/cf_stop/cf_list/cf_help`。
+- 等价别名总览：
   - 点号：`codex.exec`, `codex.start`, `codex.status`, `codex.logs`,
     `codex.stop`, `codex.list`, `codex.help`
   - 下划线：`codex_exec`, `codex_start`, `codex_status`, `codex_logs`,

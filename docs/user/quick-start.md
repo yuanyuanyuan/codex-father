@@ -112,9 +112,12 @@ npm start
 ### 工具命名小贴士
 
 - 同一工具有两种等价命名：点号（如 `codex.exec`）和下划线（如 `codex_exec`）。
+- Codex 0.44（responses）不接受点号名；推荐只导出下划线，或配置前缀别名如
+  `cf_exec`。
 - 在多数客户端中，完整调用名为 `mcp__<server-id>__<tool>`，其中 `<server-id>`
   是你的 MCP 配置键名（如 `codex-father`）。
-- 不确定时，先调用 `codex.help` 获取全部方法与示例。
+- 不确定时，先调用 `codex.help` 获取全部方法与示例；或直接看带前缀的
+  `cf_help`（若已配置前缀）。
 
 ## ✅ 验证成功标志
 
