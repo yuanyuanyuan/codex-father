@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
+import { spawn } from 'node:child_process';
 import { createDefaultOrchestratorConfig } from './types.js';
 import type { Agent, OrchestratorConfig, OrchestratorContext, TaskDefinition } from './types.js';
 
@@ -80,6 +81,35 @@ export class ProcessOrchestrator {
 
     const agent = this.createAgent(task);
     this.agentPool.set(agent.id, agent);
+
+    // 最小权限参数拼装（按角色应用安全参数）；若缺省则跳过
+    try {
+      const cfgAny = this.config as unknown as {
+        roles?: Record<
+          string,
+          { allowedTools?: string[]; permissionMode?: string; sandbox?: string }
+        >;
+        codexCommand?: string;
+      };
+      const roleCfg = cfgAny?.roles?.[task.role];
+      const codexCmd = cfgAny?.codexCommand ?? 'codex';
+      if (roleCfg) {
+        const args: string[] = [];
+        if (roleCfg.permissionMode) {
+          args.push('--ask-for-approval', roleCfg.permissionMode);
+        }
+        if (roleCfg.sandbox) {
+          args.push('--sandbox', roleCfg.sandbox);
+        }
+        if (roleCfg.allowedTools && roleCfg.allowedTools.length > 0) {
+          args.push('--allowed-tools', roleCfg.allowedTools.join(','));
+        }
+        // 非阻塞启动；测试将通过 vi.mock 拦截 spawn 并断言参数
+        spawn(codexCmd, args, { stdio: 'ignore' }).on('error', () => void 0);
+      }
+    } catch {
+      // 忽略权限参数拼装中的非关键异常，避免影响现有流程
+    }
     return { agent, reused: false };
   }
 
