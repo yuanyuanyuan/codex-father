@@ -2,6 +2,11 @@
 
 > **常见问题和解决方案**，帮您快速解决使用中遇到的问题。
 
+> 环境变量键的完整清单与默认值请参考：
+>
+> - 人类可读版: ../environment-variables-reference.md
+> - 机器可读版: ../environment-variables.json, ../environment-variables.csv
+
 ## 📋 快速诊断
 
 ### 症状索引
@@ -40,7 +45,7 @@ cat ~/Library/Application\ Support/Claude/claude_desktop_config.json | jq .
 npx -y @starkdev020/codex-father-mcp-server
 
 # 如果使用全局安装
-codex-father-mcp-server --version
+codex-mcp-server --version
 ```
 
 #### 3. 检查 Node.js 版本
@@ -66,6 +71,37 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 浏览器会打开 Inspector 界面，可以看到详细的错误信息。
 
 ---
+
+### 工具名称对不上（Unknown tool）
+
+**症状**：
+
+- 工具调用报错：`Unknown tool: codex.exec` 或 `codex_exec`
+- 客户端工具列表显示的名称与文档不一致
+
+**原因**：
+
+- 不同客户端对工具命名风格有差异（点号 vs 下划线）
+- 前缀 `mcp__<server-id>__` 使用的是你的 MCP 配置键名
+
+**解决**：
+
+- 若使用 Codex 0.44（responses）导致 400：设置
+  `CODEX_MCP_NAME_STYLE=underscore-only`，只导出下划线名。
+- 为避免混淆：
+  - 设置 `CODEX_MCP_TOOL_PREFIX=cf`，并配合 `CODEX_MCP_HIDE_ORIGINAL=1` 仅保留
+    `cf_*` 工具。
+  - 这样工具列表更清晰：`cf_exec/cf_start/cf_status/cf_logs/cf_stop/cf_list/cf_help`。
+- 等价别名总览：
+  - 点号：`codex.exec`, `codex.start`, `codex.status`, `codex.logs`,
+    `codex.stop`, `codex.list`, `codex.help`
+  - 下划线：`codex_exec`, `codex_start`, `codex_status`, `codex_logs`,
+    `codex_stop`, `codex_list`, `codex_help`
+- 不确定时调用 `codex.help`：
+  - 全部概览：`{ "name": "codex.help", "arguments": {"format": "markdown"} }`
+  - 单个详情：`{ "name": "codex.help", "arguments": {"tool": "codex.exec", "format": "json"} }`
+- 确认前缀 `mcp__<server-id>__` 中的 `<server-id>` 与配置一致（如 `codex-father`
+  或 `codex-father-prod`）。
 
 ## ❌ 命令执行失败
 
@@ -94,7 +130,7 @@ codex exec "ls -la"
 
 ```bash
 # 查看 Codex 日志
-cat ~/.codex/logs/latest.log
+cat .codex-father/logs/latest.log
 ```
 
 ### 解决方案
@@ -185,7 +221,7 @@ ps aux | grep codex
 #### 2. 检查日志大小
 
 ```bash
-du -sh ~/.codex/logs/
+du -sh .codex-father/logs/
 ```
 
 ### 解决方案
@@ -208,7 +244,7 @@ du -sh ~/.codex/logs/
 
 ```bash
 # 清理旧日志
-rm ~/.codex/logs/*.log.old
+rm .codex-father/logs/*.log.old
 ```
 
 ---
@@ -277,6 +313,7 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 ```
 
 Inspector 提供：
+
 - 实时工具调用监控
 - 详细错误堆栈
 - 请求/响应日志

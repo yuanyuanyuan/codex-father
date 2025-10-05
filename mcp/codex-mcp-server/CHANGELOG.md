@@ -247,3 +247,63 @@
 ### BREAKING CHANGES
 
 - **queue:** 引入新的队列管理入口与结构，需按新命令使用
+
+# 1.0.0 (2025-10-03)
+
+## [Unreleased]
+
+### Features
+
+- **mcp:** add `codex.help` discovery tool (lists all tools with example
+  payloads; supports markdown/json).
+- **mcp:** add underscore aliases for all tools: `codex_exec`, `codex_start`,
+  `codex_status`, `codex_logs`, `codex_stop`, `codex_list`, `codex_help`.
+
+### Tests
+
+- add lightweight alias e2e: `tests/mcp_aliases_e2e.sh` (verifies `tools/list`
+  contains `codex_start`, and `tools/call` for `codex_status`/`codex_logs`).
+
+## [1.4.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.3.0...mcp-v1.4.0) (2025-10-05)
+
+### Features
+
+- cli: add `--help`/`--version` and startup banner; default NDJSON transport;
+  support `--transport=content-length`
+- tools: add `codex.clean` and `codex.metrics`; enhance `codex.logs` with `view`
+  param
+
+### Fixes
+
+- transport: improve Content-Length framing error handling and diagnostics
+
+### Docs
+
+- usage: clarify binary name `codex-mcp-server` and update installation examples
+
+---
+
+## [1.3.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.2.0...mcp-v1.3.0) (2025-10-05)
+
+### Features
+
+- tools: add underscore aliases for all `codex.*` tools (e.g. `codex_exec`)
+- naming: support `CODEX_MCP_NAME_STYLE=underscore-only|dot-only`
+- naming: support `CODEX_MCP_TOOL_PREFIX` and `CODEX_MCP_HIDE_ORIGINAL`
+- docs: add `codex.help` discovery tool with examples
+
+---
+
+## [1.2.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.8...mcp-v1.2.0) (2025-10-04)
+
+### Features
+
+- compat: detect Codex CLI version; gate incompatible cli flags and config keys;
+  return `CODEX_VERSION_INCOMPATIBLE` with details
+
+### Fixes
+
+- errors: unify JSON error payloads and hints; fast-fail when codex binary
+  missing
+
+---

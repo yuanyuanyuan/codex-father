@@ -65,6 +65,14 @@ npm start
 }
 ```
 
+> 命名策略与环境变量：
+>
+> - 不同客户端对工具名（点号 vs 下划线）支持不同；Codex
+>   0.44（responses）推荐仅下划线或带前缀 `cf_*`。
+> - 需要自定义导出名称或前缀时，请参考：
+>   - 人类可读版: ../environment-variables-reference.md#mcp-服务器typescript
+>   - 机器可读版: ../environment-variables.json
+
 **重启 Claude Desktop**：完全退出 Claude Desktop 并重新打开。
 
 **验证配置**：
@@ -77,39 +85,59 @@ npm start
 
 ## 🧪 步骤 3：运行第一个测试（1分钟）
 
-在 Claude Desktop 对话框中输入以下测试指令：
+在 Claude Code CLI 中输入以下测试指令：
 
 ### 测试 1：连接测试
 
-**您输入**：
+**Claude Code 中输入**：
+
 ```
 请帮我列出当前项目的所有 .md 文件
 ```
 
 **预期结果**：
-- Claude 会调用 `codex.exec` 工具
+
+- Claude 会调用 `codex.exec`（或等价的 `codex_exec`）工具
 - 返回项目中的 Markdown 文件列表
 - 如果看到文件列表，说明连接成功！✅
 
 ### 测试 2：简单任务测试
 
-**您输入**：
+**Claude Code 中输入**：
+
 ```
 帮我创建一个 hello.txt 文件，内容是 "Hello, Codex Father!"
 ```
 
 **预期结果**：
+
 - Claude 会执行文件创建任务
 - 返回成功信息
 - 检查项目目录，应该能看到 `hello.txt` 文件
 
 ---
 
+### 工具命名小贴士
+
+- 同一工具有两种等价命名：点号（如 `codex.exec`）和下划线（如 `codex_exec`）。
+- Codex 0.44（responses）不接受点号名；推荐只导出下划线，或配置前缀别名如
+  `cf_exec`。
+- 在多数客户端中，完整调用名为 `mcp__<server-id>__<tool>`，其中 `<server-id>`
+  是你的 MCP 配置键名（如 `codex-father`）。
+- 不确定时，先调用 `codex.help` 获取全部方法与示例；或直接看带前缀的
+  `cf_help`（若已配置前缀）。
+
+更多命名/前缀相关变量详见：
+
+- 人类可读版: ../environment-variables-reference.md#mcp-服务器typescript
+- 机器可读版: ../environment-variables.json
+
 ## ✅ 验证成功标志
 
 如果以下三个条件都满足，恭喜您配置成功！🎉
 
-1. **服务器状态**：Claude Desktop 右下角显示 "codex-father 已连接"
+1. **客户端状态**：Claude Code CLI 中能正常调用 MCP 工具（例如
+   `cf_help`/`codex_help`）
 2. **测试通过**：测试 1 和测试 2 都返回了预期结果
 3. **无错误**：没有出现连接错误或权限错误
 
@@ -117,23 +145,28 @@ npm start
 
 ## ❌ 如果遇到问题
 
-### 问题 1：找不到配置文件
+### 问题 1：找不到配置文件（Claude Code）
 
-**解决**：手动创建配置文件
+**解决**：在项目根目录手动创建 `.claude/mcp_settings.json`
 
 ```bash
-# macOS
-mkdir -p ~/Library/Application\ Support/Claude
-touch ~/Library/Application\ Support/Claude/claude_desktop_config.json
-
-# Windows (PowerShell)
-New-Item -Path "$env:APPDATA\Claude" -ItemType Directory -Force
-New-Item -Path "$env:APPDATA\Claude\claude_desktop_config.json" -ItemType File
+mkdir -p .claude
+cat > .claude/mcp_settings.json <<'JSON'
+{
+  "mcpServers": {
+    "codex-father": {
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server"]
+    }
+  }
+}
+JSON
 ```
 
 ### 问题 2：服务器显示"未连接"
 
 **解决步骤**：
+
 1. 完全退出 Claude Desktop（不是最小化）
 2. 等待 5 秒
 3. 重新打开 Claude Desktop
@@ -142,6 +175,7 @@ New-Item -Path "$env:APPDATA\Claude\claude_desktop_config.json" -ItemType File
 ### 问题 3：测试指令无响应
 
 **解决步骤**：
+
 1. 检查是否有 Codex CLI 安装在系统中
 2. 运行 `codex --version` 验证
 3. 如果没有，访问 [Codex CLI 官网](https://docs.codex.dev) 安装
@@ -161,10 +195,12 @@ New-Item -Path "$env:APPDATA\Claude\claude_desktop_config.json" -ItemType File
 
 ## 💡 提示
 
-- **审批策略**：首次使用时，Codex Father 会询问您是否批准执行命令，这是正常的安全机制
+- **审批策略**：首次使用时，Codex
+  Father 会询问您是否批准执行命令，这是正常的安全机制
 - **性能优化**：可以在配置中添加 `"approval-policy": "on-failure"` 减少审批次数
-- **日志查看**：遇到问题时，可以查看 `~/.codex/logs/` 目录下的日志文件
+- **日志查看**：遇到问题时，可以查看 `.codex-father/logs/` 目录下的日志文件
 
 ---
 
-**🎉 享受使用 Codex Father！如有问题，请查看 [完整文档](../README.md) 或提交 Issue。**
+**🎉 享受使用 Codex Father！如有问题，请查看 [完整文档](../README.md)
+或提交 Issue。**

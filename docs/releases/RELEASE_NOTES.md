@@ -1,15 +1,19 @@
-# Release Notes - Codex Father v1.0.0 (MVP1)
+# Release Notes - Codex Father
 
-> **发布日期**: 2025-10-01 **版本**: 1.0.0 (MVP1 - 最小可行产品) **状态**: ✅
-> Production Ready
+> 最新亮点：MCP 子包 v1.4.0 发布（可发现性与传输增强）
 
 ---
 
-## 🎉 重大里程碑
+## 🎉 重大里程碑（节选）
 
-这是 **Codex Father**
-的首个正式版本，标志着 MVP1 阶段的圆满完成。本版本实现了一个功能完整、性能优异、测试充分的 MCP
-(Model Context Protocol) 服务器，用于将 Codex CLI 封装为标准 MCP 工具。
+这是 **Codex Father** 的发布汇总页。MCP 子包已完成以下关键版本：
+
+- v1.4.0：可发现性与传输增强（默认 NDJSON；`--transport=content-length`；`codex.clean`/`codex.metrics`；`codex.logs`
+  增强）
+- v1.3.0：工具别名与命名策略（`CODEX_MCP_NAME_STYLE`/`CODEX_MCP_TOOL_PREFIX`/`CODEX_MCP_HIDE_ORIGINAL`；`codex.help`）
+- v1.2.0：版本兼容门禁（Codex 版本检测、参数与配置键校验、明确错误码）
+
+完整详细说明见 docs/releases 目录下对应版本页面。
 
 ---
 

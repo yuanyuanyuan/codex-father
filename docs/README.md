@@ -24,6 +24,7 @@
 - [首次运行测试](user/first-run.md) - 功能验证
 - [场景化使用](user/use-cases/README.md) - 15+ 实际应用场景
 - [故障排除](user/troubleshooting.md) - 常见问题解决
+- [环境变量参考](../docs/environment-variables-reference.md) - 全量环境变量（源码驱动）
 
 ### 🔧 开发文档
 
@@ -31,9 +32,10 @@
 
 - **[开发文档总览](developer/README.md)**
 - [开发指南](developer/DEVELOPMENT.md) - 开发环境、技术栈、规范
-- [代理说明](developer/AGENTS.md) - Agent 系统说明
+- [代理说明](../AGENTS.md) - Agent 系统说明
 - [Gemini 相关](developer/GEMINI.md) - Gemini 集成说明
 - [贡献指南](developer/contributing.md) - 如何贡献代码
+- [环境变量（JSON/CSV 清单）](environment-variables-reference.md#机器可读导出)
 
 ### 🏗️ 架构文档
 
@@ -119,24 +121,26 @@
 
 ### 按关键词查找
 
-| 关键词 | 相关文档 |
-|--------|----------|
-| **安装** | [安装指南](user/installation.md) |
-| **配置** | [配置指南](user/configuration.md) |
+| 关键词             | 相关文档                                                               |
+| ------------------ | ---------------------------------------------------------------------- |
+| **安装**           | [安装指南](user/installation.md)                                       |
+| **配置**           | [配置指南](user/configuration.md)                                      |
+| **环境变量**       | [环境变量参考](environment-variables-reference.md)                     |
 | **Claude Desktop** | [配置指南 - Claude Desktop](user/configuration.md#配置-claude-desktop) |
-| **Claude Code** | [配置指南 - Claude Code](user/configuration.md#配置-claude-code) |
-| **Codex CLI** | [配置指南 - Codex CLI](user/configuration.md#配置-codex-cli-rmcp) |
-| **错误** | [故障排除](user/troubleshooting.md) |
-| **性能** | [故障排除 - 性能问题](user/troubleshooting.md#性能问题) |
-| **审批** | [配置指南 - 审批策略](user/configuration.md#审批策略配置) |
-| **API** | [API 文档](architecture/api/) |
-| **部署** | [部署指南](operations/DEPLOY.md) |
+| **Claude Code**    | [配置指南 - Claude Code](user/configuration.md#配置-claude-code)       |
+| **Codex CLI**      | [配置指南 - Codex CLI](user/configuration.md#配置-codex-cli-rmcp)      |
+| **错误**           | [故障排除](user/troubleshooting.md)                                    |
+| **性能**           | [故障排除 - 性能问题](user/troubleshooting.md#性能问题)                |
+| **审批**           | [配置指南 - 审批策略](user/configuration.md#审批策略配置)              |
+| **API**            | [API 文档](architecture/api/)                                          |
+| **部署**           | [部署指南](operations/DEPLOY.md)                                       |
 
 ---
 
 ## 📞 获取帮助
 
-- **GitHub Issues**: [提交问题](https://github.com/yuanyuanyuan/codex-father/issues)
+- **GitHub Issues**:
+  [提交问题](https://github.com/yuanyuanyuan/codex-father/issues)
 - **文档反馈**: [提交 PR](https://github.com/yuanyuanyuan/codex-father/pulls)
 - **快速支持**: [故障排除指南](user/troubleshooting.md)
 
@@ -150,4 +154,5 @@
 
 ---
 
-**🎉 开始探索 Codex Father 文档吧！如果找不到需要的内容，请提交 Issue 告诉我们。**
+**🎉 开始探索 Codex
+Father 文档吧！如果找不到需要的内容，请提交 Issue 告诉我们。**

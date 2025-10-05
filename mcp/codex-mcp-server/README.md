@@ -10,7 +10,8 @@ Desktop 或任何 MCP 客户端都能直接调用 Codex CLI，实现智能代码
 - **零配置启动** - 5 分钟内完成从安装到运行
 - **异步任务管理** - 支持长时间运行的任务，可随时查询状态和日志
 - **灵活的安全策略** - 从只读到完全访问，可自由配置
-- **多客户端支持** - 支持 Claude Desktop、Codex CLI (rMCP)、Claude Code CLI
+- **多客户端支持**（Ubuntu） - 支持 Codex CLI (rMCP)、Claude Code CLI（Claude
+  Desktop 配置留作参考，暂不保证本版本兼容性）
 - **标准 MCP 协议** - 完全兼容 Model Context Protocol 规范
 
 ---
@@ -21,6 +22,13 @@ Desktop 或任何 MCP 客户端都能直接调用 Codex CLI，实现智能代码
 
 - **Node.js** >= 18
 - **Codex CLI** 已安装 ([获取 Codex](https://github.com/anthropics/codex))
+
+> 命名策略与环境变量：不同客户端对工具名格式（点号 vs 下划线）要求不同。如使用 Codex
+> 0.44（responses），建议仅导出下划线或带前缀的 `cf_*`。变量与默认值参见：
+>
+> - 人类可读版:
+>   ../../docs/environment-variables-reference.md#mcp-服务器typescript
+> - 机器可读版: ../../docs/environment-variables.json
 
 ### 方式一：本地开发模式（推荐用于测试）
 
@@ -49,9 +57,9 @@ npx @starkdev020/codex-father-mcp-server
 
 ### 方式三：集成到 MCP 客户端
 
-支持以下 MCP 客户端：
+支持以下 MCP 客户端（Ubuntu）：
 
-#### 3.1 Claude Desktop
+#### 3.1 （参考）Claude Desktop（本版本暂不保证兼容性）
 
 **macOS/Linux** 配置文件位置：
 
@@ -127,7 +135,7 @@ claude-code
 
 ## 📖 实战示例
 
-### 示例 1：在 Claude Desktop 中分析代码
+### 示例 1：（参考）在 Claude Desktop 中分析代码（本版本暂不保证兼容性）
 
 配置完成后，在 Claude Desktop 中直接对话：
 
@@ -225,6 +233,72 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
 
 ## 🛠️ MCP 工具详解
 
+> 命名与别名：所有工具提供“点号”和“下划线”两种命名，功能等价。
+>
+> - 点号：`codex.exec`, `codex.start`, `codex.status`, `codex.logs`,
+>   `codex.stop`, `codex.list`, `codex.help`
+> - 下划线：`codex_exec`, `codex_start`, `codex_status`, `codex_logs`,
+>   `codex_stop`, `codex_list`, `codex_help`
+>
+> 在多数客户端中，完整调用名为 `mcp__<server-id>__<tool>`，其中 `<server-id>`
+> 来自你的 MCP 配置键（如 `codex-father` 或 `codex-father-prod`）。
+
+#### 命名定制（可选）
+
+- `CODEX_MCP_NAME_STYLE`：控制导出名称风格
+  - `underscore-only`（推荐，兼容 Codex 0.44 responses）
+  - `dot-only`（仅在允许 `.` 的客户端使用）
+  - 省略则两者都导出
+- `CODEX_MCP_TOOL_PREFIX`：为所有工具增加自定义前缀别名（同时提供 `prefix.*` 与
+  `prefix_*` 两种形式，受 `NAME_STYLE` 过滤）
+  - 示例：`CODEX_MCP_TOOL_PREFIX=cf` → 导出 `cf_exec`, `cf_start`, ...（如设置
+    `underscore-only` 则只留下划线版本）
+- `CODEX_MCP_HIDE_ORIGINAL`：隐藏默认的 `codex.*`/`codex_*`
+  名称，仅保留前缀别名（`1`/`true` 生效）
+
+示例（Codex 0.44 responses 下的推荐组合）：
+
+```toml
+[mcp_servers.codex-father-prod]
+command = "npx"
+args = ["-y", "@starkdev020/codex-father-mcp-server"]
+env.NODE_ENV = "production"
+env.CODEX_MCP_NAME_STYLE = "underscore-only"
+env.CODEX_MCP_TOOL_PREFIX = "cf"
+env.CODEX_MCP_HIDE_ORIGINAL = "1"
+```
+
+上述配置下，tools/list 仅会出现 `cf_exec`, `cf_start`, `cf_status`, `cf_logs`,
+`cf_stop`, `cf_list`, `cf_help`。
+
+### `codex.help` - 工具自发现
+
+快速查看可用的 `codex.*` 方法、参数 Schema 与示例调用。无需安装 Codex
+CLI 也可运行。
+
+示例（显示所有工具与示例）：
+
+```json
+{
+  "name": "codex.help",
+  "arguments": { "format": "markdown" }
+}
+```
+
+查看单个工具详情（JSON 格式，便于程序消费）：
+
+```json
+{
+  "name": "codex.help",
+  "arguments": { "tool": "codex.exec", "format": "json" }
+}
+```
+
+> 提示：在多数客户端中，完整调用名为 `mcp__<server-id>__<tool>`；`<server-id>`
+> 为你的 MCP 配置键名（如 `codex-father` 或 `codex-father-prod`）。
+
+同名下划线别名：`codex_help`
+
 ### `codex.exec` - 同步执行
 
 阻塞执行直到任务完成，适合快速任务。
@@ -266,6 +340,8 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
 }
 ```
 
+同名下划线别名：`codex_exec`
+
 ### `codex.start` - 异步启动
 
 立即返回 `jobId`，任务在后台运行。
@@ -280,6 +356,8 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
   "message": "Task started successfully"
 }
 ```
+
+同名下划线别名：`codex_start`
 
 ### `codex.status` - 查询状态
 
@@ -296,6 +374,8 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
   "startTime": "2025-10-03T10:00:00Z"
 }
 ```
+
+同名下划线别名：`codex_status`
 
 > ℹ️ **提示**：工单 schema 禁止额外字段，如果你需要切换 `job.sh`
 > 工作目录，请结合下方“高级配置”中的环境变量或在目标目录内启动 MCP 服务器。
@@ -322,6 +402,9 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
     "size": 16384
   }
   ```
+
+同名下划线别名：`codex_logs`
+
 - `mode = "lines"`：
   ```json
   {
@@ -337,6 +420,8 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
 - `jobId` (string) - 任务 ID
 - `force` (boolean, 可选) - 强制停止
 
+同名下划线别名：`codex_stop`
+
 ### `codex.list` - 列出所有任务
 
 **参数**：无（不接受额外字段）
@@ -348,6 +433,8 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
   "jobs": [{ "jobId": "job-1", "status": "running", "tag": "refactor-auth" }]
 }
 ```
+
+同名下划线别名：`codex_list`
 
 > ℹ️ **提示**：同
 > `codex.status`，此工具不接受额外参数，请通过环境变量或工作目录切换控制作用范围。
@@ -558,6 +645,11 @@ npm install
 ---
 
 ## 📚 更多资源
+
+- 环境变量参考（源码驱动）
+  - 人类可读版: ../../docs/environment-variables-reference.md
+  - 机器可读版: ../../docs/environment-variables.json,
+    ../../docs/environment-variables.csv
 
 ### 项目相关
 

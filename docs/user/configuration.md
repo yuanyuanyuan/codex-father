@@ -1,10 +1,11 @@
-# ⚙️ 配置指南
+# ⚙️ 配置指南（Ubuntu）
 
-> **完整的 Codex Father 配置指南**，覆盖 Claude Desktop、Claude Code、Codex CLI 三种客户端的详细配置步骤。
+> 本指南聚焦 Ubuntu 平台上的 Claude Code CLI 与 Codex CLI 配置；Claude
+> Desktop 配置留作参考，暂不保证本版本兼容性。
 
 ## 📋 目录
 
-- [配置 Claude Desktop](#配置-claude-desktop)
+- [（参考）配置 Claude Desktop](#参考配置-claude-desktop)
 - [配置 Claude Code](#配置-claude-code)
 - [配置 Codex CLI (rMCP)](#配置-codex-cli-rmcp)
 - [高级配置](#高级配置)
@@ -13,7 +14,7 @@
 
 ---
 
-## 🖥️ 配置 Claude Desktop
+## （参考）配置 Claude Desktop（本版本暂不保证兼容性）
 
 ### 步骤 1：找到配置文件
 
@@ -43,15 +44,19 @@ gedit ~/.config/Claude/claude_desktop_config.json
 ```json
 {
   "mcpServers": {
-    "codex-father": {
+    "codex-father-prod": {
       "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"]
+      "args": ["-y", "@starkdev020/codex-father-mcp-server"],
+      "env": {
+        "NODE_ENV": "production"
+      }
     }
   }
 }
 ```
 
 **优点**：
+
 - 无需安装，自动使用最新版本
 - 配置简单
 
@@ -62,14 +67,18 @@ gedit ~/.config/Claude/claude_desktop_config.json
 ```json
 {
   "mcpServers": {
-    "codex-father": {
-      "command": "codex-father-mcp-server"
+    "codex-father-prod": {
+      "command": "codex-father-mcp-server",
+      "env": {
+        "NODE_ENV": "production"
+      }
     }
   }
 }
 ```
 
 **优点**：
+
 - 启动速度更快
 - 可以锁定版本
 
@@ -80,7 +89,7 @@ gedit ~/.config/Claude/claude_desktop_config.json
 ```json
 {
   "mcpServers": {
-    "codex-father": {
+    "codex-father-preview": {
       "command": "node",
       "args": ["/path/to/codex-father/dist/core/cli/start.js"]
     }
@@ -103,7 +112,11 @@ gedit ~/.config/Claude/claude_desktop_config.json
 1. 打开 Claude Desktop
 2. 点击右下角的 **🔧 图标**
 3. 查看 MCP 服务器列表
-4. 确认 `codex-father` 显示为 **"已连接"** ✅
+4. 确认 `codex-father-prod`（以及可选的 `codex-father-preview`）显示为
+   **"已连接"** ✅
+
+> 你可以在 Desktop 配置中同时保留 `codex-father-preview` 与
+> `codex-father-prod`，与 Claude Code CLI 和 Codex CLI 的推荐配置保持一致。
 
 ---
 
@@ -120,32 +133,32 @@ gedit ~/.config/Claude/claude_desktop_config.json
 
 ### 步骤 2：添加配置
 
-#### 方式 A：npx 方式
-
-在项目根目录创建 `.claude/mcp_settings.json`：
+**推荐做法**：同时配置预览与生产两个 MCP 服务器，按需切换。
 
 ```json
 {
   "mcpServers": {
-    "codex-father": {
+    "codex-father-preview": {
+      "command": "node",
+      "args": ["./mcp/codex-mcp-server/dist/index.js"]
+    },
+    "codex-father-prod": {
       "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"]
+      "args": ["-y", "@starkdev020/codex-father-mcp-server"],
+      "env": {
+        "NODE_ENV": "production"
+      }
     }
   }
 }
 ```
 
-#### 方式 B：全局安装方式
+- `codex-father-preview`：直接引用仓库内 `dist/index.js`，适合本地调试最新代码。
+- `codex-father-prod`：通过 `npx` 拉取发布版本，并设置 `NODE_ENV=production`。
 
-```json
-{
-  "mcpServers": {
-    "codex-father": {
-      "command": "codex-father-mcp-server"
-    }
-  }
-}
-```
+> 如果生产环境使用 npm 全局安装，将 `codex-father-prod` 的 `command` 改成
+> `"codex-father-mcp-server"` 即可；若需要自定义 dist 路径，调整
+> `codex-father-preview` 的 `args` 为你的构建产物路径。
 
 ### 步骤 3：重启 Claude Code CLI
 
@@ -165,7 +178,18 @@ claude-code
 请列出当前可用的 MCP 工具
 ```
 
-应该看到 `codex.exec`, `codex.start` 等工具。
+应该看到可用工具（如未配置命名策略，可能同时出现 `codex.exec`/`codex_exec`
+两组；在 Codex 0.44 responses 下建议只保留下划线或带前缀的 `cf_*`）。
+
+#### 命名策略（工具名导出）
+
+命名/前缀相关环境变量详见：
+
+- 人类可读版: ../environment-variables-reference.md#mcp-服务器typescript
+- 机器可读版: ../environment-variables.json
+
+> 使用 `claude-code status mcp`（或等效命令）时，应该能看到
+> `codex-father-preview` 与 `codex-father-prod` 均为已连接状态。
 
 ---
 
@@ -198,20 +222,21 @@ vim ~/.codex/config.toml
 
 ### 步骤 3：添加 MCP 服务器配置
 
-#### 方式 A：npx 方式
+#### 推荐：同时配置预览与生产服务器
 
 ```toml
-[mcp_servers.codex-father]
+[mcp_servers.codex-father-preview]
+command = "node"
+args = ["/abs/path/to/repo/mcp/codex-mcp-server/dist/index.js"]
+
+[mcp_servers.codex-father-prod]
 command = "npx"
 args = ["-y", "@starkdev020/codex-father-mcp-server"]
+env.NODE_ENV = "production"
 ```
 
-#### 方式 B：全局安装方式
-
-```toml
-[mcp_servers.codex-father]
-command = "codex-father-mcp-server"
-```
+> 如果生产环境使用全局安装，将 `codex-father-prod` 的 `command` 改成
+> `"codex-father-mcp-server"`。
 
 ### 步骤 4：验证配置
 
@@ -234,7 +259,7 @@ codex
 ```json
 {
   "mcpServers": {
-    "codex-father": {
+    "codex-father-prod": {
       "command": "npx",
       "args": ["-y", "@starkdev020/codex-father-mcp-server"],
       "env": {
@@ -247,19 +272,23 @@ codex
 
 **审批策略选项**：
 
-| 策略 | 说明 | 使用场景 |
-|------|------|----------|
-| `untrusted` | 每个命令都需要审批 | 首次使用、测试环境 |
-| `on-request` | AI 请求时审批 | 平衡安全和效率 |
-| `on-failure` | 仅失败时审批 | 生产环境（推荐） |
-| `never` | 从不审批 | 完全信任的环境 |
+| 策略         | 说明               | 使用场景           |
+| ------------ | ------------------ | ------------------ |
+| `untrusted`  | 每个命令都需要审批 | 首次使用、测试环境 |
+| `on-request` | AI 请求时审批      | 平衡安全和效率     |
+| `on-failure` | 仅失败时审批       | 生产环境（推荐）   |
+| `never`      | 从不审批           | 完全信任的环境     |
 
 ### 环境变量配置
+
+提示：完整且以源码为准的环境变量清单请见
+[环境变量参考](../environment-variables-reference.md)。下文示例中的部分键值仅用于演示 MCP 客户端如何在配置中注入
+`env`，最终是否生效需参考上面的参考文档。
 
 ```json
 {
   "mcpServers": {
-    "codex-father": {
+    "codex-father-prod": {
       "command": "npx",
       "args": ["-y", "@starkdev020/codex-father-mcp-server"],
       "env": {
@@ -280,6 +309,15 @@ codex
 - `CODEX_CONFIG_PATH` - Codex 配置文件路径
 - `MAX_CONCURRENT_JOBS` - 最大并发任务数（默认：10）
 - `TIMEOUT_MS` - 任务超时时间（毫秒，默认：300000）
+- `CODEX_MCP_NAME_STYLE` - 工具命名风格：`underscore-only`（推荐，0.44 兼容）/
+  `dot-only` / 省略（两者都导出）
+- `CODEX_MCP_TOOL_PREFIX` - 自定义前缀：例如 `cf` → 导出 `cf_exec/cf_start/...`
+- `CODEX_MCP_HIDE_ORIGINAL` - 隐藏默认名，仅保留前缀别名（`1`/`true` 生效）
+
+完整可用环境变量与默认值（源码驱动）：
+
+- 人类可读版: ../environment-variables-reference.md
+- 机器可读版: ../environment-variables.json, ../environment-variables.csv
 
 ### 日志配置
 
@@ -288,7 +326,7 @@ codex
 ```json
 {
   "mcpServers": {
-    "codex-father": {
+    "codex-father-prod": {
       "command": "npx",
       "args": ["-y", "@starkdev020/codex-father-mcp-server"],
       "env": {
@@ -307,7 +345,7 @@ codex
 ```json
 {
   "mcpServers": {
-    "codex-father": {
+    "codex-father-prod": {
       "command": "npx",
       "args": ["-y", "@starkdev020/codex-father-mcp-server"],
       "env": {
@@ -327,7 +365,14 @@ codex
 ```json
 {
   "mcpServers": {
-    "codex-father": {
+    "codex-father-preview": {
+      "command": "node",
+      "args": ["/path/to/codex-father/dist/core/cli/start.js"],
+      "env": {
+        "LOG_LEVEL": "debug"
+      }
+    },
+    "codex-father-prod": {
       "command": "npx",
       "args": ["-y", "@starkdev020/codex-father-mcp-server"],
       "env": {
@@ -346,20 +391,34 @@ codex
 }
 ```
 
+> 如需在 Desktop 端使用仓库内构建产物，记得将
+> `/path/to/codex-father/dist/core/cli/start.js` 替换为本地绝对路径。
+
 ### 完整的 Codex CLI 配置
 
 ```toml
 # ~/.codex/config.toml
 
-[mcp_servers.codex-father]
+[mcp_servers.codex-father-preview]
+command = "node"
+args = ["/abs/path/to/repo/mcp/codex-mcp-server/dist/index.js"]
+
+[mcp_servers.codex-father-prod]
 command = "npx"
 args = ["-y", "@starkdev020/codex-father-mcp-server"]
 
-[mcp_servers.codex-father.env]
+[mcp_servers.codex-father-prod.env]
 APPROVAL_POLICY = "on-failure"
 LOG_LEVEL = "info"
 MAX_CONCURRENT_JOBS = "5"
+NODE_ENV = "production"
+CODEX_MCP_NAME_STYLE = "underscore-only"
+CODEX_MCP_TOOL_PREFIX = "cf"
+CODEX_MCP_HIDE_ORIGINAL = "1"
 ```
+
+> 如果已全局安装 codex-father MCP，可将 `codex-father-prod` 的 `command` 改成
+> `"codex-father-mcp-server"`。
 
 ---
 
@@ -388,13 +447,13 @@ cat ~/Library/Application\ Support/Claude/claude_desktop_config.json | jq .
 
 ```json
 {
-  "command": "/Users/username/My Documents/codex-father/start.js"  // ❌ 错误
+  "command": "/Users/username/My Documents/codex-father/start.js" // ❌ 错误
 }
 ```
 
 ```json
 {
-  "command": "/Users/username/My\\ Documents/codex-father/start.js"  // ✅ 正确
+  "command": "/Users/username/My\\ Documents/codex-father/start.js" // ✅ 正确
 }
 ```
 

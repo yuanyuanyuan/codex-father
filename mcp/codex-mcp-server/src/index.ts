@@ -1,691 +1,182 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import os from 'node:os';
+import process from 'node:process';
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  type CallToolRequest,
-  type ListToolsResult,
-} from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { parseCliArgs, parseEnv } from './config/env.js';
+import { CliLogger } from './logger.js';
+import { toolsSpec } from './tools/spec.js';
+import { handleCall } from './handlers/index.js';
+import { resolvePaths } from './utils/resolvePaths.js';
+import { createTransport, describeTransport } from './transport/factory.js';
+import type { HandlerContext } from './handlers/types.js';
 
-function resolveJobSh(): string {
-  const fromEnv = process.env.CODEX_JOB_SH;
-  if (fromEnv && fs.existsSync(fromEnv)) {
-    return fromEnv;
-  }
-  const candidate = path.resolve(process.cwd(), 'job.sh');
-  if (fs.existsSync(candidate)) {
-    return candidate;
-  }
-  const rel = path.resolve(__dirname, '../../..', 'job.sh');
-  if (fs.existsSync(rel)) {
-    return rel;
-  }
-  return candidate;
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json') as { name?: string; version?: string };
+
+function printHelp() {
+  const binary = pkg.name || 'codex-mcp-server';
+  const lines = [
+    `${binary} v${pkg.version || 'unknown'} — Codex Father MCP Server`,
+    '',
+    '用法：',
+    '  node dist/index.js [--transport=ndjson|content-length] [--help] [--version]',
+    '',
+    '说明：',
+    '  --transport    指定传输协议：',
+    '                 - ndjson（默认，与 @modelcontextprotocol/sdk stdio 行为一致）',
+    '                 - content-length（兼容 Content-Length 分帧的客户端）',
+    '  --help, -h     显示本帮助信息后退出。',
+    '  --version, -V  显示版本信息后退出。',
+    '',
+    '常用环境变量：',
+    '  LOG_LEVEL                控制日志级别（debug/info/warn/error/silent）。',
+    '  CODEX_MCP_NAME_STYLE     控制导出工具命名风格（underscore-only/dot-only）。',
+    '  CODEX_MCP_TOOL_PREFIX    为工具生成前缀别名。',
+    '  CODEX_MCP_HIDE_ORIGINAL  为 1/true 时仅保留别名。',
+    '  CODEX_MCP_PROJECT_ROOT   指定包含 job.sh/start.sh 的仓库根目录。',
+    '  MAX_CONCURRENT_JOBS      自定义并发限制（正整数）。',
+    '  APPROVAL_POLICY          默认审批策略（untrusted/on-failure/on-request/never）。',
+    '',
+    '示例：',
+    '  LOG_LEVEL=debug node dist/index.js',
+    '  node dist/index.js --transport=content-length',
+  ];
+  process.stdout.write(`${lines.join('\n')}\n`);
 }
 
-const JOB_SH = resolveJobSh();
-
-function resolveStartSh(): string {
-  const fromEnv = process.env.CODEX_START_SH;
-  if (fromEnv && fs.existsSync(fromEnv)) {
-    return fromEnv;
-  }
-  const candidate = path.resolve(process.cwd(), 'start.sh');
-  if (fs.existsSync(candidate)) {
-    return candidate;
-  }
-  const rel = path.resolve(__dirname, '../../..', 'start.sh');
-  if (fs.existsSync(rel)) {
-    return rel;
-  }
-  return candidate;
-}
-
-const START_SH = resolveStartSh();
-
-function run(
-  cmd: string,
-  args: string[],
-  input?: string
-): Promise<{ code: number; stdout: string; stderr: string }> {
-  return new Promise((resolve) => {
-    const child = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
-    let out = '';
-    let err = '';
-    child.stdout.on('data', (d: Buffer) => (out += d.toString()));
-    child.stderr.on('data', (d: Buffer) => (err += d.toString()));
-    child.on('close', (code: number | null) =>
-      resolve({ code: code ?? -1, stdout: out, stderr: err })
-    );
-    if (input) {
-      child.stdin.end(input);
-    } else {
-      child.stdin.end();
-    }
-  });
-}
-
-// ---------------------------------------
-// Codex 版本检测与参数兼容性校验（严格模式）
-// ---------------------------------------
-
-let CACHED_CODEX_VERSION: string | null = null;
-
-function normalizeSemver(v: string): string | null {
-  const m = v.match(/(\d+)\.(\d+)(?:\.(\d+))?/);
-  if (!m) {
-    return null;
-  }
-  return `${m[1]}.${m[2]}.${m[3] ?? '0'}`;
-}
-
-function cmpSemver(a: string, b: string): number {
-  const pa = a.split('.').map((n) => Number(n));
-  const pb = b.split('.').map((n) => Number(n));
-  for (let i = 0; i < 3; i++) {
-    const da = pa[i] ?? 0;
-    const db = pb[i] ?? 0;
-    if (da !== db) {
-      return da - db;
-    }
-  }
-  return 0;
-}
-
-async function detectCodexVersion(): Promise<string> {
-  if (CACHED_CODEX_VERSION) {
-    return CACHED_CODEX_VERSION;
-  }
-  const override = process.env.CODEX_VERSION_OVERRIDE;
-  if (override) {
-    const n = normalizeSemver(override);
-    if (!n) {
-      throw new Error(`Invalid CODEX_VERSION_OVERRIDE: ${override}`);
-    }
-    CACHED_CODEX_VERSION = n;
-    return CACHED_CODEX_VERSION;
-  }
-  const { code, stdout, stderr } = await run('codex', ['--version']);
-  if (code !== 0) {
-    throw new Error(`Failed to detect Codex version: ${stderr || stdout || `exit=${code}`}`);
-  }
-  const out = stdout.trim() || stderr.trim();
-  const m = out.match(/(\d+\.\d+(?:\.\d+)?)/);
-  if (!m) {
-    throw new Error(`Unable to parse Codex version from output: ${out}`);
-  }
-  const norm = normalizeSemver(m[1]!);
-  if (!norm) {
-    throw new Error(`Invalid semantic version detected: ${m[1]}`);
-  }
-  CACHED_CODEX_VERSION = norm;
-  return CACHED_CODEX_VERSION;
-}
-
-function listIncompatibleCliParams(p: any, version: string, rawArgs: string[]): string[] {
-  const incompatible: string[] = [];
-  // 0.44-only CLI convenience fields
-  if (p?.profile && cmpSemver(version, '0.44.0') < 0) {
-    incompatible.push('profile');
-  }
-  if (p?.fullAuto && cmpSemver(version, '0.44.0') < 0) {
-    incompatible.push('fullAuto');
-  }
-  if (p?.dangerouslyBypass && cmpSemver(version, '0.44.0') < 0) {
-    incompatible.push('dangerouslyBypass');
-  }
-
-  // 透传 args 中的 0.44-only 标记（尽力识别）
-  const args = Array.isArray(rawArgs) ? rawArgs.map(String) : [];
-  const hasFlag = (flag: string) => args.includes(flag);
-  if (hasFlag('--profile') && cmpSemver(version, '0.44.0') < 0) {
-    incompatible.push('cli.--profile');
-  }
-  if (hasFlag('--full-auto') && cmpSemver(version, '0.44.0') < 0) {
-    incompatible.push('cli.--full-auto');
-  }
-  if (hasFlag('--dangerously-bypass-approvals-and-sandbox') && cmpSemver(version, '0.44.0') < 0) {
-    incompatible.push('cli.--dangerously-bypass-approvals-and-sandbox');
-  }
-  return incompatible;
-}
-
-function listIncompatibleConfigKeys(
-  cfg: Record<string, unknown> | undefined,
-  version: string
-): string[] {
-  if (!cfg || typeof cfg !== 'object') {
-    return [];
-  }
-  const keys = Object.keys(cfg);
-  const vlt = cmpSemver(version, '0.44.0') < 0;
-  const v44Only = new Set([
-    'model_reasoning_effort',
-    'model_reasoning_summary',
-    'model_supports_reasoning_summaries',
-    'model_verbosity',
-    'profile',
-  ]);
-  const hit: string[] = [];
-  if (vlt) {
-    for (const k of keys) {
-      if (v44Only.has(k)) {
-        hit.push(k);
-      }
-    }
-  }
-  return hit;
-}
-
-function buildIncompatErrorPayload(
-  toolName: string,
-  currentVersion: string,
-  cliParams: string[],
-  cfgKeys: string[]
-) {
-  const parts: string[] = [];
-  if (cliParams.length) {
-    parts.push(`CLI: [${cliParams.join(', ')}]`);
-  }
-  if (cfgKeys.length) {
-    parts.push(`Config: [${cfgKeys.join(', ')}]`);
-  }
-  const details = parts.join('; ');
-  const text =
-    `Invalid params for Codex ${currentVersion}: require Codex >= 0.44 to use these options. ` +
-    (details ? `Violations → ${details}. ` : '') +
-    `Please remove these parameters or upgrade Codex to 0.44+.`;
-  return {
-    content: [
-      {
-        type: 'text',
-        text,
-      },
-    ],
-    isError: true as const,
-  };
-}
-
-function toolsSpec(): ListToolsResult {
-  return {
-    tools: [
-      {
-        name: 'codex.exec',
-        description: 'Run a synchronous codex execution; returns when finished.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            args: { type: 'array', items: { type: 'string' } },
-            tag: { type: 'string' },
-            cwd: { type: 'string' },
-            approvalPolicy: {
-              type: 'string',
-              enum: ['untrusted', 'on-failure', 'on-request', 'never'],
-            },
-            sandbox: {
-              type: 'string',
-              enum: ['read-only', 'workspace-write', 'danger-full-access'],
-            },
-            network: { type: 'boolean' },
-            fullAuto: { type: 'boolean' },
-            dangerouslyBypass: { type: 'boolean' },
-            profile: { type: 'string' },
-            codexConfig: { type: 'object', additionalProperties: true },
-            preset: { type: 'string' },
-            carryContext: { type: 'boolean' },
-            compressContext: { type: 'boolean' },
-            contextHead: { type: 'integer' },
-            patchMode: { type: 'boolean' },
-            requireChangeIn: { type: 'array', items: { type: 'string' } },
-            requireGitCommit: { type: 'boolean' },
-            autoCommitOnDone: { type: 'boolean' },
-            autoCommitMessage: { type: 'string' },
-          },
-          additionalProperties: false,
-        },
-      },
-      {
-        name: 'codex.start',
-        description: 'Start a non-blocking codex run; returns jobId immediately.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            args: { type: 'array', items: { type: 'string' } },
-            tag: { type: 'string' },
-            cwd: { type: 'string' },
-            approvalPolicy: {
-              type: 'string',
-              enum: ['untrusted', 'on-failure', 'on-request', 'never'],
-            },
-            sandbox: {
-              type: 'string',
-              enum: ['read-only', 'workspace-write', 'danger-full-access'],
-            },
-            network: { type: 'boolean' },
-            fullAuto: { type: 'boolean' },
-            dangerouslyBypass: { type: 'boolean' },
-            profile: { type: 'string' },
-            codexConfig: { type: 'object', additionalProperties: true },
-            preset: { type: 'string' },
-            carryContext: { type: 'boolean' },
-            compressContext: { type: 'boolean' },
-            contextHead: { type: 'integer' },
-            patchMode: { type: 'boolean' },
-            requireChangeIn: { type: 'array', items: { type: 'string' } },
-            requireGitCommit: { type: 'boolean' },
-            autoCommitOnDone: { type: 'boolean' },
-            autoCommitMessage: { type: 'string' },
-          },
-          additionalProperties: false,
-        },
-      },
-      {
-        name: 'codex.status',
-        description: 'Get job status (from runs/<jobId>/state.json).',
-        inputSchema: {
-          type: 'object',
-          properties: { jobId: { type: 'string' } },
-          required: ['jobId'],
-          additionalProperties: false,
-        },
-      },
-      {
-        name: 'codex.stop',
-        description: 'Stop a running job by id.',
-        inputSchema: {
-          type: 'object',
-          properties: { jobId: { type: 'string' }, force: { type: 'boolean' } },
-          required: ['jobId'],
-          additionalProperties: false,
-        },
-      },
-      {
-        name: 'codex.list',
-        description: 'List known jobs (runs/*).',
-        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-      },
-      {
-        name: 'codex.logs',
-        description: 'Read job log (bytes or lines mode).',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            jobId: { type: 'string' },
-            mode: { type: 'string', enum: ['bytes', 'lines'] },
-            offset: { type: 'integer' },
-            limit: { type: 'integer' },
-            offsetLines: { type: 'integer' },
-            limitLines: { type: 'integer' },
-            tailLines: { type: 'integer' },
-            grep: { type: 'string' },
-          },
-          required: ['jobId'],
-          additionalProperties: false,
-        },
-      },
-    ],
-  };
-}
-
-function toTomlValue(v: any): string {
-  if (typeof v === 'boolean' || typeof v === 'number') {
-    return String(v);
-  }
-  if (v === null || v === undefined) {
-    return '""';
-  }
-  const s = String(v).replace(/\\/g, '\\\\').replace(/\"/g, '\\"');
-  return `"${s}"`;
-}
-
-function applyConvenienceOptions(args: string[], p: any) {
-  const hasSandbox = args.includes('--sandbox');
-  const hasBypassArg = args.includes('--dangerously-bypass-approvals-and-sandbox');
-  if (p?.sandbox && typeof p.sandbox === 'string') {
-    args.push('--sandbox', p.sandbox);
-  } else if (!hasSandbox && !hasBypassArg) {
-    args.push('--sandbox', 'workspace-write');
-  }
-  if (p?.dangerouslyBypass) {
-    args.push('--dangerously-bypass-approvals-and-sandbox');
-  }
-  if ((p?.dangerouslyBypass || hasBypassArg) && !args.includes('--sandbox')) {
-    args.push('--sandbox', 'danger-full-access');
-  }
-  const bypassActive = !!p?.dangerouslyBypass || hasBypassArg;
-  if (p?.approvalPolicy && typeof p.approvalPolicy === 'string') {
-    if (!bypassActive) {
-      args.push('--ask-for-approval', p.approvalPolicy);
-    }
-  }
-  if (p?.fullAuto && !bypassActive) {
-    args.push('--full-auto');
-  }
-  if (p?.profile && typeof p.profile === 'string') {
-    args.push('--profile', p.profile);
-  }
-  if (p?.network) {
-    args.push('--codex-config', 'sandbox_workspace_write.network_access=true');
-  }
-  if (p?.codexConfig && typeof p.codexConfig === 'object') {
-    for (const [k, v] of Object.entries(p.codexConfig)) {
-      args.push('--codex-config', `${k}=${toTomlValue(v)}`);
-    }
-  }
-  if (p?.preset) {
-    args.push('--preset', String(p.preset));
-  }
-  if (p?.carryContext === false) {
-    args.push('--no-carry-context');
-  }
-  if (p?.compressContext === false) {
-    args.push('--no-compress-context');
-  }
-  if (Number.isFinite(p?.contextHead)) {
-    args.push('--context-head', String(p.contextHead));
-  }
-  if (p?.patchMode) {
-    args.push('--patch-mode');
-  }
-  if (Array.isArray(p?.requireChangeIn)) {
-    for (const g of p.requireChangeIn) {
-      args.push('--require-change-in', String(g));
-    }
-  }
-  if (p?.requireGitCommit) {
-    args.push('--require-git-commit');
-  }
-  if (p?.autoCommitOnDone) {
-    args.push('--auto-commit-on-done');
-  }
-  if (p?.autoCommitMessage) {
-    args.push('--auto-commit-message', String(p.autoCommitMessage));
-  }
-}
-
-async function handleCall(req: CallToolRequest) {
-  const name = req.params.name;
-  const p = (req.params.arguments ?? {}) as any;
-  try {
-    // 版本与入参严格校验（不匹配时直接拒绝执行）
-    const version = await detectCodexVersion();
-    const rawArgs = Array.isArray(p.args) ? p.args : [];
-    const cliViolations = listIncompatibleCliParams(p, version, rawArgs);
-    const cfgViolations = listIncompatibleConfigKeys(p?.codexConfig, version);
-    if (cliViolations.length || cfgViolations.length) {
-      return buildIncompatErrorPayload(name, version, cliViolations, cfgViolations);
-    }
-    switch (name) {
-      case 'codex.exec': {
-        const args: string[] = Array.isArray(p.args) ? p.args.map(String) : [];
-        applyConvenienceOptions(args, p);
-        const tag = p.tag ? String(p.tag) : '';
-        const cwd = p.cwd ? String(p.cwd) : '';
-        const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
-        const safeTag = tag
-          ? tag.replace(/[^A-Za-z0-9_.-]/g, '-').replace(/^-+|-+$/g, '')
-          : 'untagged';
-        const baseDir = cwd || process.cwd();
-        const sessionsRoot = path.resolve(baseDir, '.codex-father', 'sessions');
-        const runId = `exec-${ts}-${safeTag}`;
-        const runDir = path.join(sessionsRoot, runId);
-        fs.mkdirSync(runDir, { recursive: true });
-        const logFile = path.join(runDir, 'job.log');
-        const aggTxt = path.join(runDir, 'aggregate.txt');
-        const aggJsonl = path.join(runDir, 'aggregate.jsonl');
-        const pass = ['--log-file', logFile, '--flat-logs', ...args];
-        const env = {
-          ...process.env,
-          CODEX_SESSION_DIR: runDir,
-          CODEX_LOG_FILE: logFile,
-          CODEX_LOG_AGGREGATE: '1',
-          CODEX_LOG_AGGREGATE_FILE: aggTxt,
-          CODEX_LOG_AGGREGATE_JSONL_FILE: aggJsonl,
-          CODEX_LOG_SUBDIRS: '0',
-        } as NodeJS.ProcessEnv;
-        let code = 0;
-        let stdout = '';
-        let stderr = '';
-        await new Promise<void>((resolve) => {
-          const child = spawn(START_SH, pass, {
-            stdio: ['ignore', 'pipe', 'pipe'],
-            env,
-            cwd: cwd || undefined,
-          });
-          child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
-          child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
-          child.on('close', (c: number | null) => {
-            code = c ?? -1;
-            resolve();
-          });
-        });
-        const instrFile = logFile.replace(/\.log$/, '.instructions.md');
-        const metaFile = logFile.replace(/\.log$/, '.meta.json');
-        let lastMessageFile = '';
-        try {
-          const entries = fs.readdirSync(runDir).filter((f) => /\.last\.txt$/.test(f));
-          entries.sort(
-            (a, b) =>
-              fs.statSync(path.join(runDir, b)).mtimeMs - fs.statSync(path.join(runDir, a)).mtimeMs
-          );
-          if (entries.length) {
-            lastMessageFile = path.join(runDir, entries[0]);
-          }
-        } catch {}
-        let exitCode = code;
-        try {
-          if (fs.existsSync(logFile)) {
-            const text = fs.readFileSync(logFile, 'utf8');
-            const matches = text.match(/Exit Code:\s*(-?\d+)/g);
-            if (matches && matches.length > 0) {
-              const last = matches[matches.length - 1];
-              const m = last.match(/Exit Code:\s*(-?\d+)/);
-              if (m) {
-                exitCode = Number(m[1]);
-              }
-            }
-          }
-        } catch {}
-        const payload = {
-          runId,
-          exitCode,
-          cwd: cwd || process.cwd(),
-          logFile,
-          instructionsFile: instrFile,
-          metaFile,
-          lastMessageFile,
-          tag: safeTag,
-        };
-        if (code !== 0 && !fs.existsSync(logFile)) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify({ ...payload, processExit: code, error: stderr.trim() }),
-              },
-            ],
-            isError: true,
-          };
-        }
-        return {
-          content: [{ type: 'text', text: JSON.stringify({ ...payload, processExit: code }) }],
-        };
-      }
-      case 'codex.start': {
-        const args: string[] = Array.isArray(p.args) ? p.args.map(String) : [];
-        applyConvenienceOptions(args, p);
-        const isStub = !!process.env.CODEX_START_SH;
-        if (isStub) {
-          let outPath = '';
-          for (let i = 0; i < args.length - 1; i++) {
-            if (args[i] === '--log-file') {
-              outPath = String(args[i + 1]);
-              break;
-            }
-          }
-          const directArgs = outPath ? [outPath, ...args] : args;
-          const { code, stdout, stderr } = await run(START_SH, directArgs);
-          if (code !== 0) {
-            throw new Error(`start(stub) failed rc=${code} ${stderr}`);
-          }
-          return { content: [{ type: 'text', text: (stdout || '').trim() }] };
-        } else {
-          const pass: string[] = ['start', '--json'];
-          if (p.tag) {
-            pass.push('--tag', String(p.tag));
-          }
-          if (p.cwd) {
-            pass.push('--cwd', String(p.cwd));
-          }
-          pass.push(...args);
-          const { code, stdout, stderr } = await run(JOB_SH, pass);
-          if (code !== 0) {
-            throw new Error(`start failed rc=${code} ${stderr}`);
-          }
-          return { content: [{ type: 'text', text: stdout.trim() }] };
-        }
-      }
-      case 'codex.status': {
-        const jobId = String(p.jobId || '');
-        if (!jobId) {
-          throw new Error('Missing jobId');
-        }
-        const pass = ['status', jobId, '--json'] as string[];
-        const base = p.cwd ? String(p.cwd) : path.dirname(JOB_SH);
-        if (base) {
-          pass.push('--cwd', base);
-        }
-        const { code, stdout, stderr } = await run(JOB_SH, pass);
-        if (code !== 0) {
-          throw new Error(`status failed rc=${code} ${stderr}`);
-        }
-        return { content: [{ type: 'text', text: stdout.trim() }] };
-      }
-      case 'codex.stop': {
-        const jobId = String(p.jobId || '');
-        const force = !!p.force;
-        if (!jobId) {
-          throw new Error('Missing jobId');
-        }
-        const pass = ['stop', jobId];
-        if (force) {
-          pass.push('--force');
-        }
-        const base = p.cwd ? String(p.cwd) : path.dirname(JOB_SH);
-        if (base) {
-          pass.push('--cwd', base);
-        }
-        const { code, stdout, stderr } = await run(JOB_SH, pass);
-        if (code !== 0) {
-          throw new Error(`stop failed rc=${code} ${stderr}`);
-        }
-        return { content: [{ type: 'text', text: stdout.trim() }] };
-      }
-      case 'codex.list': {
-        const pass = ['list', '--json'] as string[];
-        const base = p.cwd ? String(p.cwd) : path.dirname(JOB_SH);
-        if (base) {
-          pass.push('--cwd', base);
-        }
-        const { code, stdout, stderr } = await run(JOB_SH, pass);
-        if (code !== 0) {
-          throw new Error(`list failed rc=${code} ${stderr}`);
-        }
-        return { content: [{ type: 'text', text: stdout.trim() }] };
-      }
-      case 'codex.logs': {
-        const jobId = String(p.jobId || '');
-        if (!jobId) {
-          throw new Error('Missing jobId');
-        }
-        const baseDir = p.cwd ? String(p.cwd) : path.dirname(JOB_SH);
-        const sessionsRoot = path.resolve(baseDir, '.codex-father', 'sessions');
-        const logFile = path.join(sessionsRoot, jobId, 'job.log');
-        if (!fs.existsSync(logFile)) {
-          throw new Error(`log not found: ${logFile}`);
-        }
-        const mode = (p.mode || 'bytes') as 'bytes' | 'lines';
-        if (mode === 'lines') {
-          const grepRe = typeof p.grep === 'string' ? p.grep : '';
-          let lines = fs.readFileSync(logFile, 'utf8').split(/\r?\n/);
-          if (grepRe) {
-            let re: RegExp;
-            try {
-              re = new RegExp(grepRe);
-            } catch {
-              re = /.*/;
-            }
-            lines = lines.filter((l: string) => re.test(l));
-          }
-          const total = lines.length;
-          if (typeof p.tailLines === 'number' && p.tailLines > 0) {
-            lines = lines.slice(-p.tailLines);
-          } else {
-            const offset = Math.max(0, Number.isFinite(p.offsetLines) ? Number(p.offsetLines) : 0);
-            const limit = Math.max(1, Number.isFinite(p.limitLines) ? Number(p.limitLines) : 200);
-            lines = lines.slice(offset, offset + limit);
-          }
-          const payload = { lines, totalLines: total };
-          return { content: [{ type: 'text', text: JSON.stringify(payload) }] };
-        }
-        const stat = fs.statSync(logFile);
-        const size = stat.size;
-        const offset = Math.max(0, Number.isFinite(p.offset) ? Number(p.offset) : 0);
-        const limit = Math.max(1, Number.isFinite(p.limit) ? Number(p.limit) : 4096);
-        if (offset >= size) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify({ chunk: '', nextOffset: offset, eof: true, size }),
-              },
-            ],
-          };
-        }
-        const remain = size - offset;
-        const count = Math.min(limit, remain);
-        const fd = fs.openSync(logFile, 'r');
-        const buf = Buffer.allocUnsafe(count);
-        fs.readSync(fd, buf, 0, count, offset);
-        fs.closeSync(fd);
-        const chunk = buf.toString('utf8');
-        const nextOffset = offset + count;
-        const eof = nextOffset >= size;
-        return {
-          content: [{ type: 'text', text: JSON.stringify({ chunk, nextOffset, eof, size }) }],
-        };
-      }
-      default:
-        throw new Error(`Unknown tool: ${name}`);
-    }
-  } catch (e: any) {
-    return {
-      content: [{ type: 'text', text: `ERROR: ${e?.message || String(e)}` }],
-      isError: true,
-    };
-  }
+function printVersion() {
+  const binary = pkg.name || 'codex-mcp-server';
+  process.stdout.write(`${binary} ${pkg.version || 'unknown'}\n`);
 }
 
 async function main() {
+  const parsedCli = parseCliArgs(process.argv.slice(2));
+
+  if (parsedCli.showHelp) {
+    printHelp();
+    return;
+  }
+
+  if (parsedCli.showVersion) {
+    printVersion();
+    return;
+  }
+
+  const envConfig = parseEnv();
+  const logger = new CliLogger(envConfig.logLevel);
+
+  const resolvedPaths = resolvePaths();
+
+  const banner = [
+    `${pkg.name || 'codex-mcp-server'} v${pkg.version || 'unknown'} (${process.pid})`,
+    `Node ${process.version} on ${os.platform()} ${os.release()}`,
+    `Transport：${describeTransport(parsedCli.transport)}`,
+    `LOG_LEVEL=${envConfig.logLevel}`,
+    `CODEX_MCP_NAME_STYLE=${envConfig.nameStyle || '(未设置)'}`,
+    `CODEX_MCP_TOOL_PREFIX=${envConfig.toolPrefix || '(未设置)'}`,
+    `CODEX_MCP_HIDE_ORIGINAL=${envConfig.hideOriginal ? 'true' : 'false'}`,
+    `MAX_CONCURRENT_JOBS=${envConfig.maxConcurrentJobs ?? '(未设置)'}`,
+    `APPROVAL_POLICY=${envConfig.approvalPolicy || '(未设置)'}`,
+    `PROJECT_ROOT=${resolvedPaths.projectRoot}`,
+  ];
+  logger.banner(banner);
+
+  if (parsedCli.unknownArgs.length) {
+    for (const arg of parsedCli.unknownArgs) {
+      logger.warn(`忽略未知参数：${arg}`);
+    }
+  }
+
+  if (envConfig.warnings.length) {
+    for (const warning of envConfig.warnings) {
+      logger.warn(warning);
+    }
+  }
+
+  const context: HandlerContext = {
+    jobSh: resolvedPaths.jobSh.path,
+    startSh: resolvedPaths.startSh.path,
+    projectRoot: resolvedPaths.projectRoot,
+    jobShExists: resolvedPaths.jobSh.exists,
+    startShExists: resolvedPaths.startSh.exists,
+  };
+
+  if (!context.jobShExists) {
+    logger.warn(
+      `未在 ${context.jobSh} 找到 job.sh，可通过 CODEX_MCP_PROJECT_ROOT 或 CODEX_JOB_SH 覆盖。`
+    );
+  }
+  if (!context.startShExists) {
+    logger.warn(
+      `未在 ${context.startSh} 找到 start.sh，可通过 CODEX_MCP_PROJECT_ROOT 或 CODEX_START_SH 覆盖。`
+    );
+  }
+
   const server = new Server(
-    { name: 'codex-father-mcp', version: '0.1.0' },
+    { name: 'codex-father-mcp', version: pkg.version || '0.1.0' },
     { capabilities: { tools: {} } }
   );
+
   server.setRequestHandler(ListToolsRequestSchema, async () => toolsSpec());
-  server.setRequestHandler(CallToolRequestSchema, async (req) => handleCall(req));
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  server.setRequestHandler(CallToolRequestSchema, async (req) => handleCall(req, context));
+
+  server.oninitialized = () => {
+    logger.info('已完成 MCP initialize 握手。');
+  };
+
+  server.onclose = () => {
+    logger.warn('传输已关闭，进程将退出。');
+  };
+
+  server.onerror = (error: unknown) => {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error(`传输错误：${err.message}`);
+    if (/content-length/i.test(err.message)) {
+      logger.error('提示：若客户端使用 Content-Length 分帧，请使用 --transport=content-length。');
+    }
+  };
+
+  const transport = createTransport(parsedCli.transport, logger);
+  let shuttingDown = false;
+  const shutdown = async (signal: NodeJS.Signals) => {
+    if (shuttingDown) {
+      return;
+    }
+    shuttingDown = true;
+    logger.warn(`收到 ${signal}，正在关闭传输…`);
+    try {
+      await transport.close();
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(`关闭传输时出错：${err.message}`);
+    } finally {
+      process.exit(0);
+    }
+  };
+
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+
+  try {
+    await server.connect(transport);
+    logger.info('等待 MCP 客户端发送 initialize 请求…');
+    logger.info('提示：可在新终端执行 `npm run rmcp:client -- list-tools` 体验示例客户端。');
+    if (!process.stdin.readableFlowing) {
+      process.stdin.resume();
+    }
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error(`启动传输失败：${err.message}`);
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {
-  process.stderr.write(`[codex-mcp] fatal: ${err?.stack || err}\n`);
+  const msg = err instanceof Error ? err.stack || err.message : String(err);
+  process.stderr.write(`[codex-mcp] fatal: ${msg}\n`);
   process.exit(1);
 });

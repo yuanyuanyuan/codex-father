@@ -50,6 +50,21 @@
 4. `codex.logs` — 读取任务日志（字节/行两种模式）
 5. `codex.stop` — 停止任务（可 `--force`）
 6. `codex.list` — 枚举已知任务
+7. `codex.help` — 工具自发现与示例输出
+
+> 命名与别名：同时提供下划线等价别名 `codex_exec`, `codex_start`,
+> `codex_status`, `codex_logs`, `codex_stop`, `codex_list`, `codex_help`。
+
+### 命名策略（0.44 responses 推荐）
+
+- Codex 0.44（responses wire
+  API）不接受带点号的工具名。建议仅导出下划线形式，并使用自定义前缀避免歧义。
+- 环境变量（配置在 MCP 服务器条目的 `env` 下）：
+  - `CODEX_MCP_NAME_STYLE=underscore-only`（只导出下划线工具名）
+  - `CODEX_MCP_TOOL_PREFIX=cf`（为所有工具增加 `cf_` 别名）
+  - `CODEX_MCP_HIDE_ORIGINAL=1`（隐藏默认的 `codex_*` 名称，仅保留 `cf_*`）
+- 生效后 tools/list 仅出现：`cf_exec`, `cf_start`, `cf_status`, `cf_logs`,
+  `cf_stop`, `cf_list`, `cf_help`。
 
 > 注：早期文档中出现的
 > `codex-chat`/`codex-execute`/`codex-read-file`/`codex-apply-patch`
@@ -70,7 +85,7 @@
 
 ## 🏗️ 架构
 
-### 系统架构
+### 系统架构（当前聚焦 Ubuntu + Claude Code CLI / Codex CLI）
 
 ```
 ┌─────────────────┐
@@ -167,18 +182,36 @@ args = ["-y", "@starkdev020/codex-father-mcp-server"]
 
 > 包含详细的配置说明、实战示例、故障排除和 rMCP 集成说明
 
+### 本地 rMCP CLI 快速体验
+
+若已克隆本仓库，可直接使用内置脚本快速体验 rMCP 流程：
+
+```bash
+# 启动 MCP 服务器（终端 1）
+npm run mcp:start
+
+# 在新终端（终端 2）列出可用工具
+npm run rmcp:client -- list-tools
+
+# 查看命令帮助或更多选项
+npm run rmcp:client -- --help
+```
+
+> 示例客户端基于 `@modelcontextprotocol/sdk` 实现，无需额外安装 Rust 工具链。
+
 ## 📖 使用指南
 
 ### MCP 工具列表
 
 当前版本提供以下 MCP 工具：
 
-1. **`codex.exec`** - 同步执行 Codex 任务
-2. **`codex.start`** - 异步启动任务（返回 jobId）
-3. **`codex.status`** - 查询任务状态
-4. **`codex.logs`** - 读取任务日志
-5. **`codex.stop`** - 停止运行中的任务
-6. **`codex.list`** - 列出所有任务
+1. **`codex.exec`** - 同步执行 Codex 任务（= `codex_exec`）
+2. **`codex.start`** - 异步启动任务（返回 jobId）（= `codex_start`）
+3. **`codex.status`** - 查询任务状态（= `codex_status`）
+4. **`codex.logs`** - 读取任务日志（= `codex_logs`）
+5. **`codex.stop`** - 停止运行中的任务（= `codex_stop`）
+6. **`codex.list`** - 列出所有任务（= `codex_list`）
+7. **`codex.help`** - 工具自发现（= `codex_help`）
 
 ### 使用示例
 
@@ -346,6 +379,11 @@ npm run benchmark
 ### 📖 完整文档导航
 
 - **[📚 文档总入口](docs/README.md)** - 所有文档的导航中心
+
+- 环境变量参考与清单：
+  - 人类可读版: [环境变量参考](docs/environment-variables-reference.md)
+  - 机器可读版: [JSON](docs/environment-variables.json),
+    [CSV](docs/environment-variables.csv)
 
 **按类别浏览**：
 

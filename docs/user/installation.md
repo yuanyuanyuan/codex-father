@@ -19,12 +19,12 @@
 
 ### 必需条件
 
-| 项目 | 要求 | 验证命令 |
-|------|------|----------|
-| **Node.js** | >= 18.0.0 | `node --version` |
-| **npm** | >= 9.0.0 | `npm --version` |
-| **Codex CLI** | 最新版本 | `codex --version` |
-| **操作系统** | macOS / Windows / Linux | - |
+| 项目          | 要求                    | 验证命令          |
+| ------------- | ----------------------- | ----------------- |
+| **Node.js**   | >= 18.0.0               | `node --version`  |
+| **npm**       | >= 9.0.0                | `npm --version`   |
+| **Codex CLI** | 最新版本                | `codex --version` |
+| **操作系统**  | macOS / Windows / Linux | -                 |
 
 ### 推荐配置
 
@@ -58,6 +58,7 @@ codex --version # 应该显示版本号
 ### 方式 1：npx（推荐）
 
 **优点**：
+
 - ✅ 无需安装，直接使用
 - ✅ 自动使用最新版本
 - ✅ 最简单快捷
@@ -69,6 +70,7 @@ npx -y @starkdev020/codex-father-mcp-server
 ```
 
 **使用场景**：
+
 - 适合快速体验
 - 适合临时使用
 - 适合自动化脚本
@@ -91,6 +93,7 @@ npx -y @starkdev020/codex-father-mcp-server
 ### 方式 2：npm 全局安装
 
 **优点**：
+
 - ✅ 安装一次，随处使用
 - ✅ 启动速度更快
 - ✅ 可以指定版本
@@ -102,14 +105,14 @@ npx -y @starkdev020/codex-father-mcp-server
 npm install -g @starkdev020/codex-father-mcp-server
 
 # 或安装指定版本
-npm install -g @starkdev020/codex-father-mcp-server@1.2.0
+npm install -g @starkdev020/codex-father-mcp-server@1.4.0
 ```
 
 **验证安装**：
 
 ```bash
 # 应该显示版本号
-codex-father-mcp-server --version
+codex-mcp-server --version
 ```
 
 **配置示例**：
@@ -129,6 +132,7 @@ codex-father-mcp-server --version
 ### 方式 3：从源码安装
 
 **优点**：
+
 - ✅ 可以修改源码
 - ✅ 可以调试问题
 - ✅ 最新的开发版本
@@ -344,7 +348,8 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 安装完成后，您可以：
 
-1. **配置客户端**：查看 [配置指南](configuration.md) 配置 Claude Desktop/Code/Codex CLI
+1. **配置客户端**：查看 [配置指南](configuration.md) 配置 Claude
+   Desktop/Code/Codex CLI
 2. **快速开始**：查看 [5分钟快速开始](quick-start.md) 运行第一个测试
 3. **首次运行测试**：查看 [首次运行测试](first-run.md) 验证所有功能
 
