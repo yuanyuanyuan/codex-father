@@ -68,7 +68,7 @@ gedit ~/.config/Claude/claude_desktop_config.json
 {
   "mcpServers": {
     "codex-father-prod": {
-      "command": "codex-father-mcp-server",
+      "command": "codex-mcp-server",
       "env": {
         "NODE_ENV": "production"
       }
@@ -157,8 +157,8 @@ gedit ~/.config/Claude/claude_desktop_config.json
 - `codex-father-prod`：通过 `npx` 拉取发布版本，并设置 `NODE_ENV=production`。
 
 > 如果生产环境使用 npm 全局安装，将 `codex-father-prod` 的 `command` 改成
-> `"codex-father-mcp-server"` 即可；若需要自定义 dist 路径，调整
-> `codex-father-preview` 的 `args` 为你的构建产物路径。
+> `"codex-mcp-server"` 即可；若需要自定义 dist 路径，调整 `codex-father-preview`
+> 的 `args` 为你的构建产物路径。
 
 ### 步骤 3：重启 Claude Code CLI
 

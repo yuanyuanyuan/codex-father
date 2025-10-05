@@ -21,3 +21,6 @@ mcp/codex-mcp-server/*.tgz
 tmp
 tsconfig.tsbuildinfo
 **/tsconfig.tsbuildinfo
+
+.gemini/
+gha-creds-*.json
