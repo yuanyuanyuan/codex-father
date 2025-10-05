@@ -39,6 +39,8 @@
     "mcp/codex-mcp-server"
   ],
   "scripts": {
+    "smoke": "node scripts/smoke.js",
+    "smoke:quick": "node scripts/smoke.js",
     "build": "npm-run-all clean build:tsc",
     "build:tsc": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -p tsconfig.build.json --watch",
