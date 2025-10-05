@@ -208,6 +208,11 @@ REQUIRE_GIT_COMMIT=0      # --require-git-commit
 AUTO_COMMIT_ON_DONE=0     # --auto-commit-on-done
 AUTO_COMMIT_MESSAGE=${AUTO_COMMIT_MESSAGE:-"docs(progress): auto update"}
 
+# 日志目录控制：记录是否显式请求/指定
+USER_REQUESTED_FLAT_LOGS=0
+USER_PROVIDED_LOG_FILE=0
+FLAT_LOGS_NOTE=""
+
 # 上下文溢出自动重试（默认开启，最多重试2次）
 ON_CONTEXT_OVERFLOW_RETRY="${ON_CONTEXT_OVERFLOW_RETRY:-1}"
 ON_CONTEXT_OVERFLOW_MAX_RETRIES="${ON_CONTEXT_OVERFLOW_MAX_RETRIES:-2}"
@@ -245,6 +250,7 @@ while [[ $# -gt 0 ]]; do
       SRC_TYPES+=("C"); SRC_VALUES+=("${2}"); shift 2 ;;
     -l|--log-file)
       [[ $# -ge 2 ]] || { echo "错误: -l/--log-file 需要一个路径参数" >&2; exit 2; }
+      USER_PROVIDED_LOG_FILE=1
       CODEX_LOG_FILE="${2}"; shift 2 ;;
     --log-dir)
       [[ $# -ge 2 ]] || { echo "错误: --log-dir 需要一个目录参数" >&2; exit 2; }
@@ -255,6 +261,7 @@ while [[ $# -gt 0 ]]; do
     --log-subdirs)
       CODEX_LOG_SUBDIRS=1; shift 1 ;;
     --flat-logs)
+      USER_REQUESTED_FLAT_LOGS=1
       CODEX_LOG_SUBDIRS=0; shift 1 ;;
     --echo-instructions)
       CODEX_ECHO_INSTRUCTIONS=1; shift 1 ;;
@@ -451,6 +458,15 @@ while [[ $# -gt 0 ]]; do
       exit 2 ;;
   esac
 done
+
+# 若显式请求 --flat-logs 但既未指定 --log-file 也未设置 CODEX_SESSION_DIR，则忽略该请求。
+if [[ "${CODEX_LOG_SUBDIRS}" == "0" ]]; then
+  if (( USER_REQUESTED_FLAT_LOGS == 1 )) && (( USER_PROVIDED_LOG_FILE == 0 )) \
+     && [[ -z "${CODEX_SESSION_DIR:-}" ]] && [[ -z "${CODEX_LOG_FILE:-}" ]]; then
+    CODEX_LOG_SUBDIRS=1
+    FLAT_LOGS_NOTE="[hint] 忽略 --flat-logs：未指定 --log-file 或 CODEX_SESSION_DIR 时默认使用分层日志目录，避免会话日志混杂。"
+  fi
+fi
 
 # 应用预设（如提供）
 if [[ -n "${PRESET_NAME:-}" ]]; then

@@ -355,6 +355,7 @@ fi
   if [[ -n "${DFA_NOTE:-}" ]]; then echo "[arg-normalize] ${DFA_NOTE}"; fi
   if [[ -n "${APPROVAL_NOTE:-}" ]]; then echo "[arg-normalize] ${APPROVAL_NOTE}"; fi
   if [[ -n "${MODEL_NOTE:-}" ]]; then echo "[arg-check] ${MODEL_NOTE}"; fi
+  if [[ -n "${FLAT_LOGS_NOTE:-}" ]]; then echo "${FLAT_LOGS_NOTE}"; fi
   if (( PATCH_MODE == 1 )); then echo "[hint] 已启用补丁模式：如不需要仅输出补丁，请移除 --patch-mode"; fi
 } >> "${CODEX_LOG_FILE}"
 RUN_LOGGED=1
