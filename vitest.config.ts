@@ -118,7 +118,7 @@ export default defineConfig({
 
   // Define global constants
   define: {
-    __VERSION__: JSON.stringify(process.env.npm_package_version || '1.5.1'),
+    __VERSION__: JSON.stringify(process.env.npm_package_version || '1.6.0'),
     __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
     __TEST__: true,
   },

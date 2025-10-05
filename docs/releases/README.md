@@ -5,7 +5,7 @@
 ## 📚 版本列表
 
 - [发布说明](RELEASE_NOTES.md) - 最新版本发布说明
-- [版本 1.5.1 MCP](VERSION_MCP_1.5.1.md) - 内置脚本自动同步与显式错误
+- [版本 1.6.0 MCP](VERSION_MCP_1.6.0.md) - 内置脚本自动同步与显式错误
 - [版本 1.4.0 MCP](VERSION_MCP_1.4.0.md) - 可发现性与传输增强版
 - [版本 1.3.0 MCP](VERSION_MCP_1.3.0.md) - 工具别名与命名策略
 - [版本 1.2.0 MCP](VERSION_MCP_1.2.0.md) - MCP 集成版本
