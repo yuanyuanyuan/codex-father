@@ -473,7 +473,7 @@ fi
       else
         printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
           | tee -a "${CODEX_LOG_FILE}"
-
+        CODEX_EXIT=${PIPESTATUS[1]}
       fi
     fi
   fi
