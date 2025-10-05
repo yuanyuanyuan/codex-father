@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.3...mcp-v1.5.0) (2025-10-05)
+
+
+### Features
+
+* **mcp:** guard handshake and add fallback runtime ([190dafe](https://github.com/yuanyuanyuan/codex-father/commit/190dafee6644b8e3e528bb419e4348f6b86783a8))
+
 ## [1.5.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.4.3...mcp-v1.5.0) (2025-10-05)
 
 ### Features
