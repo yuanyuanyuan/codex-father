@@ -16,12 +16,15 @@ export class StateManager {
    *
    * @param initialSnapshot 初始状态。
    */
-  public constructor(initial?: any) {
-    if (initial && ('orchestrationId' in initial || 'eventLogger' in initial)) {
-      this.orchestrationId = initial.orchestrationId;
-      this.eventLogger = initial.eventLogger;
-      if ('redactionPatterns' in initial) {
-        this.redactionPatterns = initial.redactionPatterns as (RegExp | string)[];
+  public constructor(initial?: unknown) {
+    const initObj =
+      initial && typeof initial === 'object' ? (initial as Record<string, unknown>) : undefined;
+    if (initObj && ('orchestrationId' in initObj || 'eventLogger' in initObj)) {
+      this.orchestrationId = initObj.orchestrationId as string | undefined;
+      this.eventLogger =
+        (initObj.eventLogger as { logEvent: Function } | undefined) ?? this.eventLogger;
+      if ('redactionPatterns' in initObj) {
+        this.redactionPatterns = initObj.redactionPatterns as (RegExp | string)[];
       }
       this.snapshot = {
         completedTasks: 0,
@@ -30,7 +33,9 @@ export class StateManager {
       };
       return;
     }
-    const initialSnapshot: OrchestratorStateSnapshot | undefined = initial;
+    const initialSnapshot: OrchestratorStateSnapshot | undefined = initObj as
+      | OrchestratorStateSnapshot
+      | undefined;
     this.snapshot = initialSnapshot ?? {
       completedTasks: 0,
       failedTasks: 0,
@@ -66,7 +71,7 @@ export class StateManager {
     event: string;
     taskId?: string;
     role?: string;
-    data?: any;
+    data?: unknown;
   }): Promise<void> {
     this.seq += 1;
     if (!this.eventLogger) {
