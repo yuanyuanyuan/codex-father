@@ -279,8 +279,24 @@ Task: "JSON/JSONL contracts & redaction"   (core/orchestrator/tests/json-output.
 ## Validation Checklist
 
 - [ ] All contracts have corresponding tests (T005–T007)
-- [ ] All entities have model/schema tasks (T011)
+      （阻塞：T007 的 schema 枚举缺失，测试仍失败）
+- [x] All entities have model/schema tasks (T011)
+      （core/orchestrator/types.ts 已落地数据模型）
 - [ ] All tests come before implementation (T005–T010 before T011+)
-- [ ] Parallel tasks truly independent ([P] only on different files)
-- [ ] Each task specifies exact file path
-- [ ] No task modifies same file as another [P] task
+      （实现阶段尚未完成，需等核心模块落地后复核）
+- [x] Parallel tasks truly independent ([P] only on different files)
+      （当前 [P] 任务分布于不同测试文件，无文件冲突）
+- [x] Each task specifies exact file path
+      （所有任务描述均包含明确文件路径）
+- [x] No task modifies same file as another [P] task
+      （未发现并行任务指向同一文件）
+
+## Progress Summary
+
+- Done: 11 / 56
+- Pending: 45 / 56
+- Next [P] batch recommendation:
+  1. T031（core/orchestrator/tests/task-decomposer.manual.test.ts）—补齐 TaskDecomposer 手动模式实现以解锁后续依赖
+  2. T037（core/orchestrator/tests/json-output.contract.test.ts）—补上 orchestrate JSON summary 分支
+  3. T039（core/orchestrator/tests/redaction.security.test.ts）—实现事件/日志脱敏管线
+
