@@ -122,6 +122,59 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
   `INPUT_TOKEN_LIMIT=32000`（以 tokens 粗略估算），会即时拒绝并提示拆分；可根据需要在调用环境中调整
   `INPUT_TOKEN_LIMIT`/`INPUT_TOKEN_SOFT_LIMIT`。
 
+### 报错：❌ 未知参数 (--notes / 文本直接作为参数)
+
+**症状**：
+
+- `start.sh`/`job.sh start` 立即以退出码 2 结束。
+- `bootstrap.err` 中出现 `❌ 未知参数: --notes` 或者将整段任务描述当成未知参数。
+- `job.log` 开头提示 `[trap] 非零退出（可能为早期错误或参数问题）`。
+
+**直接证据（本机绝对路径）**：
+
+- /data/howlong.live/.codex-father/sessions/cdx-20251006_072447.030-o08g14079-integration-nav-footer-batch-1/bootstrap.err
+- /data/howlong.live/.codex-father/sessions/cdx-20251006_072454.467-39cq2207-integration-seo-share-batch-1/bootstrap.err
+- /data/howlong.live/.codex-father/sessions/cdx-20251006_072635.492-sj7q21402-integration-nav-footer-batch-2/bootstrap.err
+- /data/howlong.live/.codex-father/sessions/cdx-20251006_072705.214-5dxo22406-prod-integration-nav-footer/bootstrap.err
+- /data/howlong.live/.codex-father/sessions/cdx-20251006_072635.492-sj7q21402-integration-nav-footer-batch-2/job.log
+- /data/howlong.live/.codex-father/sessions/cdx-20251006_072705.214-5dxo22406-prod-integration-nav-footer/job.log
+
+**原因**：
+
+- Codex Father CLI 仅接受 `--task`、`-f/--file`、`--docs`、`--docs-dir` 等白名单参数来注入任务说明。
+- 自定义开关（例如 `--notes`、`--files`）或裸文本会被参数解析器识别为未知参数并立即终止。
+
+**解决**：
+
+1. 始终通过 `--task "..."` 或 `-f/--file`、`--docs` 系列参数提供任务输入，推荐再加 `--tag <批次>`。
+2. 如果需要附加长规格说明，将文字写入文件后用 `-f spec.md` 传入，或在 `--task` 文本中概括重点。
+3. 先用 `--task "touch placeholder"` 之类的简单指令验证通道正常，再派发大任务。
+
+**提示**：`codex.help` 的 `codex.start`/`codex.exec` 条目已补充该限制，调用前可先查看最新帮助。
+
+### `codex.logs` 报 LOG_NOT_FOUND 但磁盘存在日志
+
+**症状**：
+
+- MCP 返回 `LOG_NOT_FOUND`，错误信息中路径出现双重 `.codex-father` 前缀，例如 `/.../.codex-father/.codex-father/sessions/<jobId>/job.log`。
+- 手动查看同一 `jobId` 目录时，`job.log` 与 `bootstrap.err` 均存在且内容完整。
+
+**原因**：
+
+- 旧版 MCP 在解析 `job.sh` 所在目录时重复附加 `.codex-father`，导致实际存在的日志路径被错误地报告为不存在。
+
+**当前修复**：
+
+- 主分支已修正路径解析逻辑，会自动尝试 `CODEX_SESSIONS_ROOT`、仓库根目录及 `.codex-father/sessions` 等候选位置，不再重复拼接目录。
+- `LOG_NOT_FOUND` 错误现在会回传 `details.searched`，方便确认具体探测过的路径。
+
+**临时绕过**（适用于旧版本）：
+
+1. 直接读取绝对路径中的原始日志，例如：`cat /data/howlong.live/.codex-father/sessions/<jobId>/job.log`。
+2. 使用 `tail -n 80` 或 `less` 查看 `bootstrap.err` 捕捉早退原因。
+3. 若确需通过 MCP 查看，先升级到最新版本或手动修补 `handleLogs` 的路径拼接。
+
+
 ## ❌ 命令执行失败
 
 ### 症状
@@ -171,9 +224,16 @@ cat .codex-father/logs/latest.log
 
 ### 看到 `<instructions-section type="policy-note">` / `Patch Mode: on`
 
-**说明**：已启用补丁模式（`--patch-mode`），系统会追加 policy-note，要求仅输出可应用的补丁。
+**说明**：已启用补丁模式（`--patch-mode`）。系统会追加 policy-note，要求
+仅输出可应用的补丁，并将 diff 自动写入 `<session>/patch.diff`
+（或 `--patch-output` 自定义路径）。日志只保留前若干行预览，以免撑爆上下文。
 
-**如何关闭**：移除 `--patch-mode`，即可恢复为正常执行（允许写盘等）。
+**如何调整**：
+
+- 取消补丁模式：移除 `--patch-mode`，即可恢复为正常执行（允许写盘等）。
+- 调整回显：`--patch-preview-lines 80` 控制预览行数，`--no-patch-preview`
+  完全关闭日志回显。
+- 恢复旧行为：传入 `--no-patch-artifact`，补丁会完整写入日志而不落盘。
 
 ### `effective_network_access` 显示为 `restricted`
 

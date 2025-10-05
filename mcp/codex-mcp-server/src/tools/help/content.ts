@@ -98,6 +98,7 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
     },
     aliases: ['codex_exec'],
     tips: [
+      '运行前请确保 args 内包含 --task 或 -f/--file/--docs 等受支持的输入选项；--notes/--files 等自定义开关会被 CLI 视为未知参数并立即退出 (exit 2)。',
       '返回体包含日志路径，可用 codex.logs 查看详情。',
       '建议使用 tag 参数便于 list/stop 检索。',
       '模型参数：可用 args 形式（例如 ["--model","gpt-5-codex high"] 或 ["--model","gpt-5-codex","high"])，也可用 codexConfig（{"model":"gpt-5-codex","model_reasoning_effort":"high"}）。',
@@ -131,8 +132,18 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
     sampleReturn: {
       content: [{ type: 'text', text: '{"jobId":"cdx-20240313_090000-release","logFile":"..."}' }],
     },
+    sampleError: {
+      content: [
+        {
+          type: 'text',
+          text: '❌ 未知参数: --notes\n提示：请使用 --task <text> 或 -f/--file/--docs 提供任务描述，移除未受支持的自定义开关。',
+        },
+      ],
+      isError: true,
+    },
     aliases: ['codex_start'],
     tips: [
+      '传参时务必提供 --task（或 -f/--file/--docs 等输入参数）描述任务；若直接传长文本或使用未支持的 --notes/--files，将触发 start.sh 的未知参数校验并以退出码 2 提前结束。',
       '结合 codex.status / codex.logs 查看进度。',
       'tag 可帮助团队区分同一批任务。',
       '模型与推理力度写法同 codex.exec，支持 "<model> high" 或通过 codexConfig 显式设置。',

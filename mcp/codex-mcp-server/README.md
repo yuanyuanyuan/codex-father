@@ -256,6 +256,9 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
 - 补丁模式：
   - 仅在需要“只输出补丁（patch/diff）”时设置 `patchMode=true`；日志会显示
     `Patch Mode: on` 并注入 `policy-note`。
+  - diff 将自动写入 `<session>/patch.diff`（或 `--patch-output`
+    指定路径），日志只回显前若干行，可搭配 `--patch-preview-lines` 或
+    `--no-patch-preview` 控制体积；传入 `--no-patch-artifact` 可恢复旧行为。
 - 快速自检（MCP 工具调用示例）：
   - 单次执行（联网 + 补丁模式）：
     ```json
@@ -363,7 +366,10 @@ CLI 也可运行。
   - `carryContext` (boolean) - `false` 时追加 `--no-carry-context`
   - `compressContext` (boolean) - `false` 时追加 `--no-compress-context`
   - `contextHead` (number) - 控制上下文保留长度（追加 `--context-head`）
-  - `patchMode` (boolean) - 开启补丁模式
+  - `patchMode`
+    (boolean) - 开启补丁模式（diff 会写入会话目录；如需自定义落盘或回显策略，可通过
+    `args` 传递 `--patch-output`、`--patch-preview-lines`、`--no-patch-preview`
+    或 `--no-patch-artifact`）
   - `requireChangeIn` (string[]) - 重复追加 `--require-change-in`
   - `requireGitCommit` (boolean) - 强制生成 Git 提交
   - `autoCommitOnDone` (boolean) - 成功后自动提交

@@ -5,6 +5,22 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，本项目遵循
 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### ♻️ 改进
+
+- 补丁模式默认将 diff 落盘并仅在日志中输出预览，新增
+  `--patch-output`、`--patch-preview-lines`、`--no-patch-preview`、
+  `--no-patch-artifact` 等 CLI 开关，配合元数据记录哈希与行数。
+- 更新 `codex.help`/README/故障排除文档，强调缩减日志噪声的推荐参数（如
+  `--no-echo-instructions`、`--no-carry-context`、`view=result-only`）。
+
+### 🛠️ 修复
+
+- MCP: 修正 `codex.logs` 在 `.codex-father`
+  目录下重复拼接路径的问题，并在报错时附带 `details.searched` 帮助排查。
+- docs/help: 补充未受支持参数 (`--notes`/`--files`/裸文本) 的错误案例与修复指南，避免再次触发退出码 2。
+
 ---
 
 ## [1.0.0] - 2025-10-01
