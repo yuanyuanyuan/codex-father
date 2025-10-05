@@ -164,12 +164,12 @@
 - [ ] T049 Implement `understanding-check.ts` (restatement via codex;
       configurable gate) and integrate before execution
       （core/orchestrator/understanding-check.ts 缺失）
-- [ ] T050 Add JSON output mode to orchestrate summary (`--output-format json`)
+- [x] T050 Add JSON output mode to orchestrate summary (`--output-format json`)
       per contract
-      （orchestrate-command.ts 未实现 --output-format json 行为）
-- [ ] T051 Ensure JSONL audit logging: append-only + required fields; add
+      （已实现：core/cli/commands/orchestrate-command.ts 提供 --output-format json，buildJsonSummary 输出 JSON 摘要）
+- [x] T051 Ensure JSONL audit logging: append-only + required fields; add
       validator hooks in `state-manager.ts`
-      （state-manager.ts 未校验 JSONL 必填字段或保持追加只写）
+      （已实现：StateManager.emitEvent 通过 EventLogger 追加 JSONL，包含 orchestrationId/seq/timestamp/事件字段；见 core/orchestrator/state-manager.ts）
 - [ ] T052 Implement redaction pipeline for events/logs (respect repo redaction
       settings; sanitize tool_use summaries)
       （事件/日志脱敏策略尚未落地）
@@ -183,9 +183,9 @@
 - [ ] T055 Implement manual intervention mode (config flag) to gate
       execution/role fallback; emit prompts as events
       （manual intervention 模式配置与事件缺失）
-- [ ] T056 Add `logs` CLI command at `core/cli/commands/logs-command.ts` to
+- [x] T056 Add `logs` CLI command at `core/cli/commands/logs-command.ts` to
       view/export `.codex-father/sessions/<id>/events.jsonl`
-      （core/cli/commands/logs-command.ts 仅返回概要，未读取/导出 JSONL）
+      （已实现读取/导出并支持 --follow/--limit/--format，见 core/cli/commands/logs-command.ts）
 
 ## Phase 3.4: Integration
 
