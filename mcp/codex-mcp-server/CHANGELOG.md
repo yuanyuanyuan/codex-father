@@ -1,3 +1,38 @@
+# [1.3.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.2.0...mcp-v1.3.0) (2025-10-05)
+
+
+### Bug Fixes
+
+* **cli:** start.sh 增强模型旗标兼容性 ([1059129](https://github.com/yuanyuanyuan/codex-father/commit/1059129569653eff6d4691e65465e7918e077040))
+
+
+### Features
+
+* Add detailed analysis and recommendations for compatibility with Codex versions 0.42 and 0.44 ([2a1cdf1](https://github.com/yuanyuanyuan/codex-father/commit/2a1cdf111b9a598b47a77d3e64bd7354c3614877))
+
+# [1.2.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.10...mcp-v1.2.0) (2025-10-04)
+
+
+### Bug Fixes
+
+* **mcp:** 修复服务器启动时序问题 ([39bea23](https://github.com/yuanyuanyuan/codex-father/commit/39bea23269a7cba92ebfe71fcb53380eddf261fc))
+* **start.sh:** 修复 Bash 正则表达式语法错误 ([c4db5e0](https://github.com/yuanyuanyuan/codex-father/commit/c4db5e0c4fca5ff6f0efb76f58c1e1df399196b5))
+* **start:** 统一可写沙箱审批降级逻辑 ([5273104](https://github.com/yuanyuanyuan/codex-father/commit/52731044b7fe256f5d4919b97e556bf41cd91915))
+
+
+### Features
+
+* **008:** 完成 Phase 3.2 - 基础设施层 (T023-T030) ([62e1ffe](https://github.com/yuanyuanyuan/codex-father/commit/62e1ffe665d58f8986d609af920be88ed29a259a))
+* **008:** 完成 Phase 3.3 T031 - codex/event 通知处理 ([dd0d165](https://github.com/yuanyuanyuan/codex-father/commit/dd0d165e3b0dcad902e018f8baa13c3fa84fb3e8))
+* **008:** 完成 T015-T022 - 配置与工具契约 ([bbdb111](https://github.com/yuanyuanyuan/codex-father/commit/bbdb1112ece6a55e6fb5c81d029d1c45482eb778))
+* **008:** 实现 T008-T014 - 认证方法契约与测试 ([7fd8c3c](https://github.com/yuanyuanyuan/codex-father/commit/7fd8c3c1d7a55790437bca74091c1d0b6410b59f))
+* Add tasks for version detection and testing ([e60ea03](https://github.com/yuanyuanyuan/codex-father/commit/e60ea03df629a12d3eb5cc4da19fda40052b5b47))
+* **docs:** 增加对 codex 0.42 和 0.44 版本的兼容性说明及参数使用建议 ([9a374d0](https://github.com/yuanyuanyuan/codex-father/commit/9a374d02c15d056e2b7f46c45c877fc1d1402abd))
+* **mcp:** add compatibility for Codex 0.44 with version detection, parameter mapping, and profile auto-fix ([a80a403](https://github.com/yuanyuanyuan/codex-father/commit/a80a403bcc4a80aca04a9edc98ed846166b87f1b))
+* **mcp:** 实现 applyPatchApproval 客户端处理器与集成测试 ([bd5697a](https://github.com/yuanyuanyuan/codex-father/commit/bd5697a4e5e478b29ddad54e344190d98213de40))
+* **mcp:** 实现批次 3b - 工具方法 (T047-T048) φ(≧ω≦*)♪ ([ce2fc8b](https://github.com/yuanyuanyuan/codex-father/commit/ce2fc8b1ab4fee727f857ec9a2506e7e2f7b4d90))
+* **mcp:** 新增会话管理契约与测试 ([b21d58d](https://github.com/yuanyuanyuan/codex-father/commit/b21d58dd27430240c37d3378121c259c22affd6e))
+
 ## [1.1.8](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.7...mcp-v1.1.8) (2025-10-03)
 
 ### Bug Fixes
