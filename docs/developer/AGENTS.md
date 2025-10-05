@@ -18,6 +18,7 @@
 - MCP build/server: `(cd mcp/codex-mcp-server && npm install && npm run build)`
   then `./mcp/server.sh`
 - E2E: `bash tests/mcp_ts_e2e.sh`
+- E2E (aliases): `bash mcp/codex-mcp-server/tests/mcp_aliases_e2e.sh`
 
 ## Coding Style & Naming Conventions
 

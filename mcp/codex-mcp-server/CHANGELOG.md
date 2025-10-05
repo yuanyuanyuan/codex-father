@@ -212,3 +212,19 @@
 ### BREAKING CHANGES
 
 - **queue:** 引入新的队列管理入口与结构，需按新命令使用
+
+# 1.0.0 (2025-10-03)
+
+## [Unreleased]
+
+### Features
+
+- **mcp:** add `codex.help` discovery tool (lists all tools with example
+  payloads; supports markdown/json).
+- **mcp:** add underscore aliases for all tools: `codex_exec`, `codex_start`,
+  `codex_status`, `codex_logs`, `codex_stop`, `codex_list`, `codex_help`.
+
+### Tests
+
+- add lightweight alias e2e: `tests/mcp_aliases_e2e.sh` (verifies `tools/list`
+  contains `codex_start`, and `tools/call` for `codex_status`/`codex_logs`).

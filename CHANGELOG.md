@@ -204,3 +204,13 @@ codex-father/
 
 [1.0.0]: https://github.com/your-org/codex-father/releases/tag/v1.0.0
 [Unreleased]: https://github.com/your-org/codex-father/compare/v1.0.0...HEAD
+
+### Added
+
+- MCP: 新增 `codex.help`
+  自发现工具（列出所有方法与示例，支持 markdown/json 输出）。
+- MCP: 为所有 `codex.*` 工具提供下划线等价别名：`codex_exec`, `codex_start`,
+  `codex_status`, `codex_logs`, `codex_stop`, `codex_list`, `codex_help`。
+- Docs: 更新使用文档与快速开始、故障排除、监督模式说明以覆盖别名与自发现。
+- Tests: 新增别名轻量 E2E（`mcp/codex-mcp-server/tests/mcp_aliases_e2e.sh`），覆盖
+  `tools/list`、`codex_status`、`codex_logs`。
