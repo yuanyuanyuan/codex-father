@@ -13,6 +13,11 @@
         "tool_use",
         "task_completed",
         "task_failed",
+        "patch_applied",
+        "patch_failed",
+        "concurrency_reduced",
+        "concurrency_increased",
+        "resource_exhausted",
         "cancel_requested",
         "orchestration_completed",
         "orchestration_failed"
