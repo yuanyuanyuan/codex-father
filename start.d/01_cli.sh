@@ -516,47 +516,6 @@ if [[ -z "${CODEX_LOG_AGGREGATE_JSONL_FILE}" ]]; then
   CODEX_LOG_AGGREGATE_JSONL_FILE="$(dirname "${CODEX_LOG_FILE}")/aggregate.jsonl"
 fi
 
-# 若 job.sh 未预写 state.json，则在同步 exec 运行时初始化，确保 finalize 能写入元数据。
-if [[ -n "${CODEX_SESSION_DIR:-}" && -d "${CODEX_SESSION_DIR}" ]]; then
-  SESSION_BASENAME=$(basename "${CODEX_SESSION_DIR}")
-  if [[ ! -f "${CODEX_SESSION_DIR}/state.json" ]] && [[ "${SESSION_BASENAME}" == exec-* || "${SESSION_BASENAME}" == cdx-* ]]; then
-    STATE_FILE="${CODEX_SESSION_DIR}/state.json"
-    STATE_CREATED_AT=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
-    STATE_TAG="${SAFE_TAG:-}"
-    STATE_META_GLOB="${CODEX_SESSION_DIR}/*.meta.json"
-    STATE_LAST_GLOB="${CODEX_SESSION_DIR}/*.last.txt"
-    STATE_LOG_FILE="${CODEX_LOG_FILE}"
-    STATE_CWD="$(pwd)"
-    STATE_PID=$$
-    umask 077
-    cat <<EOF > "${STATE_FILE}.tmp"
-{
-  "id": "$(json_escape "${SESSION_BASENAME}")",
-  "pid": ${STATE_PID},
-  "state": "running",
-  "exit_code": null,
-  "classification": null,
-  "tokens_used": null,
-  "effective_sandbox": null,
-  "effective_network_access": null,
-  "effective_approval_policy": null,
-  "sandbox_bypass": null,
-  "cwd": "$(json_escape "${STATE_CWD}")",
-  "created_at": "$(json_escape "${STATE_CREATED_AT}")",
-  "updated_at": "$(json_escape "${STATE_CREATED_AT}")",
-  "tag": "$(json_escape "${STATE_TAG}")",
-  "log_file": "$(json_escape "${STATE_LOG_FILE}")",
-  "meta_glob": "$(json_escape "${STATE_META_GLOB}")",
-  "last_message_glob": "$(json_escape "${STATE_LAST_GLOB}")",
-  "title": null
-}
-EOF
-    mv -f "${STATE_FILE}.tmp" "${STATE_FILE}"
-    unset STATE_FILE STATE_CREATED_AT STATE_TAG STATE_META_GLOB STATE_LAST_GLOB STATE_LOG_FILE STATE_CWD STATE_PID
-  fi
-  unset SESSION_BASENAME
-fi
-
 # 校验 Codex 旗标冲突（预设可能注入 --full-auto）。如有问题，写入日志并退出。
 validate_conflicting_codex_args
 if [[ -n "${VALIDATION_ERROR}" ]]; then
