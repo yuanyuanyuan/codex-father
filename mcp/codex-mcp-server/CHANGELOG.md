@@ -1,3 +1,15 @@
+# [1.3.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.2.0...mcp-v1.3.0) (2025-10-05)
+
+
+### Bug Fixes
+
+* **cli:** start.sh 增强模型旗标兼容性 ([1059129](https://github.com/yuanyuanyuan/codex-father/commit/1059129569653eff6d4691e65465e7918e077040))
+
+
+### Features
+
+* Add detailed analysis and recommendations for compatibility with Codex versions 0.42 and 0.44 ([2a1cdf1](https://github.com/yuanyuanyuan/codex-father/commit/2a1cdf111b9a598b47a77d3e64bd7354c3614877))
+
 # [1.2.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.1.10...mcp-v1.2.0) (2025-10-04)
 
 
