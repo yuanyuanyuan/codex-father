@@ -72,23 +72,23 @@
 
 - [ ] T031 [P] TaskDecomposer manual mode + cycle detection in
       `core/orchestrator/tests/task-decomposer.manual.test.ts`
-      （缺少 core/orchestrator/task-decomposer.ts 实现）
+      （实现已添加：core/orchestrator/task-decomposer.ts；待按契约执行测试与验证）
 - [ ] T032 [P] TaskDecomposer LLM mode (structured output parsing with mocked
       codex) in `core/orchestrator/tests/task-decomposer.llm.test.ts`
-      （缺少 TaskDecomposer LLM 模式实现）
+      （实现已包含 LLM 模式解析与错误处理：core/orchestrator/task-decomposer.ts；待验证）
 - [ ] T033 [P] RoleAssigner rule priority + LLM fallback in
       `core/orchestrator/tests/role-assigner.test.ts`
-      （缺少 core/orchestrator/role-assigner.ts）
+      （实现已添加：core/orchestrator/role-assigner.ts；支持最长关键词优先与 LLM fallback）
 - [ ] T034 [P] Permissions enforcement per role
       (allowedTools/permission-mode/sandbox) in
       `core/orchestrator/tests/permissions-enforcement.test.ts`
       （process-orchestrator.ts 未执行角色权限校验）
 - [ ] T035 [P] Pre-assignment validator (context completeness; reject on
       missing) in `core/orchestrator/tests/pre-assignment-validator.test.ts`
-      （缺少 core/orchestrator/pre-assignment-validator.ts）
+      （实现已添加：core/orchestrator/pre-assignment-validator.ts；支持文件/环境/配置键校验）
 - [ ] T036 [P] Task understanding restatement check (fail on mismatch) in
       `core/orchestrator/tests/understanding-check.test.ts`
-      （缺少 core/orchestrator/understanding-check.ts）
+      （实现已添加：core/orchestrator/understanding-check.ts；可插拔 evaluator，失败抛出问题点）
 - [ ] T037 [P] Contract test: JSON summary output mode in
       `core/orchestrator/tests/json-output.contract.test.ts`
       （orchestrate-command.ts 尚未输出 JSON summary 模式）
