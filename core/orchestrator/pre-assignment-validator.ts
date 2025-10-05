@@ -60,10 +60,10 @@ export class PreAssignmentValidator {
       return undefined;
     }
     const parts = path.split('.');
-    let cur: any = root;
+    let cur: unknown = root;
     for (const p of parts) {
-      if (cur && typeof cur === 'object' && p in cur) {
-        cur = cur[p];
+      if (cur && typeof cur === 'object' && p in (cur as Record<string, unknown>)) {
+        cur = (cur as Record<string, unknown>)[p];
       } else {
         return undefined;
       }

@@ -130,7 +130,7 @@ export class TaskDecomposer {
   ): void {
     const visiting = new Set<string>();
     const visited = new Set<string>();
-    const adj = (id: string) => deps.get(id) ?? [];
+    const adj = (id: string): readonly string[] => deps.get(id) ?? [];
     const dfs = (u: string): boolean => {
       if (visiting.has(u)) {
         return true;
