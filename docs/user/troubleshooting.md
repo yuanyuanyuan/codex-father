@@ -207,17 +207,17 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 
 **症状**：
 
-- MCP 返回 `LOG_NOT_FOUND`，错误信息中路径出现双重 `.codex-father` 前缀，例如 `/.../.codex-father/.codex-father/sessions/<jobId>/job.log`。
-- 手动查看同一 `jobId` 目录时，`job.log` 与 `bootstrap.err` 均存在且内容完整。
+- 运行日志里偶尔出现 `/.codex-father/.codex-father/sessions/…` 这类重复前缀的路径，`codex.logs` 提示 `LOG_NOT_FOUND`。
+- 本地确认 `job.log` 真实路径存在且内容完整。
 
 **原因**：
 
-- 旧版 MCP 在解析 `job.sh` 所在目录时重复附加 `.codex-father`，导致实际存在的日志路径被错误地报告为不存在。
+- `start.sh` 与 MCP runtime 早期版本默认将日志目录写成 `${SCRIPT_DIR}/.codex-father/sessions`，当脚本自身已经位于 `.codex-father/` 目录下时会再次拼接，导致路径重复。
 
-**当前修复**：
+**已修复（2025-10-06）**：
 
-- 主分支已修正路径解析逻辑，会自动尝试 `CODEX_SESSIONS_ROOT`、仓库根目录及 `.codex-father/sessions` 等候选位置，不再重复拼接目录。
-- `LOG_NOT_FOUND` 错误现在会回传 `details.searched`，方便确认具体探测过的路径，可直接复制路径核实文件是否存在。
+- CLI 与 MCP runtime 现已根据脚本所在目录动态选择 `sessions/` 或 `.codex-father/sessions/`，不会再生成双重前缀。
+- `codex.logs` 的错误详情同样会列出所有已探测路径（`details.searched`），方便快速比对。若仍看到旧路径，请升级到最新主分支并重新部署 MCP runtime。
 
 **临时绕过**（适用于旧版本）：
 

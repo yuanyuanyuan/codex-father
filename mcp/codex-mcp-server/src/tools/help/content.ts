@@ -83,7 +83,7 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       content: [
         {
           type: 'text',
-          text: '{"runId":"exec-20240313-untagged","exitCode":0,"logFile":"/repo/.codex-father/sessions/exec-*/job.log"}',
+          text: '{"runId":"exec-20251006_152842-untagged","exitCode":0,"logFile":"/repo/.codex-father/sessions/exec-20251006_152842-untagged/job.log"}',
         },
       ],
     },
@@ -99,7 +99,7 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
     aliases: ['codex_exec'],
     tips: [
       '运行前请确保 args 内包含 --task 或 -f/--file/--docs 等受支持的输入选项；--notes/--files 等自定义开关会被 CLI 视为未知参数并立即退出 (exit 2)。',
-      '返回体包含日志路径，可用 codex.logs 查看详情。',
+      '返回体包含日志路径，可用 codex.logs 查看详情；日志目录以 runId 命名，日志头与 meta 中的时间均对齐该 runId。',
       '建议使用 tag 参数便于 list/stop 检索。',
       '模型参数：可用 args 形式（例如 ["--model","gpt-5-codex high"] 或 ["--model","gpt-5-codex","high"])，也可用 codexConfig（{"model":"gpt-5-codex","model_reasoning_effort":"high"}）。',
       '联网：入参传 network=true，服务器将注入 --codex-config sandbox_workspace_write.network_access=true；meta 的 effective_network_access 会回填运行时真实状态。',

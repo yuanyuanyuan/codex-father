@@ -538,8 +538,16 @@ while (( RUN <= MAX_RUNS )); do
   } >> "${CODEX_LOG_FILE}"
 
   # 元数据与汇总（含分类）
-  RUN_TS="$(date +%Y%m%d_%H%M%S)"
-  RUN_TS_DISPLAY="$(date +%Y-%m-%dT%H:%M:%S%:z)"
+  if (( RUN == 1 )) && [[ -n "${TS}" ]]; then
+    RUN_TS="${TS}"
+  else
+    RUN_TS="$(date +%Y%m%d_%H%M%S)"
+  fi
+  if (( RUN == 1 )) && [[ -n "${TS_DISPLAY}" ]]; then
+    RUN_TS_DISPLAY="${TS_DISPLAY}"
+  else
+    RUN_TS_DISPLAY="$(date +%Y-%m-%dT%H:%M:%S%:z)"
+  fi
   INSTR_TITLE=$(awk 'NF {print; exit}' "${RUN_INSTR_FILE}" 2>/dev/null || echo "")
   RUN_ID="codex-${RUN_TS}${TAG_SUFFIX}-r${RUN}"
   classify_exit "${RUN_LAST_MSG_FILE}" "${CODEX_LOG_FILE}" "${CODEX_EXIT}"

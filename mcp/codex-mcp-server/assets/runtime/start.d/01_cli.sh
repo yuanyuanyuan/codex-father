@@ -151,6 +151,45 @@ compute_effective_runtime_flags() {
   EFFECTIVE_BYPASS=$has_bypass
 }
 
+TS_FROM_RUN_ID=""
+TS_DISPLAY_FROM_RUN_ID=""
+
+infer_ts_from_run_id() {
+  local run_id="$1"
+  TS_FROM_RUN_ID=""
+  TS_DISPLAY_FROM_RUN_ID=""
+  local normalized="${run_id//_/}"
+  local digits=""
+  if [[ "$normalized" =~ ^(exec|codex)-([0-9]{14}) ]]; then
+    digits="${BASH_REMATCH[2]}"
+  elif [[ "$normalized" =~ ^([0-9]{14})$ ]]; then
+    digits="${BASH_REMATCH[1]}"
+  else
+    return 1
+  fi
+  local year="${digits:0:4}"
+  local month="${digits:4:2}"
+  local day="${digits:6:2}"
+  local hour="${digits:8:2}"
+  local minute="${digits:10:2}"
+  local second="${digits:12:2}"
+  TS_FROM_RUN_ID="${year}${month}${day}_${hour}${minute}${second}"
+  TS_DISPLAY_FROM_RUN_ID="${year}-${month}-${day}T${hour}:${minute}:${second}Z"
+  return 0
+}
+
+set_ts_from_run_id_candidate() {
+  local candidate="$1"
+  [[ -n "$candidate" ]] || return 1
+  if infer_ts_from_run_id "$candidate"; then
+    TS="${TS_FROM_RUN_ID}"
+    TS_DISPLAY="${TS_DISPLAY_FROM_RUN_ID}"
+    TS_SOURCE="run-id"
+    return 0
+  fi
+  return 1
+}
+
 FILE_INPUT=""
 CLI_CONTENT=""
 PREPEND_CONTENT=""
@@ -439,7 +478,25 @@ else
   echo "[hint] 未指定 --tag，日志目录将使用默认标签 untagged；建议调用时通过 --tag <name> 区分任务" >&2
   TAG_SUFFIX=""
 fi
-TS="$(date +%Y%m%d_%H%M%S)"
+TS=""
+TS_DISPLAY=""
+TS_SOURCE=""
+
+if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+  set_ts_from_run_id_candidate "$(basename "${CODEX_SESSION_DIR}")" || true
+fi
+
+if [[ -n "${CODEX_LOG_FILE:-}" ]]; then
+  set_ts_from_run_id_candidate "$(basename "$(dirname "${CODEX_LOG_FILE}")")" || true
+fi
+
+if [[ -z "${TS}" ]]; then
+  TS="$(date +%Y%m%d_%H%M%S)"
+  TS_SOURCE="local-clock"
+fi
+if [[ -z "${TS_DISPLAY}" ]]; then
+  TS_DISPLAY="$(date +%Y-%m-%dT%H:%M:%S%:z)"
+fi
 if [[ -z "${CODEX_LOG_FILE}" ]]; then
   if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
     mkdir -p "${CODEX_SESSION_DIR}"
@@ -459,6 +516,18 @@ if [[ -z "${CODEX_LOG_FILE}" ]]; then
   fi
 fi
 mkdir -p "$(dirname "${CODEX_LOG_FILE}")"
+
+if [[ "${TS_SOURCE}" != "run-id" ]]; then
+  if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+    set_ts_from_run_id_candidate "$(basename "${CODEX_SESSION_DIR}")" || true
+  elif [[ -n "${CODEX_LOG_FILE:-}" ]]; then
+    set_ts_from_run_id_candidate "$(basename "$(dirname "${CODEX_LOG_FILE}")")" || true
+  fi
+fi
+
+if [[ -z "${TS_DISPLAY}" ]]; then
+  TS_DISPLAY="$(date +%Y-%m-%dT%H:%M:%S%:z)"
+fi
 INSTR_FILE="${CODEX_LOG_FILE%.log}.instructions.md"
 META_FILE="${CODEX_LOG_FILE%.log}.meta.json"
 if [[ -z "${CODEX_LOG_AGGREGATE_FILE}" ]]; then
@@ -472,7 +541,7 @@ fi
 validate_conflicting_codex_args
 if [[ -n "${VALIDATION_ERROR}" ]]; then
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Meta: ${META_FILE}"
@@ -489,7 +558,7 @@ fi
 normalize_sandbox_and_approvals
 if [[ -n "${VALIDATION_ERROR}" ]]; then
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Meta: ${META_FILE}"

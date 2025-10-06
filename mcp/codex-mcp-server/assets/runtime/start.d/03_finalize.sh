@@ -1,5 +1,7 @@
 set -e
 
+TS_DISPLAY="${TS_DISPLAY:-$(date +%Y-%m-%dT%H:%M:%S%:z)}"
+
 : "${CODEX_EXIT:=1}"
 if (( GIT_ENABLED == 1 )); then
   GIT_HEAD_AFTER=$(git rev-parse HEAD 2>/dev/null || echo "")
@@ -9,14 +11,14 @@ fi
 {
   echo "----- End Codex Output -----"
   echo "Exit Code: ${CODEX_EXIT}"
-  echo "===== Codex Run End: ${TS}${TAG_SUFFIX} ====="
+  echo "===== Codex Run End: ${TS}${TAG_SUFFIX} (${TS_DISPLAY}) ====="
   echo
 } >> "${CODEX_LOG_FILE}"
 
 if [[ "${CODEX_LOG_AGGREGATE}" == "1" ]]; then
   mkdir -p "$(dirname "${CODEX_LOG_AGGREGATE_FILE}")"
   {
-    echo "=== [${TS}] Codex Run ${TAG_SUFFIX} ==="
+    echo "=== [${TS_DISPLAY}] Codex Run ${TAG_SUFFIX} ==="
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Instructions: ${INSTR_FILE}"
     echo -n "Title: "
@@ -358,7 +360,16 @@ while (( RUN <= MAX_RUNS )); do
   } >> "${CODEX_LOG_FILE}"
 
   # 元数据与汇总（含分类）
-  RUN_TS="$(date +%Y%m%d_%H%M%S)"
+  if (( RUN == 1 )) && [[ -n "${TS}" ]]; then
+    RUN_TS="${TS}"
+  else
+    RUN_TS="$(date +%Y%m%d_%H%M%S)"
+  fi
+  if (( RUN == 1 )) && [[ -n "${TS_DISPLAY}" ]]; then
+    RUN_TS_DISPLAY="${TS_DISPLAY}"
+  else
+    RUN_TS_DISPLAY="$(date +%Y-%m-%dT%H:%M:%S%:z)"
+  fi
   INSTR_TITLE=$(awk 'NF {print; exit}' "${RUN_INSTR_FILE}" 2>/dev/null || echo "")
   RUN_ID="codex-${RUN_TS}${TAG_SUFFIX}-r${RUN}"
   classify_exit "${RUN_LAST_MSG_FILE}" "${CODEX_LOG_FILE}" "${CODEX_EXIT}"
@@ -391,7 +402,7 @@ EOF
     printf '%s\n' "${META_JSON}" >> "${CODEX_LOG_AGGREGATE_JSONL_FILE}"
     mkdir -p "$(dirname "${CODEX_LOG_AGGREGATE_FILE}")"
     {
-      echo "=== [${RUN_TS}] Codex Run r${RUN} ${TAG_SUFFIX} ==="
+      echo "=== [${RUN_TS_DISPLAY}] Codex Run r${RUN} ${TAG_SUFFIX} ==="
       echo "Log: ${CODEX_LOG_FILE}"
       echo "Instructions: ${RUN_INSTR_FILE}"
       echo -n "Title: "; awk 'NF {print; exit}' "${RUN_INSTR_FILE}" | cut -c1-120 || true
