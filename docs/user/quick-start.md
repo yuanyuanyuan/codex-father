@@ -13,14 +13,30 @@
 
 ## 🚀 步骤 1：安装（2分钟）
 
-### 方式 A：使用 npx（推荐，最简单）
+### 方式 A：用户级部署（推荐，最稳妥）
 
 ```bash
-# 无需安装，直接使用
-npx -y @starkdev020/codex-father-mcp-server
+# 1. 安装一次（建议全局安装）
+npm install -g @starkdev020/codex-father-mcp-server
+
+# 2. 准备独立目录（也可按项目自定义）
+export CODEX_RUNTIME_HOME="$HOME/.codex-father-runtime"
+export CODEX_SESSIONS_HOME="$HOME/.codex-father-sessions"
+mkdir -p "$CODEX_RUNTIME_HOME" "$CODEX_SESSIONS_HOME"
+
+# 若希望在项目内维护独立副本，可跳过上述 export，直接在配置里写入项目路径，例如：
+# env.CODEX_MCP_PROJECT_ROOT = "/path/to/project/.codex-father"
+# env.CODEX_SESSIONS_ROOT = "/path/to/project/.codex-father/sessions"
+# 并提前在该项目目录执行：
+#   mkdir -p .codex-father/sessions
+
+# 3. 启动服务器（默认 NDJSON 传输）
+CODEX_MCP_PROJECT_ROOT="$CODEX_RUNTIME_HOME" \
+CODEX_SESSIONS_ROOT="$CODEX_SESSIONS_HOME" \
+codex-mcp-server --transport=ndjson
 ```
 
-**验证**：如果看到 MCP 服务器启动信息，说明安装成功！
+**验证**：若看到服务器横幅并提示“等待 MCP 客户端发送 initialize 请求…”，即表示安装成功。
 
 ### 方式 B：从源码安装
 
@@ -58,12 +74,19 @@ npm start
 {
   "mcpServers": {
     "codex-father": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"]
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
+      "env": {
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
+      }
     }
   }
 }
 ```
+
+> 将 `/ABS/PATH/TO/...` 替换为你的绝对路径，例如 `~/.codex-father-runtime` 与
+> `~/.codex-father-sessions`（需要展开为完整路径）。
 
 > 命名策略与环境变量：
 >
@@ -80,6 +103,26 @@ npm start
 - 在 Claude Desktop 中，点击右下角的 "🔧" 图标
 - 查看是否出现 "codex-father" 服务器
 - 状态应该显示为 "已连接" ✅
+
+### Codex CLI (rMCP)
+
+> 参考 `refer-research/openai-codex/docs/config.md#mcp_servers`
+
+1. 编辑 `~/.codex/config.toml`：
+
+   ```toml
+   [mcp_servers.codex-father]
+   command = "codex-mcp-server"
+   args = ["--transport=ndjson"]
+   env.NODE_ENV = "production"
+   env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
+   env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
+   startup_timeout_sec = 45
+   tool_timeout_sec = 120
+   ```
+
+2. 执行 `codex`，在会话中运行「请列出当前项目的文件」验证连通性。
+3. 如需命令行管理，可使用 `codex config mcp add/list/remove`（详见官方文档）。
 
 ---
 
@@ -155,8 +198,12 @@ cat > .claude/mcp_settings.json <<'JSON'
 {
   "mcpServers": {
     "codex-father": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"]
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
+      "env": {
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
+      }
     }
   }
 }

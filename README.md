@@ -139,16 +139,25 @@
 
 ### 开箱即用的 MCP 服务器
 
-本项目提供了一个完整的 MCP 服务器实现，支持通过 npx 一键启动：
+本项目提供了一个完整的 MCP 服务器实现，推荐将运行时与日志放在用户级目录中，避免污染业务仓库：
 
 ```bash
-# 直接运行（推荐）
-npx @starkdev020/codex-father-mcp-server
+# 1) 安装一次（建议全局安装）
+npm install -g @starkdev020/codex-father-mcp-server
 
-# 或者克隆仓库本地开发
+# 2) 准备独立目录
+export CODEX_RUNTIME_HOME="$HOME/.codex-father-runtime"
+export CODEX_SESSIONS_HOME="$HOME/.codex-father-sessions"
+mkdir -p "$CODEX_RUNTIME_HOME" "$CODEX_SESSIONS_HOME"
+
+# 3) 启动服务器（默认 NDJSON 传输）
+CODEX_MCP_PROJECT_ROOT="$CODEX_RUNTIME_HOME" \
+CODEX_SESSIONS_ROOT="$CODEX_SESSIONS_HOME" \
+codex-mcp-server --transport=ndjson
+
+# 4) 克隆仓库本地开发（可选）
 git clone https://github.com/yuanyuanyuan/codex-father.git
-cd codex-father/mcp/codex-mcp-server
-npm install && npm run dev
+cd codex-father && npm install
 ```
 
 ### 集成到 MCP 客户端
@@ -161,8 +170,13 @@ npm install && npm run dev
 {
   "mcpServers": {
     "codex-father": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"]
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
+      "env": {
+        "NODE_ENV": "production",
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
+      }
     }
   }
 }
@@ -172,15 +186,23 @@ npm install && npm run dev
 
 ```toml
 [mcp_servers.codex-father]
-command = "npx"
-args = ["-y", "@starkdev020/codex-father-mcp-server"]
+command = "codex-mcp-server"
+args = ["--transport=ndjson"]
+env.NODE_ENV = "production"
+env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
+env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
+startup_timeout_sec = 45
+tool_timeout_sec = 120
 ```
 
 **Claude Code CLI** - 在项目根目录创建 `.claude/mcp_settings.json`
 
 📖 **完整使用文档**: [MCP 服务器使用指南](mcp/codex-mcp-server/README.md)
 
-> 包含详细的配置说明、实战示例、故障排除和 rMCP 集成说明
+> 包含详细的配置说明、实战示例、故障排除和 rMCP 集成说明 Codex
+> CLI 的更多配置细节请参考
+> [`refer-research/openai-codex/docs/config.md#mcp_servers`](refer-research/openai-codex/docs/config.md)
+> （收录于本仓库的 `refer-research/index.md`）。
 
 ### 本地 rMCP CLI 快速体验
 

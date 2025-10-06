@@ -6,8 +6,8 @@
 
 - [系统要求](#系统要求)
 - [安装方式](#安装方式)
-  - [方式 1：npx（推荐）](#方式-1npx推荐)
-  - [方式 2：npm 全局安装](#方式-2npm-全局安装)
+  - [方式 1：用户级部署（推荐）](#方式-1用户级部署推荐)
+  - [方式 2：npx（临时体验）](#方式-2npx临时体验)
   - [方式 3：从源码安装](#方式-3从源码安装)
 - [验证安装](#验证安装)
 - [卸载](#卸载)
@@ -55,13 +55,86 @@ codex --version # 应该显示版本号
 
 ## 🚀 安装方式
 
-### 方式 1：npx（推荐）
+### 方式 1：用户级部署（推荐）
 
 **优点**：
 
-- ✅ 无需安装，直接使用
+- ✅ 安装一次即可被所有 MCP 客户端复用
+- ✅ 启动速度快，避免 npx 冷启动超时
+- ✅ 运行时与日志存放在用户目录，不污染项目仓库
+
+**步骤**：
+
+```bash
+# 1. 安装最新版本（或指定版本）
+npm install -g @starkdev020/codex-father-mcp-server
+
+# 2. 设定独立运行目录与会话目录
+export CODEX_RUNTIME_HOME="$HOME/.codex-father-runtime"
+export CODEX_SESSIONS_HOME="$HOME/.codex-father-sessions"
+mkdir -p "$CODEX_RUNTIME_HOME" "$CODEX_SESSIONS_HOME"
+
+# 3. 验证启动（默认 NDJSON 传输）
+CODEX_MCP_PROJECT_ROOT="$CODEX_RUNTIME_HOME" \
+CODEX_SESSIONS_ROOT="$CODEX_SESSIONS_HOME" \
+codex-mcp-server --transport=ndjson
+```
+
+> 可额外运行 `codex-mcp-server --version` 确认安装版本。
+
+**配置示例**（MCP 客户端配置）：
+
+```json
+{
+  "mcpServers": {
+    "codex-father": {
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
+      "env": {
+        "NODE_ENV": "production",
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
+      }
+    }
+  }
+}
+```
+
+> 将 `/ABS/PATH/TO/...` 替换为绝对路径，例如 `~/.codex-father-runtime` 与
+> `~/.codex-father-sessions`（需展开为完整路径）。若希望某个项目维护自己的
+> `.codex-father` 副本，可直接把以上路径写成 `/path/to/project/.codex-father`
+> 并在该项目目录执行 `mkdir -p .codex-father/sessions`。
+> 若使用 Codex CLI，请继续更新 `~/.codex/config.toml`，示例如下。
+
+#### 📘 Codex CLI（rMCP）配置
+
+> 基于 OpenAI Codex 官方文档 `docs/config.md#mcp_servers`（参见
+> `refer-research/index.md`），请在 `~/.codex/config.toml` 中添加：
+
+```toml
+[mcp_servers.codex-father]
+command = "codex-mcp-server"
+args = ["--transport=ndjson"]
+env.NODE_ENV = "production"
+env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
+env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
+startup_timeout_sec = 45
+tool_timeout_sec = 120
+```
+
+- `startup_timeout_sec`/`tool_timeout_sec` 对应官方建议的启动与调用超时；如需要
+  可使用 `codex config mcp set --startup-timeout` 命令动态更新。
+- 可通过 `codex config mcp add` / `codex config mcp list` 管理条目。
+- 若需临时体验，可将 `command` 改为 `"npx"` 并恢复原始 `args`。
+
+---
+
+### 方式 2：npx（临时体验）
+
+**优点**：
+
+- ✅ 无需安装，随用随走
 - ✅ 自动使用最新版本
-- ✅ 最简单快捷
 
 **命令**：
 
@@ -71,11 +144,10 @@ npx -y @starkdev020/codex-father-mcp-server
 
 **使用场景**：
 
-- 适合快速体验
-- 适合临时使用
-- 适合自动化脚本
+- 仅用于快速体验或偶发请求
+- 自动化脚本短期调用
 
-**配置示例**（在 MCP 客户端配置文件中）：
+**配置示例**：
 
 ```json
 {
@@ -88,46 +160,8 @@ npx -y @starkdev020/codex-father-mcp-server
 }
 ```
 
----
-
-### 方式 2：npm 全局安装
-
-**优点**：
-
-- ✅ 安装一次，随处使用
-- ✅ 启动速度更快
-- ✅ 可以指定版本
-
-**命令**：
-
-```bash
-# 安装最新版本
-npm install -g @starkdev020/codex-father-mcp-server
-
-# 或安装指定版本
-npm install -g @starkdev020/codex-father-mcp-server@1.4.0
-```
-
-**验证安装**：
-
-```bash
-# 应该显示版本号
-codex-mcp-server --version
-```
-
-**配置示例**：
-
-```json
-{
-  "mcpServers": {
-    "codex-father": {
-      "command": "codex-father-mcp-server"
-    }
-  }
-}
-```
-
----
+> 建议将客户端握手超时（如 Codex CLI 的 `--mcp-timeout`）提高到 ≥ 45 秒，以避免首
+> 次拉包时出现 `request timed out`。
 
 ### 方式 3：从源码安装
 
