@@ -76,9 +76,9 @@
       `core/orchestrator/tests/task-decomposer.manual.test.ts`
       （core/orchestrator/tests/task-decomposer.manual.test.ts 覆盖成功路径、
       循环依赖与重复 ID，确保未知依赖被过滤并抛出预期错误）
-- [ ] T032 [P] TaskDecomposer LLM mode (structured output parsing with mocked
+- [x] T032 [P] TaskDecomposer LLM mode (structured output parsing with mocked
       codex) in `core/orchestrator/tests/task-decomposer.llm.test.ts`
-      （实现已包含 LLM 模式解析与错误处理：core/orchestrator/task-decomposer.ts；待验证）
+      （core/orchestrator/tests/task-decomposer.llm.test.ts 覆盖 dependencies 推导及缺失 tasks 错误）
 - [x] T033 [P] RoleAssigner rule priority + LLM fallback in
       `core/orchestrator/tests/role-assigner.test.ts`
       （core/orchestrator/tests/role-assigner.test.ts 验证最长关键词优先于规则顺序，
