@@ -211,7 +211,11 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       ],
     },
     aliases: ['codex_logs'],
-    tips: ['按字节模式可实现断点续读。', '设置 view 为 "result-only" 可聚焦生成内容。'],
+    tips: [
+      '按字节模式可实现断点续读。',
+      '设置 view 为 "result-only" 可聚焦生成内容。',
+      '当日志不存在时会在错误 details.searched 中列出已尝试的路径，可直接复制进行验证。',
+    ],
     returnsJsonString: true,
   },
   'codex.stop': {

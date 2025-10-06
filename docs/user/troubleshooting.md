@@ -166,7 +166,7 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 **当前修复**：
 
 - 主分支已修正路径解析逻辑，会自动尝试 `CODEX_SESSIONS_ROOT`、仓库根目录及 `.codex-father/sessions` 等候选位置，不再重复拼接目录。
-- `LOG_NOT_FOUND` 错误现在会回传 `details.searched`，方便确认具体探测过的路径。
+- `LOG_NOT_FOUND` 错误现在会回传 `details.searched`，方便确认具体探测过的路径，可直接复制路径核实文件是否存在。
 
 **临时绕过**（适用于旧版本）：
 
