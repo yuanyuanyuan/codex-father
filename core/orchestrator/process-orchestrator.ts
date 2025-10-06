@@ -10,7 +10,6 @@ import type {
   OrchestratorContext,
   RoleConfiguration,
   TaskDefinition,
-  Task,
 } from './types.js';
 
 const MAX_POOL_SIZE = 10;
@@ -82,89 +81,179 @@ export class ProcessOrchestrator {
   }
 
   /**
-   * 编排入口：集成 TaskScheduler，按拓扑波次（waves）执行任务。
-   * - 每一波内的并发数不超过 maxPoolSize；
-   * - 为每个任务启动或复用 Agent；
-   * - 任务“模拟完成”后将 Agent 状态还原为 idle；
-   * - 在 start/task_started/task_completed 波次级别触发占位事件。
+   * 编排入口：集成 TaskScheduler，按拓扑波次顺序执行任务。
+   *
+   * - 每一波的并发量不超过进程池上限；
+   * - 每个任务都会调用 spawnAgent（同角色空闲可复用）；
+   * - 模拟任务执行完成后将 Agent 状态复位为 idle；
+   * - 在 start/task_started/task_completed 波次阶段触发占位事件。
    */
   public async orchestrate(tasks: readonly TaskDefinition[]): Promise<OrchestratorContext> {
-    // 使用 TaskScheduler 进行拓扑分波，并按波次顺序调度执行。
-    const scheduler = new TaskScheduler(this.config);
+    const context = this.createContext(tasks);
 
-    // 构造依赖关系（按任务上声明的 dependencies）
-    const deps = new Map<string, string[]>();
-    for (const t of tasks) {
-      deps.set(t.id, Array.isArray(t.dependencies) ? [...t.dependencies] : []);
+    if (tasks.length === 0) {
+      return context;
     }
 
-    const waves = scheduler.scheduleInWaves(tasks.map((t) => ({ ...t })) as Task[], deps);
+    const scheduler = new TaskScheduler(this.config);
+    const schedule = scheduler.schedule(tasks as TaskDefinition[]);
+    const executionPlan = schedule.executionPlan ?? [];
 
-    for (let waveIndex = 0; waveIndex < waves.length; waveIndex += 1) {
-      // 每个波次开始事件
-      await this.emitEvent({ event: 'start', data: { wave: waveIndex } });
-      const wave = { tasks: waves[waveIndex]! };
-      // 分块执行，确保单波并发不超过 maxPoolSize
-      for (let i = 0; i < wave.tasks.length; i += this.maxPoolSize) {
-        const batch = wave.tasks.slice(i, i + this.maxPoolSize);
+    for (const wavePlan of executionPlan) {
+      const waveIndex = wavePlan.wave;
+      const waveTasks = wavePlan.tasks ?? [];
+      if (waveTasks.length === 0) {
+        continue;
+      }
 
-        // 启动一批任务，内含最小重试逻辑；保持每波并发不超过上限
-        await Promise.all(batch.map(async (t) => this.runWithRetry(t, waveIndex)));
+      await this.emitWaveEvent('start', {
+        wave: waveIndex,
+        tasks: waveTasks,
+      });
+
+      const batches = this.chunkByPoolSize(waveTasks, this.maxPoolSize);
+      for (const batch of batches) {
+        await Promise.all(batch.map((task) => this.runTaskWithRetry(task, waveIndex)));
       }
     }
 
-    return this.createContext(tasks);
+    return context;
   }
 
-  /**
-   * 运行单个任务，包含最小重试；每次尝试都会 spawn + 执行 + release。
-   */
-  private async runWithRetry(task: TaskDefinition, waveIndex: number): Promise<void> {
-    const maxAttempts = Math.max(Math.min(this.config.retryPolicy?.maxAttempts ?? 2, 5), 1);
+  private async runTaskWithRetry(task: TaskDefinition, waveIndex: number): Promise<void> {
+    const configuredMaxAttempts = this.config.retryPolicy?.maxAttempts ?? 2;
+    const maxAttempts = Math.max(Math.min(configuredMaxAttempts, 5), 1);
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      const res = await this.spawnAgent(task);
-      await this.emitEvent({
-        event: 'task_started',
-        taskId: task.id,
-        role: String(task.role),
-        data: { wave: waveIndex, reused: res.reused, attempt },
+      const spawnResult = await this.spawnAgent(task);
+
+      await this.emitWaveEvent('task_started', {
+        wave: waveIndex,
+        task,
+        agent: spawnResult.agent,
+        reused: spawnResult.reused,
+        attempt,
       });
 
-      // 占位执行：允许测试通过 spy executeTask 控制成功/失败
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const ok = await this.executeTask(task);
+      const success = await this.executeTask(task);
 
-      this.releaseAgent(res.agent.id);
-      if (ok) {
-        await this.emitEvent({
-          event: 'task_completed',
-          taskId: task.id,
-          role: String(task.role),
-          data: { wave: waveIndex, agentId: res.agent.id, attempt },
+      const idleAgent = this.markAgentIdle(spawnResult.agent);
+
+      if (success) {
+        await this.emitWaveEvent('task_completed', {
+          wave: waveIndex,
+          task,
+          agent: idleAgent,
+          reused: spawnResult.reused,
+          attempt,
         });
         return;
       }
 
-      await this.emitEvent({
-        event: 'task_failed',
-        taskId: task.id,
-        role: String(task.role),
-        data: { wave: waveIndex, agentId: res.agent.id, attempt, retry: attempt < maxAttempts },
+      await this.emitWaveEvent('task_failed', {
+        wave: waveIndex,
+        task,
+        agent: idleAgent,
+        reused: spawnResult.reused,
+        attempt,
+        willRetry: attempt < maxAttempts,
       });
-      // 简化：不引入真实 backoff 延迟，保证测试快速
     }
   }
 
-  /**
-   * 任务执行占位实现：默认成功。测试可通过 (orchestrator as any).executeTask = vi.fn(...)
-   * 覆盖以模拟失败与重试。
-   */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async executeTask(_task: TaskDefinition): Promise<boolean> {
+    await Promise.resolve();
     return true;
   }
 
+  private markAgentIdle(agent: Agent): Agent {
+    const tracked = this.agentPool.get(agent.id) ?? agent;
+    const updated: Agent = {
+      ...tracked,
+      status: 'idle',
+      currentTask: undefined,
+      lastActivityAt: new Date().toISOString(),
+    };
+    this.agentPool.set(updated.id, updated);
+    return updated;
+  }
+
+  private chunkByPoolSize<T>(items: readonly T[], size: number): T[][] {
+    const limit = Math.max(1, size);
+    const batches: T[][] = [];
+    for (let index = 0; index < items.length; index += limit) {
+      batches.push(items.slice(index, index + limit));
+    }
+    return batches;
+  }
+
+  private async emitWaveEvent(
+    event: 'start' | 'task_started' | 'task_completed' | 'task_failed',
+    payload: {
+      wave: number;
+      task?: TaskDefinition;
+      tasks?: readonly TaskDefinition[];
+      agent?: Agent;
+      reused?: boolean;
+      attempt?: number;
+      willRetry?: boolean;
+    }
+  ): Promise<void> {
+    const emitter = this.stateManager?.emitEvent;
+    if (typeof emitter !== 'function') {
+      return;
+    }
+
+    const role = typeof payload.task?.role === 'string' ? payload.task.role : undefined;
+    const data: Record<string, unknown> = {
+      wave: payload.wave,
+    };
+
+    if (payload.tasks) {
+      data.tasks = payload.tasks.map((item) => item.id);
+    }
+    if (payload.task) {
+      data.taskId = payload.task.id;
+    }
+    if (payload.agent) {
+      data.agentId = payload.agent.id;
+      data.agentStatus = payload.agent.status;
+    }
+    if (typeof payload.reused === 'boolean') {
+      data.reused = payload.reused;
+    }
+    if (typeof payload.attempt === 'number') {
+      data.attempt = payload.attempt;
+    }
+    if (typeof payload.willRetry === 'boolean') {
+      data.willRetry = payload.willRetry;
+    }
+
+    try {
+      const eventPayload: {
+        event: string;
+        taskId?: string;
+        role?: string;
+        data?: unknown;
+      } = {
+        event,
+        data,
+      };
+
+      if (payload.task?.id) {
+        eventPayload.taskId = payload.task.id;
+      }
+
+      if (role) {
+        eventPayload.role = role;
+      }
+
+      await Promise.resolve(emitter(eventPayload));
+    } catch {
+      // 忽略事件钩子异常，确保编排流程不中断
+    }
+  }
   /** 当前空闲 Agent 数量。 */
   public get idleAgents(): Agent[] {
     return [...this.agentPool.values()].filter((agent) => agent.status === 'idle');
@@ -207,12 +296,7 @@ export class ProcessOrchestrator {
     if (!agent) {
       return;
     }
-    this.agentPool.set(agentId, {
-      ...agent,
-      status: 'idle',
-      currentTask: undefined,
-      lastActivityAt: new Date().toISOString(),
-    });
+    this.markAgentIdle(agent);
   }
 
   /**
@@ -356,20 +440,6 @@ export class ProcessOrchestrator {
       spawn(this.config.codexCommand, args, { stdio: 'ignore' }).on('error', () => void 0);
     } catch {
       // 忽略权限参数拼装中的非关键异常，避免影响现有流程
-    }
-  }
-
-  /**
-   * 统一占位事件发射器：若构造参数中提供了 stateManager，则调用其 emitEvent；否则 no-op。
-   */
-  private async emitEvent(payload: {
-    event: string;
-    taskId?: string;
-    role?: string;
-    data?: unknown;
-  }): Promise<void> {
-    if (typeof this.stateManager?.emitEvent === 'function') {
-      await Promise.resolve(this.stateManager.emitEvent(payload));
     }
   }
 }
