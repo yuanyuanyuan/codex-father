@@ -50,14 +50,15 @@ const buildGitFailureMessage = (
   }
   if (fallbackRequested) {
     messageParts.push(
-      nativeAvailable ? 'native fallback 已启用但未执行' : 'native fallback 不可用'
+      nativeAvailable
+        ? 'native fallback 已启用但未执行'
+        : 'native fallback 不可用（未提供 native 策略）'
     );
   } else {
     messageParts.push('fallback 未启用');
   }
   return messageParts.join('；');
 };
-
 const withFallbackContext = (result: StrategyResult, gitReason: string): StrategyResult => {
   if (result.success) {
     if (result.errorMessage) {
