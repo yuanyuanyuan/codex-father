@@ -89,7 +89,7 @@ export class PatchApplier {
   public async apply(
     proposal: PatchProposal,
     options?: PatchApplyOptions
-  ): Promise<PatchApplyResult> {
+  ): Promise<StrategyResult> {
     if (!proposal.targetFiles || proposal.targetFiles.length === 0) {
       return {
         success: false,
@@ -114,7 +114,7 @@ export class PatchApplier {
         return {
           success: false,
           strategy: 'git',
-          usedFallback: false,
+          usedFallback: true,
           errorMessage: buildGitFailureMessage(gitReason, true, false),
         };
       }

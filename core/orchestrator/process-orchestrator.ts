@@ -10,10 +10,24 @@ import type {
   OrchestratorContext,
   RoleConfiguration,
   TaskDefinition,
+  Task,
 } from './types.js';
 
 const MAX_POOL_SIZE = 10;
 const HEALTH_INACTIVE_THRESHOLD_MS = 60_000;
+
+type StateManagerLike = {
+  emitEvent?: (payload: {
+    event: string;
+    taskId?: string;
+    role?: string;
+    data?: unknown;
+  }) => unknown | Promise<unknown>;
+};
+
+type ProcessOrchestratorOptions = Partial<OrchestratorConfig> & {
+  stateManager?: StateManagerLike;
+};
 
 /** 定义 spawnAgent 结果。 */
 export interface SpawnAgentResult {
@@ -34,21 +48,27 @@ export class ProcessOrchestrator {
   /** 池容量上限（不超过 10）。 */
   private readonly maxPoolSize: number;
 
+  /** 状态管理器事件发射器。 */
+  private readonly stateManager: StateManagerLike | undefined;
+
   /** 自增进程号，模拟 codex exec 的 PID。 */
   private processIdCounter = 1000;
 
-  public constructor(config?: Partial<OrchestratorConfig>) {
+  public constructor(config?: ProcessOrchestratorOptions) {
     const baseConfig = createDefaultOrchestratorConfig();
+    const { stateManager, ...configOverrides } = config ?? {};
+
     this.config = {
       ...baseConfig,
-      ...config,
+      ...configOverrides,
       roles: {
         ...baseConfig.roles,
-        ...(config?.roles ?? {}),
+        ...(configOverrides.roles ?? {}),
       },
-      codexCommand: config?.codexCommand ?? baseConfig.codexCommand,
+      codexCommand: configOverrides.codexCommand ?? baseConfig.codexCommand,
     } satisfies OrchestratorConfig;
-    this.maxPoolSize = Math.min(this.config.maxConcurrency, MAX_POOL_SIZE);
+    this.maxPoolSize = Math.max(1, Math.min(this.config.maxConcurrency, MAX_POOL_SIZE));
+    this.stateManager = stateManager;
   }
 
   /**
@@ -70,7 +90,7 @@ export class ProcessOrchestrator {
    */
   public async orchestrate(tasks: readonly TaskDefinition[]): Promise<OrchestratorContext> {
     // 使用 TaskScheduler 进行拓扑分波，并按波次顺序调度执行。
-    const scheduler = new TaskScheduler({ maxConcurrency: this.maxPoolSize } as any);
+    const scheduler = new TaskScheduler(this.config);
 
     // 构造依赖关系（按任务上声明的 dependencies）
     const deps = new Map<string, string[]>();
@@ -78,48 +98,71 @@ export class ProcessOrchestrator {
       deps.set(t.id, Array.isArray(t.dependencies) ? [...t.dependencies] : []);
     }
 
-    const plan = (scheduler as any).schedule({ tasks, dependencies: deps }) as {
-      executionPlan: Array<{ tasks: Array<TaskDefinition> }>;
-    };
+    const waves = scheduler.scheduleInWaves(tasks.map((t) => ({ ...t })) as Task[], deps);
 
-    await this.emitEvent({ event: 'start', data: { waves: plan.executionPlan.length } });
-
-    for (let waveIndex = 0; waveIndex < plan.executionPlan.length; waveIndex += 1) {
-      const wave = plan.executionPlan[waveIndex]!;
+    for (let waveIndex = 0; waveIndex < waves.length; waveIndex += 1) {
+      // 每个波次开始事件
+      await this.emitEvent({ event: 'start', data: { wave: waveIndex } });
+      const wave = { tasks: waves[waveIndex]! };
       // 分块执行，确保单波并发不超过 maxPoolSize
       for (let i = 0; i < wave.tasks.length; i += this.maxPoolSize) {
         const batch = wave.tasks.slice(i, i + this.maxPoolSize);
 
-        // 启动一批任务
-        const started = await Promise.all(
-          batch.map(async (t) => {
-            const res = await this.spawnAgent(t);
-            await this.emitEvent({
-              event: 'task_started',
-              taskId: t.id,
-              role: String(t.role),
-              data: { wave: waveIndex, reused: res.reused },
-            });
-            return { agentId: res.agent.id, task: t } as const;
-          })
-        );
-
-        // 模拟执行占用一个事件循环 tick，随后将 agent 置为 idle
-        await new Promise((resolve) => setTimeout(resolve, 0));
-
-        for (const { agentId, task } of started) {
-          this.releaseAgent(agentId);
-          await this.emitEvent({
-            event: 'task_completed',
-            taskId: task.id,
-            role: String(task.role),
-            data: { wave: waveIndex, agentId },
-          });
-        }
+        // 启动一批任务，内含最小重试逻辑；保持每波并发不超过上限
+        await Promise.all(batch.map(async (t) => this.runWithRetry(t, waveIndex)));
       }
     }
 
     return this.createContext(tasks);
+  }
+
+  /**
+   * 运行单个任务，包含最小重试；每次尝试都会 spawn + 执行 + release。
+   */
+  private async runWithRetry(task: TaskDefinition, waveIndex: number): Promise<void> {
+    const maxAttempts = Math.max(Math.min(this.config.retryPolicy?.maxAttempts ?? 2, 5), 1);
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const res = await this.spawnAgent(task);
+      await this.emitEvent({
+        event: 'task_started',
+        taskId: task.id,
+        role: String(task.role),
+        data: { wave: waveIndex, reused: res.reused, attempt },
+      });
+
+      // 占位执行：允许测试通过 spy executeTask 控制成功/失败
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const ok = await this.executeTask(task);
+
+      this.releaseAgent(res.agent.id);
+      if (ok) {
+        await this.emitEvent({
+          event: 'task_completed',
+          taskId: task.id,
+          role: String(task.role),
+          data: { wave: waveIndex, agentId: res.agent.id, attempt },
+        });
+        return;
+      }
+
+      await this.emitEvent({
+        event: 'task_failed',
+        taskId: task.id,
+        role: String(task.role),
+        data: { wave: waveIndex, agentId: res.agent.id, attempt, retry: attempt < maxAttempts },
+      });
+      // 简化：不引入真实 backoff 延迟，保证测试快速
+    }
+  }
+
+  /**
+   * 任务执行占位实现：默认成功。测试可通过 (orchestrator as any).executeTask = vi.fn(...)
+   * 覆盖以模拟失败与重试。
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async executeTask(_task: TaskDefinition): Promise<boolean> {
+    return true;
   }
 
   /** 当前空闲 Agent 数量。 */
@@ -325,12 +368,8 @@ export class ProcessOrchestrator {
     role?: string;
     data?: unknown;
   }): Promise<void> {
-    const anyConfig = this.config as unknown as {
-      stateManager?: { emitEvent: (p: any) => Promise<void> | void };
-    };
-    const emitter = anyConfig.stateManager?.emitEvent;
-    if (typeof emitter === 'function') {
-      await Promise.resolve(emitter(payload));
+    if (typeof this.stateManager?.emitEvent === 'function') {
+      await Promise.resolve(this.stateManager.emitEvent(payload));
     }
   }
 }
