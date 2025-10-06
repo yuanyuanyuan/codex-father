@@ -74,14 +74,10 @@
 
 - [x] T031 [P] TaskDecomposer manual mode + cycle detection in
       `core/orchestrator/tests/task-decomposer.manual.test.ts`
-      （实现已添加：core/orchestrator/task-decomposer.ts；待按契约执行测试与验证）
-      （实现：core/orchestrator/task-decomposer.ts；测试：core/orchestrator/tests/task-decomposer.manual.test.ts）
-- [ ] T032 [P] TaskDecomposer LLM mode (structured output parsing with mocked
-      （core/orchestrator/tests/task-decomposer.manual.test.ts 覆盖成功路径、
-      循环依赖与重复 ID，确保未知依赖被过滤并抛出预期错误）
+      （core/orchestrator/task-decomposer.ts 已实现手动模式去重与循环检测；对应测试全部通过）
 - [x] T032 [P] TaskDecomposer LLM mode (structured output parsing with mocked
       codex) in `core/orchestrator/tests/task-decomposer.llm.test.ts`
-      （core/orchestrator/tests/task-decomposer.llm.test.ts 覆盖 dependencies 推导及缺失 tasks 错误）
+      （core/orchestrator/tests/task-decomposer.llm.test.ts 覆盖依赖推导与缺失字段错误分支）
 - [x] T033 [P] RoleAssigner rule priority + LLM fallback in
       `core/orchestrator/tests/role-assigner.test.ts`
       （core/orchestrator/tests/role-assigner.test.ts 验证最长关键词优先于规则顺序，
@@ -90,23 +86,21 @@
       (allowedTools/permission-mode/sandbox) in
       `core/orchestrator/tests/permissions-enforcement.test.ts`
       （已实现：process-orchestrator.ts 校验角色配置并注入 codex exec 安全参数）
-- [ ] T035 [P] Pre-assignment validator (context completeness; reject on
+- [x] T035 [P] Pre-assignment validator (context completeness; reject on
       missing) in `core/orchestrator/tests/pre-assignment-validator.test.ts`
-      （实现已添加：core/orchestrator/pre-assignment-validator.ts；支持文件/环境/配置键校验）
-- [ ] T036 [P] Task understanding restatement check (fail on mismatch) in
+      （core/orchestrator/pre-assignment-validator.ts 校验文件/环境/配置缺失；测试覆盖通过）
+- [x] T036 [P] Task understanding restatement check (fail on mismatch) in
       `core/orchestrator/tests/understanding-check.test.ts`
-      （实现已添加：core/orchestrator/understanding-check.ts；可插拔 evaluator，失败抛出问题点）
+      （core/orchestrator/understanding-check.ts 已实现 evaluator 接口并在测试中验证失败路径）
 - [x] T037 [P] Contract test: JSON summary output mode in
       `core/orchestrator/tests/json-output.contract.test.ts`
-      （orchestrate-command.ts 尚未输出 JSON summary 模式）
-      （文件路径 core/orchestrator/tests/json-output.contract.test.ts 已存在）
-      （core/orchestrator/tests/json-output.contract.test.ts 已存在）
-- [ ] T038 [P] Contract test: JSONL audit log append-only + required fields in
+      （orchestrate-command.ts 提供 JSON/stream-json 分支；契约测试已通过）
+- [x] T038 [P] Contract test: JSONL audit log append-only + required fields in
       `core/orchestrator/tests/audit-jsonl.contract.test.ts`
-      （state-manager.ts 未实现 emitEvent 与 JSONL 追加）
-- [x] T039 [P] Security test: redaction of sensitive data in events/logs in
+      （StateManager.emitEvent 现写入 JSONL 并保持 seq 递增；测试验证通过）
+- [ ] T039 [P] Security test: redaction of sensitive data in events/logs in
       `core/orchestrator/tests/redaction.security.test.ts`
-      （已实现：StateManager.emitEvent 支持 redactionPatterns；敏感信息写入前被替换为 [REDACTED]）
+      （redaction.security.test.ts 仍能截获 "superSecret"，状态管理器未彻底替换敏感值）
 - [ ] T040 [P] Integration: session recovery from Codex rollout in
       `core/orchestrator/tests/session-recovery.integration.test.ts`
       （process-orchestrator.ts 未整合 codex exec resume 会话恢复）
@@ -135,18 +129,18 @@
       write, queue, sequence; append audit `patch_applied`/`patch_failed`;
       stream提示使用 `tool_use`/`task_failed`（保持与事件 Schema 一致）
       （SWWCoordinator 尚未发出 tool_use/task_failed 事件或串联外部日志）
-- [ ] T015 Implement `patch-applier.ts`: prefer `git apply`, fallback to native;
+- [x] T015 Implement `patch-applier.ts`: prefer `git apply`, fallback to native;
       return strategy + usedFallback
-      （patch-applier.ts 仅返回成功占位，未实现 git/native 策略与 fallback）
-- [ ] T016 Implement `quick-validate.ts`: run configured steps, fail on missing
+      （core/orchestrator/patch-applier.ts 已实现 git 优先与 native 回退；对应策略测试通过）
+- [x] T016 Implement `quick-validate.ts`: run configured steps, fail on missing
       when `failOnMissing: true`
-      （quick-validate.ts 未执行配置步骤或处理 failOnMissing）
+      （quick-validate.ts 支持 failOnMissing 与顺序执行 steps；测试覆盖错误与警告路径）
 - [ ] T017 Implement `resource-monitor.ts`: sample `os`/`process` metrics,
       thresholds, hysteresis, auto up/down concurrency
-      （resource-monitor.ts 未实现阈值/滞回及并发调节）
-- [ ] T018 Implement `state-manager.ts`: Stream-JSON emitter + success rate
+      （resource-monitor.ts 未导出 shouldDownscale；滞回/降级测试失败）
+- [x] T018 Implement `state-manager.ts`: Stream-JSON emitter + success rate
       aggregation; write JSONL via `EventLogger`
-      （state-manager.ts 缺少 EventLogger/JSONL 写入与成功率聚合）
+      （StateManager 支持事件序列、JSONL 写入与脱敏；state-manager.test.ts 验证通过）
 - [ ] T019 Implement CLI: `orchestrate-command.ts` parses options, loads config
       via `core/cli/config-loader.ts`, runs orchestrator, maps exit codes per
       contract
@@ -154,34 +148,34 @@
 
 ### Implementations for Added Coverage
 
-- [ ] T044 Implement `task-decomposer.ts` (manual + LLM; cycle detection;
+- [x] T044 Implement `task-decomposer.ts` (manual + LLM; cycle detection;
       structured parsing)
-      （core/orchestrator/task-decomposer.ts 缺失）
+      （core/orchestrator/task-decomposer.ts 同时支持手动与 LLM 解析，测试覆盖成功/失败分支）
 - [ ] T045 Wire `TaskDecomposer` into orchestrate flow before scheduling; reject
       if cannot decompose
-      （编排流程尚未接入 TaskDecomposer）
-- [ ] T046 Implement `role-assigner.ts` (rules file load; priority match; LLM
+-      （编排流程尚未接入 TaskDecomposer，ProcessOrchestrator 仍未调用）
+- [x] T046 Implement `role-assigner.ts` (rules file load; priority match; LLM
       fallback; optional confirmation)
-      （core/orchestrator/role-assigner.ts 缺失）
-- [ ] T047 Enforce role permissions when spawning agents
+      （role-assigner.ts 已实现规则优先级与 LLM 回退；测试验证关键词覆盖与记录 reasoning）
+- [x] T047 Enforce role permissions when spawning agents
       (allowedTools/permission-mode/sandbox applied) in
       `process-orchestrator.ts`
-      （process-orchestrator.ts 未应用工具/沙箱权限约束）
-- [ ] T048 Implement `pre-assignment-validator.ts` (context completeness:
+      （process-orchestrator.ts 在 spawnAgent 中校验角色权限并传递到 codex exec；测试通过）
+- [x] T048 Implement `pre-assignment-validator.ts` (context completeness:
       files/env/config); emit rejection events
-      （core/orchestrator/pre-assignment-validator.ts 缺失）
+      （pre-assignment-validator.ts 已实现文件、环境变量、配置键校验；测试通过）
 - [ ] T049 Implement `understanding-check.ts` (restatement via codex;
       configurable gate) and integrate before execution
-      （core/orchestrator/understanding-check.ts 缺失）
+      （understanding-check.ts 类已实现并通过单元测试，但尚未接入编排主流程）
 - [x] T050 Add JSON output mode to orchestrate summary (`--output-format json`)
       per contract
       （已实现：core/cli/commands/orchestrate-command.ts 提供 --output-format json，buildJsonSummary 输出 JSON 摘要）
 - [x] T051 Ensure JSONL audit logging: append-only + required fields; add
       validator hooks in `state-manager.ts`
       （已实现：StateManager.emitEvent 通过 EventLogger 追加 JSONL，包含 orchestrationId/seq/timestamp/事件字段；见 core/orchestrator/state-manager.ts）
-- [x] T052 Implement redaction pipeline for events/logs (respect repo redaction
+- [ ] T052 Implement redaction pipeline for events/logs (respect repo redaction
       settings; sanitize tool_use summaries)
-      （已实现：StateManager.emitEvent 支持 redactionPatterns，写入前对敏感子串替换为 [REDACTED]）
+      （Redaction 测试失败：事件数据仍包含 superSecret/sk- 前缀信息，需补齐替换逻辑）
 - [ ] T053 Implement session recovery from Codex rollout
       (`codex exec resume <SESSION_ID>` integration) in
       `process-orchestrator.ts`
