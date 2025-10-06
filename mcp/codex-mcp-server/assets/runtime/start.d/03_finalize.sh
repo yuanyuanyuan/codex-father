@@ -51,9 +51,178 @@ if ! declare -F classify_exit >/dev/null 2>&1; then
   }
 fi
 
+codex_write_session_state() {
+  local file="$1"
+  local payload="$2"
+  umask 077
+  printf '%s\n' "$payload" > "${file}.tmp"
+  mv -f "${file}.tmp" "$file"
+}
+
+codex_update_session_state() {
+  [[ -n "${CODEX_SESSION_DIR:-}" ]] || return 0
+  local state_file="${CODEX_SESSION_DIR}/state.json"
+  [[ -f "$state_file" ]] || return 0
+
+  local job_id; job_id=$(basename "$CODEX_SESSION_DIR")
+  local updated_at; updated_at=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+
+  set +e
+  local created_at
+  created_at=$(grep -E '"created_at"' "$state_file" | sed -E 's/.*"created_at"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local tag
+  tag=$(grep -E '"tag"' "$state_file" | sed -E 's/.*"tag"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local cwd
+  cwd=$(grep -E '"cwd"' "$state_file" | sed -E 's/.*"cwd"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local existing_title
+  existing_title=$(grep -E '"title"' "$state_file" | sed -E 's/.*"title"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local existing_log_file
+  existing_log_file=$(grep -E '"log_file"' "$state_file" | sed -E 's/.*"log_file"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local existing_meta_glob
+  existing_meta_glob=$(grep -E '"meta_glob"' "$state_file" | sed -E 's/.*"meta_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local existing_last_glob
+  existing_last_glob=$(grep -E '"last_message_glob"' "$state_file" | sed -E 's/.*"last_message_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local existing_resumed_from
+  existing_resumed_from=$(grep -E '"resumed_from"' "$state_file" | sed -E 's/.*"resumed_from"\s*:\s*"?([^",}]*)"?.*/\1/' | head -n1 || true)
+  if [[ "$existing_resumed_from" == "null" ]]; then existing_resumed_from=""; fi
+  local existing_args_json="[]"
+  if command -v node >/dev/null 2>&1; then
+    local args_dump
+    if args_dump=$(node - "$state_file" <<'EOF'
+const fs = require('fs');
+const file = process.argv[2] || process.argv[1];
+if (!file || file === '-') {
+  process.exit(0);
+}
+try {
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (Array.isArray(data.args)) {
+    process.stdout.write(JSON.stringify(data.args));
+  }
+} catch (_) {
+  process.exit(0);
+}
+EOF
+); then
+      if [[ -n "$args_dump" ]]; then
+        existing_args_json="$args_dump"
+      fi
+    fi
+  fi
+  set -e
+
+  [[ -n "$created_at" ]] || created_at="$updated_at"
+  [[ -n "$cwd" ]] || cwd="$(pwd)"
+
+  local log_file="${CODEX_LOG_FILE:-$existing_log_file}"
+  [[ -n "$log_file" ]] || log_file="$existing_log_file"
+
+  local meta_glob="${CODEX_SESSION_DIR}/*.meta.json"
+  [[ -n "$existing_meta_glob" ]] && meta_glob="$existing_meta_glob"
+  local last_glob="${CODEX_SESSION_DIR}/*.last.txt"
+  [[ -n "$existing_last_glob" ]] && last_glob="$existing_last_glob"
+
+  local exit_code="${CODEX_EXIT:-}"
+  local state="failed"
+  local exit_json="null"
+  if [[ "$exit_code" =~ ^-?[0-9]+$ ]]; then
+    if (( exit_code == 0 )); then
+      state="completed"
+      exit_json="$exit_code"
+    elif (( exit_code < 0 )); then
+      state="stopped"
+    else
+      state="failed"
+      exit_json="$exit_code"
+    fi
+  fi
+
+  local cls="${CLASSIFICATION:-}"
+  if [[ "$state" == "stopped" && -z "$cls" ]]; then
+    cls="user_cancelled"
+  fi
+  local classification_json="null"
+  if [[ -n "$cls" ]]; then
+    classification_json="\"$(json_escape "$cls")\""
+  fi
+
+  local tokens_json="null"
+  local tok="${TOKENS_USED:-}"
+  if [[ "$tok" =~ ^[0-9]+$ ]]; then
+    tokens_json="$tok"
+  fi
+
+  local eff_sandbox_json="null"
+  if [[ -n "${EFFECTIVE_SANDBOX:-}" ]]; then
+    eff_sandbox_json="\"$(json_escape "${EFFECTIVE_SANDBOX:-}")\""
+  fi
+  local eff_network_json="null"
+  if [[ -n "${EFFECTIVE_NETWORK_ACCESS:-}" ]]; then
+    eff_network_json="\"$(json_escape "${EFFECTIVE_NETWORK_ACCESS:-}")\""
+  fi
+  local eff_approval_json="null"
+  if [[ -n "${EFFECTIVE_APPROVAL_POLICY:-}" ]]; then
+    eff_approval_json="\"$(json_escape "${EFFECTIVE_APPROVAL_POLICY:-}")\""
+  fi
+  local sandbox_bypass_json="null"
+  if [[ -n "${EFFECTIVE_BYPASS:-}" && "${EFFECTIVE_BYPASS:-}" =~ ^[0-9]+$ ]]; then
+    sandbox_bypass_json="${EFFECTIVE_BYPASS:-}"
+  fi
+
+  local title_value="${INSTR_TITLE:-}"; [[ -n "$title_value" ]] || title_value="$existing_title"
+  local title_json="null"
+  if [[ -n "$title_value" ]]; then
+    title_json="\"$(json_escape "$title_value")\""
+  fi
+
+  local tag_json="\"$(json_escape "${tag:-}")\""
+  local resume_json="null"
+  if [[ -n "$existing_resumed_from" ]]; then
+    resume_json="\"$(json_escape "$existing_resumed_from")\""
+  fi
+  local state_json
+  state_json=$(cat <<EOF
+{
+  "id": "$(json_escape "$job_id")",
+  "pid": null,
+  "state": "$(json_escape "$state")",
+  "exit_code": ${exit_json},
+  "classification": ${classification_json},
+  "tokens_used": ${tokens_json},
+  "effective_sandbox": ${eff_sandbox_json},
+  "effective_network_access": ${eff_network_json},
+  "effective_approval_policy": ${eff_approval_json},
+  "sandbox_bypass": ${sandbox_bypass_json},
+  "cwd": "$(json_escape "$cwd")",
+  "created_at": "$(json_escape "$created_at")",
+  "updated_at": "$(json_escape "$updated_at")",
+  "tag": ${tag_json},
+  "log_file": "$(json_escape "$log_file")",
+  "meta_glob": "$(json_escape "$meta_glob")",
+  "last_message_glob": "$(json_escape "$last_glob")",
+  "args": ${existing_args_json},
+  "title": ${title_json},
+  "resumed_from": ${resume_json}
+}
+EOF
+  )
+
+  codex_write_session_state "$state_file" "$state_json"
+  rm -f "${CODEX_SESSION_DIR}/pid" 2>/dev/null || true
+}
+
 classify_exit "${RUN_LAST_MSG_FILE}" "${CODEX_LOG_FILE}" "${CODEX_EXIT}"
 INSTR_TITLE=$(awk 'NF {print; exit}' "${INSTR_FILE}" 2>/dev/null || echo "")
 RUN_ID="codex-${TS}${TAG_SUFFIX}"
+
+# 根据运行时日志回填网络实际生效状态，避免仅依据入参产生偏差
+if [[ -f "${CODEX_LOG_FILE}" ]]; then
+  if grep -Eqi 'network access enabled' "${CODEX_LOG_FILE}" 2>/dev/null; then
+    EFFECTIVE_NETWORK_ACCESS="enabled"
+  elif grep -Eqi 'network access (disabled|restricted)' "${CODEX_LOG_FILE}" 2>/dev/null; then
+    EFFECTIVE_NETWORK_ACCESS="restricted"
+  fi
+fi
 
 TOKENS_JSON="null"
 if [[ -n "${TOKENS_USED}" ]]; then
@@ -62,6 +231,33 @@ if [[ -n "${TOKENS_USED}" ]]; then
   else
     TOKENS_JSON="\"$(json_escape "${TOKENS_USED}")\""
   fi
+fi
+
+PATCH_ARTIFACT_JSON="null"
+if [[ -n "${PATCH_ARTIFACT_PATHS[1]:-}" ]]; then
+  _patch_path="${PATCH_ARTIFACT_PATHS[1]}"
+  _patch_hash="${PATCH_ARTIFACT_HASHES[1]:-}"
+  _patch_lines="${PATCH_ARTIFACT_LINES[1]:-0}"
+  _patch_bytes="${PATCH_ARTIFACT_BYTES[1]:-0}"
+  _hash_json="null"
+  if [[ -n "${_patch_hash}" ]]; then
+    _hash_json="\"$(json_escape "${_patch_hash}")\""
+  fi
+  if [[ ! "${_patch_lines}" =~ ^[0-9]+$ ]]; then
+    _patch_lines="\"$(json_escape "${_patch_lines}")\""
+  fi
+  if [[ ! "${_patch_bytes}" =~ ^[0-9]+$ ]]; then
+    _patch_bytes="\"$(json_escape "${_patch_bytes}")\""
+  fi
+  PATCH_ARTIFACT_JSON=$(cat <<EOF
+{
+  "path": "$(json_escape "${_patch_path}")",
+  "sha256": ${_hash_json},
+  "lines": ${_patch_lines},
+  "bytes": ${_patch_bytes}
+}
+EOF
+  )
 fi
 
 META_JSON=$(cat <<EOF
@@ -73,6 +269,7 @@ META_JSON=$(cat <<EOF
   "control_flag": "$(json_escape "${CONTROL_FLAG}")",
   "reason": "$(json_escape "${EXIT_REASON}")",
   "tokens_used": ${TOKENS_JSON},
+  "patch_artifact": ${PATCH_ARTIFACT_JSON},
   "cwd": "$(json_escape "$(pwd)")",
   "log_file": "$(json_escape "${CODEX_LOG_FILE}")",
   "instructions_file": "$(json_escape "${INSTR_FILE}")",
@@ -87,6 +284,13 @@ EOF
 )
 
 printf '%s\n' "${META_JSON}" > "${META_FILE}"
+
+# 如网络为受限模式，给出新手友好提示（仅写入日志，不影响 JSON）
+if [[ "${EFFECTIVE_NETWORK_ACCESS}" == "restricted" ]]; then
+  {
+    echo "[hint] 网络为受限模式：如需联网，请添加 --codex-config sandbox_workspace_write.network_access=true 或在 MCP 工具入参传 network=true。"
+  } >> "${CODEX_LOG_FILE}"
+fi
 
 if [[ "${CODEX_LOG_AGGREGATE}" == "1" ]]; then
   mkdir -p "$(dirname "${CODEX_LOG_AGGREGATE_JSONL_FILE}")"
@@ -110,6 +314,7 @@ if (( DO_LOOP == 0 )); then
   if (( DO_LOOP == 0 )); then
     # 执行结果摘要（单轮）
     echo "[debug] JSON_OUTPUT=${JSON_OUTPUT} writing summary (single-run)" >> "${CODEX_LOG_FILE}"
+    codex_update_session_state || true
     if [[ "${JSON_OUTPUT}" == "1" ]]; then
       set +e
       # 直接输出 meta JSON；若文件缺失则使用内存中的 META_JSON；再退化为即时拼装
@@ -313,7 +518,9 @@ while (( RUN <= MAX_RUNS )); do
   echo "----- Begin Codex Output (iteration ${RUN}) -----" >> "${CODEX_LOG_FILE}"
   set +e
   RUN_LAST_MSG_FILE="${CODEX_LOG_FILE%.log}.r${RUN}.last.txt"
+  RUN_OUTPUT_FILE="${CODEX_LOG_FILE%.log}.r${RUN}.output.txt"
   EXEC_ARGS=("${CODEX_EXEC_ARGS[@]}" "--output-last-message" "${RUN_LAST_MSG_FILE}")
+  CODEX_EXECUTED=0
   if [[ ${DRY_RUN} -eq 1 ]]; then
     if [[ "${JSON_OUTPUT}" == "1" ]]; then
       echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件 (iteration ${RUN})" >> "${CODEX_LOG_FILE}"
@@ -330,30 +537,34 @@ while (( RUN <= MAX_RUNS )); do
       fi
       CODEX_EXIT=127
     else
-      if [[ "${REDACT_ENABLE}" == "1" ]]; then
-        if [[ "${JSON_OUTPUT}" == "1" ]]; then
+      CODEX_EXECUTED=1
+      if [[ "${JSON_OUTPUT}" == "1" ]]; then
+        if [[ "${REDACT_ENABLE}" == "1" ]]; then
           printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-            | sed -u -E "${REDACT_SED_ARGS[@]}" >> "${CODEX_LOG_FILE}"
+            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee "${RUN_OUTPUT_FILE}" >/dev/null
           CODEX_EXIT=${PIPESTATUS[1]}
         else
           printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
+            | tee "${RUN_OUTPUT_FILE}" >/dev/null
           CODEX_EXIT=${PIPESTATUS[1]}
         fi
       else
-        if [[ "${JSON_OUTPUT}" == "1" ]]; then
+        if [[ "${REDACT_ENABLE}" == "1" ]]; then
           printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-            >> "${CODEX_LOG_FILE}"
+            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee "${RUN_OUTPUT_FILE}"
           CODEX_EXIT=${PIPESTATUS[1]}
         else
           printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-            | tee -a "${CODEX_LOG_FILE}"
+            | tee "${RUN_OUTPUT_FILE}"
           CODEX_EXIT=${PIPESTATUS[1]}
         fi
       fi
     fi
   fi
   set -e
+  if (( CODEX_EXECUTED == 1 )) && [[ -f "${RUN_OUTPUT_FILE}" ]]; then
+    codex_publish_output "${RUN_OUTPUT_FILE}" "${RUN}"
+  fi
   {
     echo "----- End Codex Output (iteration ${RUN}) -----"
     echo "Exit Code: ${CODEX_EXIT}"
@@ -373,6 +584,32 @@ while (( RUN <= MAX_RUNS )); do
   INSTR_TITLE=$(awk 'NF {print; exit}' "${RUN_INSTR_FILE}" 2>/dev/null || echo "")
   RUN_ID="codex-${RUN_TS}${TAG_SUFFIX}-r${RUN}"
   classify_exit "${RUN_LAST_MSG_FILE}" "${CODEX_LOG_FILE}" "${CODEX_EXIT}"
+  PATCH_ARTIFACT_JSON="null"
+  if [[ -n "${PATCH_ARTIFACT_PATHS[${RUN}]:-}" ]]; then
+    _patch_path="${PATCH_ARTIFACT_PATHS[${RUN}]}"
+    _patch_hash="${PATCH_ARTIFACT_HASHES[${RUN}]:-}"
+    _patch_lines="${PATCH_ARTIFACT_LINES[${RUN}]:-0}"
+    _patch_bytes="${PATCH_ARTIFACT_BYTES[${RUN}]:-0}"
+    _hash_json="null"
+    if [[ -n "${_patch_hash}" ]]; then
+      _hash_json="\"$(json_escape "${_patch_hash}")\""
+    fi
+    if [[ ! "${_patch_lines}" =~ ^[0-9]+$ ]]; then
+      _patch_lines="\"$(json_escape "${_patch_lines}")\""
+    fi
+    if [[ ! "${_patch_bytes}" =~ ^[0-9]+$ ]]; then
+      _patch_bytes="\"$(json_escape "${_patch_bytes}")\""
+    fi
+    PATCH_ARTIFACT_JSON=$(cat <<EOF
+{
+  "path": "$(json_escape "${_patch_path}")",
+  "sha256": ${_hash_json},
+  "lines": ${_patch_lines},
+  "bytes": ${_patch_bytes}
+}
+EOF
+    )
+  fi
   META_JSON=$(cat <<EOF
 {
   "id": "$(json_escape "${RUN_ID}")",
@@ -383,6 +620,7 @@ while (( RUN <= MAX_RUNS )); do
   "reason": "$(json_escape "${EXIT_REASON}")",
   "tokens_used": "$(json_escape "${TOKENS_USED}")",
   "iteration": ${RUN},
+  "patch_artifact": ${PATCH_ARTIFACT_JSON},
   "cwd": "$(json_escape "$(pwd)")",
   "log_file": "$(json_escape "${CODEX_LOG_FILE}")",
   "instructions_file": "$(json_escape "${RUN_INSTR_FILE}")",
@@ -418,6 +656,7 @@ done
 
 # 最终摘要（多轮）
 if [[ "${JSON_OUTPUT}" == "1" ]]; then
+  codex_update_session_state || true
   set +e
   # 输出最后一轮的 meta JSON（若无则回退第一次；仍无则即时拼装简版 JSON）
   LAST_META_FILE=$(ls -1t "${CODEX_LOG_FILE%.log}"*.meta.json 2>/dev/null | head -n1 || true)
@@ -430,6 +669,7 @@ if [[ "${JSON_OUTPUT}" == "1" ]]; then
   fi
   set -e
 else
+  codex_update_session_state || true
   echo "Codex 运行完成。退出码: ${CODEX_EXIT}"
   echo "日志文件: ${CODEX_LOG_FILE}"
   echo "指令文件: ${INSTR_FILE}"

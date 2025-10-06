@@ -154,6 +154,32 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
     ],
     returnsJsonString: true,
   },
+  'codex.resume': {
+    tagline: '基于历史任务参数重新启动 Codex 作业',
+    scenario: 'codex-father 或客户端重启后，需要沿用原任务配置继续执行。',
+    params: [
+      { name: 'jobId', required: true, description: '来源任务 ID，会从 state.json 读取原始参数。' },
+      { name: 'args', required: false, description: '附加 start.sh 参数，追加在原参数之后。' },
+      { name: 'tag', required: false, description: '覆盖新任务标签；默认沿用原任务记录的 tag。' },
+      { name: 'cwd', required: false, description: '覆盖执行目录；默认沿用原任务记录的 cwd。' },
+    ],
+    exampleArgs: { jobId: 'cdx-20251001_120000-demo', tag: 'resume-retry' },
+    sampleReturn: {
+      content: [
+        {
+          type: 'text',
+          text: '{"jobId":"cdx-20251006_160000-rerun","resumedFrom":"cdx-20251001_120000-demo"}',
+        },
+      ],
+    },
+    aliases: ['codex_resume'],
+    tips: [
+      'resume 会读取 sessions/<jobId>/state.json 的 args；若文件缺失或格式无效会直接报错。',
+      '可通过 args 追加新的 flag（如 --dry-run），start.sh 将按最后出现的值生效。',
+      '返回体带有 resumedFrom 字段以及 log/meta 路径，便于重新挂载日志跟踪。',
+    ],
+    returnsJsonString: true,
+  },
   'codex.status': {
     tagline: '查询后台任务状态并获取运行摘要',
     scenario: '掌握任务当前阶段、退出码、分类以及写入文件位置。',

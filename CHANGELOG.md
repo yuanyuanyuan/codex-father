@@ -17,6 +17,9 @@
 - CLI: `start` 命令支持 `--instructions`（JSON/YAML/XML）+ `--task`
   结构化指令文件，执行前会校验 schema、输出归一化副本，并通过
   `CODEX_STRUCTURED_*` 环境变量传递给 Shell。
+- 新增 `job.sh resume` 子命令与 `codex.resume` MCP 工具，可复用 `state.json`
+  中记录的参数重启任务，并在会话状态写入 `resumed_from` 与 `args`
+  字段，便于断线续跑与审计。
 
 ### 🛠️ 修复
 

@@ -304,6 +304,31 @@ cat .codex-father/logs/latest.log
 运行后，`<session>/job.meta.json` 中的 `effective_network_access` 将显示为
 `enabled`。
 
+### 任务中断后如何续跑
+
+**场景**：`codex-father` 或客户端重启、网络闪断导致后台任务未完成。
+
+1. 先运行 `./job.sh status <jobId> --json` 检查旧任务是否仍在 `running`。
+   - 若仍运行，只需继续使用 `job.sh logs`/`codex.logs` 跟踪即可。
+2. 状态为 `failed`/`stopped` 或已结束但需要重跑时，调用：
+
+   ```bash
+   ./job.sh resume <jobId> [--tag <新标签>] [--cwd <目录>] [--json] [-- <额外 start 参数…>]
+   ```
+
+   - `resume` 会复用 `state.json` 中记录的 `cwd`、`tag`、`args`，追加参数放在 `--` 之后即可（后出现的 flag 会覆盖原值）。
+   - 新任务的 `state.json` 会写入 `"resumed_from"` 字段，便于追踪来源任务。
+3. MCP 客户端调用 `codex.resume` 工具即可达到同样效果：
+
+   ```json
+   { "name": "codex.resume", "arguments": { "jobId": "cdx-20251001_120000-demo", "args": ["--dry-run"] } }
+   ```
+
+   返回体同样包含新的 `jobId`、日志路径及 `resumedFrom`。
+4. 如需确认原始参数，可直接 `jq '.args' .codex-father/sessions/<jobId>/state.json`，或查看 `codex.resume` 的返回体。
+
+> resume 无法读取参数时会立即报错，请确认对应会话目录下的 `state.json` 是否存在并包含 `"args": [...]`。
+
 ### 解决方案
 
 #### 方案 A：安装/更新 Codex CLI

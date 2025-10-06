@@ -88,6 +88,43 @@ function canonicalTools(): ToolDef[] {
       },
     },
     {
+      name: 'codex.resume',
+      description: 'Reuse stored arguments of a finished codex job and start a new run.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          jobId: { type: 'string' },
+          args: { type: 'array', items: { type: 'string' } },
+          tag: { type: 'string' },
+          cwd: { type: 'string' },
+          approvalPolicy: {
+            type: 'string',
+            enum: ['untrusted', 'on-failure', 'on-request', 'never'],
+          },
+          sandbox: {
+            type: 'string',
+            enum: ['read-only', 'workspace-write', 'danger-full-access'],
+          },
+          network: { type: 'boolean' },
+          fullAuto: { type: 'boolean' },
+          dangerouslyBypass: { type: 'boolean' },
+          profile: { type: 'string' },
+          codexConfig: { type: 'object', additionalProperties: true },
+          preset: { type: 'string' },
+          carryContext: { type: 'boolean' },
+          compressContext: { type: 'boolean' },
+          contextHead: { type: 'integer' },
+          patchMode: { type: 'boolean' },
+          requireChangeIn: { type: 'array', items: { type: 'string' } },
+          requireGitCommit: { type: 'boolean' },
+          autoCommitOnDone: { type: 'boolean' },
+          autoCommitMessage: { type: 'string' },
+        },
+        required: ['jobId'],
+        additionalProperties: false,
+      },
+    },
+    {
       name: 'codex.status',
       description: 'Inspect the state of a codex background job.',
       inputSchema: {
