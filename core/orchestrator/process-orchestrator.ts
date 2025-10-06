@@ -3,7 +3,13 @@ import path from 'node:path';
 
 import { spawn } from 'node:child_process';
 import { createDefaultOrchestratorConfig } from './types.js';
-import type { Agent, OrchestratorConfig, OrchestratorContext, TaskDefinition } from './types.js';
+import type {
+  Agent,
+  OrchestratorConfig,
+  OrchestratorContext,
+  RoleConfiguration,
+  TaskDefinition,
+} from './types.js';
 
 const MAX_POOL_SIZE = 10;
 const HEALTH_INACTIVE_THRESHOLD_MS = 60_000;
@@ -31,9 +37,15 @@ export class ProcessOrchestrator {
   private processIdCounter = 1000;
 
   public constructor(config?: Partial<OrchestratorConfig>) {
+    const baseConfig = createDefaultOrchestratorConfig();
     this.config = {
-      ...createDefaultOrchestratorConfig(),
+      ...baseConfig,
       ...config,
+      roles: {
+        ...baseConfig.roles,
+        ...(config?.roles ?? {}),
+      },
+      codexCommand: config?.codexCommand ?? baseConfig.codexCommand,
     } satisfies OrchestratorConfig;
     this.maxPoolSize = Math.min(this.config.maxConcurrency, MAX_POOL_SIZE);
   }
@@ -69,7 +81,10 @@ export class ProcessOrchestrator {
    * 启动或重用 Agent 处理任务，超出池容量时抛错。
    */
   public async spawnAgent(task: TaskDefinition): Promise<SpawnAgentResult> {
-    const reusableAgent = this.findReusableAgent(task.role);
+    const roleName = typeof task.role === 'string' ? task.role : '';
+    const roleConfig = this.resolveRoleConfiguration(roleName);
+
+    const reusableAgent = this.findReusableAgent(roleName);
     if (reusableAgent) {
       const assigned = this.assignTask(reusableAgent, task.id);
       return { agent: assigned, reused: true };
@@ -82,34 +97,7 @@ export class ProcessOrchestrator {
     const agent = this.createAgent(task);
     this.agentPool.set(agent.id, agent);
 
-    // 最小权限参数拼装（按角色应用安全参数）；若缺省则跳过
-    try {
-      const cfgAny = this.config as unknown as {
-        roles?: Record<
-          string,
-          { allowedTools?: string[]; permissionMode?: string; sandbox?: string }
-        >;
-        codexCommand?: string;
-      };
-      const roleCfg = cfgAny?.roles?.[task.role];
-      const codexCmd = cfgAny?.codexCommand ?? 'codex';
-      if (roleCfg) {
-        const args: string[] = [];
-        if (roleCfg.permissionMode) {
-          args.push('--ask-for-approval', roleCfg.permissionMode);
-        }
-        if (roleCfg.sandbox) {
-          args.push('--sandbox', roleCfg.sandbox);
-        }
-        if (roleCfg.allowedTools && roleCfg.allowedTools.length > 0) {
-          args.push('--allowed-tools', roleCfg.allowedTools.join(','));
-        }
-        // 非阻塞启动；测试将通过 vi.mock 拦截 spawn 并断言参数
-        spawn(codexCmd, args, { stdio: 'ignore' }).on('error', () => void 0);
-      }
-    } catch {
-      // 忽略权限参数拼装中的非关键异常，避免影响现有流程
-    }
+    this.launchCodexAgent(agent, roleConfig);
     return { agent, reused: false };
   }
 
@@ -209,5 +197,51 @@ export class ProcessOrchestrator {
   private allocateProcessId(): number {
     this.processIdCounter += 1;
     return this.processIdCounter;
+  }
+
+  private resolveRoleConfiguration(role: string): RoleConfiguration {
+    if (!role) {
+      throw new Error('Task role is required to spawn agent');
+    }
+
+    const roleConfig = this.config.roles?.[role];
+    if (!roleConfig) {
+      throw new Error(`Role configuration missing for "${role}"`);
+    }
+
+    if (!Array.isArray(roleConfig.allowedTools) || roleConfig.allowedTools.length === 0) {
+      throw new Error(`Role "${role}" must define at least one allowed tool`);
+    }
+
+    if (!roleConfig.permissionMode) {
+      throw new Error(`Role "${role}" must define a permission mode`);
+    }
+
+    if (!roleConfig.sandbox) {
+      throw new Error(`Role "${role}" must define a sandbox mode`);
+    }
+
+    return roleConfig;
+  }
+
+  private launchCodexAgent(agent: Agent, roleConfig: RoleConfiguration): void {
+    const args: string[] = [
+      'exec',
+      '--session-dir',
+      agent.sessionDir,
+      '--ask-for-approval',
+      roleConfig.permissionMode,
+      '--sandbox',
+      roleConfig.sandbox,
+      '--allowed-tools',
+      roleConfig.allowedTools.join(','),
+    ];
+
+    try {
+      // 非阻塞启动；测试将通过 vi.mock 拦截 spawn 并断言参数
+      spawn(this.config.codexCommand, args, { stdio: 'ignore' }).on('error', () => void 0);
+    } catch {
+      // 忽略权限参数拼装中的非关键异常，避免影响现有流程
+    }
   }
 }

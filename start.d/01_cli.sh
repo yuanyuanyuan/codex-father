@@ -77,15 +77,15 @@ normalize_sandbox_and_approvals() {
     local effective_sandbox="$sandbox"
     if [[ -z "$effective_sandbox" ]]; then effective_sandbox="workspace-write"; fi
     if [[ "$effective_sandbox" != "read-only" ]]; then
-      local override="${WRITABLE_SANDBOX_APPROVAL_OVERRIDE:-on-request}"
+      local override="${WRITABLE_SANDBOX_APPROVAL_OVERRIDE:-on-failure}"
       if [[ "$approval" == "never" ]]; then
         set_codex_flag_value "--ask-for-approval" "$override"
         approval="$override"
-        APPROVAL_NOTE="已将审批策略调整为 ${override}（避免 never 与可写沙箱组合触发只读降级）"
+        APPROVAL_NOTE="已将审批策略调整为 ${override}（避免 never 与可写沙箱组合导致审批链路阻塞）"
       elif [[ -z "$approval" ]]; then
         set_codex_flag_value "--ask-for-approval" "$override"
         approval="$override"
-        APPROVAL_NOTE="已设置审批策略为 ${override}（可写沙箱需要审批以避免只读降级）"
+        APPROVAL_NOTE="已设置审批策略为 ${override}（可写沙箱默认使用非交互审批，若需人工审批请显式指定 on-request）"
       fi
     fi
   fi
@@ -159,6 +159,10 @@ PREPEND_FILE=""
 APPEND_FILE=""
 DRY_RUN=0
 PATCH_MODE=0
+PATCH_CAPTURE_ARTIFACT=${PATCH_CAPTURE_ARTIFACT:-1}
+PATCH_ARTIFACT_FILE="${PATCH_ARTIFACT_FILE:-}"
+PATCH_PREVIEW_LINES=${PATCH_PREVIEW_LINES:-40}
+
 JSON_OUTPUT=0
 
 # 补丁模式提示文案（仅输出可应用补丁，不执行写入）
@@ -438,6 +442,20 @@ while [[ $# -gt 0 ]]; do
       APPEND_FILE="${2}"; shift 2 ;;
     --patch-mode)
       PATCH_MODE=1; shift 1 ;;
+    --patch-output)
+      [[ $# -ge 2 ]] || { echo "错误: --patch-output 需要一个路径参数" >&2; exit 2; }
+      PATCH_ARTIFACT_FILE="${2}"; shift 2 ;;
+    --no-patch-artifact)
+      PATCH_CAPTURE_ARTIFACT=0; shift 1 ;;
+    --patch-preview-lines)
+      [[ $# -ge 2 ]] || { echo "错误: --patch-preview-lines 需要一个数字参数" >&2; exit 2; }
+      if [[ ! "${2}" =~ ^[0-9]+$ ]]; then
+        echo "错误: --patch-preview-lines 只能是非负整数" >&2
+        exit 2
+      fi
+      PATCH_PREVIEW_LINES="${2}"; shift 2 ;;
+    --no-patch-preview)
+      PATCH_PREVIEW_LINES=0; shift 1 ;;
     --dry-run)
       DRY_RUN=1; shift 1 ;;
     --json)
@@ -514,6 +532,16 @@ if [[ -z "${CODEX_LOG_AGGREGATE_FILE}" ]]; then
 fi
 if [[ -z "${CODEX_LOG_AGGREGATE_JSONL_FILE}" ]]; then
   CODEX_LOG_AGGREGATE_JSONL_FILE="$(dirname "${CODEX_LOG_FILE}")/aggregate.jsonl"
+fi
+
+if (( PATCH_MODE == 1 )) && (( PATCH_CAPTURE_ARTIFACT == 1 )); then
+  if [[ -z "${PATCH_ARTIFACT_FILE}" ]]; then
+    if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+      PATCH_ARTIFACT_FILE="${CODEX_SESSION_DIR}/patch.diff"
+    else
+      PATCH_ARTIFACT_FILE="${CODEX_LOG_FILE%.log}.patch.diff"
+    fi
+  fi
 fi
 
 # 校验 Codex 旗标冲突（预设可能注入 --full-auto）。如有问题，写入日志并退出。

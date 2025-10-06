@@ -200,6 +200,33 @@ if [[ -n "${TOKENS_USED}" ]]; then
   fi
 fi
 
+PATCH_ARTIFACT_JSON="null"
+if [[ -n "${PATCH_ARTIFACT_PATHS[1]:-}" ]]; then
+  _patch_path="${PATCH_ARTIFACT_PATHS[1]}"
+  _patch_hash="${PATCH_ARTIFACT_HASHES[1]:-}"
+  _patch_lines="${PATCH_ARTIFACT_LINES[1]:-0}"
+  _patch_bytes="${PATCH_ARTIFACT_BYTES[1]:-0}"
+  _hash_json="null"
+  if [[ -n "${_patch_hash}" ]]; then
+    _hash_json="\"$(json_escape "${_patch_hash}")\""
+  fi
+  if [[ ! "${_patch_lines}" =~ ^[0-9]+$ ]]; then
+    _patch_lines="\"$(json_escape "${_patch_lines}")\""
+  fi
+  if [[ ! "${_patch_bytes}" =~ ^[0-9]+$ ]]; then
+    _patch_bytes="\"$(json_escape "${_patch_bytes}")\""
+  fi
+  PATCH_ARTIFACT_JSON=$(cat <<EOF
+{
+  "path": "$(json_escape "${_patch_path}")",
+  "sha256": ${_hash_json},
+  "lines": ${_patch_lines},
+  "bytes": ${_patch_bytes}
+}
+EOF
+  )
+fi
+
 META_JSON=$(cat <<EOF
 {
   "id": "$(json_escape "${RUN_ID}")",
@@ -209,6 +236,7 @@ META_JSON=$(cat <<EOF
   "control_flag": "$(json_escape "${CONTROL_FLAG}")",
   "reason": "$(json_escape "${EXIT_REASON}")",
   "tokens_used": ${TOKENS_JSON},
+  "patch_artifact": ${PATCH_ARTIFACT_JSON},
   "cwd": "$(json_escape "$(pwd)")",
   "log_file": "$(json_escape "${CODEX_LOG_FILE}")",
   "instructions_file": "$(json_escape "${INSTR_FILE}")",
@@ -457,7 +485,9 @@ while (( RUN <= MAX_RUNS )); do
   echo "----- Begin Codex Output (iteration ${RUN}) -----" >> "${CODEX_LOG_FILE}"
   set +e
   RUN_LAST_MSG_FILE="${CODEX_LOG_FILE%.log}.r${RUN}.last.txt"
+  RUN_OUTPUT_FILE="${CODEX_LOG_FILE%.log}.r${RUN}.output.txt"
   EXEC_ARGS=("${CODEX_EXEC_ARGS[@]}" "--output-last-message" "${RUN_LAST_MSG_FILE}")
+  CODEX_EXECUTED=0
   if [[ ${DRY_RUN} -eq 1 ]]; then
     if [[ "${JSON_OUTPUT}" == "1" ]]; then
       echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件 (iteration ${RUN})" >> "${CODEX_LOG_FILE}"
@@ -474,30 +504,34 @@ while (( RUN <= MAX_RUNS )); do
       fi
       CODEX_EXIT=127
     else
-      if [[ "${REDACT_ENABLE}" == "1" ]]; then
-        if [[ "${JSON_OUTPUT}" == "1" ]]; then
+      CODEX_EXECUTED=1
+      if [[ "${JSON_OUTPUT}" == "1" ]]; then
+        if [[ "${REDACT_ENABLE}" == "1" ]]; then
           printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-            | sed -u -E "${REDACT_SED_ARGS[@]}" >> "${CODEX_LOG_FILE}"
+            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee "${RUN_OUTPUT_FILE}" >/dev/null
           CODEX_EXIT=${PIPESTATUS[1]}
         else
           printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
+            | tee "${RUN_OUTPUT_FILE}" >/dev/null
           CODEX_EXIT=${PIPESTATUS[1]}
         fi
       else
-        if [[ "${JSON_OUTPUT}" == "1" ]]; then
+        if [[ "${REDACT_ENABLE}" == "1" ]]; then
           printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-            >> "${CODEX_LOG_FILE}"
+            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee "${RUN_OUTPUT_FILE}"
           CODEX_EXIT=${PIPESTATUS[1]}
         else
           printf '%s' "${CURRENT_INSTR}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-            | tee -a "${CODEX_LOG_FILE}"
+            | tee "${RUN_OUTPUT_FILE}"
           CODEX_EXIT=${PIPESTATUS[1]}
         fi
       fi
     fi
   fi
   set -e
+  if (( CODEX_EXECUTED == 1 )) && [[ -f "${RUN_OUTPUT_FILE}" ]]; then
+    codex_publish_output "${RUN_OUTPUT_FILE}" "${RUN}"
+  fi
   {
     echo "----- End Codex Output (iteration ${RUN}) -----"
     echo "Exit Code: ${CODEX_EXIT}"
@@ -509,6 +543,32 @@ while (( RUN <= MAX_RUNS )); do
   INSTR_TITLE=$(awk 'NF {print; exit}' "${RUN_INSTR_FILE}" 2>/dev/null || echo "")
   RUN_ID="codex-${RUN_TS}${TAG_SUFFIX}-r${RUN}"
   classify_exit "${RUN_LAST_MSG_FILE}" "${CODEX_LOG_FILE}" "${CODEX_EXIT}"
+  PATCH_ARTIFACT_JSON="null"
+  if [[ -n "${PATCH_ARTIFACT_PATHS[${RUN}]:-}" ]]; then
+    _patch_path="${PATCH_ARTIFACT_PATHS[${RUN}]}"
+    _patch_hash="${PATCH_ARTIFACT_HASHES[${RUN}]:-}"
+    _patch_lines="${PATCH_ARTIFACT_LINES[${RUN}]:-0}"
+    _patch_bytes="${PATCH_ARTIFACT_BYTES[${RUN}]:-0}"
+    _hash_json="null"
+    if [[ -n "${_patch_hash}" ]]; then
+      _hash_json="\"$(json_escape "${_patch_hash}")\""
+    fi
+    if [[ ! "${_patch_lines}" =~ ^[0-9]+$ ]]; then
+      _patch_lines="\"$(json_escape "${_patch_lines}")\""
+    fi
+    if [[ ! "${_patch_bytes}" =~ ^[0-9]+$ ]]; then
+      _patch_bytes="\"$(json_escape "${_patch_bytes}")\""
+    fi
+    PATCH_ARTIFACT_JSON=$(cat <<EOF
+{
+  "path": "$(json_escape "${_patch_path}")",
+  "sha256": ${_hash_json},
+  "lines": ${_patch_lines},
+  "bytes": ${_patch_bytes}
+}
+EOF
+    )
+  fi
   META_JSON=$(cat <<EOF
 {
   "id": "$(json_escape "${RUN_ID}")",
@@ -519,6 +579,7 @@ while (( RUN <= MAX_RUNS )); do
   "reason": "$(json_escape "${EXIT_REASON}")",
   "tokens_used": "$(json_escape "${TOKENS_USED}")",
   "iteration": ${RUN},
+  "patch_artifact": ${PATCH_ARTIFACT_JSON},
   "cwd": "$(json_escape "$(pwd)")",
   "log_file": "$(json_escape "${CODEX_LOG_FILE}")",
   "instructions_file": "$(json_escape "${RUN_INSTR_FILE}")",

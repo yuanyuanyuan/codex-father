@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 
 import { createErrorResult } from '../errors/cli.js';
 import { formatJson } from '../utils/format.js';
@@ -7,6 +8,7 @@ import type { HandlerContext, ToolResult } from './types.js';
 import { ensureJobSh } from './utils.js';
 
 const INTEGER_PATTERN = /^-?\d+$/;
+const JOB_ID_PATTERN = /^[A-Za-z0-9_.:-]+$/;
 
 function parseOptionalInteger(value: unknown): number | undefined | null {
   if (value === undefined || value === null || value === '') {
@@ -33,7 +35,7 @@ export async function handleLogs(
   if (jobMissing) {
     return jobMissing;
   }
-  const jobId = String(params.jobId || '');
+  const jobId = String(params.jobId || '').trim();
   if (!jobId) {
     return createErrorResult({
       code: 'INVALID_ARGUMENT',
@@ -50,14 +52,75 @@ export async function handleLogs(
       },
     });
   }
-  const baseDir = params.cwd
-    ? String(params.cwd)
-    : ctx.jobShExists
-      ? path.dirname(ctx.jobSh)
-      : ctx.projectRoot;
-  const sessionsRoot = path.resolve(baseDir, '.codex-father', 'sessions');
-  const logFile = path.join(sessionsRoot, jobId, 'job.log');
-  if (!fs.existsSync(logFile)) {
+  if (!JOB_ID_PATTERN.test(jobId)) {
+    return createErrorResult({
+      code: 'INVALID_ARGUMENT',
+      message: `jobId 含非法字符：${jobId}`,
+      hint: 'jobId 仅允许字母、数字、点、冒号、下划线与连字符，可直接使用 codex.start 返回值。',
+      example: {
+        name: 'codex.start',
+        arguments: { args: ['--task', 'touch placeholder file'], tag: 'demo' },
+      },
+    });
+  }
+  const candidates = new Set<string>();
+  const normalize = (input: unknown): void => {
+    if (typeof input !== 'string') {
+      return;
+    }
+    const trimmed = input.trim();
+    if (!trimmed) {
+      return;
+    }
+    candidates.add(path.resolve(trimmed));
+  };
+  normalize(typeof params.cwd === 'string' ? params.cwd : undefined);
+  normalize(ctx.projectRoot);
+  normalize(path.dirname(ctx.jobSh));
+  normalize(path.dirname(ctx.startSh));
+  normalize(process.env.CODEX_SESSIONS_ROOT);
+
+  const sessionsRoots: string[] = [];
+  const seenSessions = new Set<string>();
+  const collectVariants = (base: string): void => {
+    const baseName = path.basename(base);
+    const variants: string[] = [];
+    if (baseName === 'sessions') {
+      variants.push(base);
+      variants.push(path.join(base, '..', '.codex-father', 'sessions'));
+    } else if (baseName === '.codex-father') {
+      variants.push(path.join(base, 'sessions'));
+      variants.push(path.join(base, '..', '.codex-father', 'sessions'));
+      variants.push(path.join(base, '.codex-father', 'sessions'));
+    } else {
+      variants.push(path.join(base, '.codex-father', 'sessions'));
+      variants.push(path.join(base, 'sessions'));
+      variants.push(path.join(base, '..', '.codex-father', 'sessions'));
+    }
+    for (const variant of variants) {
+      const resolved = path.resolve(variant);
+      if (!seenSessions.has(resolved)) {
+        seenSessions.add(resolved);
+        sessionsRoots.push(resolved);
+      }
+    }
+  };
+  if (candidates.size === 0) {
+    collectVariants(ctx.projectRoot);
+  } else {
+    for (const base of candidates) {
+      collectVariants(base);
+    }
+  }
+  if (sessionsRoots.length === 0) {
+    sessionsRoots.push(path.resolve(ctx.projectRoot, '.codex-father', 'sessions'));
+  }
+  const attemptedLogFiles: string[] = sessionsRoots.map((root) =>
+    path.join(root, jobId, 'job.log')
+  );
+  let logFile = attemptedLogFiles.find((file) => fs.existsSync(file)) || null;
+  if (!logFile) {
+    logFile = attemptedLogFiles[0];
     return createErrorResult({
       code: 'LOG_NOT_FOUND',
       message: `未找到日志文件：${logFile}`,
@@ -66,6 +129,7 @@ export async function handleLogs(
         name: 'codex.status',
         arguments: { jobId },
       },
+      details: { searched: attemptedLogFiles },
     });
   }
   const mode = (params.mode || 'bytes') as 'bytes' | 'lines';

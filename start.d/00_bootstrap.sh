@@ -86,6 +86,7 @@ KNOWN_FLAGS=(
   "--codex-arg" "--no-aggregate" "--aggregate-file" "--aggregate-jsonl-file"
   "--redact" "--redact-pattern" "--prepend" "--append" "--prepend-file"
   "--append-file" "--patch-mode" "--dry-run" "--json" "-h" "--help"
+  "--patch-output" "--patch-preview-lines" "--no-patch-preview" "--no-patch-artifact"
 )
 
 # --- Codex 版本检测与参数兼容性校验（严格模式） ---

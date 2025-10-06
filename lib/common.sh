@@ -189,3 +189,141 @@ classify_exit() {
     fi
   fi
 }
+
+: "${PATCH_CAPTURE_ARTIFACT:=1}"
+: "${PATCH_PREVIEW_LINES:=40}"
+: "${PATCH_ARTIFACT_FILE:=}"
+: "${PATCH_ARTIFACT_CAPTURED:=0}"
+if ! declare -p PATCH_ARTIFACT_PATHS >/dev/null 2>&1; then
+  declare -gA PATCH_ARTIFACT_PATHS=()
+fi
+if ! declare -p PATCH_ARTIFACT_HASHES >/dev/null 2>&1; then
+  declare -gA PATCH_ARTIFACT_HASHES=()
+fi
+if ! declare -p PATCH_ARTIFACT_LINES >/dev/null 2>&1; then
+  declare -gA PATCH_ARTIFACT_LINES=()
+fi
+if ! declare -p PATCH_ARTIFACT_BYTES >/dev/null 2>&1; then
+  declare -gA PATCH_ARTIFACT_BYTES=()
+fi
+
+if ! declare -F codex_detect_patch_output >/dev/null 2>&1; then
+  codex_detect_patch_output() {
+    local file="$1"
+    [[ -f "$file" ]] || return 1
+    [[ -s "$file" ]] || return 1
+    if grep -Eqs '^(diff --git|Index: |@@ |--- |\+\+\+ |\*\*\* Begin Patch)' "$file"; then
+      return 0
+    fi
+    if grep -Eqs '^(apply_patch <<|```diff)' "$file"; then
+      return 0
+    fi
+    return 1
+  }
+fi
+
+if ! declare -F codex_compute_patch_artifact_path >/dev/null 2>&1; then
+  codex_compute_patch_artifact_path() {
+    local run_idx="${1:-1}"
+    local base="${PATCH_ARTIFACT_FILE:-}"
+    local suffix=""
+    if (( run_idx > 1 )); then
+      suffix=".r${run_idx}"
+    fi
+    if [[ -z "$base" ]]; then
+      if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+        echo "${CODEX_SESSION_DIR}/patch${suffix}.diff"
+      else
+        echo "${CODEX_LOG_FILE%.log}${suffix}.patch.diff"
+      fi
+    else
+      if (( run_idx == 1 )); then
+        echo "$base"
+      else
+        local dir name stem ext
+        dir=$(dirname -- "$base")
+        name=$(basename -- "$base")
+        if [[ "$name" == *.* && "$name" != .* ]]; then
+          stem="${name%.*}"
+          ext=".${name##*.}"
+        else
+          stem="$name"
+          ext=""
+        fi
+        echo "${dir}/${stem}${suffix}${ext}"
+      fi
+    fi
+  }
+fi
+
+if ! declare -F codex_publish_output >/dev/null 2>&1; then
+  codex_publish_output() {
+    local output_file="$1"
+    local run_idx="${2:-1}"
+    local log_file="${CODEX_LOG_FILE:-}"
+    [[ -n "$log_file" ]] || return 0
+    [[ -f "$output_file" ]] || return 0
+
+    local capture="${PATCH_CAPTURE_ARTIFACT:-0}"
+    local preview="${PATCH_PREVIEW_LINES:-0}"
+    local handled=0
+
+    if (( PATCH_MODE == 1 )) && (( capture == 1 )) && codex_detect_patch_output "$output_file"; then
+      local artifact_path
+      artifact_path=$(codex_compute_patch_artifact_path "$run_idx")
+      if [[ -n "$artifact_path" ]]; then
+        mkdir -p "$(dirname -- "$artifact_path")"
+        cp "$output_file" "$artifact_path"
+
+        local hash=""
+        if command -v sha256sum >/dev/null 2>&1; then
+          hash=$(sha256sum "$artifact_path" | awk '{print $1}')
+        elif command -v shasum >/dev/null 2>&1; then
+          hash=$(shasum -a 256 "$artifact_path" | awk '{print $1}')
+        fi
+        local lines bytes
+        lines=$(wc -l <"$output_file" 2>/dev/null | tr -d ' ')
+        bytes=$(wc -c <"$output_file" 2>/dev/null | tr -d ' ')
+
+        PATCH_ARTIFACT_CAPTURED=1
+        PATCH_ARTIFACT_PATHS[$run_idx]="$artifact_path"
+        PATCH_ARTIFACT_HASHES[$run_idx]="$hash"
+        PATCH_ARTIFACT_LINES[$run_idx]="$lines"
+        PATCH_ARTIFACT_BYTES[$run_idx]="$bytes"
+
+        {
+          echo "[patch-artifact] run=${run_idx} saved=${artifact_path}"
+          if [[ -n "$hash" ]]; then
+            echo "[patch-artifact] sha256=${hash} lines=${lines:-0} bytes=${bytes:-0}"
+          else
+            echo "[patch-artifact] lines=${lines:-0} bytes=${bytes:-0}"
+          fi
+          if (( preview > 0 )); then
+            echo "[patch-preview] first ${preview} lines:"
+            sed -n "1,${preview}p" "$output_file"
+            local total_lines=${lines:-0}
+            local tail_lines=5
+            if (( total_lines > preview )); then
+              echo "[patch-preview] ... truncated (total ${total_lines} lines)"
+              if (( tail_lines > 0 )); then
+                echo "[patch-preview] last ${tail_lines} lines:"
+                tail -n "$tail_lines" "$output_file"
+              fi
+            fi
+          else
+            echo "[patch-preview] preview disabled (--no-patch-preview)"
+          fi
+          echo
+        } >> "$log_file"
+        handled=1
+      fi
+    fi
+
+    if (( handled == 0 )); then
+      if (( PATCH_MODE == 1 )) && (( capture == 1 )); then
+        echo "[patch-artifact] run=${run_idx} 未检测到补丁内容，已保留完整输出。" >> "$log_file"
+      fi
+      cat "$output_file" >> "$log_file"
+    fi
+  }
+fi

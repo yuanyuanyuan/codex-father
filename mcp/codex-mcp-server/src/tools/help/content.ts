@@ -98,12 +98,13 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
     },
     aliases: ['codex_exec'],
     tips: [
+      '运行前请确保 args 内包含 --task 或 -f/--file/--docs 等受支持的输入选项；--notes/--files 等自定义开关会被 CLI 视为未知参数并立即退出 (exit 2)。',
       '返回体包含日志路径，可用 codex.logs 查看详情。',
       '建议使用 tag 参数便于 list/stop 检索。',
       '模型参数：可用 args 形式（例如 ["--model","gpt-5-codex high"] 或 ["--model","gpt-5-codex","high"])，也可用 codexConfig（{"model":"gpt-5-codex","model_reasoning_effort":"high"}）。',
       '联网：入参传 network=true，服务器将注入 --codex-config sandbox_workspace_write.network_access=true；meta 的 effective_network_access 会回填运行时真实状态。',
       '补丁模式：patchMode=true 将注入 policy-note，限制仅输出补丁（patch/diff）；如需正常执行请移除该选项。',
-      '审批与沙箱：workspace-write + never 会被规范化为 on-request（日志含 [arg-normalize] 提示）；无人值守建议 on-failure。',
+      '审批与沙箱：workspace-write + never 会被规范化为 on-failure（日志含 [arg-normalize] 提示）；若需人工审批请显式传 on-request，或设置 ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1 保留 never。',
     ],
     returnsJsonString: true,
   },
@@ -131,13 +132,24 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
     sampleReturn: {
       content: [{ type: 'text', text: '{"jobId":"cdx-20240313_090000-release","logFile":"..."}' }],
     },
+    sampleError: {
+      content: [
+        {
+          type: 'text',
+          text: '❌ 未知参数: --notes\n提示：请使用 --task <text> 或 -f/--file/--docs 提供任务描述，移除未受支持的自定义开关。',
+        },
+      ],
+      isError: true,
+    },
     aliases: ['codex_start'],
     tips: [
+      '传参时务必提供 --task（或 -f/--file/--docs 等输入参数）描述任务；若直接传长文本或使用未支持的 --notes/--files，将触发 start.sh 的未知参数校验并以退出码 2 提前结束。',
       '结合 codex.status / codex.logs 查看进度。',
       'tag 可帮助团队区分同一批任务。',
       '模型与推理力度写法同 codex.exec，支持 "<model> high" 或通过 codexConfig 显式设置。',
       '需要联网时传 network=true；effective_network_access 将在 meta 中反映真实状态。',
       'patchMode=true 仅输出补丁；如需实际写入请勿开启。',
+      '可写沙箱在未显式允许时会把 never 归一为 on-failure；若需要交互审批请传 approvalPolicy="on-request"，要保留 never 可设置 ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1。',
     ],
     returnsJsonString: true,
   },
@@ -200,7 +212,11 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       ],
     },
     aliases: ['codex_logs'],
-    tips: ['按字节模式可实现断点续读。', '设置 view 为 "result-only" 可聚焦生成内容。'],
+    tips: [
+      '按字节模式可实现断点续读。',
+      '设置 view 为 "result-only" 可聚焦生成内容。',
+      '当日志不存在时会在错误 details.searched 中列出已尝试的路径，可直接复制进行验证。',
+    ],
     returnsJsonString: true,
   },
   'codex.stop': {
@@ -340,5 +356,5 @@ export const onboardingTips: string[] = [
   '模型与推理力度：args 用法 ["--model","<model> high"] 或 ["--model","<model>","high"]；或 codexConfig {"model":"<model>","model_reasoning_effort":"high"}。',
   '联网：MCP 入参设置 network=true；运行日志显示 network access enabled 时，元数据 effective_network_access 会回填为 enabled。',
   '补丁模式：patchMode=true 注入 policy-note，仅输出 patch/diff；移除该选项即可恢复常规执行。',
-  '审批与沙箱：workspace-write + never 将规范化为 on-request（日志含 [arg-normalize] 提示）；无人值守建议 on-failure。',
+  '审批与沙箱：workspace-write + never 会被规范化为 on-failure（日志含 [arg-normalize] 提示）；若需人工审批请显式传 on-request，或设置 ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1 保留 never。',
 ];
