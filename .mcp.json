@@ -3,15 +3,6 @@
     "codex-father-preview": {
       "command": "node",
       "args": ["./mcp/codex-mcp-server/dist/index.js"]
-    },
-    "codex-father-prod": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
-      "env": {
-        "NODE_ENV": "production",
-        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
-        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
-      }
     }
   }
 }
