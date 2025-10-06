@@ -12,6 +12,8 @@ const IsoDateTimeSchema = z.string().datetime({ offset: true });
 const PositiveIntegerSchema = z.number().int().positive();
 const NonNegativeIntegerSchema = z.number().int().nonnegative();
 const PercentageSchema = z.number().min(0).max(1);
+const ApprovalPolicySchema = z.enum(['never', 'on-request', 'on-failure', 'untrusted']);
+const SandboxModeSchema = z.enum(['read-only', 'workspace-write', 'danger-full-access']);
 
 export const TaskOutputSchema = z
   .object({
@@ -81,6 +83,39 @@ export const AgentSchema = z
 
 export type Agent = z.infer<typeof AgentSchema>;
 
+export const RoleConfigurationSchema = z
+  .object({
+    allowedTools: z.array(NonEmptyStringSchema).min(1, 'allowedTools must not be empty'),
+    permissionMode: ApprovalPolicySchema,
+    sandbox: SandboxModeSchema,
+    baseInstructions: NonEmptyStringSchema.optional(),
+  })
+  .strict();
+
+export type RoleConfiguration = z.infer<typeof RoleConfigurationSchema>;
+
+export const RolesConfigurationSchema = z.record(NonEmptyStringSchema, RoleConfigurationSchema);
+
+export type RolesConfiguration = z.infer<typeof RolesConfigurationSchema>;
+
+const DefaultRoleConfigurations: RolesConfiguration = {
+  developer: {
+    allowedTools: ['read_file', 'write_file', 'run_tests'],
+    permissionMode: 'never',
+    sandbox: 'workspace-write',
+  },
+  reviewer: {
+    allowedTools: ['read_file'],
+    permissionMode: 'never',
+    sandbox: 'workspace-write',
+  },
+  tester: {
+    allowedTools: ['read_file', 'run_tests'],
+    permissionMode: 'never',
+    sandbox: 'workspace-write',
+  },
+};
+
 export const PatchStatusSchema = z.enum(['pending', 'applying', 'applied', 'failed']);
 
 export const PatchSchema = z
@@ -135,6 +170,8 @@ export const OrchestrationConfigSchema = z
     applyPatchStrategy: z.enum(['git', 'native']).optional(),
     applyPatchFallbackOnFailure: z.boolean().optional(),
     mode: z.enum(['manual', 'llm']).optional(),
+    roles: RolesConfigurationSchema.default(DefaultRoleConfigurations),
+    codexCommand: NonEmptyStringSchema.default('codex'),
   })
   .strict();
 
@@ -205,10 +242,23 @@ export interface OrchestratorContext {
 export type TaskDefinition = Task;
 
 export function createDefaultOrchestratorConfig(): OrchestratorConfig {
+  const cloneDefaultRoles = (): RolesConfiguration =>
+    Object.fromEntries(
+      Object.entries(DefaultRoleConfigurations).map(([role, config]) => [
+        role,
+        {
+          ...config,
+          allowedTools: [...config.allowedTools],
+        },
+      ])
+    );
+
   return {
     maxConcurrency: 10,
     taskTimeout: 30 * 60 * 1000,
     outputFormat: 'stream-json',
     successRateThreshold: 0.9,
+    roles: cloneDefaultRoles(),
+    codexCommand: 'codex',
   } satisfies OrchestratorConfig;
 }
