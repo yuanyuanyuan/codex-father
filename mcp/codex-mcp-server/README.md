@@ -46,16 +46,27 @@ npm install
 npm run dev
 ```
 
-### 方式二：使用 npx（一键启动）
+### 方式二：用户级部署（推荐）
 
-包已发布到 npmjs，可以直接运行：
+一次安装即可在所有 MCP 客户端共用同一份运行时与日志目录：
 
 ```bash
-# 直接运行，无需额外配置
-npx @starkdev020/codex-father-mcp-server
+# 1. 安装（首次执行即可）
+npm install -g @starkdev020/codex-father-mcp-server
+
+# 2. 准备独立目录，避免污染业务仓库
+export CODEX_RUNTIME_HOME="$HOME/.codex-father-runtime"
+export CODEX_SESSIONS_HOME="$HOME/.codex-father-sessions"
+mkdir -p "$CODEX_RUNTIME_HOME" "$CODEX_SESSIONS_HOME"
+
+# 3. 启动服务（默认 NDJSON 传输）
+CODEX_MCP_PROJECT_ROOT="$CODEX_RUNTIME_HOME" \
+CODEX_SESSIONS_ROOT="$CODEX_SESSIONS_HOME" \
+codex-mcp-server --transport=ndjson
 ```
 
-> 💡 **提示**：首次运行会自动下载，后续启动会更快
+> 💡 **提示**：首次启动会自动在 `$CODEX_RUNTIME_HOME/.codex-father/`
+> 下同步官方脚本副本。
 
 ### 方式三：集成到 MCP 客户端
 
@@ -81,10 +92,12 @@ npx @starkdev020/codex-father-mcp-server
 {
   "mcpServers": {
     "codex-father": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"],
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
       }
     }
   }
@@ -99,9 +112,11 @@ Codex CLI 支持 MCP 服务器配置，在 `~/.codex/config.toml` 中添加：
 
 ```toml
 [mcp_servers.codex-father]
-command = "npx"
-args = ["-y", "@starkdev020/codex-father-mcp-server"]
-env = { NODE_ENV = "production" }
+command = "codex-mcp-server"
+args = ["--transport=ndjson"]
+env.NODE_ENV = "production"
+env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
+env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
 ```
 
 然后运行 Codex：
@@ -119,8 +134,12 @@ codex
 {
   "mcpServers": {
     "codex-father": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"]
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
+      "env": {
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
+      }
     }
   }
 }
