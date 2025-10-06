@@ -81,6 +81,14 @@ class CodexFatherCLI {
         options: [
           { flags: '--timeout <ms>', description: 'Execution timeout in milliseconds' },
           { flags: '--capture', description: 'Capture script output', defaultValue: true },
+          {
+            flags: '--instructions <file>',
+            description: 'Path to structured instructions file (JSON/YAML/XML)',
+          },
+          {
+            flags: '--task <id>',
+            description: 'Task id defined in structured instructions',
+          },
         ],
       }
     );
