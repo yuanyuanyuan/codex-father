@@ -139,6 +139,34 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 - /data/howlong.live/.codex-father/sessions/cdx-20251006_072635.492-sj7q21402-integration-nav-footer-batch-2/job.log
 - /data/howlong.live/.codex-father/sessions/cdx-20251006_072705.214-5dxo22406-prod-integration-nav-footer/job.log
 
+### 使用结构化 instructions 规避长指令/多步骤维护难题
+
+**动机**：任务描述越来越长、需要多个步骤或条件时，直接把文本塞进
+`--task` 往往易错且难以复用。
+
+**方案**：
+
+1. 新增结构化指令文件（支持 `json`/`yaml`/`xml`），完整 schema 与示例见
+   `specs/structured-instructions/`。
+2. 执行时在 `args` 中追加 `--instructions path/to/task.json --task T032`
+   （`--task` 用于指定要执行的任务 ID）。
+3. CLI 会：
+   - 校验文件结构，若任务 ID 不存在则提前报错；
+   - 将归一化后的 JSON 写入 `.codex-father/instructions/` 并暴露
+     `CODEX_STRUCTURED_*` / `CODEX_STRUCTURED_TASK_ID` 环境变量，供 `start.sh`/
+     后续 Shell 阶段消费；
+   - 在返回 payload 的 `data.structuredInstructions` 字段中包含 source/normalized
+     路径，便于客户端记录。
+
+**提示**：
+
+- 结构化定义与普通 `--task` 可以并存；若 CLI 检测到 `--task` 却没有
+  `--instructions` 会立即报错，避免误执行。
+- MCP 工具调用时，将 `--instructions` 和 `--task` 一并放入
+  `args` 数组即可，无需其他改动。
+- 归一化文件会保留在 `.codex-father/instructions/<timestamp>-<id>.json`，若需要
+  复制给其他成员只需同步该文件即可复现同一任务。
+
 **原因**：
 
 - Codex Father CLI 仅接受 `--task`、`-f/--file`、`--docs`、`--docs-dir` 等白名单参数来注入任务说明。

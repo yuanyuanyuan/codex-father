@@ -146,6 +146,7 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       '传参时务必提供 --task（或 -f/--file/--docs 等输入参数）描述任务；若直接传长文本或使用未支持的 --notes/--files，将触发 start.sh 的未知参数校验并以退出码 2 提前结束。',
       '结合 codex.status / codex.logs 查看进度。',
       'tag 可帮助团队区分同一批任务。',
+      '结构化指令：准备 JSON/YAML/XML 后，可在 args 中追加 "--instructions <file> --task <id>"，CLI 会校验 schema 并通过 CODEX_STRUCTURED_* 环境变量注入给 start.sh。',
       '模型与推理力度写法同 codex.exec，支持 "<model> high" 或通过 codexConfig 显式设置。',
       '需要联网时传 network=true；effective_network_access 将在 meta 中反映真实状态。',
       'patchMode=true 仅输出补丁；如需实际写入请勿开启。',
