@@ -1,3 +1,5 @@
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import type { Patch, PatchApplyResult } from './types.js';
 
 type PatchEventType = 'patch_applied' | 'patch_failed';
@@ -7,11 +9,17 @@ interface PatchEventPayload {
   readonly patch: Patch;
   readonly timestamp: string;
   readonly errorMessage?: string;
+  readonly workDir?: string | undefined;
 }
 
 /**
  * SWWCoordinator 实现单写窗口与补丁排队喵。
  */
+type SWWOptions = {
+  /** 基础工作根目录；若未提供，则使用 process.cwd() */
+  readonly workRoot?: string;
+};
+
 export class SWWCoordinator {
   /** 当前写窗口由哪一个任务持有。 */
   private currentWriter: string | null = null;
@@ -30,6 +38,13 @@ export class SWWCoordinator {
 
   /** 补丁事件历史记录。 */
   private readonly eventHistory: PatchEventPayload[] = [];
+
+  /** 工作根目录（隔离目录的基底）。 */
+  private readonly workRoot: string;
+
+  public constructor(options?: SWWOptions) {
+    this.workRoot = options?.workRoot ?? process.cwd();
+  }
 
   /** 暴露事件历史，方便测试与诊断。 */
   public get events(): readonly PatchEventPayload[] {
@@ -80,12 +95,17 @@ export class SWWCoordinator {
         return { success: false, errorMessage: validationError };
       }
 
+      // 准备隔离工作目录（每个补丁唯一）
+      const workDir = await this.prepareWorkspace(patch);
+
       patch.status = 'applying';
       await Promise.resolve();
 
       patch.status = 'applied';
       patch.appliedAt = new Date().toISOString();
       delete patch.error;
+      // 应用成功，记录事件
+      this.emitPatchEvent('patch_applied', patch, undefined, workDir);
       return { success: true };
     } finally {
       if (ownsWindow) {
@@ -95,11 +115,17 @@ export class SWWCoordinator {
   }
 
   /** 派发补丁事件。 */
-  public emitPatchEvent(event: PatchEventType, patch: Patch, errorMessage?: string): void {
+  public emitPatchEvent(
+    event: PatchEventType,
+    patch: Patch,
+    errorMessage?: string,
+    workDir?: string
+  ): void {
     const basePayload: Omit<PatchEventPayload, 'errorMessage'> = {
       event,
       patch: { ...patch },
       timestamp: new Date().toISOString(),
+      workDir,
     };
 
     const payload: PatchEventPayload =
@@ -115,12 +141,20 @@ export class SWWCoordinator {
     while (this.patchQueue.length > 0) {
       const patch = this.patchQueue.shift()!;
       const result = await this.applyPatch(patch);
-      if (result.success) {
-        this.emitPatchEvent('patch_applied', patch);
-      } else {
+      if (!result.success) {
         this.emitPatchEvent('patch_failed', patch, result.errorMessage);
       }
     }
+  }
+
+  /**
+   * 为补丁创建隔离工作目录：<workRoot>/.sww/<taskId>/<seq>-<patchId>
+   */
+  private async prepareWorkspace(patch: Patch): Promise<string> {
+    const seq = String(patch.sequence).padStart(4, '0');
+    const dir = path.join(this.workRoot, '.sww', patch.taskId, `${seq}-${patch.id}`);
+    await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+    return dir;
   }
 
   private acquireWindow(taskId: string): boolean {
