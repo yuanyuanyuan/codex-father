@@ -296,9 +296,9 @@ Task: "JSON/JSONL contracts & redaction"   (core/orchestrator/tests/json-output.
 
 ## Progress Summary
 
-- Done: 33 / 56
-- Pending: 23 / 56
+- Done: 35 / 56
+- Pending: 21 / 56
 - Next [P] batch recommendation:
-  1. T039（core/orchestrator/tests/redaction.security.test.ts）—完善 StateManager 脱敏逻辑
-  2. T040（core/orchestrator/tests/session-recovery.integration.test.ts）—补齐 codex exec resume 流程
-  3. T041（core/orchestrator/tests/resource-timeout.integration.test.ts）—实现资源降级与任务超时联动
+  1. T039（core/orchestrator/tests/redaction.security.test.ts）—修复红线脱敏，去除 superSecret/sk-* 泄露
+  2. T040（core/orchestrator/tests/session-recovery.integration.test.ts）—实现 resumeSession，补齐 codex exec rollout 恢复
+  3. T041（core/orchestrator/tests/resource-timeout.integration.test.ts）—补齐 handleResourcePressure 降级与任务超时联动
