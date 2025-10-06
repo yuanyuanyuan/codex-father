@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { spawn } from 'node:child_process';
 import { createDefaultOrchestratorConfig } from './types.js';
+import { TaskScheduler } from './task-scheduler.js';
 import type {
   Agent,
   OrchestratorConfig,
@@ -61,9 +62,63 @@ export class ProcessOrchestrator {
   }
 
   /**
-   * 编排入口占位实现，未来接入完整流水线。
+   * 编排入口：集成 TaskScheduler，按拓扑波次（waves）执行任务。
+   * - 每一波内的并发数不超过 maxPoolSize；
+   * - 为每个任务启动或复用 Agent；
+   * - 任务“模拟完成”后将 Agent 状态还原为 idle；
+   * - 在 start/task_started/task_completed 波次级别触发占位事件。
    */
   public async orchestrate(tasks: readonly TaskDefinition[]): Promise<OrchestratorContext> {
+    // 使用 TaskScheduler 进行拓扑分波，并按波次顺序调度执行。
+    const scheduler = new TaskScheduler({ maxConcurrency: this.maxPoolSize } as any);
+
+    // 构造依赖关系（按任务上声明的 dependencies）
+    const deps = new Map<string, string[]>();
+    for (const t of tasks) {
+      deps.set(t.id, Array.isArray(t.dependencies) ? [...t.dependencies] : []);
+    }
+
+    const plan = (scheduler as any).schedule({ tasks, dependencies: deps }) as {
+      executionPlan: Array<{ tasks: Array<TaskDefinition> }>;
+    };
+
+    await this.emitEvent({ event: 'start', data: { waves: plan.executionPlan.length } });
+
+    for (let waveIndex = 0; waveIndex < plan.executionPlan.length; waveIndex += 1) {
+      const wave = plan.executionPlan[waveIndex]!;
+      // 分块执行，确保单波并发不超过 maxPoolSize
+      for (let i = 0; i < wave.tasks.length; i += this.maxPoolSize) {
+        const batch = wave.tasks.slice(i, i + this.maxPoolSize);
+
+        // 启动一批任务
+        const started = await Promise.all(
+          batch.map(async (t) => {
+            const res = await this.spawnAgent(t);
+            await this.emitEvent({
+              event: 'task_started',
+              taskId: t.id,
+              role: String(t.role),
+              data: { wave: waveIndex, reused: res.reused },
+            });
+            return { agentId: res.agent.id, task: t } as const;
+          })
+        );
+
+        // 模拟执行占用一个事件循环 tick，随后将 agent 置为 idle
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        for (const { agentId, task } of started) {
+          this.releaseAgent(agentId);
+          await this.emitEvent({
+            event: 'task_completed',
+            taskId: task.id,
+            role: String(task.role),
+            data: { wave: waveIndex, agentId },
+          });
+        }
+      }
+    }
+
     return this.createContext(tasks);
   }
 
@@ -99,6 +154,22 @@ export class ProcessOrchestrator {
 
     this.launchCodexAgent(agent, roleConfig);
     return { agent, reused: false };
+  }
+
+  /**
+   * 手动释放 Agent，将其置为 idle（用于模拟任务完成与测试）。
+   */
+  public releaseAgent(agentId: string): void {
+    const agent = this.agentPool.get(agentId);
+    if (!agent) {
+      return;
+    }
+    this.agentPool.set(agentId, {
+      ...agent,
+      status: 'idle',
+      currentTask: undefined,
+      lastActivityAt: new Date().toISOString(),
+    });
   }
 
   /**
@@ -242,6 +313,24 @@ export class ProcessOrchestrator {
       spawn(this.config.codexCommand, args, { stdio: 'ignore' }).on('error', () => void 0);
     } catch {
       // 忽略权限参数拼装中的非关键异常，避免影响现有流程
+    }
+  }
+
+  /**
+   * 统一占位事件发射器：若构造参数中提供了 stateManager，则调用其 emitEvent；否则 no-op。
+   */
+  private async emitEvent(payload: {
+    event: string;
+    taskId?: string;
+    role?: string;
+    data?: unknown;
+  }): Promise<void> {
+    const anyConfig = this.config as unknown as {
+      stateManager?: { emitEvent: (p: any) => Promise<void> | void };
+    };
+    const emitter = anyConfig.stateManager?.emitEvent;
+    if (typeof emitter === 'function') {
+      await Promise.resolve(emitter(payload));
     }
   }
 }
