@@ -3,11 +3,23 @@ import type { OrchestratorStateSnapshot } from './types.js';
 /**
  * StateManager 维护编排执行过程中的状态快照喵。
  */
+type EventLoggerLike = {
+  logEvent: (record: Record<string, unknown>) => unknown | Promise<unknown>;
+};
+
+type StateManagerBootstrap = {
+  orchestrationId?: string;
+  eventLogger?: EventLoggerLike;
+  redactionPatterns?: (RegExp | string)[];
+};
+
+type StateManagerInit = OrchestratorStateSnapshot | StateManagerBootstrap;
+
 export class StateManager {
   /** 当前的状态快照。 */
   private snapshot: OrchestratorStateSnapshot;
   private orchestrationId?: string;
-  private eventLogger?: { logEvent: Function };
+  private eventLogger?: EventLoggerLike;
   private seq: number = 0;
   private redactionPatterns?: (RegExp | string)[];
 
@@ -16,12 +28,21 @@ export class StateManager {
    *
    * @param initialSnapshot 初始状态。
    */
-  public constructor(initial?: any) {
-    if (initial && ('orchestrationId' in initial || 'eventLogger' in initial)) {
-      this.orchestrationId = initial.orchestrationId;
-      this.eventLogger = initial.eventLogger;
-      if ('redactionPatterns' in initial) {
-        this.redactionPatterns = initial.redactionPatterns as (RegExp | string)[];
+  public constructor(initial?: StateManagerInit) {
+    if (
+      initial &&
+      typeof initial === 'object' &&
+      ('orchestrationId' in initial || 'eventLogger' in initial)
+    ) {
+      const bootstrap = initial as StateManagerBootstrap;
+      if (typeof bootstrap.orchestrationId === 'string') {
+        this.orchestrationId = bootstrap.orchestrationId;
+      }
+      if (bootstrap.eventLogger) {
+        this.eventLogger = bootstrap.eventLogger;
+      }
+      if (bootstrap.redactionPatterns) {
+        this.redactionPatterns = bootstrap.redactionPatterns;
       }
       this.snapshot = {
         completedTasks: 0,
@@ -30,7 +51,9 @@ export class StateManager {
       };
       return;
     }
-    const initialSnapshot: OrchestratorStateSnapshot | undefined = initial;
+    const initialSnapshot: OrchestratorStateSnapshot | undefined = initial as
+      | OrchestratorStateSnapshot
+      | undefined;
     this.snapshot = initialSnapshot ?? {
       completedTasks: 0,
       failedTasks: 0,
@@ -66,7 +89,7 @@ export class StateManager {
     event: string;
     taskId?: string;
     role?: string;
-    data?: any;
+    data?: unknown;
   }): Promise<void> {
     this.seq += 1;
     if (!this.eventLogger) {

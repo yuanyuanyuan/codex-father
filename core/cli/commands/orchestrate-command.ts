@@ -103,7 +103,10 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         }
       }
 
-      const buildJsonSummary = (status: 'success' | 'failure', details: Record<string, unknown>) =>
+      const buildJsonSummary = (
+        status: 'success' | 'failure',
+        details: Record<string, unknown>
+      ): string =>
         JSON.stringify({
           status,
           requirement,
