@@ -28,3 +28,5 @@ assets/runtime/
 .cache/
 
 .codex-father-sessions
+.codex-father-sessions/
+
