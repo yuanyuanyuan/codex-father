@@ -83,10 +83,10 @@
       `core/orchestrator/tests/role-assigner.test.ts`
       （core/orchestrator/tests/role-assigner.test.ts 验证最长关键词优先于规则顺序，
       且缺省时触发 LLM fallback 并记录 reasoning）
-- [ ] T034 [P] Permissions enforcement per role
+- [x] T034 [P] Permissions enforcement per role
       (allowedTools/permission-mode/sandbox) in
       `core/orchestrator/tests/permissions-enforcement.test.ts`
-      （process-orchestrator.ts 未执行角色权限校验）
+      （已实现：process-orchestrator.ts 校验角色配置并注入 codex exec 安全参数）
 - [ ] T035 [P] Pre-assignment validator (context completeness; reject on
       missing) in `core/orchestrator/tests/pre-assignment-validator.test.ts`
       （实现已添加：core/orchestrator/pre-assignment-validator.ts；支持文件/环境/配置键校验）
