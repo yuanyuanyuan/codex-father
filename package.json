@@ -58,6 +58,8 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "test:watch": "vitest --watch",
+    "test:orchestrator": "ORCHESTRATOR_TESTS=1 vitest run core/orchestrator/tests/**/*.test.ts --reporter=dot",
+    "test:orchestrator:file": "ORCHESTRATOR_TESTS=1 vitest run --reporter=dot",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "typecheck:watch": "tsc --noEmit -p tsconfig.build.json --watch",
     "check:all": "npm-run-all precheck:guard typecheck lint:check format:check test:run",
