@@ -12,6 +12,7 @@ import type { HandlerContext, ToolResult } from './types.js';
 import { handleHelp } from './help.js';
 import { handleExec } from './exec.js';
 import { handleStart } from './start.js';
+import { handleResume } from './resume.js';
 import { handleStatus } from './status.js';
 import { handleStop } from './stop.js';
 import { handleList } from './list.js';
@@ -44,6 +45,8 @@ export async function handleCall(req: CallToolRequest, ctx: HandlerContext): Pro
         return handleExec(params, ctx);
       case 'codex.start':
         return handleStart(params, ctx);
+      case 'codex.resume':
+        return handleResume(params, ctx);
       case 'codex.status':
         return handleStatus(params, ctx);
       case 'codex.stop':

@@ -3,6 +3,7 @@ main() {
   local sub="$1"; shift || true
   case "$sub" in
     start) cmd_start "$@" ;;
+    resume) cmd_resume "$@" ;;
     status) cmd_status "$@" ;;
     logs) cmd_logs "$@" ;;
     stop) cmd_stop "$@" ;;

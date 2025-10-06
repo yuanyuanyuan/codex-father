@@ -139,6 +139,34 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 - /data/howlong.live/.codex-father/sessions/cdx-20251006_072635.492-sj7q21402-integration-nav-footer-batch-2/job.log
 - /data/howlong.live/.codex-father/sessions/cdx-20251006_072705.214-5dxo22406-prod-integration-nav-footer/job.log
 
+### 使用结构化 instructions 规避长指令/多步骤维护难题
+
+**动机**：任务描述越来越长、需要多个步骤或条件时，直接把文本塞进
+`--task` 往往易错且难以复用。
+
+**方案**：
+
+1. 新增结构化指令文件（支持 `json`/`yaml`/`xml`），完整 schema 与示例见
+   `specs/structured-instructions/`。
+2. 执行时在 `args` 中追加 `--instructions path/to/task.json --task T032`
+   （`--task` 用于指定要执行的任务 ID）。
+3. CLI 会：
+   - 校验文件结构，若任务 ID 不存在则提前报错；
+   - 将归一化后的 JSON 写入 `.codex-father/instructions/` 并暴露
+     `CODEX_STRUCTURED_*` / `CODEX_STRUCTURED_TASK_ID` 环境变量，供 `start.sh`/
+     后续 Shell 阶段消费；
+   - 在返回 payload 的 `data.structuredInstructions` 字段中包含 source/normalized
+     路径，便于客户端记录。
+
+**提示**：
+
+- 结构化定义与普通 `--task` 可以并存；若 CLI 检测到 `--task` 却没有
+  `--instructions` 会立即报错，避免误执行。
+- MCP 工具调用时，将 `--instructions` 和 `--task` 一并放入
+  `args` 数组即可，无需其他改动。
+- 归一化文件会保留在 `.codex-father/instructions/<timestamp>-<id>.json`，若需要
+  复制给其他成员只需同步该文件即可复现同一任务。
+
 **原因**：
 
 - Codex Father CLI 仅接受 `--task`、`-f/--file`、`--docs`、`--docs-dir` 等白名单参数来注入任务说明。
@@ -179,17 +207,17 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 
 **症状**：
 
-- MCP 返回 `LOG_NOT_FOUND`，错误信息中路径出现双重 `.codex-father` 前缀，例如 `/.../.codex-father/.codex-father/sessions/<jobId>/job.log`。
-- 手动查看同一 `jobId` 目录时，`job.log` 与 `bootstrap.err` 均存在且内容完整。
+- 运行日志里偶尔出现 `/.codex-father/.codex-father/sessions/…` 这类重复前缀的路径，`codex.logs` 提示 `LOG_NOT_FOUND`。
+- 本地确认 `job.log` 真实路径存在且内容完整。
 
 **原因**：
 
-- 旧版 MCP 在解析 `job.sh` 所在目录时重复附加 `.codex-father`，导致实际存在的日志路径被错误地报告为不存在。
+- `start.sh` 与 MCP runtime 早期版本默认将日志目录写成 `${SCRIPT_DIR}/.codex-father/sessions`，当脚本自身已经位于 `.codex-father/` 目录下时会再次拼接，导致路径重复。
 
-**当前修复**：
+**已修复（2025-10-06）**：
 
-- 主分支已修正路径解析逻辑，会自动尝试 `CODEX_SESSIONS_ROOT`、仓库根目录及 `.codex-father/sessions` 等候选位置，不再重复拼接目录。
-- `LOG_NOT_FOUND` 错误现在会回传 `details.searched`，方便确认具体探测过的路径，可直接复制路径核实文件是否存在。
+- CLI 与 MCP runtime 现已根据脚本所在目录动态选择 `sessions/` 或 `.codex-father/sessions/`，不会再生成双重前缀。
+- `codex.logs` 的错误详情同样会列出所有已探测路径（`details.searched`），方便快速比对。若仍看到旧路径，请升级到最新主分支并重新部署 MCP runtime。
 
 **临时绕过**（适用于旧版本）：
 
@@ -275,6 +303,31 @@ cat .codex-father/logs/latest.log
 
 运行后，`<session>/job.meta.json` 中的 `effective_network_access` 将显示为
 `enabled`。
+
+### 任务中断后如何续跑
+
+**场景**：`codex-father` 或客户端重启、网络闪断导致后台任务未完成。
+
+1. 先运行 `./job.sh status <jobId> --json` 检查旧任务是否仍在 `running`。
+   - 若仍运行，只需继续使用 `job.sh logs`/`codex.logs` 跟踪即可。
+2. 状态为 `failed`/`stopped` 或已结束但需要重跑时，调用：
+
+   ```bash
+   ./job.sh resume <jobId> [--tag <新标签>] [--cwd <目录>] [--json] [-- <额外 start 参数…>]
+   ```
+
+   - `resume` 会复用 `state.json` 中记录的 `cwd`、`tag`、`args`，追加参数放在 `--` 之后即可（后出现的 flag 会覆盖原值）。
+   - 新任务的 `state.json` 会写入 `"resumed_from"` 字段，便于追踪来源任务。
+3. MCP 客户端调用 `codex.resume` 工具即可达到同样效果：
+
+   ```json
+   { "name": "codex.resume", "arguments": { "jobId": "cdx-20251001_120000-demo", "args": ["--dry-run"] } }
+   ```
+
+   返回体同样包含新的 `jobId`、日志路径及 `resumedFrom`。
+4. 如需确认原始参数，可直接 `jq '.args' .codex-father/sessions/<jobId>/state.json`，或查看 `codex.resume` 的返回体。
+
+> resume 无法读取参数时会立即报错，请确认对应会话目录下的 `state.json` 是否存在并包含 `"args": [...]`。
 
 ### 解决方案
 

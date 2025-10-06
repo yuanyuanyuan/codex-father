@@ -83,7 +83,7 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       content: [
         {
           type: 'text',
-          text: '{"runId":"exec-20240313-untagged","exitCode":0,"logFile":"/repo/.codex-father/sessions/exec-*/job.log"}',
+          text: '{"runId":"exec-20251006_152842-untagged","exitCode":0,"logFile":"/repo/.codex-father/sessions/exec-20251006_152842-untagged/job.log"}',
         },
       ],
     },
@@ -99,7 +99,7 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
     aliases: ['codex_exec'],
     tips: [
       '运行前请确保 args 内包含 --task 或 -f/--file/--docs 等受支持的输入选项；--notes/--files 等自定义开关会被 CLI 视为未知参数并立即退出 (exit 2)。',
-      '返回体包含日志路径，可用 codex.logs 查看详情。',
+      '返回体包含日志路径，可用 codex.logs 查看详情；日志目录以 runId 命名，日志头与 meta 中的时间均对齐该 runId。',
       '建议使用 tag 参数便于 list/stop 检索。',
       '模型参数：可用 args 形式（例如 ["--model","gpt-5-codex high"] 或 ["--model","gpt-5-codex","high"])，也可用 codexConfig（{"model":"gpt-5-codex","model_reasoning_effort":"high"}）。',
       '联网：入参传 network=true，服务器将注入 --codex-config sandbox_workspace_write.network_access=true；meta 的 effective_network_access 会回填运行时真实状态。',
@@ -146,10 +146,37 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       '传参时务必提供 --task（或 -f/--file/--docs 等输入参数）描述任务；若直接传长文本或使用未支持的 --notes/--files，将触发 start.sh 的未知参数校验并以退出码 2 提前结束。',
       '结合 codex.status / codex.logs 查看进度。',
       'tag 可帮助团队区分同一批任务。',
+      '结构化指令：准备 JSON/YAML/XML 后，可在 args 中追加 "--instructions <file> --task <id>"，CLI 会校验 schema 并通过 CODEX_STRUCTURED_* 环境变量注入给 start.sh。',
       '模型与推理力度写法同 codex.exec，支持 "<model> high" 或通过 codexConfig 显式设置。',
       '需要联网时传 network=true；effective_network_access 将在 meta 中反映真实状态。',
       'patchMode=true 仅输出补丁；如需实际写入请勿开启。',
       '可写沙箱在未显式允许时会把 never 归一为 on-failure；若需要交互审批请传 approvalPolicy="on-request"，要保留 never 可设置 ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1。',
+    ],
+    returnsJsonString: true,
+  },
+  'codex.resume': {
+    tagline: '基于历史任务参数重新启动 Codex 作业',
+    scenario: 'codex-father 或客户端重启后，需要沿用原任务配置继续执行。',
+    params: [
+      { name: 'jobId', required: true, description: '来源任务 ID，会从 state.json 读取原始参数。' },
+      { name: 'args', required: false, description: '附加 start.sh 参数，追加在原参数之后。' },
+      { name: 'tag', required: false, description: '覆盖新任务标签；默认沿用原任务记录的 tag。' },
+      { name: 'cwd', required: false, description: '覆盖执行目录；默认沿用原任务记录的 cwd。' },
+    ],
+    exampleArgs: { jobId: 'cdx-20251001_120000-demo', tag: 'resume-retry' },
+    sampleReturn: {
+      content: [
+        {
+          type: 'text',
+          text: '{"jobId":"cdx-20251006_160000-rerun","resumedFrom":"cdx-20251001_120000-demo"}',
+        },
+      ],
+    },
+    aliases: ['codex_resume'],
+    tips: [
+      'resume 会读取 sessions/<jobId>/state.json 的 args；若文件缺失或格式无效会直接报错。',
+      '可通过 args 追加新的 flag（如 --dry-run），start.sh 将按最后出现的值生效。',
+      '返回体带有 resumedFrom 字段以及 log/meta 路径，便于重新挂载日志跟踪。',
     ],
     returnsJsonString: true,
   },

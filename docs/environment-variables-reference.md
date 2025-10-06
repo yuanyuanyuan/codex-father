@@ -103,6 +103,36 @@
   - 默认：`0`
   - 来源：start.sh:36
 
+- `CODEX_STRUCTURED_INSTRUCTIONS_FILE`
+  - 作用：保存经 CLI 归一化后的结构化指令 JSON（位于 `.codex-father/instructions/`）
+  - 默认：无
+  - 来源：core/cli/legacy-compatibility.ts:64
+
+- `CODEX_STRUCTURED_INSTRUCTIONS_SOURCE`
+  - 作用：记录原始结构化指令文件的绝对路径
+  - 默认：无
+  - 来源：core/cli/legacy-compatibility.ts:65
+
+- `CODEX_STRUCTURED_INSTRUCTIONS_FORMAT`
+  - 作用：标识原始指令文件的格式（json/yaml/xml）
+  - 默认：无
+  - 来源：core/cli/legacy-compatibility.ts:66
+
+- `CODEX_STRUCTURED_INSTRUCTIONS_ID`
+  - 作用：结构化指令文件中的顶层 `id`
+  - 默认：无
+  - 来源：core/cli/legacy-compatibility.ts:67
+
+- `CODEX_STRUCTURED_INSTRUCTIONS_VERSION`
+  - 作用：结构化指令文件中的 `version`
+  - 默认：无
+  - 来源：core/cli/legacy-compatibility.ts:68
+
+- `CODEX_STRUCTURED_TASK_ID`
+  - 作用：当执行结构化指令时，指示选择的任务 ID
+  - 默认：无
+  - 来源：core/cli/legacy-compatibility.ts:71
+
 - `REDACT_ENABLE`
   - 作用：启用日志脱敏（默认规则 + 自定义模式）
   - 默认：`0`

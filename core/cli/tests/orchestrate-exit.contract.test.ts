@@ -22,11 +22,11 @@ describe('Orchestrate CLI exit codes and summary (T006)', () => {
     vi.restoreAllMocks();
   });
 
-  it('exits with code 0 and prints success summary when success rate meets threshold', async () => {
+  it('exits with code 0 and emits exactly two stream-json lines (start, orchestration_completed)', async () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new Error(`process.exit:${code ?? 0}`);
     }) as any);
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true as any);
 
     let thrown: Error | null = null;
     try {
@@ -36,17 +36,31 @@ describe('Orchestrate CLI exit codes and summary (T006)', () => {
     }
 
     expect(thrown?.message).toBe('process.exit:0');
-    const joinedLogs = logSpy.mock.calls.map((call) => call.join(' ')).join('\n');
-    expect(joinedLogs).toContain('成功率');
-    expect(joinedLogs).toContain('事件文件');
+    const lines = writeSpy.mock.calls.map((call) => String(call[0]).trim()).filter(Boolean);
+    expect(lines).toHaveLength(2);
+
+    const first = JSON.parse(lines[0]);
+    const second = JSON.parse(lines[1]);
+
+    expect(first.event).toBe('start');
+    expect(typeof first.orchestrationId).toBe('string');
+    expect(typeof first.seq).toBe('number');
+    expect(first.data && typeof first.data.totalTasks).toBe('number');
+
+    expect(second.event).toBe('orchestration_completed');
+    expect(second.orchestrationId).toBe(first.orchestrationId);
+    expect(typeof second.seq).toBe('number');
+    expect(second.seq).toBeGreaterThan(first.seq);
+    expect(second.data && typeof second.data.successRate).toBe('number');
+
     expect(exitSpy).toHaveBeenCalledWith(0);
   });
 
-  it('reports failure summary and exits with code 1 when success rate is below threshold', async () => {
+  it('still emits two stream-json lines and exits with code 1 when success rate below threshold', async () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new Error(`process.exit:${code ?? 0}`);
     }) as any);
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true as any);
 
     let thrown: Error | null = null;
     try {
@@ -63,9 +77,11 @@ describe('Orchestrate CLI exit codes and summary (T006)', () => {
     }
 
     expect(thrown?.message).toBe('process.exit:1');
-    const joinedErrors = errorSpy.mock.calls.map((call) => call.join(' ')).join('\n');
-    expect(joinedErrors).toContain('失败任务清单');
-    expect(joinedErrors).toContain('patch_failed');
+    const lines = writeSpy.mock.calls.map((call) => String(call[0]).trim()).filter(Boolean);
+    expect(lines).toHaveLength(2);
+    const [first, second] = lines.map((l) => JSON.parse(l));
+    expect(first.event).toBe('start');
+    expect(second.event).toBe('orchestration_completed');
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 });

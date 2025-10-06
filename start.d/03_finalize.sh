@@ -82,6 +82,33 @@ codex_update_session_state() {
   existing_meta_glob=$(grep -E '"meta_glob"' "$state_file" | sed -E 's/.*"meta_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
   local existing_last_glob
   existing_last_glob=$(grep -E '"last_message_glob"' "$state_file" | sed -E 's/.*"last_message_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  local existing_resumed_from
+  existing_resumed_from=$(grep -E '"resumed_from"' "$state_file" | sed -E 's/.*"resumed_from"\s*:\s*"?([^",}]*)"?.*/\1/' | head -n1 || true)
+  if [[ "$existing_resumed_from" == "null" ]]; then existing_resumed_from=""; fi
+  local existing_args_json="[]"
+  if command -v node >/dev/null 2>&1; then
+    local args_dump
+    if args_dump=$(node - "$state_file" <<'EOF'
+const fs = require('fs');
+const file = process.argv[2] || process.argv[1];
+if (!file || file === '-') {
+  process.exit(0);
+}
+try {
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (Array.isArray(data.args)) {
+    process.stdout.write(JSON.stringify(data.args));
+  }
+} catch (_) {
+  process.exit(0);
+}
+EOF
+); then
+      if [[ -n "$args_dump" ]]; then
+        existing_args_json="$args_dump"
+      fi
+    fi
+  fi
   set -e
 
   [[ -n "$created_at" ]] || created_at="$updated_at"
@@ -149,6 +176,10 @@ codex_update_session_state() {
   fi
 
   local tag_json="\"$(json_escape "${tag:-}")\""
+  local resume_json="null"
+  if [[ -n "$existing_resumed_from" ]]; then
+    resume_json="\"$(json_escape "$existing_resumed_from")\""
+  fi
   local state_json
   state_json=$(cat <<EOF
 {
@@ -169,7 +200,9 @@ codex_update_session_state() {
   "log_file": "$(json_escape "$log_file")",
   "meta_glob": "$(json_escape "$meta_glob")",
   "last_message_glob": "$(json_escape "$last_glob")",
-  "title": ${title_json}
+  "args": ${existing_args_json},
+  "title": ${title_json},
+  "resumed_from": ${resume_json}
 }
 EOF
   )
@@ -538,8 +571,16 @@ while (( RUN <= MAX_RUNS )); do
   } >> "${CODEX_LOG_FILE}"
 
   # 元数据与汇总（含分类）
-  RUN_TS="$(date +%Y%m%d_%H%M%S)"
-  RUN_TS_DISPLAY="$(date +%Y-%m-%dT%H:%M:%S%:z)"
+  if (( RUN == 1 )) && [[ -n "${TS}" ]]; then
+    RUN_TS="${TS}"
+  else
+    RUN_TS="$(date +%Y%m%d_%H%M%S)"
+  fi
+  if (( RUN == 1 )) && [[ -n "${TS_DISPLAY}" ]]; then
+    RUN_TS_DISPLAY="${TS_DISPLAY}"
+  else
+    RUN_TS_DISPLAY="$(date +%Y-%m-%dT%H:%M:%S%:z)"
+  fi
   INSTR_TITLE=$(awk 'NF {print; exit}' "${RUN_INSTR_FILE}" 2>/dev/null || echo "")
   RUN_ID="codex-${RUN_TS}${TAG_SUFFIX}-r${RUN}"
   classify_exit "${RUN_LAST_MSG_FILE}" "${CODEX_LOG_FILE}" "${CODEX_EXIT}"
