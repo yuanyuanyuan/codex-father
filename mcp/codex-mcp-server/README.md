@@ -249,9 +249,11 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
   - 运行后，`<session>/job.meta.json` 的 `effective_network_access` 应显示
     `enabled`（我们会以运行日志为准回填真实状态）。
 - 审批与沙箱：
-  - `workspace-write + never` 会被规范化为 `on-request`
-    以避免只读降级；日志中会有 `[arg-normalize]` 提示。
-  - 如需无人值守，建议 `on-failure`；或显式
+  - `workspace-write + never` 会被规范化为 `on-failure`（日志含
+    `[arg-normalize]` 提示），避免任务卡在审批环节；若需保留 `never`
+    可设置环境变量 `ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1`。
+  - 需要人工审批时请显式传
+    `approvalPolicy="on-request"`；若确定要全自动运行仍可结合
     `dangerouslyBypass=true`（高风险，仅限隔离环境）。
 - 补丁模式：
   - 仅在需要“只输出补丁（patch/diff）”时设置 `patchMode=true`；日志会显示

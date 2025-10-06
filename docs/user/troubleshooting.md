@@ -152,6 +152,29 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 
 **提示**：`codex.help` 的 `codex.start`/`codex.exec` 条目已补充该限制，调用前可先查看最新帮助。
 
+### 审批策略被自动改成 on-failure
+
+**症状**：
+
+- `job.log` 头部出现 `[arg-normalize] 已设置审批策略为 on-failure（可写沙箱默认使用非交互审批，若需人工审批请显式指定 on-request）`。
+- `job.meta.json` 中 `effective_approval_policy` = `on-failure`；旧版本可能显示 `on-request` 并将运行标记为 `approval_required`。
+- 例：/data/howlong.live/.codex-father/sessions/cdx-20251006_130921.134-3muu14305-preview-healthcheck/job.log:1（健康检查任务）。
+
+**原因**：
+
+- 为避免 `workspace-write + never` 组合在无人值守环境下直接进入审批流程，CLI 会在未显式允许时将策略归一为非交互模式。
+
+**现状**（>= v1.6.1）：
+
+- 归一化目标已更新为 `on-failure`，健康检查等只读任务不会再因为审批等待而直接退出。
+- 若确需保留 `never`，可设置环境变量 `ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1`。
+
+**解决**：
+
+1. 需要人工审批时显式传 `--ask-for-approval on-request` 或 MCP 入参 `approvalPolicy: 'on-request'`。
+2. 需要全自动执行且愿意承担风险时，可启用 `dangerouslyBypass=true`/`--dangerously-bypass-approvals-and-sandbox`。
+3. 默认无人值守推荐保持 `on-failure`，确保健康检查与只读任务自动通过。
+
 ### `codex.logs` 报 LOG_NOT_FOUND 但磁盘存在日志
 
 **症状**：

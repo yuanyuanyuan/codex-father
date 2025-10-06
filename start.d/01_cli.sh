@@ -77,15 +77,15 @@ normalize_sandbox_and_approvals() {
     local effective_sandbox="$sandbox"
     if [[ -z "$effective_sandbox" ]]; then effective_sandbox="workspace-write"; fi
     if [[ "$effective_sandbox" != "read-only" ]]; then
-      local override="${WRITABLE_SANDBOX_APPROVAL_OVERRIDE:-on-request}"
+      local override="${WRITABLE_SANDBOX_APPROVAL_OVERRIDE:-on-failure}"
       if [[ "$approval" == "never" ]]; then
         set_codex_flag_value "--ask-for-approval" "$override"
         approval="$override"
-        APPROVAL_NOTE="已将审批策略调整为 ${override}（避免 never 与可写沙箱组合触发只读降级）"
+        APPROVAL_NOTE="已将审批策略调整为 ${override}（避免 never 与可写沙箱组合导致审批链路阻塞）"
       elif [[ -z "$approval" ]]; then
         set_codex_flag_value "--ask-for-approval" "$override"
         approval="$override"
-        APPROVAL_NOTE="已设置审批策略为 ${override}（可写沙箱需要审批以避免只读降级）"
+        APPROVAL_NOTE="已设置审批策略为 ${override}（可写沙箱默认使用非交互审批，若需人工审批请显式指定 on-request）"
       fi
     fi
   fi

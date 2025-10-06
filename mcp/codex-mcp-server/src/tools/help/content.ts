@@ -104,7 +104,7 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       '模型参数：可用 args 形式（例如 ["--model","gpt-5-codex high"] 或 ["--model","gpt-5-codex","high"])，也可用 codexConfig（{"model":"gpt-5-codex","model_reasoning_effort":"high"}）。',
       '联网：入参传 network=true，服务器将注入 --codex-config sandbox_workspace_write.network_access=true；meta 的 effective_network_access 会回填运行时真实状态。',
       '补丁模式：patchMode=true 将注入 policy-note，限制仅输出补丁（patch/diff）；如需正常执行请移除该选项。',
-      '审批与沙箱：workspace-write + never 会被规范化为 on-request（日志含 [arg-normalize] 提示）；无人值守建议 on-failure。',
+      '审批与沙箱：workspace-write + never 会被规范化为 on-failure（日志含 [arg-normalize] 提示）；若需人工审批请显式传 on-request，或设置 ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1 保留 never。',
     ],
     returnsJsonString: true,
   },
@@ -149,6 +149,7 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       '模型与推理力度写法同 codex.exec，支持 "<model> high" 或通过 codexConfig 显式设置。',
       '需要联网时传 network=true；effective_network_access 将在 meta 中反映真实状态。',
       'patchMode=true 仅输出补丁；如需实际写入请勿开启。',
+      '可写沙箱在未显式允许时会把 never 归一为 on-failure；若需要交互审批请传 approvalPolicy="on-request"，要保留 never 可设置 ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1。',
     ],
     returnsJsonString: true,
   },
@@ -355,5 +356,5 @@ export const onboardingTips: string[] = [
   '模型与推理力度：args 用法 ["--model","<model> high"] 或 ["--model","<model>","high"]；或 codexConfig {"model":"<model>","model_reasoning_effort":"high"}。',
   '联网：MCP 入参设置 network=true；运行日志显示 network access enabled 时，元数据 effective_network_access 会回填为 enabled。',
   '补丁模式：patchMode=true 注入 policy-note，仅输出 patch/diff；移除该选项即可恢复常规执行。',
-  '审批与沙箱：workspace-write + never 将规范化为 on-request（日志含 [arg-normalize] 提示）；无人值守建议 on-failure。',
+  '审批与沙箱：workspace-write + never 会被规范化为 on-failure（日志含 [arg-normalize] 提示）；若需人工审批请显式传 on-request，或设置 ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1 保留 never。',
 ];
