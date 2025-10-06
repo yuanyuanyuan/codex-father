@@ -101,7 +101,9 @@ codex-mcp-server --transport=ndjson
 ```
 
 > 将 `/ABS/PATH/TO/...` 替换为绝对路径，例如 `~/.codex-father-runtime` 与
-> `~/.codex-father-sessions`（需展开为完整路径）。
+> `~/.codex-father-sessions`（需展开为完整路径）。若希望某个项目维护自己的
+> `.codex-father` 副本，可直接把以上路径写成 `/path/to/project/.codex-father`
+> 并在该项目目录执行 `mkdir -p .codex-father/sessions`。
 > 若使用 Codex CLI，请继续更新 `~/.codex/config.toml`，示例如下。
 
 #### 📘 Codex CLI（rMCP）配置

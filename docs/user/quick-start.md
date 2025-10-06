@@ -19,10 +19,16 @@
 # 1. 安装一次（建议全局安装）
 npm install -g @starkdev020/codex-father-mcp-server
 
-# 2. 准备独立目录，避免污染业务仓库
+# 2. 准备独立目录（也可按项目自定义）
 export CODEX_RUNTIME_HOME="$HOME/.codex-father-runtime"
 export CODEX_SESSIONS_HOME="$HOME/.codex-father-sessions"
 mkdir -p "$CODEX_RUNTIME_HOME" "$CODEX_SESSIONS_HOME"
+
+# 若希望在项目内维护独立副本，可跳过上述 export，直接在配置里写入项目路径，例如：
+# env.CODEX_MCP_PROJECT_ROOT = "/path/to/project/.codex-father"
+# env.CODEX_SESSIONS_ROOT = "/path/to/project/.codex-father/sessions"
+# 并提前在该项目目录执行：
+#   mkdir -p .codex-father/sessions
 
 # 3. 启动服务器（默认 NDJSON 传输）
 CODEX_MCP_PROJECT_ROOT="$CODEX_RUNTIME_HOME" \

@@ -59,6 +59,9 @@ gedit ~/.config/Claude/claude_desktop_config.json
 
 > 将 `/ABS/PATH/TO/...` 替换为你的绝对路径，可参考 `~/.codex-father-runtime`
 > 与 `~/.codex-father-sessions`（记得展开为完整路径）。
+> 如果想把运行时锁定到当前项目，可直接将上述路径写成
+> `/path/to/your/project/.codex-father` 并在项目目录执行
+> `mkdir -p .codex-father/sessions`。
 
 **优点**：
 
