@@ -7,15 +7,16 @@ describe('RoleAssigner rules & fallback contract (T033)', () => {
     vi.restoreAllMocks();
   });
 
-  it('prioritises longer keyword matches before rule order', async () => {
+  it('prioritises longer keyword matches even when a shorter rule appears first', async () => {
     const { RoleAssigner } = await import(modulePath);
 
+    const fallback = vi.fn();
     const assigner = new RoleAssigner({
       rules: [
-        { role: 'developer', keywords: ['实现'] },
-        { role: 'reviewer', keywords: ['代码审查', '审查'] },
+        { role: 'developer', keywords: ['审查'] },
+        { role: 'reviewer', keywords: ['代码审查'] },
       ],
-      fallback: { type: 'llm', invoke: vi.fn() },
+      fallback: { type: 'llm', invoke: fallback },
     });
 
     const task = {
@@ -29,6 +30,7 @@ describe('RoleAssigner rules & fallback contract (T033)', () => {
     expect(result.role).toBe('reviewer');
     expect(result.matchMethod).toBe('rule');
     expect(result.matchDetails).toContain('代码审查');
+    expect(fallback).not.toHaveBeenCalled();
   });
 
   it('falls back to LLM when no rules match and records reasoning', async () => {

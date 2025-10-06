@@ -356,7 +356,19 @@ fi
   if [[ -n "${APPROVAL_NOTE:-}" ]]; then echo "[arg-normalize] ${APPROVAL_NOTE}"; fi
   if [[ -n "${MODEL_NOTE:-}" ]]; then echo "[arg-check] ${MODEL_NOTE}"; fi
   if [[ -n "${FLAT_LOGS_NOTE:-}" ]]; then echo "${FLAT_LOGS_NOTE}"; fi
-  if (( PATCH_MODE == 1 )); then echo "[hint] 已启用补丁模式：如不需要仅输出补丁，请移除 --patch-mode"; fi
+  if (( PATCH_MODE == 1 )); then
+    echo "[hint] 已启用补丁模式：如不需要仅输出补丁，请移除 --patch-mode"
+    if (( PATCH_CAPTURE_ARTIFACT == 1 )); then
+      echo "[hint] 补丁输出写入 ${PATCH_ARTIFACT_FILE}，日志仅保留预览（可用 --no-patch-artifact 关闭）。"
+      if [[ "${PATCH_PREVIEW_LINES}" == "0" ]]; then
+        echo "[hint] 已通过 --no-patch-preview 禁用补丁回显。"
+      else
+        echo "[hint] 补丁预览行数: ${PATCH_PREVIEW_LINES}（可用 --patch-preview-lines 调整）。"
+      fi
+    else
+      echo "[hint] 已禁用补丁落盘，日志会完整回显 diff；可用 --patch-output 指定文件。"
+    fi
+  fi
 } >> "${CODEX_LOG_FILE}"
 RUN_LOGGED=1
 
@@ -438,6 +450,8 @@ fi
       echo "----- End Invocation Args -----"
     } >> "${CODEX_LOG_FILE}"
   fi
+  RUN_OUTPUT_FILE="${CODEX_LOG_FILE%.log}.r1.output.txt"
+  CODEX_EXECUTED=0
   if [[ ${DRY_RUN} -eq 1 ]]; then
     if [[ "${JSON_OUTPUT}" == "1" ]]; then
       echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件" >> "${CODEX_LOG_FILE}"
@@ -446,36 +460,39 @@ fi
     fi
     CODEX_EXIT=0
   else
-  if ! command -v codex >/dev/null 2>&1; then
-    if [[ "${JSON_OUTPUT}" == "1" ]]; then
-      echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" >> "${CODEX_LOG_FILE}"
-    else
-      echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
-    fi
-    CODEX_EXIT=127
-  else
-    if [[ "${REDACT_ENABLE}" == "1" ]]; then
-      # 通过 STDIN 传递指令，避免参数过长问题；仅对输出做脱敏
+    if ! command -v codex >/dev/null 2>&1; then
       if [[ "${JSON_OUTPUT}" == "1" ]]; then
-        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-          | sed -u -E "${REDACT_SED_ARGS[@]}" >> "${CODEX_LOG_FILE}"
-        CODEX_EXIT=${PIPESTATUS[1]}
+        echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" >> "${CODEX_LOG_FILE}"
       else
-        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-          | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
-        CODEX_EXIT=${PIPESTATUS[1]}
+        echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
       fi
+      CODEX_EXIT=127
     else
+      CODEX_EXECUTED=1
       if [[ "${JSON_OUTPUT}" == "1" ]]; then
-        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-          >> "${CODEX_LOG_FILE}"
-        CODEX_EXIT=${PIPESTATUS[1]}
+        if [[ "${REDACT_ENABLE}" == "1" ]]; then
+          printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee "${RUN_OUTPUT_FILE}" >/dev/null
+          CODEX_EXIT=${PIPESTATUS[1]}
+        else
+          printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | tee "${RUN_OUTPUT_FILE}" >/dev/null
+          CODEX_EXIT=${PIPESTATUS[1]}
+        fi
       else
-        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-          | tee -a "${CODEX_LOG_FILE}"
-
+        if [[ "${REDACT_ENABLE}" == "1" ]]; then
+          printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee "${RUN_OUTPUT_FILE}"
+          CODEX_EXIT=${PIPESTATUS[1]}
+        else
+          printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | tee "${RUN_OUTPUT_FILE}"
+          CODEX_EXIT=${PIPESTATUS[1]}
+        fi
       fi
     fi
   fi
-fi
 set -e
+if (( CODEX_EXECUTED == 1 )) && [[ -f "${RUN_OUTPUT_FILE}" ]]; then
+  codex_publish_output "${RUN_OUTPUT_FILE}" 1
+fi

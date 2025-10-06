@@ -249,13 +249,18 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
   - 运行后，`<session>/job.meta.json` 的 `effective_network_access` 应显示
     `enabled`（我们会以运行日志为准回填真实状态）。
 - 审批与沙箱：
-  - `workspace-write + never` 会被规范化为 `on-request`
-    以避免只读降级；日志中会有 `[arg-normalize]` 提示。
-  - 如需无人值守，建议 `on-failure`；或显式
+  - `workspace-write + never` 会被规范化为 `on-failure`（日志含
+    `[arg-normalize]` 提示），避免任务卡在审批环节；若需保留 `never`
+    可设置环境变量 `ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1`。
+  - 需要人工审批时请显式传
+    `approvalPolicy="on-request"`；若确定要全自动运行仍可结合
     `dangerouslyBypass=true`（高风险，仅限隔离环境）。
 - 补丁模式：
   - 仅在需要“只输出补丁（patch/diff）”时设置 `patchMode=true`；日志会显示
     `Patch Mode: on` 并注入 `policy-note`。
+  - diff 将自动写入 `<session>/patch.diff`（或 `--patch-output`
+    指定路径），日志只回显前若干行，可搭配 `--patch-preview-lines` 或
+    `--no-patch-preview` 控制体积；传入 `--no-patch-artifact` 可恢复旧行为。
 - 快速自检（MCP 工具调用示例）：
   - 单次执行（联网 + 补丁模式）：
     ```json
@@ -363,7 +368,10 @@ CLI 也可运行。
   - `carryContext` (boolean) - `false` 时追加 `--no-carry-context`
   - `compressContext` (boolean) - `false` 时追加 `--no-compress-context`
   - `contextHead` (number) - 控制上下文保留长度（追加 `--context-head`）
-  - `patchMode` (boolean) - 开启补丁模式
+  - `patchMode`
+    (boolean) - 开启补丁模式（diff 会写入会话目录；如需自定义落盘或回显策略，可通过
+    `args` 传递 `--patch-output`、`--patch-preview-lines`、`--no-patch-preview`
+    或 `--no-patch-artifact`）
   - `requireChangeIn` (string[]) - 重复追加 `--require-change-in`
   - `requireGitCommit` (boolean) - 强制生成 Git 提交
   - `autoCommitOnDone` (boolean) - 成功后自动提交

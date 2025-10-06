@@ -19,8 +19,13 @@ if [[ -f "${SCRIPT_DIR}/lib/presets.sh" ]]; then
 fi
 
 # 日志相关默认
-# 默认将日志写入脚本所在目录的 .codex-father/sessions，避免受调用时 PWD 影响
-CODEX_LOG_DIR_DEFAULT="${SCRIPT_DIR}/.codex-father/sessions"
+# 默认将日志写入脚本所在目录的托管 sessions 路径，避免受调用时 PWD 影响
+if [[ "$(basename "${SCRIPT_DIR}")" == ".codex-father" ]]; then
+  # 当脚本已位于托管目录时，直接复用该目录下的 sessions，避免重复拼接
+  CODEX_LOG_DIR_DEFAULT="${SCRIPT_DIR}/sessions"
+else
+  CODEX_LOG_DIR_DEFAULT="${SCRIPT_DIR}/.codex-father/sessions"
+fi
 CODEX_LOG_DIR="${CODEX_LOG_DIR:-$CODEX_LOG_DIR_DEFAULT}"
 CODEX_LOG_FILE="${CODEX_LOG_FILE:-}"
 CODEX_LOG_TAG="${CODEX_LOG_TAG:-}"
@@ -86,6 +91,7 @@ KNOWN_FLAGS=(
   "--codex-arg" "--no-aggregate" "--aggregate-file" "--aggregate-jsonl-file"
   "--redact" "--redact-pattern" "--prepend" "--append" "--prepend-file"
   "--append-file" "--patch-mode" "--dry-run" "--json" "-h" "--help"
+  "--patch-output" "--patch-preview-lines" "--no-patch-preview" "--no-patch-artifact"
 )
 
 # --- Codex 版本检测与参数兼容性校验（严格模式） ---

@@ -5,6 +5,31 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，本项目遵循
 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### ♻️ 改进
+
+- 补丁模式默认将 diff 落盘并仅在日志中输出预览，新增
+  `--patch-output`、`--patch-preview-lines`、`--no-patch-preview`、
+  `--no-patch-artifact` 等 CLI 开关，配合元数据记录哈希与行数。
+- 更新 `codex.help`/README/故障排除文档，强调缩减日志噪声的推荐参数（如
+  `--no-echo-instructions`、`--no-carry-context`、`view=result-only`）。
+- CLI: `start` 命令支持 `--instructions`（JSON/YAML/XML）+ `--task`
+  结构化指令文件，执行前会校验 schema、输出归一化副本，并通过
+  `CODEX_STRUCTURED_*` 环境变量传递给 Shell。
+- 新增 `job.sh resume` 子命令与 `codex.resume` MCP 工具，可复用 `state.json`
+  中记录的参数重启任务，并在会话状态写入 `resumed_from` 与 `args`
+  字段，便于断线续跑与审计。
+
+### 🛠️ 修复
+
+- MCP: 修正 `codex.logs` 在 `.codex-father`
+  目录下重复拼接路径的问题，并在报错时附带 `details.searched`
+  帮助排查路径探测历史。
+- CLI: 可写沙箱在未显式允许时将 `never` 自动归一为
+  `on-failure`，避免健康检查类任务在无人值守环境下直接触发 `approval_required`。
+- docs/help: 补充未受支持参数 (`--notes`/`--files`/裸文本) 的错误案例与修复指南，避免再次触发退出码 2。
+
 ---
 
 ## [1.0.0] - 2025-10-01

@@ -1,5 +1,8 @@
 import type { CLIParser } from '../parser.js';
 import type { CommandResult } from '../../lib/types.js';
+import { v4 as uuidv4 } from 'uuid';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
 
 interface OrchestrateDefaults {
   mode: 'manual' | 'llm';
@@ -45,10 +48,65 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         (options.outputFormat as OrchestrateDefaults['outputFormat']) ?? DEFAULTS.outputFormat;
 
       const successRate = 0.92;
-      const eventLogPath = '.codex-father/sessions/latest/events.jsonl';
       const executionTime = Date.now() - startTime;
 
-      const buildJsonSummary = (status: 'success' | 'failure', details: Record<string, unknown>) =>
+      // 生成 orchestrationId 与事件序列（stream-json 专用）
+      const orchestrationId = `orc_${uuidv4()}`;
+      const sessionDir = path.join('.codex-father', 'sessions', orchestrationId);
+      const eventsFile = path.join(sessionDir, 'events.jsonl');
+
+      const makeTimestamp = (): string => new Date().toISOString();
+      let seq = 0;
+
+      type StreamEvent = {
+        event: 'start' | 'orchestration_completed';
+        timestamp: string;
+        orchestrationId: string;
+        seq: number;
+        data: Record<string, unknown>;
+      };
+
+      const startEvent: StreamEvent = {
+        event: 'start',
+        timestamp: makeTimestamp(),
+        orchestrationId,
+        seq: seq++,
+        data: { totalTasks: 2 },
+      };
+
+      const completedEvent: StreamEvent = {
+        event: 'orchestration_completed',
+        timestamp: makeTimestamp(),
+        orchestrationId,
+        seq: seq++,
+        data: { successRate },
+      };
+
+      async function ensureDir0700(dir: string): Promise<void> {
+        await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+        // 再次 chmod 避免 umask 影响
+        await fs.chmod(dir, 0o700).catch(() => {});
+      }
+
+      async function appendJsonl0600(file: string, line: unknown): Promise<void> {
+        const payload = JSON.stringify(line) + '\n';
+        try {
+          await fs.appendFile(file, payload, { encoding: 'utf8', mode: 0o600 });
+        } catch (err) {
+          // 若父目录不存在，创建后重试一次
+          if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+            await ensureDir0700(path.dirname(file));
+            await fs.appendFile(file, payload, { encoding: 'utf8', mode: 0o600 });
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      const buildJsonSummary = (
+        status: 'success' | 'failure',
+        details: Record<string, unknown>
+      ): string =>
         JSON.stringify({
           status,
           requirement,
@@ -57,12 +115,43 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
           taskTimeout,
           successRate,
           successThreshold,
-          eventsFile: eventLogPath,
+          eventsFile,
           outputFormat,
           ...details,
         });
 
+      // stream-json 模式：仅输出两条事件到 stdout，并同步写入 events.jsonl
+      if (outputFormat === 'stream-json') {
+        // 写入到文件（保证目录 0700、文件 0600）
+        await ensureDir0700(sessionDir);
+        await appendJsonl0600(eventsFile, startEvent);
+        await appendJsonl0600(eventsFile, completedEvent);
+
+        // 严格控制 stdout：仅两条 JSON 行
+        process.stdout.write(JSON.stringify(startEvent) + '\n');
+        process.stdout.write(JSON.stringify(completedEvent) + '\n');
+
+        const result: CommandResult = {
+          success: successRate >= successThreshold,
+          data: {
+            requirement,
+            mode,
+            maxConcurrency,
+            taskTimeout,
+            successRate,
+            successThreshold,
+            outputFormat,
+            orchestrationId,
+            eventsFile,
+          },
+          executionTime: 0,
+          exitCode: successRate >= successThreshold ? 0 : 1,
+        };
+        return result;
+      }
+
       if (successRate >= successThreshold) {
+        const eventLogPath = eventsFile;
         const summary = [
           '编排成功 ✅',
           `需求: ${requirement}`,
@@ -71,17 +160,14 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
           `事件文件: ${eventLogPath}`,
         ].join('\n');
 
-        const message =
-          outputFormat === 'json'
-            ? buildJsonSummary('success', {
-                failedTasks: [],
-                completedAt: new Date().toISOString(),
-              })
-            : summary;
+        const message = buildJsonSummary('success', {
+          failedTasks: [],
+          completedAt: new Date().toISOString(),
+        });
 
         const result: CommandResult = {
           success: true,
-          message,
+          message: outputFormat === 'json' ? message : summary,
           data: {
             requirement,
             mode,
@@ -127,7 +213,7 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
           successRate,
           successThreshold,
           outputFormat,
-          eventLogPath,
+          eventLogPath: path.join('.codex-father', 'sessions', 'latest', 'events.jsonl'),
           failedTasks,
           failureReason: 'success-rate-below-threshold',
         },

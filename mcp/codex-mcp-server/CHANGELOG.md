@@ -1,3 +1,22 @@
+## [Unreleased]
+
+### Features
+
+- **runtime:** 补丁模式默认将 diff 落盘并在日志中仅输出预览，支持新的
+  `--patch-output`/`--patch-preview-lines`/`--no-patch-preview`/
+  `--no-patch-artifact` CLI 透传，元数据包含补丁哈希与行数。
+
+### Docs
+
+- **help:** `codex.help` 增加补丁控量、日志降噪（`--no-echo-instructions`、
+  `--no-carry-context`、`view=result-only` 等）提示。
+
+### Fixes
+
+- **runtime:** 可写沙箱 + `never` 组合默认改为归一到
+  `on-failure`，避免无人值守健康检查被判定 `approval_required`；需要保留 `never`
+  时可设置 `ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1`。
+
 ## [1.6.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.5.0...mcp-v1.6.0) (2025-10-06)
 
 ### Features

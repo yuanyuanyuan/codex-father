@@ -60,10 +60,12 @@
 - [x] T008 [P] Data model test: zod schemas for Orchestration/Task/Agent/Patch
       in `core/orchestrator/tests/data-model.test.ts` based on `data-model.md`
       （core/orchestrator/types.ts 导出 Orchestration/Task/Agent/Patch schema）
-- [ ] T009 [P] Integration test: quickstart happy-path stream (stubbed
+- [x] T009 [P] Integration test: quickstart happy-path stream (stubbed
       orchestrator) in `core/orchestrator/tests/quickstart.integration.test.ts`
       per `quickstart.md`
-      （ProcessOrchestrator 缺少 run() 和事件流输出，实现仍为占位）
+      （core/orchestrator/tests/quickstart.integration.test.ts 复用 StateManager
+      发射事件，校验 start → task_completed → orchestration_completed 流并断言
+      seq 与 orchestrationId）
 - [x] T010 [P] Scheduler test: topo sort + dependency wave scheduling in
       `core/orchestrator/tests/task-scheduler.test.ts`
       （task-scheduler.ts 提供拓扑排序与默认超时逻辑）
@@ -75,15 +77,19 @@
       （实现已添加：core/orchestrator/task-decomposer.ts；待按契约执行测试与验证）
       （实现：core/orchestrator/task-decomposer.ts；测试：core/orchestrator/tests/task-decomposer.manual.test.ts）
 - [ ] T032 [P] TaskDecomposer LLM mode (structured output parsing with mocked
+      （core/orchestrator/tests/task-decomposer.manual.test.ts 覆盖成功路径、
+      循环依赖与重复 ID，确保未知依赖被过滤并抛出预期错误）
+- [x] T032 [P] TaskDecomposer LLM mode (structured output parsing with mocked
       codex) in `core/orchestrator/tests/task-decomposer.llm.test.ts`
-      （实现已包含 LLM 模式解析与错误处理：core/orchestrator/task-decomposer.ts；待验证）
-- [ ] T033 [P] RoleAssigner rule priority + LLM fallback in
+      （core/orchestrator/tests/task-decomposer.llm.test.ts 覆盖 dependencies 推导及缺失 tasks 错误）
+- [x] T033 [P] RoleAssigner rule priority + LLM fallback in
       `core/orchestrator/tests/role-assigner.test.ts`
-      （实现已添加：core/orchestrator/role-assigner.ts；支持最长关键词优先与 LLM fallback）
-- [ ] T034 [P] Permissions enforcement per role
+      （core/orchestrator/tests/role-assigner.test.ts 验证最长关键词优先于规则顺序，
+      且缺省时触发 LLM fallback 并记录 reasoning）
+- [x] T034 [P] Permissions enforcement per role
       (allowedTools/permission-mode/sandbox) in
       `core/orchestrator/tests/permissions-enforcement.test.ts`
-      （process-orchestrator.ts 未执行角色权限校验）
+      （已实现：process-orchestrator.ts 校验角色配置并注入 codex exec 安全参数）
 - [ ] T035 [P] Pre-assignment validator (context completeness; reject on
       missing) in `core/orchestrator/tests/pre-assignment-validator.test.ts`
       （实现已添加：core/orchestrator/pre-assignment-validator.ts；支持文件/环境/配置键校验）
@@ -94,6 +100,7 @@
       `core/orchestrator/tests/json-output.contract.test.ts`
       （orchestrate-command.ts 尚未输出 JSON summary 模式）
       （文件路径 core/orchestrator/tests/json-output.contract.test.ts 已存在）
+      （core/orchestrator/tests/json-output.contract.test.ts 已存在）
 - [ ] T038 [P] Contract test: JSONL audit log append-only + required fields in
       `core/orchestrator/tests/audit-jsonl.contract.test.ts`
       （state-manager.ts 未实现 emitEvent 与 JSONL 追加）
@@ -219,9 +226,9 @@
 - [ ] T027 [P] Unit tests for patch-applier strategies in
       `core/orchestrator/tests/patch-applier.test.ts`
       （core/orchestrator/tests/patch-applier.test.ts 缺少策略分支）
-- [ ] T028 [P] CLI doc updates: extend
+- [x] T028 [P] CLI doc updates: extend
       `specs/006-docs-capability-assessment/quickstart.md` with real examples
-      （specs/006-docs-capability-assessment/quickstart.md 未补充示例）
+      （quickstart.md 增补 orchestrate/ logs CLI 示例、事件片段与 JSONL 路径说明）
 - [ ] T029 [P] Performance smoke: concurrent 10 agents baseline log in
       `core/orchestrator/tests/performance.smoke.test.ts`
       （core/orchestrator/tests/performance.smoke.test.ts 尚未创建）

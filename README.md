@@ -240,6 +240,19 @@ npm run rmcp:client -- --help
 - 补丁模式：
   - 仅在需要“只输出补丁”时添加 `--patch-mode`；看到日志 `Patch Mode: on`
     即表示已注入 `policy-note`。
+  - 默认会将补丁写入 `<session>/patch.diff`（或 `--patch-output`
+    指定的路径），日志仅保留预览，可用 `--patch-preview-lines`
+    调整、`--no-patch-preview` 关闭回显。
+  - 如需恢复旧行为（将完整补丁写进日志），传入 `--no-patch-artifact`。
+- 结构化 instructions：
+  - 准备 JSON/YAML/XML 描述的任务文件后，可执行
+    `./start.sh --instructions path/to/task.json --task T032`；CLI 会先校验 schema 再写入
+    `.codex-father/instructions/` 并通过 `CODEX_STRUCTURED_*`
+    环境变量注入给 Shell。
+  - 若传入 `--task`，会校验是否存在同名任务 ID；缺少 `--instructions`
+    时 CLI 会直接报错。
+  - 详细数据模型、执行语义与示例见
+    [`specs/structured-instructions/`](specs/structured-instructions/README.md)。
 - 快速自检：
   - 联网+补丁模式示例：
     ```bash

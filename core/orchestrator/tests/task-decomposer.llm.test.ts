@@ -53,6 +53,36 @@ describe('TaskDecomposer LLM mode contract (T032)', () => {
     expect(result.dependencies.get('implement-feature')).toEqual(['plan-design']);
   });
 
+  it('derives dependency map when Codex omits dependencies field', async () => {
+    const codexInvoker = vi.fn().mockResolvedValue({
+      content: JSON.stringify({
+        tasks: [
+          {
+            id: 'plan-design',
+            title: '规划设计',
+            dependencies: [],
+          },
+          {
+            id: 'implement-feature',
+            dependencies: ['plan-design'],
+          },
+        ],
+      }),
+    });
+
+    const { TaskDecomposer } = await import(modulePath);
+
+    const decomposer = new TaskDecomposer({ codexInvoker } as any);
+
+    const result = await decomposer.decompose({
+      requirement: '检查依赖推导',
+      mode: 'llm',
+    });
+
+    expect(result.dependencies.get('implement-feature')).toEqual(['plan-design']);
+    expect(result.dependencies.get('plan-design')).toEqual([]);
+  });
+
   it('throws descriptive error when Codex structured output cannot be parsed', async () => {
     const codexInvoker = vi.fn().mockResolvedValue({ content: '<<malformed>>' });
 
@@ -66,5 +96,22 @@ describe('TaskDecomposer LLM mode contract (T032)', () => {
         mode: 'llm',
       })
     ).rejects.toThrow(/structured|结构化|JSON/i);
+  });
+
+  it('throws informative error when Codex response misses tasks field', async () => {
+    const codexInvoker = vi.fn().mockResolvedValue({
+      content: JSON.stringify({ dependencies: {} }),
+    });
+
+    const { TaskDecomposer } = await import(modulePath);
+
+    const decomposer = new TaskDecomposer({ codexInvoker } as any);
+
+    await expect(
+      decomposer.decompose({
+        requirement: '验证缺失 tasks',
+        mode: 'llm',
+      })
+    ).rejects.toThrow(/Missing structured tasks/i);
   });
 });
