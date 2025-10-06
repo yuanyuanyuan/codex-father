@@ -26,3 +26,5 @@ tsconfig.tsbuildinfo
 gha-creds-*.json
 assets/runtime/
 .cache/
+.codex-father-sessions/
+
