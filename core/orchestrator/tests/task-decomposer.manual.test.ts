@@ -1,74 +1,51 @@
-import { describe, expect, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { TaskDecomposer } from '../task-decomposer.js';
 
-describe('TaskDecomposer manual mode contract (T031)', () => {
-  const modulePath: string = '../task-decomposer.js';
-
-  it('returns validated manual tasks with dependency map when IDs are unique', async () => {
-    const { TaskDecomposer } = await import(modulePath);
-
+describe('TaskDecomposer manual mode', () => {
+  it('returns tasks and dependency map while filtering unknown dependencies', async () => {
+    const decomposer = new TaskDecomposer();
     const manualTasks = [
-      {
-        id: 't-plan',
-        title: '任务拆解规划',
-        description: '细化需求，识别可并行工作项',
-        role: 'planner',
-        dependencies: [],
-        priority: 0,
-      },
-      {
-        id: 't-impl',
-        title: '功能实现',
-        description: '编码实现核心逻辑',
-        role: 'developer',
-        dependencies: ['t-plan'],
-        priority: 1,
-      },
+      { id: 't1', title: 'task 1', dependencies: ['t2', 'missing'] },
+      { id: 't2', title: 'task 2' },
     ];
 
-    const decomposer = new TaskDecomposer();
-
     const result = await decomposer.decompose({
-      requirement: '实现多 Agent 并行编排',
+      requirement: 'manual mode test',
       mode: 'manual',
       manualTasks,
     });
 
-    expect(Array.isArray(result.tasks)).toBe(true);
-    expect(result.tasks.map((task: { id: string }) => task.id)).toEqual(['t-plan', 't-impl']);
-    expect(result.dependencies instanceof Map).toBe(true);
-    expect(result.dependencies.get('t-impl')).toEqual(['t-plan']);
+    expect(result.tasks).toEqual([
+      { id: 't1', title: 'task 1', dependencies: ['t2', 'missing'] },
+      { id: 't2', title: 'task 2', dependencies: [] },
+    ]);
+    expect(result.dependencies.get('t1')).toEqual(['t2']);
+    expect(result.dependencies.get('t2')).toEqual([]);
+    expect(result.dependencies.get('missing')).toBeUndefined();
   });
 
-  it('rejects manual definitions that contain dependency cycles', async () => {
-    const { TaskDecomposer } = await import(modulePath);
-
-    const cyclicTasks = [
-      {
-        id: 'loop-a',
-        title: '循环 A',
-        description: '依赖 loop-b',
-        role: 'developer',
-        dependencies: ['loop-b'],
-        priority: 0,
-      },
-      {
-        id: 'loop-b',
-        title: '循环 B',
-        description: '依赖 loop-a',
-        role: 'tester',
-        dependencies: ['loop-a'],
-        priority: 0,
-      },
-    ];
-
+  it('throws when detecting circular dependencies', async () => {
     const decomposer = new TaskDecomposer();
+    const promise = decomposer.decompose({
+      requirement: 'cycle',
+      mode: 'manual',
+      manualTasks: [
+        { id: 't1', dependencies: ['t2'] },
+        { id: 't2', dependencies: ['t1'] },
+      ],
+    });
 
-    await expect(
-      decomposer.decompose({
-        requirement: '检测循环依赖',
-        mode: 'manual',
-        manualTasks: cyclicTasks,
-      })
-    ).rejects.toThrow(/cycle|循环|依赖/i);
+    await expect(promise).rejects.toThrow('dependency cycle detected');
+  });
+
+  it('throws when duplicate task ids exist', async () => {
+    const decomposer = new TaskDecomposer();
+    const promise = decomposer.decompose({
+      requirement: 'duplicates',
+      mode: 'manual',
+      manualTasks: [{ id: 't1' }, { id: 't1' }],
+    });
+
+    await expect(promise).rejects.toThrow('duplicate id: t1');
   });
 });
