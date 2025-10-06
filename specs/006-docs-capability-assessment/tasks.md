@@ -74,6 +74,9 @@
 
 - [x] T031 [P] TaskDecomposer manual mode + cycle detection in
       `core/orchestrator/tests/task-decomposer.manual.test.ts`
+      （实现已添加：core/orchestrator/task-decomposer.ts；待按契约执行测试与验证）
+      （实现：core/orchestrator/task-decomposer.ts；测试：core/orchestrator/tests/task-decomposer.manual.test.ts）
+- [ ] T032 [P] TaskDecomposer LLM mode (structured output parsing with mocked
       （core/orchestrator/tests/task-decomposer.manual.test.ts 覆盖成功路径、
       循环依赖与重复 ID，确保未知依赖被过滤并抛出预期错误）
 - [x] T032 [P] TaskDecomposer LLM mode (structured output parsing with mocked
@@ -96,6 +99,7 @@
 - [x] T037 [P] Contract test: JSON summary output mode in
       `core/orchestrator/tests/json-output.contract.test.ts`
       （orchestrate-command.ts 尚未输出 JSON summary 模式）
+      （文件路径 core/orchestrator/tests/json-output.contract.test.ts 已存在）
       （core/orchestrator/tests/json-output.contract.test.ts 已存在）
 - [ ] T038 [P] Contract test: JSONL audit log append-only + required fields in
       `core/orchestrator/tests/audit-jsonl.contract.test.ts`
