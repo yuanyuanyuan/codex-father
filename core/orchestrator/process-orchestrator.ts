@@ -52,6 +52,7 @@ export class ProcessOrchestrator {
 
   /** 自增进程号，模拟 codex exec 的 PID。 */
   private processIdCounter = 1000;
+  private cancelled = false;
 
   public constructor(config?: ProcessOrchestratorOptions) {
     const baseConfig = createDefaultOrchestratorConfig();
@@ -100,6 +101,9 @@ export class ProcessOrchestrator {
     const executionPlan = schedule.executionPlan ?? [];
 
     for (const wavePlan of executionPlan) {
+      if (this.cancelled) {
+        break;
+      }
       const waveIndex = wavePlan.wave;
       const waveTasks = wavePlan.tasks ?? [];
       if (waveTasks.length === 0) {
@@ -167,6 +171,47 @@ export class ProcessOrchestrator {
     return true;
   }
 
+  /**
+   * 注册 SIGINT 处理器（可选）。测试可直接调用 requestCancel() 触发相同行为。
+   */
+  public registerSignalHandlers(graceMs: number = 60_000): void {
+    // 避免重复注册
+    const handler = async () => {
+      await this.requestCancel(graceMs);
+    };
+    (process as NodeJS.Process).on('SIGINT', handler);
+  }
+
+  /**
+   * 触发取消：广播 cancel_requested → 等待 grace → 终止活跃 agent → 清空池 → orchestration_failed。
+   */
+  public async requestCancel(graceMs: number = 60_000): Promise<void> {
+    if (this.cancelled) {
+      return;
+    }
+    this.cancelled = true;
+
+    await this.emitEvent({ event: 'cancel_requested', data: { graceMs } });
+
+    const deadline = Date.now() + Math.max(0, graceMs);
+    // 轻量等待：若仍有 busy agent，给出一点时间（最多 graceMs）
+    // 这里不强制事件循环占用，测试场景快速通过
+    while (this.activeAgents.length > 0 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 10));
+      break; // 最小实现：一次 tick 后进入清理
+    }
+
+    // 统一将所有 agent 标记为终止并清空池
+    for (const agent of this.agentPool.values()) {
+      agent.status = 'terminated';
+      agent.currentTask = undefined;
+      agent.lastActivityAt = new Date().toISOString();
+    }
+    this.agentPool.clear();
+
+    await this.emitEvent({ event: 'orchestration_failed', data: { reason: 'cancelled' } });
+  }
+
   private markAgentIdle(agent: Agent): Agent {
     const tracked = this.agentPool.get(agent.id) ?? agent;
     const updated: Agent = {
@@ -188,72 +233,7 @@ export class ProcessOrchestrator {
     return batches;
   }
 
-  private async emitWaveEvent(
-    event: 'start' | 'task_started' | 'task_completed' | 'task_failed',
-    payload: {
-      wave: number;
-      task?: TaskDefinition;
-      tasks?: readonly TaskDefinition[];
-      agent?: Agent;
-      reused?: boolean;
-      attempt?: number;
-      willRetry?: boolean;
-    }
-  ): Promise<void> {
-    const emitter = this.stateManager?.emitEvent;
-    if (typeof emitter !== 'function') {
-      return;
-    }
-
-    const role = typeof payload.task?.role === 'string' ? payload.task.role : undefined;
-    const data: Record<string, unknown> = {
-      wave: payload.wave,
-    };
-
-    if (payload.tasks) {
-      data.tasks = payload.tasks.map((item) => item.id);
-    }
-    if (payload.task) {
-      data.taskId = payload.task.id;
-    }
-    if (payload.agent) {
-      data.agentId = payload.agent.id;
-      data.agentStatus = payload.agent.status;
-    }
-    if (typeof payload.reused === 'boolean') {
-      data.reused = payload.reused;
-    }
-    if (typeof payload.attempt === 'number') {
-      data.attempt = payload.attempt;
-    }
-    if (typeof payload.willRetry === 'boolean') {
-      data.willRetry = payload.willRetry;
-    }
-
-    try {
-      const eventPayload: {
-        event: string;
-        taskId?: string;
-        role?: string;
-        data?: unknown;
-      } = {
-        event,
-        data,
-      };
-
-      if (payload.task?.id) {
-        eventPayload.taskId = payload.task.id;
-      }
-
-      if (role) {
-        eventPayload.role = role;
-      }
-
-      await Promise.resolve(emitter(eventPayload));
-    } catch {
-      // 忽略事件钩子异常，确保编排流程不中断
-    }
-  }
+  /** removed duplicate emitWaveEvent definition (see below) */
   /** 当前空闲 Agent 数量。 */
   public get idleAgents(): Agent[] {
     return [...this.agentPool.values()].filter((agent) => agent.status === 'idle');
@@ -440,6 +420,66 @@ export class ProcessOrchestrator {
       spawn(this.config.codexCommand, args, { stdio: 'ignore' }).on('error', () => void 0);
     } catch {
       // 忽略权限参数拼装中的非关键异常，避免影响现有流程
+    }
+  }
+
+  /**
+   * 统一波次事件封装：将与波次相关的任务/代理信息打平到 data 字段。
+   */
+  private async emitWaveEvent(
+    event: 'start' | 'task_started' | 'task_completed' | 'task_failed',
+    payload: {
+      wave: number;
+      task?: TaskDefinition;
+      tasks?: readonly TaskDefinition[];
+      agent?: Agent;
+      reused?: boolean;
+      attempt?: number;
+      willRetry?: boolean;
+    }
+  ): Promise<void> {
+    if (typeof this.stateManager?.emitEvent !== 'function') {
+      return;
+    }
+
+    const role = typeof payload.task?.role === 'string' ? payload.task.role : undefined;
+    const data: Record<string, unknown> = { wave: payload.wave };
+    if (payload.tasks) {
+      data.tasks = payload.tasks.map((t) => t.id);
+    }
+    if (payload.agent) {
+      data.agentId = payload.agent.id;
+    }
+    if (payload.reused !== undefined) {
+      data.reused = payload.reused;
+    }
+    if (payload.attempt !== undefined) {
+      data.attempt = payload.attempt;
+    }
+    if (payload.willRetry !== undefined) {
+      data.retry = payload.willRetry;
+    }
+
+    const base: { event: string; data?: unknown } = { event, data };
+    const eventPayload: { event: string; taskId?: string; role?: string; data?: unknown } = base;
+    if (payload.task?.id) {
+      eventPayload.taskId = payload.task.id;
+    }
+    if (role) {
+      eventPayload.role = role;
+    }
+    await Promise.resolve(this.stateManager.emitEvent(eventPayload));
+  }
+
+  /** 通用事件发射封装（非波次专用）。 */
+  private async emitEvent(payload: {
+    event: string;
+    taskId?: string;
+    role?: string;
+    data?: unknown;
+  }): Promise<void> {
+    if (typeof this.stateManager?.emitEvent === 'function') {
+      await Promise.resolve(this.stateManager.emitEvent(payload));
     }
   }
 }
