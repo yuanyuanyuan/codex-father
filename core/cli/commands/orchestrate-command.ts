@@ -83,9 +83,10 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         (typeof options.config === 'string' && options.config) || context.configPath || undefined;
 
       // 1) 加载项目配置（失败即返回非 0/1 退出码）
+      let projectConfig: import('../../lib/types.js').ProjectConfig | undefined;
       try {
         const configOptions = configFile ? { configFile } : undefined;
-        await getConfig(configOptions);
+        projectConfig = await getConfig(configOptions);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         const result: CommandResult = {
@@ -137,7 +138,26 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         asyncWrite: false,
         validateEvents: false, // 记录器为通用 JSONL；结构校验由上层契约测试覆盖
       });
-      const stateManager = new StateManager({ orchestrationId, eventLogger } as any);
+      // 根据配置启用默认脱敏模式集合（T052）：覆盖常见密钥/口令/令牌与 OpenAI sk- 格式
+      const redactionEnabled = projectConfig?.security?.redactSensitiveData !== false;
+      const defaultPatterns: (RegExp | string)[] = redactionEnabled
+        ? [
+            /sk-[a-z0-9-_]{8,}/i, // OpenAI-style keys
+            /api[-_]?key/i,
+            /access[-_]?key/i,
+            /secret[-_]?key/i,
+            /token/i,
+            /password/i,
+            /passwd/i,
+            /pwd/i,
+            /authorization/i,
+          ]
+        : [];
+      const stateManager = new StateManager({
+        orchestrationId,
+        eventLogger,
+        redactionPatterns: defaultPatterns,
+      } as any);
 
       const makeTimestamp = (): string => new Date().toISOString();
       let seq = 0;
