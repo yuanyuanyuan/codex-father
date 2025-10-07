@@ -29,6 +29,14 @@
 - CLI: 可写沙箱在未显式允许时将 `never` 自动归一为
   `on-failure`，避免健康检查类任务在无人值守环境下直接触发 `approval_required`。
 - docs/help: 补充未受支持参数 (`--notes`/`--files`/裸文本) 的错误案例与修复指南，避免再次触发退出码 2。
+- CLI/job: 消除 `state.json`
+  写入竞态（启动前先写入初始 running，trap 兜底缺失时自建骨架），失败/停止均能稳定落盘并被动通知可用。
+- CLI: trap 统一追加 `Exit Code: <N>`
+  独立行，状态归纳器可稳定解析退出码；停止场景强制归类为 `user_cancelled`。
+- CLI: `--preset` 严格校验（仅 `sprint|analysis|secure|fast`），未知预设直接作为
+  `input_error` 失败并提示修正。
+- 分类精度：`input_error` 优先于网络/工具错误匹配；超限预检统一
+  `context_overflow` 并在日志中写出 `[input-check]` 提示。
 
 ---
 

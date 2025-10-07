@@ -328,7 +328,8 @@ status_compute_and_update() {
       state="completed"
     elif [[ "$code" -lt 0 ]]; then
       state="stopped"
-      if [[ "$classification" == "null" ]]; then classification="\"user_cancelled\""; fi
+      # 强制覆盖为用户中断，避免误判为审批等其他分类
+      classification="\"user_cancelled\""
       exit_code="null"
     else
       state="failed"

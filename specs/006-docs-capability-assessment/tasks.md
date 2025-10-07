@@ -141,19 +141,21 @@
 - [x] T018 Implement `state-manager.ts`: Stream-JSON emitter + success rate
       aggregation; write JSONL via `EventLogger`
       （StateManager.emitEvent 提供 seq 递增与 JSONL 写入；state-manager.test.ts 验证通过）
-- [ ] T019 Implement CLI: `orchestrate-command.ts` parses options, loads config
+- [x] T019 Implement CLI: `orchestrate-command.ts` parses options, loads config
       via `core/cli/config-loader.ts`, runs orchestrator, maps exit codes per
       contract
-      （orchestrate-command.ts 未加载配置或调用 orchestrator 映射退出码）
+      （已实现：解析选项并加载配置；调用 `ProcessOrchestrator` 返回上下文；
+      按契约映射退出码；保持 stream-json 仅两行输出）
 
 ### Implementations for Added Coverage
 
 - [x] T044 Implement `task-decomposer.ts` (manual + LLM; cycle detection;
       structured parsing)
       （core/orchestrator/task-decomposer.ts 同时支持手动与 LLM 解析，测试覆盖成功/失败分支）
-- [ ] T045 Wire `TaskDecomposer` into orchestrate flow before scheduling; reject
+- [x] T045 Wire `TaskDecomposer` into orchestrate flow before scheduling; reject
       if cannot decompose
-      （编排流程尚未接入 TaskDecomposer，ProcessOrchestrator 仍未调用）
+      （已接入：在调度前调用 `TaskDecomposer.validate`；失败仅写 JSONL 事件
+      `decomposition_failed` → `orchestration_failed` 并中止）
 - [x] T046 Implement `role-assigner.ts` (rules file load; priority match; LLM
       fallback; optional confirmation)
       （role-assigner.ts 已实现规则优先级与 LLM 回退；测试验证关键词覆盖与记录 reasoning）
@@ -164,9 +166,10 @@
 - [x] T048 Implement `pre-assignment-validator.ts` (context completeness:
       files/env/config); emit rejection events
       （pre-assignment-validator.ts 已实现文件、环境变量、配置键校验；测试通过）
-- [ ] T049 Implement `understanding-check.ts` (restatement via codex;
+- [x] T049 Implement `understanding-check.ts` (restatement via codex;
       configurable gate) and integrate before execution
-      （understanding-check.ts 类已实现并通过单元测试，但尚未接入编排主流程）
+      （已接入：在任务分解之前执行理解门控；成功写 JSONL `understanding_validated`；
+      失败按顺序写入 `understanding_failed` → `orchestration_failed` 并中止）
 - [x] T050 Add JSON output mode to orchestrate summary (`--output-format json`)
       per contract
       （已实现：core/cli/commands/orchestrate-command.ts 提供 --output-format json，buildJsonSummary 输出 JSON 摘要）
@@ -192,9 +195,10 @@
 
 ## Phase 3.4: Integration
 
-- [ ] T020 Wire orchestrate outputs to both console (stream-json) and JSONL file
+- [x] T020 Wire orchestrate outputs to both console (stream-json) and JSONL file
       under `.codex-father/sessions/<id>/events.jsonl`
-      （尚未将编排输出写入 .codex-father/sessions/<id>/events.jsonl 或控制台流）
+      （已实现：使用 `StateManager + EventLogger` 统一写入 JSONL（0600/0700）；
+      CLI 严格仅输出 start 与 orchestration_completed 两行）
 - [ ] T021 Implement retry policy (max attempts=2, exponential backoff) and emit
       `task_retry_scheduled`
       （缺少重试策略实现与 task_retry_scheduled 事件）
