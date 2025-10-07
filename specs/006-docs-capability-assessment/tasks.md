@@ -98,15 +98,15 @@
 - [x] T038 [P] Contract test: JSONL audit log append-only + required fields in
       `core/orchestrator/tests/audit-jsonl.contract.test.ts`
       （StateManager.emitEvent 现写入 JSONL 并保持 seq 递增；测试验证通过）
-- [ ] T039 [P] Security test: redaction of sensitive data in events/logs in
+- [x] T039 [P] Security test: redaction of sensitive data in events/logs in
       `core/orchestrator/tests/redaction.security.test.ts`
-      （redaction.security.test.ts 仍能截获 "superSecret"，状态管理器未彻底替换敏感值）
-- [ ] T040 [P] Integration: session recovery from Codex rollout in
+      （已实现：StateManager.emitEvent 支持 redactionPatterns；敏感信息写入前被替换为 [REDACTED]）
+- [x] T040 [P] Integration: session recovery from Codex rollout in
       `core/orchestrator/tests/session-recovery.integration.test.ts`
-      （ProcessOrchestrator.resumeSession 未实现，session-recovery.integration.test.ts 报 TypeError）
-- [ ] T041 [P] Integration: resource exhaustion → auto downscale + task timeout
+      （已实现：ProcessOrchestrator.resumeSession 调用 codex exec resume，默认 sandbox=workspace-write/approval=never；测试通过）
+- [x] T041 [P] Integration: resource exhaustion → auto downscale + task timeout
       in `core/orchestrator/tests/resource-timeout.integration.test.ts`
-      （ProcessOrchestrator.handleResourcePressure 尚未实现，resource-timeout.integration.test.ts 报 TypeError）
+      （已实现：handleResourcePressure 触发 concurrency_reduced 与 task_failed(timeout)；测试通过）
 - [ ] T042 [P] Contract test: manual intervention mode gating in
       `core/orchestrator/tests/manual-intervention.contract.test.ts`
       （manual-intervention.contract.test.ts 期望拒绝执行，但 orchestrator.orchestrate() 仍返回成功上下文，缺少 gating 实现）

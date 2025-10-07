@@ -117,6 +117,38 @@ export class StateManager {
       const applyOne = (s: string): string => {
         let out = s;
         for (const pat of this.redactionPatterns!) {
+          const escapeRegExp = (str: string): string =>
+            str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          // 1) 先进行键值掩码：匹配 key[=:]value 形式，若 key 命中，则仅替换 value
+          const src = pat instanceof RegExp ? pat.source : escapeRegExp(pat);
+          const flags = 'g' + (pat instanceof RegExp ? pat.flags.replace(/g/g, '') : '');
+          // 捕获顺序：...(key by pattern)(sep)(value)
+          // 我们只将最后两个捕获组作为 sep 与 value；key 本身不需要单独捕获
+          const kvRegex = new RegExp(
+            `(?:${src})(?<sep>\\s*[=:]\\s*)(?<val>"[^"]*"|'[^']*'|[^\\s,;]+)`,
+            flags
+          );
+          out = out.replace(kvRegex, (...m: string[]) => {
+            // m: [match, sep, value, offset, input]
+            const matched: string = (m[0] ?? '') as string;
+            const sep: string = (m[1] ?? '') as string;
+            const value: string = (m[2] ?? '') as string;
+            const prefix = matched.slice(
+              0,
+              Math.max(0, matched.length - sep.length - value.length)
+            );
+            // 保留原有引号样式
+            if (
+              (value.startsWith('"') && value.endsWith('"')) ||
+              (value.startsWith("'") && value.endsWith("'"))
+            ) {
+              const quote = value[0];
+              return `${prefix}${sep}${quote}[REDACTED]${quote}`;
+            }
+            return `${prefix}${sep}[REDACTED]`;
+          });
+
+          // 2) 再进行直接替换：
           if (pat instanceof RegExp) {
             out = out.replace(pat, '[REDACTED]');
           } else if (typeof pat === 'string' && pat.length > 0) {

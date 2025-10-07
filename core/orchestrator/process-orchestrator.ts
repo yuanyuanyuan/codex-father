@@ -3,12 +3,7 @@ import path from 'node:path';
 
 import { spawn } from 'node:child_process';
 import { createDefaultOrchestratorConfig } from './types.js';
-<<<<<<< HEAD
 import { TaskScheduler } from './task-scheduler.js';
-=======
-import { StateManager } from './state-manager.js';
-import { ResourceMonitor } from './resource-monitor.js';
->>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
 import type {
   Agent,
   OrchestratorConfig,
@@ -29,8 +24,15 @@ type StateManagerLike = {
   }) => unknown | Promise<unknown>;
 };
 
+type ResourceMonitorLike = {
+  captureSnapshot: () => { cpuUsage?: number; memoryUsage?: number; timestamp?: number };
+};
+
 type ProcessOrchestratorOptions = Partial<OrchestratorConfig> & {
   stateManager?: StateManagerLike;
+  resourceMonitor?: ResourceMonitorLike;
+  taskTimeoutMs?: number;
+  resourceThresholds?: { cpuHighWatermark?: number };
 };
 
 /** 定义 spawnAgent 结果。 */
@@ -58,15 +60,8 @@ export class ProcessOrchestrator {
   /** 自增进程号，模拟 codex exec 的 PID。 */
   private processIdCounter = 1000;
   private cancelled = false;
-
-<<<<<<< HEAD
-  public constructor(config?: ProcessOrchestratorOptions) {
-=======
   /** 资源监控器（可注入）。 */
-  public readonly resourceMonitor: ResourceMonitor;
-
-  /** 状态管理器（可注入）。 */
-  public readonly stateManager: StateManager;
+  public readonly resourceMonitor: ResourceMonitorLike;
 
   /** 任务超时时间（毫秒，可注入）。 */
   private readonly taskTimeoutMs?: number;
@@ -74,17 +69,10 @@ export class ProcessOrchestrator {
   /** 资源阈值（可注入）。 */
   private readonly resourceThresholds?: { cpuHighWatermark?: number };
 
-  public constructor(
-    config?: Partial<OrchestratorConfig> & {
-      stateManager?: StateManager;
-      resourceMonitor?: ResourceMonitor;
-      taskTimeoutMs?: number;
-      resourceThresholds?: { cpuHighWatermark?: number };
-    }
-  ) {
->>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
+  public constructor(config?: ProcessOrchestratorOptions) {
     const baseConfig = createDefaultOrchestratorConfig();
-    const { stateManager, ...configOverrides } = config ?? {};
+    const { stateManager, resourceMonitor, taskTimeoutMs, resourceThresholds, ...configOverrides } =
+      config ?? {};
 
     this.config = {
       ...baseConfig,
@@ -95,18 +83,15 @@ export class ProcessOrchestrator {
       },
       codexCommand: configOverrides.codexCommand ?? baseConfig.codexCommand,
     } satisfies OrchestratorConfig;
-<<<<<<< HEAD
     this.maxPoolSize = Math.max(1, Math.min(this.config.maxConcurrency, MAX_POOL_SIZE));
     this.stateManager = stateManager;
-=======
-    this.maxPoolSize = Math.min(this.config.maxConcurrency, MAX_POOL_SIZE);
-
-    // 可注入依赖（保持最小化改动，不影响原有逻辑）
-    this.resourceMonitor = (config as any)?.resourceMonitor ?? new ResourceMonitor();
-    this.stateManager = (config as any)?.stateManager ?? new StateManager();
-    this.taskTimeoutMs = (config as any)?.taskTimeoutMs;
-    this.resourceThresholds = (config as any)?.resourceThresholds;
->>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
+    this.resourceMonitor =
+      resourceMonitor ??
+      ({
+        captureSnapshot: () => ({ cpuUsage: 0, memoryUsage: 0, timestamp: Date.now() }),
+      } as ResourceMonitorLike);
+    this.taskTimeoutMs = taskTimeoutMs;
+    this.resourceThresholds = resourceThresholds;
   }
 
   /**
@@ -462,7 +447,6 @@ export class ProcessOrchestrator {
   }
 
   /**
-<<<<<<< HEAD
    * 统一波次事件封装：将与波次相关的任务/代理信息打平到 data 字段。
    */
   private async emitWaveEvent(
@@ -519,7 +503,10 @@ export class ProcessOrchestrator {
   }): Promise<void> {
     if (typeof this.stateManager?.emitEvent === 'function') {
       await Promise.resolve(this.stateManager.emitEvent(payload));
-=======
+    }
+  }
+
+  /**
    * 恢复先前的 Codex 会话（非阻塞）。
    */
   public async resumeSession(opts: { rolloutPath: string; requirement?: string }): Promise<void> {
@@ -552,35 +539,40 @@ export class ProcessOrchestrator {
     activeTasks: Array<{ id: string; startedAt: number }>;
   }): Promise<void> {
     const cpuHighWatermark: number =
-      ((this as any).config?.resourceThresholds?.cpuHighWatermark as number | undefined) ??
+      (this as unknown as { config?: { resourceThresholds?: { cpuHighWatermark?: number } } })
+        ?.config?.resourceThresholds?.cpuHighWatermark ??
       this.resourceThresholds?.cpuHighWatermark ??
       0.9;
 
     const taskTimeoutMs: number =
       this.taskTimeoutMs ??
-      (this.config as any).taskTimeoutMs ??
+      (this as unknown as { config?: { taskTimeoutMs?: number; taskTimeout?: number } })?.config
+        ?.taskTimeoutMs ??
       this.config.taskTimeout ??
       30 * 60 * 1000;
 
     const snapshot = this.resourceMonitor.captureSnapshot();
     if (typeof snapshot?.cpuUsage === 'number' && snapshot.cpuUsage > cpuHighWatermark) {
-      await this.stateManager.emitEvent({
-        event: 'concurrency_reduced',
-        data: { reason: 'resource_exhausted' },
-      });
+      await Promise.resolve(
+        this.stateManager?.emitEvent?.({
+          event: 'concurrency_reduced',
+          data: { reason: 'resource_exhausted' },
+        })
+      );
     }
 
     const now = Date.now();
     for (const t of ctx?.activeTasks ?? []) {
       const startedAt = typeof t.startedAt === 'number' ? t.startedAt : Number.NaN;
       if (Number.isFinite(startedAt) && now - startedAt > taskTimeoutMs) {
-        await this.stateManager.emitEvent({
-          event: 'task_failed',
-          taskId: t.id,
-          data: { reason: 'timeout' },
-        });
+        await Promise.resolve(
+          this.stateManager?.emitEvent?.({
+            event: 'task_failed',
+            taskId: t.id,
+            data: { reason: 'timeout' },
+          })
+        );
       }
->>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
     }
   }
 }
