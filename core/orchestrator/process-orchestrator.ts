@@ -80,6 +80,8 @@ export class ProcessOrchestrator {
 
   /** 池容量上限（不超过 10）。 */
   private readonly maxPoolSize: number;
+  /** 当前可用并发池大小（可随资源压力动态调整）。 */
+  private currentPoolSize: number;
 
   /** 状态管理器事件发射器。 */
   private readonly stateManager: StateManagerLike | undefined;
@@ -133,6 +135,7 @@ export class ProcessOrchestrator {
       codexCommand: configOverrides.codexCommand ?? baseConfig.codexCommand,
     } satisfies OrchestratorConfig;
     this.maxPoolSize = Math.max(1, Math.min(this.config.maxConcurrency, MAX_POOL_SIZE));
+    this.currentPoolSize = this.maxPoolSize;
     this.stateManager = stateManager;
     this.resourceMonitor =
       resourceMonitor ??
@@ -300,7 +303,7 @@ export class ProcessOrchestrator {
         tasks: waveTasks,
       });
 
-      const batches = this.chunkByPoolSize(waveTasks, this.maxPoolSize);
+      const batches = this.chunkByPoolSize(waveTasks, this.currentPoolSize);
       for (const batch of batches) {
         await Promise.all(batch.map((task) => this.runTaskWithRetry(task, waveIndex)));
       }
@@ -767,13 +770,29 @@ export class ProcessOrchestrator {
       30 * 60 * 1000;
 
     const snapshot = this.resourceMonitor.captureSnapshot();
-    if (typeof snapshot?.cpuUsage === 'number' && snapshot.cpuUsage > cpuHighWatermark) {
-      await Promise.resolve(
-        this.stateManager?.emitEvent?.({
-          event: 'concurrency_reduced',
-          data: { reason: 'resource_exhausted' },
-        })
-      );
+    if (typeof snapshot?.cpuUsage === 'number') {
+      // 简化滞回策略：高于上限则降一档，低于 (上限-0.2) 则升一档
+      const previous = this.currentPoolSize;
+      if (snapshot.cpuUsage > cpuHighWatermark && this.currentPoolSize > 1) {
+        this.currentPoolSize = Math.max(1, this.currentPoolSize - 1);
+        await Promise.resolve(
+          this.stateManager?.emitEvent?.({
+            event: 'concurrency_reduced',
+            data: { reason: 'resource_exhausted', from: previous, to: this.currentPoolSize },
+          })
+        );
+      } else if (
+        snapshot.cpuUsage < Math.max(0, cpuHighWatermark - 0.2) &&
+        this.currentPoolSize < this.maxPoolSize
+      ) {
+        this.currentPoolSize = Math.min(this.maxPoolSize, this.currentPoolSize + 1);
+        await Promise.resolve(
+          this.stateManager?.emitEvent?.({
+            event: 'concurrency_increased',
+            data: { reason: 'recovered', from: previous, to: this.currentPoolSize },
+          })
+        );
+      }
     }
 
     const now = Date.now();

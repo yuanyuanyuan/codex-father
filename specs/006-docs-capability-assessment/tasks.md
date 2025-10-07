@@ -188,9 +188,11 @@
       `ProcessOrchestrator.resumeSession` 触发 `codex exec resume`；保留
       sandbox=workspace-write/approval=never 透传，不影响 stdout 两行契约；
       测试覆盖 resume 快捷路径与参数集）
-- [ ] T054 Ensure resource timeout + auto downscale behavior paths are
+- [x] T054 Ensure resource timeout + auto downscale behavior paths are
       implemented and observable (tie with `resource-monitor.ts`)
-      （resource-monitor.ts 未与并发调度联动超时降级）
+      （已联动：`handleResourcePressure` 在高负载时动态下调并发池大小并发出
+      `concurrency_reduced`，恢复时上调并发并发出 `concurrency_increased`；
+      调度阶段按 `currentPoolSize` 分批执行；新增用例验证降级生效。）
 - [ ] T055 Implement manual intervention mode (config flag) to gate
       execution/role fallback; emit prompts as events
       （manual intervention 模式配置与事件缺失）
