@@ -1,12 +1,88 @@
 import os from 'node:os';
 import type { ResourceSnapshot } from './types.js';
 
+export interface ShouldDownscaleConfig {
+  readonly cpuThreshold?: number;
+  readonly memoryThreshold?: number;
+  readonly hysteresis?: number;
+  readonly previousDecision?: {
+    readonly downscale: boolean;
+    readonly timestamp: number;
+  };
+}
+
+export interface ShouldDownscaleResult {
+  downscale: boolean;
+  reason?: string;
+  hysteresisActive?: boolean;
+}
+
+export function shouldDownscale(
+  snapshot: ResourceSnapshot,
+  config: ShouldDownscaleConfig = {}
+): ShouldDownscaleResult {
+  const cpuThreshold = clamp01(config.cpuThreshold ?? 0.8);
+  const memoryThreshold = Math.max(config.memoryThreshold ?? Number.POSITIVE_INFINITY, 0);
+  const hysteresis = clamp01(config.hysteresis ?? 0.1);
+  const previousDownscale = config.previousDecision?.downscale ?? false;
+
+  const cpuOver = snapshot.cpuUsage >= cpuThreshold;
+  const memOver = snapshot.memoryUsage >= memoryThreshold;
+
+  if (cpuOver || memOver) {
+    const reasons: string[] = [];
+    if (cpuOver) {
+      const cpuPercent = Math.round(snapshot.cpuUsage * 100);
+      const cpuThresholdPercent = Math.round(cpuThreshold * 100);
+      reasons.push(`CPU 使用率 ${cpuPercent}% 超过阈值 ${cpuThresholdPercent}%`);
+    }
+    if (memOver) {
+      if (Number.isFinite(memoryThreshold)) {
+        const memoryUsageRounded = Math.round(snapshot.memoryUsage);
+        const memoryThresholdRounded = Math.round(memoryThreshold);
+        reasons.push(`内存使用 ${memoryUsageRounded} 超过阈值 ${memoryThresholdRounded}`);
+      } else {
+        reasons.push('内存使用超出设定阈值');
+      }
+    }
+    return {
+      downscale: true,
+      reason: reasons.join('；'),
+    };
+  }
+
+  if (!previousDownscale) {
+    return { downscale: false };
+  }
+
+  const cpuRecover = snapshot.cpuUsage <= Math.max(cpuThreshold - hysteresis, 0);
+  const memHysteresis = memoryHysteresis(memoryThreshold, hysteresis);
+  const memRecover =
+    !Number.isFinite(memoryThreshold) ||
+    snapshot.memoryUsage <= Math.max(memoryThreshold - memHysteresis, 0);
+
+  if (cpuRecover && memRecover) {
+    return { downscale: false };
+  }
+
+  return {
+    downscale: true,
+    hysteresisActive: true,
+    reason: '滞回保护中：CPU/内存尚未降至安全带，保持降级策略',
+  };
+}
+
 /**
  * ResourceMonitor 负责采集轻量级的系统资源指标喵。
  */
 export class ResourceMonitor {
-  /** 上一次判定是否处于高压区（用于滞回） */
-  private lastOverloaded = false;
+  /** 上一次决策结果（用于滞回判定） */
+  private lastDecision:
+    | {
+        downscale: boolean;
+        timestamp: number;
+      }
+    | undefined;
 
   /**
    * 采集一次资源快照。
@@ -37,37 +113,26 @@ export class ResourceMonitor {
     snapshot: ResourceSnapshot,
     opts?: { cpuThreshold?: number; memoryThreshold?: number; hysteresis?: number }
   ): { overloaded: boolean; shouldDownscale: boolean; shouldUpscale: boolean } {
-    const cpuThreshold = clamp01(opts?.cpuThreshold ?? 0.8);
-    const memoryThreshold = Math.max(opts?.memoryThreshold ?? Number.POSITIVE_INFINITY, 0);
-    const hysteresis = clamp01(opts?.hysteresis ?? 0.1);
+    const previousDecision = this.lastDecision;
+    const decision = shouldDownscale(snapshot, {
+      cpuThreshold: opts?.cpuThreshold,
+      memoryThreshold: opts?.memoryThreshold,
+      hysteresis: opts?.hysteresis,
+      previousDecision,
+    });
 
-    const cpuOver = snapshot.cpuUsage >= cpuThreshold;
-    const memOver = snapshot.memoryUsage >= memoryThreshold;
-    const nowOver = cpuOver || memOver;
+    const wasDownscale = previousDecision?.downscale ?? false;
+    const nextDecision = {
+      downscale: decision.downscale,
+      timestamp: snapshot.timestamp ?? Date.now(),
+    } as const;
+    this.lastDecision = nextDecision;
 
-    // 进入高压区：立即触发 downscale，并记录状态
-    if (nowOver) {
-      this.lastOverloaded = true;
-      return { overloaded: true, shouldDownscale: true, shouldUpscale: false };
-    }
+    const overloaded = decision.downscale;
+    const needDownscale = !wasDownscale && decision.downscale;
+    const canUpscale = wasDownscale && !decision.downscale;
 
-    // 滞回恢复：只有显著低于阈值才恢复（防抖）
-    const cpuRecover = snapshot.cpuUsage <= Math.max(cpuThreshold - hysteresis, 0);
-    const memRecover =
-      snapshot.memoryUsage <=
-      Math.max(memoryThreshold - memoryHysteresis(memoryThreshold, hysteresis), 0);
-
-    if (this.lastOverloaded) {
-      if (cpuRecover && memRecover) {
-        this.lastOverloaded = false;
-        return { overloaded: false, shouldDownscale: false, shouldUpscale: true };
-      }
-      // 仍在滞回区间：保持不变
-      return { overloaded: true, shouldDownscale: false, shouldUpscale: false };
-    }
-
-    // 一直健康
-    return { overloaded: false, shouldDownscale: false, shouldUpscale: false };
+    return { overloaded, shouldDownscale: needDownscale, shouldUpscale: canUpscale };
   }
 }
 
