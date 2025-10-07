@@ -243,7 +243,7 @@ export class ProcessOrchestrator {
     try {
       const decomposer = new TaskDecomposer();
       // 最小实现：视为已分解，仅进行拓扑/重复校验
-      decomposer.validate(tasks as any);
+      decomposer.validate(tasks as ReadonlyArray<{ id: string; dependencies?: string[] }>);
       // 成功时发出分解完成事件，供上层观测
       await this.emitEvent({
         event: 'decomposition_completed',
@@ -420,7 +420,7 @@ export class ProcessOrchestrator {
    */
   public registerSignalHandlers(graceMs: number = 60_000): void {
     // 避免重复注册
-    const handler = async () => {
+    const handler: () => Promise<void> = async () => {
       await this.requestCancel(graceMs);
     };
     (process as NodeJS.Process).on('SIGINT', handler);
@@ -614,7 +614,7 @@ export class ProcessOrchestrator {
     this.agentSequence += 1;
     const workDir = path.join(sessionDir, 'workspaces', `agent_${this.agentSequence}`);
     // 尝试创建必要目录（不抛出阻断异常）
-    void (async () => {
+    const ensureDirs = async (): Promise<void> => {
       try {
         await fsp.mkdir(sessionDir, { recursive: true, mode: 0o700 });
         await fsp.mkdir(path.join(sessionDir, 'patches'), { recursive: true, mode: 0o700 });
@@ -622,7 +622,8 @@ export class ProcessOrchestrator {
       } catch {
         // 忽略
       }
-    })();
+    };
+    void ensureDirs();
 
     return {
       id: agentId,

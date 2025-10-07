@@ -180,11 +180,28 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
             /authorization/i,
           ]
         : [];
+      // 通过轻量桥接适配 StateManager 的事件记录器接口，避免 any
+      const bridgeLogger = {
+        logEvent: (record: Record<string, unknown>): Promise<unknown> => {
+          // 将通用记录转为应用事件模型的最小子集，跳过二次校验以提升性能
+          // 使用 unknown 再断言为 Event 子集，避免显式 any
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+          return eventLogger.logEvent(
+            record as unknown as import('../../lib/types.js').Event,
+            {
+              skipValidation: true,
+            } as import('../../session/event-logger.js').LogEventOptions
+          ) as Promise<unknown>;
+        },
+      } satisfies {
+        logEvent: (record: Record<string, unknown>) => unknown | Promise<unknown>;
+      };
+
       const stateManager = new StateManager({
         orchestrationId,
-        eventLogger,
+        eventLogger: bridgeLogger,
         redactionPatterns: defaultPatterns,
-      } as any);
+      });
 
       const makeTimestamp = (): string => new Date().toISOString();
       let seq = 0;

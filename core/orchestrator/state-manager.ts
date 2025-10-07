@@ -203,8 +203,12 @@ function createJsonlEventLogger(sessionDir: string): EventLoggerLike {
   const appendLine = async (line: string): Promise<void> => {
     try {
       await fsp.appendFile(eventsFile, line + '\n', { encoding: 'utf-8', mode: 0o600 });
-    } catch (err: any) {
-      if (err && err.code === 'ENOENT') {
+    } catch (err: unknown) {
+      const code =
+        typeof err === 'object' && err && 'code' in err
+          ? (err as { code?: string }).code
+          : undefined;
+      if (code === 'ENOENT') {
         await ensureDir();
         await fsp.appendFile(eventsFile, line + '\n', { encoding: 'utf-8', mode: 0o600 });
       } else {
