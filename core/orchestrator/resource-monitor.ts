@@ -115,10 +115,12 @@ export class ResourceMonitor {
   ): { overloaded: boolean; shouldDownscale: boolean; shouldUpscale: boolean } {
     const previousDecision = this.lastDecision;
     const decision = shouldDownscale(snapshot, {
-      cpuThreshold: opts?.cpuThreshold,
-      memoryThreshold: opts?.memoryThreshold,
-      hysteresis: opts?.hysteresis,
-      previousDecision,
+      ...(opts && typeof opts.cpuThreshold === 'number' ? { cpuThreshold: opts.cpuThreshold } : {}),
+      ...(opts && typeof opts.memoryThreshold === 'number'
+        ? { memoryThreshold: opts.memoryThreshold }
+        : {}),
+      ...(opts && typeof opts.hysteresis === 'number' ? { hysteresis: opts.hysteresis } : {}),
+      ...(previousDecision ? { previousDecision } : {}),
     });
 
     const wasDownscale = previousDecision?.downscale ?? false;

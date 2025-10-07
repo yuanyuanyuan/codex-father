@@ -552,9 +552,11 @@ fi
 # 应用预设（如提供）
 if [[ -n "${PRESET_NAME:-}" ]]; then
   if declare -F apply_preset >/dev/null 2>&1; then
-    apply_preset "${PRESET_NAME}" || true
+    if ! apply_preset "${PRESET_NAME}"; then
+      VALIDATION_ERROR="错误: 未知预设: ${PRESET_NAME}（可选: sprint|analysis|secure|fast）"
+    fi
   else
-    echo "[warn] 预设功能不可用：缺少 lib/presets.sh" >&2
+    VALIDATION_ERROR="错误: 预设功能不可用：缺少 lib/presets.sh"
   fi
 fi
 

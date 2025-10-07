@@ -2,7 +2,10 @@ import type { CLIParser } from '../parser.js';
 import type { CommandResult } from '../../lib/types.js';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'node:path';
+// no fs needed; JSONL writing handled by EventLogger
+import { getConfig } from '../config-loader.js';
 import { ProcessOrchestrator } from '../../orchestrator/process-orchestrator.js';
+import { EventLogger } from '../../session/event-logger.js';
 import { StateManager } from '../../orchestrator/state-manager.js';
 
 interface OrchestrateDefaults {
@@ -41,13 +44,85 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         return fallback;
       };
 
-      const mode = (options.mode as OrchestrateDefaults['mode']) ?? DEFAULTS.mode;
-      const maxConcurrency = normalizeNumber(options.maxConcurrency, DEFAULTS.maxConcurrency);
-      const taskTimeout = normalizeNumber(options.taskTimeout, DEFAULTS.taskTimeout);
-      const successThreshold = normalizeNumber(options.successThreshold, DEFAULTS.successThreshold);
-      const outputFormat =
-        (options.outputFormat as OrchestrateDefaults['outputFormat']) ?? DEFAULTS.outputFormat;
+      const clamp = (n: number, min: number, max: number): number =>
+        Math.min(Math.max(n, min), max);
 
+      const normalizeEnum = <T extends string>(
+        value: unknown,
+        allowed: readonly T[],
+        fallback: T
+      ): T => {
+        if (typeof value === 'string') {
+          const v = value.toLowerCase() as T;
+          if ((allowed as readonly string[]).includes(v)) {
+            return v;
+          }
+        }
+        return fallback;
+      };
+
+      const mode = normalizeEnum<OrchestrateDefaults['mode']>(
+        options.mode,
+        ['manual', 'llm'],
+        DEFAULTS.mode
+      );
+      let maxConcurrency = normalizeNumber(options.maxConcurrency, DEFAULTS.maxConcurrency);
+      maxConcurrency = clamp(Math.round(maxConcurrency), 1, 10);
+      let taskTimeout = normalizeNumber(options.taskTimeout, DEFAULTS.taskTimeout);
+      taskTimeout = clamp(Math.round(taskTimeout), 1, 10_000); // 以分钟为单位，最小 1 分钟
+      let successThreshold = normalizeNumber(options.successThreshold, DEFAULTS.successThreshold);
+      successThreshold = clamp(successThreshold, 0, 1);
+      const outputFormat = normalizeEnum<OrchestrateDefaults['outputFormat']>(
+        options.outputFormat,
+        ['json', 'stream-json'],
+        DEFAULTS.outputFormat
+      );
+
+      // 支持 --config <path>（命令级优先），否则回退到全局 context.configPath
+      const configFile =
+        (typeof options.config === 'string' && options.config) || context.configPath || undefined;
+
+      // 1) 加载项目配置（失败即返回非 0/1 退出码）
+      try {
+        const configOptions = configFile ? { configFile } : undefined;
+        await getConfig(configOptions);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        const result: CommandResult = {
+          success: false,
+          message: `配置加载失败: ${msg}`,
+          errors: [msg],
+          executionTime: Date.now() - startTime,
+          exitCode: 2,
+        };
+        return result;
+      }
+
+      // 2) 调用编排器（当前占位：空任务列表）
+      let tasksTotal = 0;
+      try {
+        const orchestrator = new ProcessOrchestrator({
+          maxConcurrency,
+          taskTimeout: taskTimeout * 60_000, // 分钟 -> 毫秒
+          outputFormat,
+          successRateThreshold: successThreshold,
+          mode,
+        });
+        const ctx = await orchestrator.orchestrate([]);
+        tasksTotal = Array.isArray(ctx?.tasks) ? ctx.tasks.length : 0;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        const result: CommandResult = {
+          success: false,
+          message: `编排流程初始化失败: ${msg}`,
+          errors: [msg],
+          executionTime: Date.now() - startTime,
+          exitCode: 3,
+        };
+        return result;
+      }
+
+      // 3) 产生占位成功率，并在 orchestrator 返回后再进行事件写入/输出
       const successRate = 0.92;
       const executionTime = Date.now() - startTime;
 
@@ -55,6 +130,14 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
       const orchestrationId = `orc_${uuidv4()}`;
       const sessionDir = path.join('.codex-father', 'sessions', orchestrationId);
       const eventsFile = path.join(sessionDir, 'events.jsonl');
+
+      // 使用 StateManager + EventLogger 统一写入 JSONL（0600）并保留 redaction 管线
+      const eventLogger = new EventLogger({
+        logDir: sessionDir,
+        asyncWrite: false,
+        validateEvents: false, // 记录器为通用 JSONL；结构校验由上层契约测试覆盖
+      });
+      const stateManager = new StateManager({ orchestrationId, eventLogger } as any);
 
       const makeTimestamp = (): string => new Date().toISOString();
       let seq = 0;
@@ -72,7 +155,7 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         timestamp: makeTimestamp(),
         orchestrationId,
         seq: seq++,
-        data: { totalTasks: 2 },
+        data: { totalTasks: tasksTotal },
       };
 
       const completedEvent: StreamEvent = {
@@ -83,9 +166,8 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         data: { successRate },
       };
 
-      // 构建 StateManager（内置 JSONL 事件记录），并注入 ProcessOrchestrator（非侵入）
-      const stateManager = new StateManager({ orchestrationId, sessionDir } as any);
-      const orchestrator = new ProcessOrchestrator({ stateManager });
+      // JSONL 写入交由 EventLogger，CLI 仅负责 stdout（stream-json）
+      // JSONL 写入交由 EventLogger，CLI 仅负责 stdout（stream-json）
 
       const buildJsonSummary = (
         status: 'success' | 'failure',
@@ -130,7 +212,7 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
             orchestrationId,
             eventsFile,
           },
-          executionTime: 0,
+          executionTime,
           exitCode: successRate >= successThreshold ? 0 : 1,
         };
         return result;
@@ -199,7 +281,7 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
           successRate,
           successThreshold,
           outputFormat,
-          eventLogPath: path.join('.codex-father', 'sessions', 'latest', 'events.jsonl'),
+          eventLogPath: eventsFile,
           failedTasks,
           failureReason: 'success-rate-below-threshold',
         },

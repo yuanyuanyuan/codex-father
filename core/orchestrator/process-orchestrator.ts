@@ -62,7 +62,6 @@ export class ProcessOrchestrator {
   private cancelled = false;
   /** 资源监控器（可注入）。 */
   public readonly resourceMonitor: ResourceMonitorLike;
-
   /** 任务超时时间（毫秒，可注入）。 */
   private readonly taskTimeoutMs?: number;
 
@@ -90,8 +89,12 @@ export class ProcessOrchestrator {
       ({
         captureSnapshot: () => ({ cpuUsage: 0, memoryUsage: 0, timestamp: Date.now() }),
       } as ResourceMonitorLike);
-    this.taskTimeoutMs = taskTimeoutMs;
-    this.resourceThresholds = resourceThresholds;
+    if (typeof taskTimeoutMs === 'number') {
+      this.taskTimeoutMs = taskTimeoutMs;
+    }
+    if (resourceThresholds) {
+      this.resourceThresholds = resourceThresholds;
+    }
   }
 
   /**
