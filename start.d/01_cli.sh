@@ -221,6 +221,10 @@ CODEX_GLOBAL_ARGS=()
 CODEX_EXEC_ARGS=()
 VALIDATION_ERROR=""
 
+# 位置参数容错：将首个非选项位置参数视为 --task，并连续吸收后续非选项 token 组成一段文本
+FALLBACK_TASK_TEXT=""
+FALLBACK_TASK_USED=0
+
 # 循环运行与上下文压缩参数（默认关闭循环，不携带上下文）
 REPEAT_UNTIL=""
 MAX_RUNS=1
@@ -511,10 +515,30 @@ while [[ $# -gt 0 ]]; do
       set --
       break ;;
     *)
-      print_unknown_arg_help "${1}"
-      exit 2 ;;
+      # 若是非选项 token，则作为 --task 的容错输入累积；否则报告未知参数
+      if [[ "${1}" != -* ]]; then
+        if [[ -z "${FALLBACK_TASK_TEXT}" ]]; then
+          FALLBACK_TASK_TEXT="${1}"
+        else
+          FALLBACK_TASK_TEXT+=" ${1}"
+        fi
+        FALLBACK_TASK_USED=1
+        shift
+        continue
+      else
+        print_unknown_arg_help "${1}"
+        exit 2
+      fi ;;
   esac
 done
+
+# 若使用了位置参数容错，则在解析结束后补记为文本输入源（等价于 --task "..."）
+if [[ ${FALLBACK_TASK_USED} -eq 1 && -n "${FALLBACK_TASK_TEXT}" ]]; then
+  SRC_TYPES+=("C")
+  SRC_VALUES+=("${FALLBACK_TASK_TEXT}")
+  # 将提示写入标准错误，帮助新调用方尽快纠正调用方式
+  echo "[hint] 检测到位置参数，已按 --task 处理；建议改用: --task \"<文本>\"" >&2
+fi
 
 # 若显式请求 --flat-logs 但既未指定 --log-file 也未设置 CODEX_SESSION_DIR，则忽略该请求。
 if [[ "${CODEX_LOG_SUBDIRS}" == "0" ]]; then

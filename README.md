@@ -199,6 +199,30 @@ tool_timeout_sec = 120
 
 📖 **完整使用文档**: [MCP 服务器使用指南](mcp/codex-mcp-server/README.md)
 
+### 新手传参速览（start.sh/job.sh）
+
+- 标准传参：使用 `--task "<文本>"` 指定任务说明；常用组合：
+  - `--sandbox workspace-write`、`--ask-for-approval on-failure|on-request`
+  - `--model "gpt-5-codex high"` 或 `--model gpt-5-codex high`
+  - `--codex-config <key=value>` 追加细粒度开关（如联网）
+- 位置参数容错：如果直接把一段话当成“位置参数”（没有任何
+  `--flag`）传给脚本，CLI 会自动把它当作 `--task`
+  内容处理，并在日志/标准错误输出提示；推荐长期改为显式 `--task`
+  写法以避免歧义。
+- 异步执行：优先通过 `job.sh start ... --json` 启动，拿到 `jobId` 后用
+  `job.sh status/logs` 跟踪；日志与元数据写入
+  `.codex-father/sessions/<job-id>/`。
+- 快速示例：
+
+  ```bash
+  ./job.sh start --task "检查 README，输出改进建议" \
+    --sandbox workspace-write --ask-for-approval on-failure --json
+
+  # 若不小心写成（位置参数）：
+  ./job.sh start "检查 README，输出改进建议" --sandbox workspace-write --ask-for-approval on-failure --json
+  # CLI 也会将其视为 --task，但会给出 [hint] 提示，建议改回显式 --task
+  ```
+
 > 包含详细的配置说明、实战示例、故障排除和 rMCP 集成说明 Codex
 > CLI 的更多配置细节请参考
 > [`refer-research/openai-codex/docs/config.md#mcp_servers`](refer-research/openai-codex/docs/config.md)
