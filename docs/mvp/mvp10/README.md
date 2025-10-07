@@ -188,6 +188,73 @@ jid=$(./job.sh start --tag t1 --json --task "<TODO 文本>" \
 ./job.sh status "$jid" --json
 ```
 
+## TODO 拆解与执行模式（推荐默认：分析拆解→人验收→执行）
+
+两种来源，统一执行：
+
+1) 用 Codex 先做“分析拆解”，人验收后执行（高效+可控，推荐）
+
+- 目标：快速生成可执行的 TODO 草案（每条 1–2 小时内可完成，含完成判据与影响文件 glob），经人工审阅/编辑后落盘为本地 `TODO.md`。
+- 生成草案（不直接执行，产出 patch）：
+
+```bash
+./start.sh --preset analysis \
+  --task "基于当前需求生成可执行的 TODO 列表（checkbox + 完成标准 + 影响文件 glob），优先级从高到低，控制在 12 条内；输出为对 TODO.md 的补丁" \
+  -f docs/需求说明.md \
+  --patch-mode
+```
+
+- 人审阅 patch，确认/编辑后保存 `TODO.md`。
+- 执行阶段：按上一节“任务=会话”的 `job.sh start` 流程逐条执行（或用脚本批量调度）。
+
+2) 用户按规范自拆 TODO 文件后，codex-father 自动执行
+
+- 文件格式（最小规范）：Markdown checkbox 列表，每条一行；可选内联元数据，格式示例：
+
+```md
+- [ ] 修复 README 错别字 (tag:docs, require:docs/**)
+- [ ] 为 start.sh 增加 --verify 选项 (tag:cli, require:start.d/**)
+- [ ] 新增 e2e 冒烟测试 (tag:test, require:tests/e2e/**)
+```
+
+- 字段约定（可选）：
+  - `tag:<name>` → 传给 `job.sh start --tag <name>`
+  - `require:<glob>` → 多个以逗号分隔，映射到 `--require-change-in <glob>`（可多次）
+  - 如需自定义校验，可在外层脚本里在 run 完成后执行 `verify` 命令（MVP10-B 计划提供 `--verify` 一体化开关）。
+
+- 示例脚本：自动读取 `TODO.md` 并顺序执行（简化版）
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+todo_file="TODO.md"
+while IFS= read -r line; do
+  [[ "$line" =~ ^-\ \[\ \]\  ]] || continue
+  # 提取正文与元数据
+  text=$(sed -E 's/^- \[ \] (.*?)(\s*\(.*\))?$/\1/' <<<"$line")
+  meta=$(sed -nE 's/.*\((.*)\).*/\1/p' <<<"$line" | tr 'A-Z' 'a-z')
+  tag=$(grep -oE 'tag:[^, ]+' <<<"${meta:-}" | cut -d: -f2- || true)
+  IFS=',' read -r -a requires <<<"$(grep -oE 'require:[^)]+' <<<"${meta:-}" | cut -d: -f2- | tr -d ' ' | tr ',' '\n' | tr '\n' ',' | sed 's/,$//')"
+
+  args=(--task "$text" --ask-for-approval never --sandbox workspace-write --repeat-until "CONTROL: DONE" --max-runs 3)
+  [[ -n "${tag:-}" ]] && args+=(--tag "$tag")
+  for g in "${requires[@]:-}"; do [[ -n "$g" ]] && args+=(--require-change-in "$g"); done
+
+  jid=$(./job.sh start --json "${args[@]}" | sed -n 's/.*"jobId"[[:space:]]*:[[:space:]]*"\([^" ]*\)".*/\1/p')
+  echo "started: $jid — $text"
+  # 简易等待：直到 completed/failed/stopped
+  while true; do
+    state=$(./job.sh status "$jid" --json | sed -n 's/.*"state"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+    [[ "$state" =~ ^(completed|failed|stopped)$ ]] && break
+    sleep 2
+  done
+  echo "finished: $jid ($state)"
+done < "$todo_file"
+```
+
+> 说明：此脚本仅示例“如何把每条 TODO 变成独立 run”；可按需扩展并发、失败重试、完成后自动 `git commit` 或外部 `verify` 等逻辑。
+
 ## 技术实现要点
 
 - `core/cli`：新增 `auto` 子命令（Ink/非交互两版择一：先实现非交互，跟随 `job.sh logs --follow` 并汇总）。
