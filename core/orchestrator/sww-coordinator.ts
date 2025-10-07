@@ -112,7 +112,17 @@ export class SWWCoordinator {
       }
 
       // 准备隔离工作目录（每个补丁唯一）
-      const workDir = await this.prepareWorkspace(patch);
+      let workDir: string | undefined;
+      try {
+        workDir = await this.prepareWorkspace(patch);
+      } catch (err) {
+        const reason =
+          err instanceof Error ? err.message : String(err ?? 'workspace_prepare_failed');
+        patch.status = 'failed';
+        patch.error = reason;
+        // 返回失败结果，交由上层 drainQueue() 统一发出 patch_failed 及映射事件，避免重复
+        return { success: false, errorMessage: reason };
+      }
 
       patch.status = 'applying';
       await Promise.resolve();
