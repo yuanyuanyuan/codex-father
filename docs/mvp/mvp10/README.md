@@ -101,6 +101,93 @@ core/cli/start.ts auto --json --task "生成 patch 并验证"
 ./start.sh --patch-mode --patch-apply --verify "npm test" --task "修复 lint 与单测"
 ```
 
+## 任务=会话（TODO 分解为多 run）
+
+目标：把一个 TODO 列表拆成多个“独立 Codex 会话（run）”，每个 run 单独的 `CODEX_SESSION_DIR`，自然规避上下文膨胀，同时保留每次执行的日志、最后消息与元数据，形成可追溯审计资产。
+
+两条路径：
+- 用 `job.sh`（推荐，立即可用）：每个 TODO 项触发一次 `job.sh start`，生成独立会话目录，按状态流转（completed/failed/stopped）与分类（done/approval_required…）驱动下一步。
+- 用 `orchestrate`（MVP/可演进）：把 TODO 作为任务列表输入编排器，让编排器在每个任务处启动一个独立 run，并将事件写入 JSONL。
+
+### 用 job.sh 的实现（立即可用）
+
+- TODO 文件格式（示例 `TODO.md`）：
+  - `- [ ] 修复 README 错别字`
+  - `- [ ] 为 start.sh 增加 --verify 选项`
+  - `- [ ] 新增 e2e 冒烟测试`
+
+- 启动单个 run（独立会话）：
+
+```bash
+./job.sh start \
+  --tag t1 \
+  --json \
+  --task "<你的 TODO 文本>" \
+  --ask-for-approval never \
+  --sandbox workspace-write \
+  --codex-config sandbox_workspace_write.network_access=true \
+  --repeat-until "CONTROL: DONE" \
+  --max-runs 3
+```
+
+- 跟随日志（单窗观测）：`./job.sh logs <job-id> --follow`
+- 轮询状态：`./job.sh status <job-id> --json`
+
+- 顺序执行脚本要点：
+  - 读取 `TODO.md` 的未完成项目（`- [ ] `），逐条开 run，等待完成后把对应行改为 `- [x] `。
+  - `job.sh start` 会在 `.codex-father/sessions/<job-id>/` 生成独立会话目录，并自动设置 `CODEX_SESSION_DIR` 与 `job.log`。
+  - 轮询 `status` 直到 `state` 变为 `completed/failed/stopped`；从 `classification` 或 `last_message_glob` 判断是否捕捉到了 `CONTROL: DONE`。
+  - 可选启用完成度约束：`--require-change-in 'src/**' --require-git-commit --auto-commit-on-done`，确保“做到位且写回仓库”。
+
+- 会话资产（每个 run 自动生成）：
+  - `job.log`、`*.instructions.md`、`*.last.txt`、`*.meta.json`、`state.json`、`aggregate.jsonl`。
+
+- 单窗体验：
+  - 一个终端运行“分发脚本”；另一个终端 `job.sh logs <job-id> --follow` 观察当前任务。
+  - 或在脚本里内联 `./job.sh logs "$jobId" --tail 50` 的尾部输出作为进度提示。
+
+- 可靠性与安全建议：
+  - `--ask-for-approval never --sandbox workspace-write`（免确认），必要时 `--codex-config sandbox_workspace_write.network_access=true` 开网络。
+  - 兜底：`--max-runs 3`；如模型未输出 `CONTROL: DONE` 也能收敛。
+  - 严控上下文：默认不携带上一轮对话；如需摘要辅助可用 `--context-head/--context-grep`。
+  - 脱敏：必要时加 `--redact`。
+
+### 用 orchestrate 的实现（MVP/可演进）
+
+- 目标形态：输入 `tasks.json`（或从 `TODO.md` 解析），每个 task = 一次独立 run。
+- 实施建议：先用 Node/TS 薄封装循环 `job.sh start → status 轮询 → logs 摘要 → 事件写入 JSONL`；随后把该逻辑内嵌到 `ProcessOrchestrator`（`spawnAgent` 或 `StateManager` 事件）以实现“任务=会话”。
+- 好处：原生并发、重试、失败分类与成功率阈值控制；为“分析→补丁→验证”多阶段编排打底。
+
+### 为什么不会爆上下文
+
+- 每个 TODO 项作为一次“全新 run”，各自的 `CODEX_SESSION_DIR` 独立；Codex 历史对话不跨任务累积，自然不会因“长对话”爆上下文。
+- 如需把上一 run 的信息喂给下一 run，不要携带整段对话，只传必要的工件/摘要（补丁路径、提交哈希、概要等），通过 `--content`/`--file` 注入。
+
+### 落地清单（速用）
+
+1) 准备 `TODO.md`；设置：
+
+```bash
+export CODEX_VERSION_OVERRIDE=0.44.0
+export ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1
+```
+
+2) 启动一个 run 并获取 jobId：
+
+```bash
+jid=$(./job.sh start --tag t1 --json --task "<TODO 文本>" \
+  --ask-for-approval never --sandbox workspace-write \
+  --repeat-until "CONTROL: DONE" --max-runs 3 \
+  | sed -n 's/.*"jobId"[[:space:]]*:[[:space:]]*"\([^" ]*\)".*/\1/p')
+```
+
+3) 观察与收尾：
+
+```bash
+./job.sh logs "$jid" --follow
+./job.sh status "$jid" --json
+```
+
 ## 技术实现要点
 
 - `core/cli`：新增 `auto` 子命令（Ink/非交互两版择一：先实现非交互，跟随 `job.sh logs --follow` 并汇总）。
@@ -139,4 +226,3 @@ Milestone C（2–4 天）：
 ---
 
 附：当前不足清单来自近期使用与实测总结，见上文“现状不足清单”。
-
