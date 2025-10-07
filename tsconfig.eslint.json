@@ -10,7 +10,8 @@
     "config/**/*",
     "src/**/*",
     "specs/**/*",
-    "mcp/codex-mcp-server/src/**/*"
+    "mcp/codex-mcp-server/src/**/*",
+    "scripts/**/*"
   ],
   "exclude": [
     "node_modules",

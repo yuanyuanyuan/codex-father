@@ -31,6 +31,7 @@ export const canonicalOrder = [
   'codex.help',
   'codex.exec',
   'codex.start',
+  'codex.resume',
   'codex.status',
   'codex.logs',
   'codex.stop',

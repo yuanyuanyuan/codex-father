@@ -41,6 +41,12 @@ describe('Resource exhaustion & timeout integration (T041)', () => {
     expect(resourceMonitor.captureSnapshot).toHaveBeenCalled();
     expect(stateManager.emitEvent).toHaveBeenCalledWith(
       expect.objectContaining({
+        event: 'resource_downscale',
+        data: expect.objectContaining({ from: 5, to: 4, metric: 'cpu' }),
+      })
+    );
+    expect(stateManager.emitEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
         event: 'concurrency_reduced',
         data: expect.objectContaining({ reason: 'resource_exhausted' }),
       })

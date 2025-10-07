@@ -42,7 +42,7 @@
 - CHK024 未实现 — 当前 orchestrate 命令传入空任务列表（`core/cli/commands/orchestrate-command.ts`），主路径执行（提交→分解→执行→写入）尚未落地。
 - CHK025 未实现 — 角色分配流程 (`core/orchestrator/role-assigner.ts`) 仅提供基础规则/兜底逻辑，未覆盖人工确认场景。
 - CHK026 部分实现 — `src/lib/versionDetector.ts` 与 `src/lib/degradationStrategy.ts` 处理 Codex 版本差异，但工具缺失/参数不匹配的完整异常链路尚未覆盖。
-- CHK027 未实现 — `core/orchestrator/resource-monitor.ts` 有降并发逻辑，但缺少资源不可用与恢复后报告生成的闭环实现。
+- CHK027 已实现 — `core/orchestrator/process-orchestrator.ts` 的 `handleResourcePressure` 在资源压力下触发 `resource_downscale`（兼容 `concurrency_reduced`）并记录 CPU 快照；`core/orchestrator/tests/resource-upscale.linkage.test.ts`、`core/orchestrator/tests/resource-timeout.integration.test.ts` 确认降级与恢复链路。
 - CHK028 未实现 — 代码未消费 `specs/__archive/structured-instructions/examples/*` 中的自动化约束示例。
 
 ## Edge Case Coverage
@@ -76,7 +76,7 @@
 - CHK046 已实现 — `core/session/event-logger.ts`、`core/orchestrator/state-manager.ts` 固化 `.codex-father/sessions/<id>/events.jsonl` 结构。
 - CHK047 部分实现 — `core/cli/commands/orchestrate-command.ts` 默认注入脱敏正则，但 `core/session/event-logger.ts` 未对所有事件执行字段级脱敏。
 - CHK048 未实现 — 代码未定义成功率/失败率等指标的正式计算口径（现有值为占位常量）。
-- CHK049 未实现 — 未找到降并发/恢复等运维事件写入 JSONL 的实现；`core/orchestrator/resource-monitor.ts` 仅返回布尔值。
+- CHK049 已实现 — Stream JSON schema (`docs/schemas/stream-json-event.schema.json`) 新增 `resource_downscale`/`resource_restore` 枚举，`StateManager` 事件流包含资源降级/恢复记录，可用于运维可观测。
 - CHK050 部分实现 — 事件写入统一为 JSONL（`core/session/event-logger.ts`），但 CLI/MCP 输出在 `core/cli/commands/orchestrate-command.ts` 仍为占位文本，缺乏 Stream-JSON 实际落盘示例。
 
 ## CLI Contracts & Interfaces
@@ -96,7 +96,7 @@
 
 ## Cancel & Resume
 
-- CHK060 部分实现 — `core/session/session-manager.ts` 与 `core/orchestrator/process-orchestrator.ts` 含取消入口，但缺乏阶段可观测输出与状态变更的完整定义。
+- CHK060 部分实现 — `core/session/session-manager.ts` 与 `core/orchestrator/process-orchestrator.ts` 含取消入口，并将取消状态写入 `state.json`，但写入窗口补救与阶段观测仍不完善。
 - CHK061 未实现 — 写入窗口或补丁阶段的取消补救策略未在代码中出现。
 - CHK062 部分实现 — `core/cli/commands/orchestrate-command.ts` 支持 `--resume`，`core/session/config-persister.ts` 记录 rollout，但缺少归档规定的重放/审计环节。
 
@@ -126,12 +126,12 @@
 
 ## Reporting & Summary
 
-- CHK075 未实现 — 汇总报告字段（成功率、失败清单等）未在 `core/orchestrator/state-manager.ts` 或 CLI 中实现。
-- CHK076 未实现 — 未见失败清单的整改建议或责任归属输出。
-- CHK077 未实现 — CLI/MCP 未提供日志查看/导出指令；仅有低层 `EventLogger` 写入 JSONL。
+- CHK075 已实现 — `core/cli/commands/orchestrate-command.ts:401` 生成 `report.json`，写入成功率、失败清单、阈值等字段；`core/cli/tests/orchestrate-report.command.test.ts:28` 验证报告输出与 CLI 命令读取。
+- CHK076 已实现 — `core/cli/commands/orchestrate-command.ts:423` 根据失败任务生成整改建议（remediationSuggestions），测试 `core/cli/tests/orchestrate-report.command.test.ts:57` 确认摘要中包含失败任务定位信息。
+- CHK077 已实现 — `core/cli/commands/logs-command.ts` 提供按会话导出/跟随日志的 CLI，`core/cli/tests/logs-export.command.test.ts:1` 覆盖默认与 JSON 输出；`core/cli/commands/orchestrate-command.ts` 在报告摘要中补充事件日志路径。
 
 ## Security & Privacy
 
 - CHK078 已实现 — `core/orchestrator/role-assigner.ts`、`core/orchestrator/tests/sandbox-approvals.defaults.test.ts`、`core/cli/config-loader.ts` 固定权限模式与沙箱策略。
-- CHK079 部分实现 — `core/cli/commands/orchestrate-command.ts` 注入脱敏 RegExp，但事件存储层未逐字段脱敏。
-- CHK080 未实现 — 虽有配置 schema，但代码未限制环境变量/密钥的访问边界；相关策略未在 `core/lib` 中实现。
+- CHK079 已实现 — `core/lib/security/redaction.ts` 统一脱敏逻辑，`core/session/event-logger.ts` 默认应用敏感字段/环境快照掩码，`core/orchestrator/state-manager.ts` 在事件落盘前复用同一 redactor；相关安全回归见 `core/session/tests/event-logger.test.ts` 与 `core/orchestrator/tests/redaction.security.test.ts`。
+- CHK080 已实现 — `core/orchestrator/state-manager.ts` 与 `core/lib/security/redaction.ts` 对环境快照/变量数组执行 `[REDACTED]` 处理，`core/cli/commands/orchestrate-command.ts` 默认启用脱敏并透传配置，避免敏感环境变量落盘。

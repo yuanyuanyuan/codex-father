@@ -97,6 +97,32 @@ function resolveEventsPath(pathModule: typeof import('node:path'), runId: string
   return pathModule.join('.codex-father', 'sessions', runId, 'events.jsonl');
 }
 
+function resolveExportPath(
+  pathModule: typeof import('node:path'),
+  sessionId: string,
+  requestedPath?: string
+): { outputPath: string; isCustom: boolean } {
+  if (typeof requestedPath === 'string' && requestedPath.trim().length > 0) {
+    return { outputPath: pathModule.resolve(requestedPath.trim()), isCustom: true };
+  }
+
+  const defaultDir = pathModule.resolve('.codex-father', 'logs');
+  const outputPath = pathModule.join(defaultDir, `${sessionId}-events.jsonl`);
+  return { outputPath, isCustom: false };
+}
+
+async function exportLogsToPath(
+  fsPromises: typeof import('node:fs/promises'),
+  pathModule: typeof import('node:path'),
+  sourcePath: string,
+  destinationPath: string
+): Promise<void> {
+  const dir = pathModule.dirname(destinationPath);
+  await fsPromises.mkdir(dir, { recursive: true, mode: 0o750 });
+  await fsPromises.copyFile(sourcePath, destinationPath);
+  await fsPromises.chmod(destinationPath, 0o600).catch(() => undefined);
+}
+
 async function validateEventsPath(
   fsPromises: typeof import('node:fs/promises'),
   fs: typeof import('node:fs'),
@@ -299,9 +325,12 @@ export function registerLogsCommand(parser: CLIParser): void {
         return result;
       }
 
+      let lines: string[] = [];
       try {
-        const lines = await readLastLines(fs, readline, eventsPath, limit);
-        emitLines(lines, format);
+        lines = await readLastLines(fs, readline, eventsPath, limit);
+        if (!context.json) {
+          emitLines(lines, format);
+        }
       } catch (error) {
         const result: CommandResult = {
           success: false,
@@ -312,24 +341,78 @@ export function registerLogsCommand(parser: CLIParser): void {
         return result;
       }
 
+      const { outputPath, isCustom } = resolveExportPath(pathModule, sessionId, options.output);
+
+      const exportLogs = async (): Promise<void> => {
+        await exportLogsToPath(fsPromises, pathModule, eventsPath, outputPath);
+      };
+
+      try {
+        await exportLogs();
+      } catch (error) {
+        const message = `复制日志到 ${outputPath} 失败: ${(error as Error).message}`;
+        const result: CommandResult = {
+          success: false,
+          message,
+          errors: [message],
+          executionTime: Date.now() - startTime,
+          exitCode: 1,
+        };
+        return result;
+      }
+
       if (!follow) {
         const result: CommandResult = {
           success: true,
-          message: '导出完成',
-          data: { sessionId, format, limit, follow: false },
+          data: {
+            sessionId,
+            format,
+            limit,
+            follow: false,
+            eventsPath,
+            outputPath,
+            preview: lines,
+          },
           executionTime: Date.now() - startTime,
         };
+        if (!context.json) {
+          result.message = `日志导出完成，${isCustom ? '已保存至' : '默认存储在'} ${outputPath}`;
+        }
         return result;
       }
 
       await streamFollow(fs, fsPromises, eventsPath, format);
 
+      try {
+        await exportLogs();
+      } catch (error) {
+        const message = `日志跟随结束，但复制日志失败: ${(error as Error).message}`;
+        const result: CommandResult = {
+          success: false,
+          message,
+          errors: [message],
+          executionTime: Date.now() - startTime,
+          exitCode: 1,
+        };
+        return result;
+      }
+
       const result: CommandResult = {
         success: true,
-        message: '跟随结束',
-        data: { sessionId, format, limit, follow: true },
+        data: {
+          sessionId,
+          format,
+          limit,
+          follow: true,
+          eventsPath,
+          outputPath,
+          preview: lines,
+        },
         executionTime: Date.now() - startTime,
       };
+      if (!context.json) {
+        result.message = `跟随结束，日志已保存至 ${outputPath}`;
+      }
       return result;
     },
     {

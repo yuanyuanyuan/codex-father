@@ -91,7 +91,9 @@
     "release:dry-run": "bash scripts/release-mcp.sh --dry-run",
     "release:local": "bash scripts/release-mcp.sh --local",
     "release:ci": "bash scripts/release-mcp.sh --ci",
-    "release:ci-commit-docs": "bash scripts/release-mcp.sh --ci-commit-docs"
+    "release:ci-commit-docs": "bash scripts/release-mcp.sh --ci-commit-docs",
+    "demo:orchestrate": "tsx scripts/orchestrate-demo.ts",
+    "demo:orchestrate:smoke": "bash scripts/smoke-orchestrate.sh"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.2",

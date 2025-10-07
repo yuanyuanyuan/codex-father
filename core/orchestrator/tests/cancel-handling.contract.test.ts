@@ -5,9 +5,19 @@ describe('ProcessOrchestrator cancel handling contract (T023)', () => {
     const { ProcessOrchestrator } = await import('../process-orchestrator.js');
 
     const events: Array<Record<string, unknown>> = [];
+    let snapshot = {
+      status: 'pending',
+      completedTasks: 0,
+      failedTasks: 0,
+      updatedAt: Date.now(),
+    };
     const stateManager = {
       emitEvent: vi.fn(async (payload: Record<string, unknown>) => {
         events.push(payload);
+      }),
+      update: vi.fn((delta: Partial<any>) => {
+        snapshot = { ...snapshot, ...delta, updatedAt: Date.now() };
+        return snapshot;
       }),
     };
 
@@ -39,7 +49,9 @@ describe('ProcessOrchestrator cancel handling contract (T023)', () => {
     expect(names[0]).toBe('cancel_requested');
     expect(names.at(-1)).toBe('orchestration_failed');
 
-    // Agent pool should be cleared
-    expect(((orchestrator as any).agentPool as Map<string, unknown>).size).toBe(0);
+    // State snapshot should reflect cancellation
+    expect(stateManager.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'cancelled' })
+    );
   });
 });

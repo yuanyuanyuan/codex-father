@@ -223,8 +223,15 @@ export interface PatchApplyResult {
 }
 
 export interface OrchestratorStateSnapshot {
+  readonly status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   readonly completedTasks: number;
   readonly failedTasks: number;
+  readonly startedAt?: number;
+  readonly completedAt?: number;
+  readonly cancelledAt?: number;
+  readonly resumedAt?: number;
+  readonly lastError?: string;
+  readonly lastCancellationReason?: string;
   readonly updatedAt: number;
 }
 
@@ -234,9 +241,18 @@ export interface ResourceSnapshot {
   readonly timestamp: number;
 }
 
+export interface OrchestrationRunStats {
+  readonly totalTasks: number;
+  readonly completedTasks: number;
+  readonly failedTasks: number;
+  readonly successRate: number;
+  readonly failedTaskIds: readonly string[];
+}
+
 export interface OrchestratorContext {
   readonly config: OrchestratorConfig;
   readonly tasks: readonly Task[];
+  readonly stats?: OrchestrationRunStats;
 }
 
 export type TaskDefinition = Task;

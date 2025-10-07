@@ -39,11 +39,22 @@ describe('Resource pressure recovery increases scheduling concurrency (linkage)'
     await orchestrator.handleResourcePressure({ activeTasks: [] } as any);
 
     const names = events.map((e) => e.event);
+    expect(names).toContain('resource_downscale');
+    expect(names).toContain('resource_restore');
     expect(names).toContain('concurrency_reduced');
     expect(names).toContain('concurrency_increased');
 
+    const down = events.find((e) => e.event === 'resource_downscale') as any;
+    const restore = events.find((e) => e.event === 'resource_restore') as any;
     const red = events.find((e) => e.event === 'concurrency_reduced') as any;
     const inc = events.find((e) => e.event === 'concurrency_increased') as any;
+
+    expect(down?.data?.from).toBe(3);
+    expect(down?.data?.to).toBe(2);
+    expect(typeof down?.data?.recordedAt).toBe('string');
+    expect(restore?.data?.from).toBe(2);
+    expect(restore?.data?.to).toBe(3);
+    expect(typeof restore?.data?.recordedAt).toBe('string');
     expect(red?.data?.from).toBe(3);
     expect(red?.data?.to).toBe(2);
     expect(inc?.data?.from).toBe(2);

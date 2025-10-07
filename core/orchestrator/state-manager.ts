@@ -1,6 +1,7 @@
 import type { OrchestratorStateSnapshot } from './types.js';
 import * as fsp from 'node:fs/promises';
 import * as nodePath from 'node:path';
+import { createSensitiveRedactor, type SensitiveRedactor } from '../lib/security/redaction.js';
 
 /**
  * StateManager 维护编排执行过程中的状态快照喵。
@@ -30,7 +31,9 @@ export class StateManager {
   private orchestrationId?: string;
   private eventLogger?: EventLoggerLike;
   private seq: number = 0;
-  private redactionPatterns?: (RegExp | string)[];
+  private redactor: SensitiveRedactor;
+  private sessionDir?: string;
+  private persistLock: Promise<void> = Promise.resolve();
 
   /**
    * 使用可选初始状态创建管理器。
@@ -38,6 +41,7 @@ export class StateManager {
    * @param initialSnapshot 初始状态。
    */
   public constructor(initial?: StateManagerInit) {
+    this.redactor = createSensitiveRedactor([]);
     if (
       initial &&
       typeof initial === 'object' &&
@@ -50,28 +54,45 @@ export class StateManager {
       if (bootstrap.eventLogger) {
         this.eventLogger = bootstrap.eventLogger;
       }
+      if (typeof bootstrap.sessionDir === 'string' && bootstrap.sessionDir) {
+        this.sessionDir = bootstrap.sessionDir;
+      }
       // 允许通过 sessionDir 启用内置 JSONL 事件记录器（当未显式提供 eventLogger 时）。
       if (!this.eventLogger && typeof bootstrap.sessionDir === 'string' && bootstrap.sessionDir) {
         this.eventLogger = createJsonlEventLogger(bootstrap.sessionDir);
       }
-      if (bootstrap.redactionPatterns) {
-        this.redactionPatterns = bootstrap.redactionPatterns;
-      }
+      const patterns = Array.isArray(bootstrap.redactionPatterns)
+        ? Array.from(bootstrap.redactionPatterns)
+        : [];
+      this.redactor = createSensitiveRedactor(patterns);
+      const now = Date.now();
       this.snapshot = {
+        status: 'pending',
         completedTasks: 0,
         failedTasks: 0,
-        updatedAt: Date.now(),
+        updatedAt: now,
       };
+      this.schedulePersist();
       return;
     }
     const initialSnapshot: OrchestratorStateSnapshot | undefined = initial as
       | OrchestratorStateSnapshot
       | undefined;
-    this.snapshot = initialSnapshot ?? {
-      completedTasks: 0,
-      failedTasks: 0,
-      updatedAt: Date.now(),
-    };
+    if (initialSnapshot) {
+      this.snapshot = { ...initialSnapshot } as OrchestratorStateSnapshot;
+      if (!('status' in this.snapshot) || typeof this.snapshot.status !== 'string') {
+        this.snapshot = { ...this.snapshot, status: 'pending' } as OrchestratorStateSnapshot;
+      }
+    } else {
+      const now = Date.now();
+      this.snapshot = {
+        status: 'pending',
+        completedTasks: 0,
+        failedTasks: 0,
+        updatedAt: now,
+      };
+    }
+    this.schedulePersist();
   }
 
   /**
@@ -86,6 +107,7 @@ export class StateManager {
       ...updates,
       updatedAt: Date.now(),
     };
+    this.schedulePersist();
     return this.snapshot;
   }
 
@@ -108,79 +130,35 @@ export class StateManager {
     if (!this.eventLogger) {
       return;
     }
-    const redact = (val: unknown): unknown => {
-      if (!this.redactionPatterns || this.redactionPatterns.length === 0) {
-        return val;
-      }
-      const applyOne = (s: string): string => {
-        let out = s;
-        for (const pat of this.redactionPatterns!) {
-          const escapeRegExp = (str: string): string =>
-            str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-          // 1) 先进行键值掩码：匹配 key[=:]value 形式，若 key 命中，则仅替换 value
-          const src = pat instanceof RegExp ? pat.source : escapeRegExp(pat);
-          const flags = 'g' + (pat instanceof RegExp ? pat.flags.replace(/g/g, '') : '');
-          // 捕获顺序：...(key by pattern)(sep)(value)
-          // 我们只将最后两个捕获组作为 sep 与 value；key 本身不需要单独捕获
-          const kvRegex = new RegExp(
-            `(?:${src})(?<sep>\\s*[=:]\\s*)(?<val>"[^"]*"|'[^']*'|[^\\s,;]+)`,
-            flags
-          );
-          out = out.replace(kvRegex, (...m: string[]) => {
-            // m: [match, sep, value, offset, input]
-            const matched: string = (m[0] ?? '') as string;
-            const sep: string = (m[1] ?? '') as string;
-            const value: string = (m[2] ?? '') as string;
-            const prefix = matched.slice(
-              0,
-              Math.max(0, matched.length - sep.length - value.length)
-            );
-            // 保留原有引号样式
-            if (
-              (value.startsWith('"') && value.endsWith('"')) ||
-              (value.startsWith("'") && value.endsWith("'"))
-            ) {
-              const quote = value[0];
-              return `${prefix}${sep}${quote}[REDACTED]${quote}`;
-            }
-            return `${prefix}${sep}[REDACTED]`;
-          });
-
-          // 2) 再进行直接替换：
-          if (pat instanceof RegExp) {
-            out = out.replace(pat, '[REDACTED]');
-          } else if (typeof pat === 'string' && pat.length > 0) {
-            // 文字子串替换（全部）
-            out = out.split(pat).join('[REDACTED]');
-          }
-        }
-        return out;
-      };
-      if (typeof val === 'string') {
-        return applyOne(val);
-      }
-      if (val && typeof val === 'object') {
-        if (Array.isArray(val)) {
-          return val.map((v) => redact(v));
-        }
-        const obj: Record<string, unknown> = {};
-        for (const k of Object.keys(val as Record<string, unknown>)) {
-          const v = (val as Record<string, unknown>)[k];
-          obj[k] = typeof v === 'string' || typeof v === 'object' ? redact(v) : v;
-        }
-        return obj;
-      }
-      return val;
-    };
-    const redactedData = redact(payload.data);
-    await this.eventLogger.logEvent({
+    const record: Record<string, unknown> = {
       event: payload.event,
       orchestrationId: this.orchestrationId,
       seq: this.seq,
       taskId: payload.taskId,
       role: payload.role,
-      data: redactedData,
-    });
+      data: payload.data,
+    };
+    const sanitizedRecord = this.redactor(record) as Record<string, unknown>;
+    await this.eventLogger.logEvent(sanitizedRecord);
+  }
+  private schedulePersist(): void {
+    if (!this.sessionDir) {
+      return;
+    }
+    const targetDir = this.sessionDir;
+    const targetFile = nodePath.join(targetDir, 'state.json');
+    const payload = JSON.stringify(this.snapshot, null, 2);
+    this.persistLock = this.persistLock
+      .then(async () => {
+        try {
+          await fsp.mkdir(targetDir, { recursive: true, mode: 0o700 });
+          await fsp.writeFile(targetFile, payload, { encoding: 'utf-8', mode: 0o600 });
+          await fsp.chmod(targetFile, 0o600).catch(() => {});
+        } catch {
+          // Ignore persistence error, keep runtime alive
+        }
+      })
+      .catch(() => {});
   }
 }
 

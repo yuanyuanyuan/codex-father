@@ -12,6 +12,7 @@ import type {
   Agent,
   OrchestratorConfig,
   OrchestratorContext,
+  OrchestratorStateSnapshot,
   RoleConfiguration,
   TaskDefinition,
 } from './types.js';
@@ -26,6 +27,7 @@ type StateManagerLike = {
     role?: string;
     data?: unknown;
   }) => unknown | Promise<unknown>;
+  update?: (payload: Partial<OrchestratorStateSnapshot>) => OrchestratorStateSnapshot;
 };
 
 type ResourceMonitorLike = {
@@ -90,6 +92,8 @@ export class ProcessOrchestrator {
   /** 自增进程号，模拟 codex exec 的 PID。 */
   private processIdCounter = 1000;
   private cancelled = false;
+  private cancelledAt: number | undefined;
+  private lastFailureReason: string | undefined;
   /** 资源监控器（可注入）。 */
   public readonly resourceMonitor: ResourceMonitorLike;
   /** 任务超时时间（毫秒，可注入）。 */
@@ -114,6 +118,18 @@ export class ProcessOrchestrator {
   private readonly sessionDir?: string;
   /** 递增的 agent 下标，用于构造 workspaces/agent_<n> 目录。 */
   private agentSequence = 0;
+  /** 当前编排运行统计，用于计算成功率与失败清单。 */
+  private runStats: {
+    total: number;
+    completed: number;
+    failed: number;
+    failedTaskIds: string[];
+  } = {
+    total: 0,
+    completed: 0,
+    failed: 0,
+    failedTaskIds: [],
+  };
 
   public constructor(config?: ProcessOrchestratorOptions) {
     const baseConfig = createDefaultOrchestratorConfig();
@@ -189,6 +205,28 @@ export class ProcessOrchestrator {
     opts?: { requirement?: string; restatement?: string }
   ): Promise<OrchestratorContext> {
     const context = this.createContext(tasks);
+    this.cancelled = false;
+    this.cancelledAt = undefined;
+    this.lastFailureReason = undefined;
+    this.runStats = {
+      total: tasks.length,
+      completed: 0,
+      failed: 0,
+      failedTaskIds: [],
+    };
+
+    if (typeof this.stateManager?.update === 'function') {
+      try {
+        this.stateManager.update({
+          status: 'running',
+          startedAt: Date.now(),
+          completedTasks: 0,
+          failedTasks: 0,
+        });
+      } catch {
+        // ignore state update failure
+      }
+    }
 
     // 人工干预门控：在任何理解/分解/调度动作之前执行
     if (this.manualIntervention?.enabled) {
@@ -235,7 +273,7 @@ export class ProcessOrchestrator {
           event: 'orchestration_failed',
           data: { reason: 'understanding_invalid', detail },
         });
-        return context;
+        return this.finalizeContext(context);
       }
     }
 
@@ -260,11 +298,11 @@ export class ProcessOrchestrator {
         event: 'orchestration_failed',
         data: { reason: 'decomposition_invalid', detail: reason },
       });
-      return context;
+      return this.finalizeContext(context);
     }
 
     if (tasks.length === 0) {
-      return context;
+      return this.finalizeContext(context);
     }
 
     // 在调度前新增「理解一致性」门（T049） - 兼容旧签名（opts + understandingEvaluator）
@@ -294,7 +332,7 @@ export class ProcessOrchestrator {
           event: 'orchestration_failed',
           data: { reason: 'understanding_invalid', detail: reason },
         });
-        return context;
+        return this.finalizeContext(context);
       }
     }
 
@@ -333,7 +371,7 @@ export class ProcessOrchestrator {
       }
     }
 
-    return context;
+    return this.finalizeContext(context);
   }
 
   private async runTaskWithRetry(task: TaskDefinition, waveIndex: number): Promise<void> {
@@ -356,6 +394,7 @@ export class ProcessOrchestrator {
       const idleAgent = this.markAgentIdle(spawnResult.agent);
 
       if (success) {
+        this.runStats.completed += 1;
         await this.emitWaveEvent('task_completed', {
           wave: waveIndex,
           task,
@@ -407,12 +446,104 @@ export class ProcessOrchestrator {
         }
       }
     }
+
+    this.runStats.failed += 1;
+    this.runStats.failedTaskIds.push(task.id);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private async executeTask(_task: TaskDefinition): Promise<boolean> {
+  private async executeTask(task: TaskDefinition): Promise<boolean> {
     await Promise.resolve();
+
+    const role = typeof task.role === 'string' ? task.role : 'developer';
+    const sequence = this.runStats.completed + this.runStats.failed + 1;
+    const patchFileName = `patch_${sequence.toString().padStart(3, '0')}.diff`;
+
+    const meta = this.decodeExecutionMeta(task.roleMatchDetails);
+    const command = meta.command ?? `codex exec --task ${task.id}`;
+    const logSnippet = meta.logSnippet ?? 'execution completed';
+    const simulateFailure = meta.simulateFailure === true;
+
+    const firstWorkspaceAgent = [...this.agentPool.values()].find((agent) =>
+      agent.workDir?.includes('/workspaces/agent_')
+    );
+    const baseDir = firstWorkspaceAgent?.sessionDir || this.sessionDir;
+    if (!baseDir) {
+      return true;
+    }
+
+    const patchesDir = path.join(baseDir, 'patches');
+    const patchPath = path.join(patchesDir, patchFileName);
+    const sessionDir = baseDir;
+
+    try {
+      await fsp.mkdir(patchesDir, { recursive: true, mode: 0o700 });
+      const content = `# patch for ${task.id}\n# role: ${role}\n`; // placeholder content
+      await fsp.writeFile(patchPath, content, { encoding: 'utf-8', mode: 0o600 });
+      await this.emitEvent({
+        event: 'patch_generated',
+        taskId: task.id,
+        role,
+        data: { patchPath },
+      });
+      await this.emitEvent({
+        event: 'task_execution_summary',
+        taskId: task.id,
+        role,
+        data: { command, logSnippet },
+      });
+      await this.emitEvent({
+        event: 'quick_validate_passed',
+        taskId: task.id,
+        role,
+        data: { summary: 'synthetic patch placeholder' },
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      await this.emitEvent({
+        event: 'patch_generation_failed',
+        taskId: task.id,
+        role,
+        data: { error: reason },
+      });
+      this.runStats.failed += 1;
+      this.runStats.failedTaskIds.push(task.id);
+      return false;
+    }
+
+    if (simulateFailure) {
+      return false;
+    }
+
+    await this.emitEvent({
+      event: 'session_workspace_updated',
+      taskId: task.id,
+      role,
+      data: { sessionDir },
+    });
+
     return true;
+  }
+
+  private decodeExecutionMeta(details?: string): {
+    command?: string;
+    logSnippet?: string;
+    simulateFailure?: boolean;
+  } {
+    if (!details || typeof details !== 'string') {
+      return {};
+    }
+    try {
+      const parsed = JSON.parse(details);
+      if (parsed && typeof parsed === 'object' && parsed.source === 'manual') {
+        return {
+          command: typeof parsed.command === 'string' ? parsed.command : undefined,
+          logSnippet: typeof parsed.logSnippet === 'string' ? parsed.logSnippet : undefined,
+          simulateFailure: parsed.simulateFailure === true,
+        };
+      }
+    } catch {}
+    return {};
   }
 
   /**
@@ -434,6 +565,23 @@ export class ProcessOrchestrator {
       return;
     }
     this.cancelled = true;
+
+    this.cancelledAt = Date.now();
+    if (typeof this.stateManager?.update === 'function') {
+      try {
+        this.stateManager.update({
+          status: 'cancelled',
+          cancelledAt: this.cancelledAt,
+          lastCancellationReason: 'manual',
+          completedTasks: this.runStats.completed,
+          failedTasks: this.runStats.failed,
+        });
+      } catch {
+        // state update failure should not block cancel flow
+      }
+    }
+
+    this.lastFailureReason = 'cancelled';
 
     await this.emitEvent({ event: 'cancel_requested', data: { graceMs } });
 
@@ -747,6 +895,69 @@ export class ProcessOrchestrator {
     if (typeof this.stateManager?.emitEvent === 'function') {
       await Promise.resolve(this.stateManager.emitEvent(payload));
     }
+    if (payload.event === 'orchestration_failed') {
+      const raw = payload.data as Record<string, unknown> | undefined;
+      const reason = raw && typeof raw.reason === 'string' ? raw.reason : undefined;
+      this.lastFailureReason = reason ?? 'unknown_failure';
+    } else if (payload.event === 'orchestration_completed') {
+      this.lastFailureReason = undefined;
+    }
+  }
+
+  private finalizeContext(base: OrchestratorContext): OrchestratorContext {
+    const stats = this.summarizeStats();
+    if (typeof this.stateManager?.update === 'function') {
+      try {
+        const status = this.cancelled
+          ? 'cancelled'
+          : this.lastFailureReason || stats.failedTasks > 0
+            ? 'failed'
+            : 'completed';
+        const now = Date.now();
+        let patch: Partial<OrchestratorStateSnapshot> = {
+          status,
+          completedTasks: stats.completedTasks,
+          failedTasks: stats.failedTasks,
+        };
+        if (status === 'completed') {
+          patch = { ...patch, completedAt: now };
+        } else if (status === 'failed') {
+          patch = {
+            ...patch,
+            completedAt: now,
+            ...(this.lastFailureReason ? { lastError: this.lastFailureReason } : {}),
+          };
+        } else if (status === 'cancelled') {
+          patch = {
+            ...patch,
+            cancelledAt: this.cancelledAt ?? now,
+            lastCancellationReason: this.lastFailureReason ?? 'cancelled',
+          };
+        }
+        this.stateManager.update(patch);
+      } catch {
+        // 状态写入失败不影响主流程
+      }
+    }
+    return { ...base, stats } satisfies OrchestratorContext;
+  }
+
+  private summarizeStats(): {
+    totalTasks: number;
+    completedTasks: number;
+    failedTasks: number;
+    successRate: number;
+    failedTaskIds: readonly string[];
+  } {
+    const { total, completed, failed, failedTaskIds } = this.runStats;
+    const successRate = total > 0 ? completed / total : failed > 0 ? 0 : 1;
+    return {
+      totalTasks: total,
+      completedTasks: completed,
+      failedTasks: failed,
+      successRate,
+      failedTaskIds: [...failedTaskIds],
+    };
   }
 
   /**
@@ -800,6 +1011,23 @@ export class ProcessOrchestrator {
       const previous = this.currentPoolSize;
       if (snapshot.cpuUsage > cpuHighWatermark && this.currentPoolSize > 1) {
         this.currentPoolSize = Math.max(1, this.currentPoolSize - 1);
+        const recordedAt =
+          typeof snapshot.timestamp === 'number'
+            ? new Date(snapshot.timestamp).toISOString()
+            : new Date().toISOString();
+        await Promise.resolve(
+          this.stateManager?.emitEvent?.({
+            event: 'resource_downscale',
+            data: {
+              from: previous,
+              to: this.currentPoolSize,
+              metric: 'cpu',
+              usage: snapshot.cpuUsage,
+              threshold: cpuHighWatermark,
+              recordedAt,
+            },
+          })
+        );
         await Promise.resolve(
           this.stateManager?.emitEvent?.({
             event: 'concurrency_reduced',
@@ -811,6 +1039,23 @@ export class ProcessOrchestrator {
         this.currentPoolSize < this.maxPoolSize
       ) {
         this.currentPoolSize = Math.min(this.maxPoolSize, this.currentPoolSize + 1);
+        const recordedAt =
+          typeof snapshot.timestamp === 'number'
+            ? new Date(snapshot.timestamp).toISOString()
+            : new Date().toISOString();
+        await Promise.resolve(
+          this.stateManager?.emitEvent?.({
+            event: 'resource_restore',
+            data: {
+              from: previous,
+              to: this.currentPoolSize,
+              metric: 'cpu',
+              usage: snapshot.cpuUsage,
+              threshold: cpuHighWatermark,
+              recordedAt,
+            },
+          })
+        );
         await Promise.resolve(
           this.stateManager?.emitEvent?.({
             event: 'concurrency_increased',

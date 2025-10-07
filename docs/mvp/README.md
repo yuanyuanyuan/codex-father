@@ -7,6 +7,7 @@
 - [MVP3 文档](mvp3/) - 能力评估和非交互模式
 - [MVP4 文档](mvp4/) - PRD 草案
 - [MVP5 文档](mvp5/) - Worktree 集成计划
+- [MVP11 文档](MVP11/PRD.md) - 四种模式（CLI/作业/MCP/内嵌）整合 PRD
 
 ## 🔗 其他文档
 
