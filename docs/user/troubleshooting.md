@@ -16,6 +16,7 @@
 - [权限错误](#权限错误)
 - [性能问题](#性能问题)
 - [审批机制问题](#审批机制问题)
+- [被动通知未收到](#被动通知未收到)
 
 ---
 
@@ -177,6 +178,58 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 1. 始终通过 `--task "..."` 或 `-f/--file`、`--docs` 系列参数提供任务输入，推荐再加 `--tag <批次>`。
 2. 如果需要附加长规格说明，将文字写入文件后用 `-f spec.md` 传入，或在 `--task` 文本中概括重点。
 3. 先用 `--task "touch placeholder"` 之类的简单指令验证通道正常，再派发大任务。
+
+---
+
+## 被动通知未收到
+
+### 症状
+
+- 监听/汇总作业没有触发 PR 评论或外部 Webhook；或仪表盘长期显示 running。
+
+### 常见原因与定位
+
+1) 上下文体积超限导致预检即退出（未真正启动监听逻辑）
+
+- 日志：`[input-check] Estimated tokens ... exceed hard limit ...`；
+- 状态：`state=failed, exit_code=2, classification=context_overflow`；
+- 解决：拆分任务或仅传入摘要（优先用上一轮 `aggregate.txt` / `*.last.txt`），必要时临时提高 `INPUT_TOKEN_LIMIT`。
+
+2) 早期错误（如未知预设/未知参数）导致任务未启动
+
+- 日志：`错误: 未知预设: <name>` 或 `Unknown option/argument`；
+- 状态：`state=failed, exit_code=2, classification=input_error`；
+- 解决：修正参数；`--preset` 仅允许 `sprint|analysis|secure|fast`。
+
+3) 旧版本竞态导致 `running` 卡死（已修复）
+
+- 现已在后台启动前写入初始 `state.json`，且失败/停止兜底会自建骨架；
+- Trap 会稳定追加 `Exit Code: <N>` 行，状态归纳器可准确识别退出码；
+- 对于停止场景总是归类为 `classification=user_cancelled`，避免被日志中无关关键词（如 approval）误导。
+
+### 自检脚本
+
+```bash
+# 1) 未知预设 → failed + input_error
+./job.sh start --task "demo" --preset default --tag t-unknown --json
+sleep 0.5 && ./job.sh status <job-id> --json
+
+# 2) 上下文超限 → failed + context_overflow
+yes A | head -c 220000 > .codex-father/testdata/big.md
+./job.sh start --task ctx --docs .codex-father/testdata/big.md --tag t-overflow --json
+sleep 0.8 && ./job.sh status <job-id> --json
+
+# 3) 正常完成（dry-run）→ completed + normal
+./job.sh start --tag t-dry --preset analysis --dry-run --task noop --json
+sleep 0.8 && ./job.sh status <job-id> --json
+
+# 4) 停止场景 → stopped + user_cancelled
+./job.sh start --task noop --tag t-stop --json
+./job.sh stop <job-id> --json
+sleep 0.3 && ./job.sh status <job-id> --json
+```
+
+> 将 `<job-id>` 替换为 `job.sh start --json` 返回的值。
 
 **提示**：`codex.help` 的 `codex.start`/`codex.exec` 条目已补充该限制，调用前可先查看最新帮助。
 

@@ -310,6 +310,29 @@ npm run rmcp:client -- --help
       --patch-mode
     ```
 
+- 输入体积预检（超限立刻拒绝）
+  - CLI 会在执行前估算上下文体积；默认
+    `INPUT_TOKEN_LIMIT=32000`（粗略：字节/4≈tokens）。
+  - 超过硬上限会直接报错并退出码 2，状态落为
+    `failed`、`classification=context_overflow`，日志包含
+    `[input-check] Estimated tokens ... exceed hard limit ...`。
+  - 解决：拆分任务或仅传入摘要。可配合 `--docs` +
+    `--context-head/--context-grep` 策略压缩，或临时提高
+    `INPUT_TOKEN_LIMIT`（不推荐长期依赖）。
+
+- 预设严格校验（未知值直接失败）
+  - `--preset`
+    仅接受：`sprint|analysis|secure|fast`；未知预设将直接报错并退出码 2。
+  - 日志/状态：`failed`，`classification=input_error`；`bootstrap.err` 与
+    `job.log` 都会给出明确提示。
+
+- 状态与分类语义（便于被动通知）
+  - 正常完成：`state=completed, exit_code=0, classification=normal`（日志包含
+    `Exit Code: 0`）。
+  - 用户中断：`state=stopped, exit_code=null, classification=user_cancelled`（强制覆盖，不受日志其他关键词影响）。
+  - 参数错误：`state=failed, exit_code=2, classification=input_error`（例如未知预设/未知参数/用法错误）。
+  - 上下文超限：`state=failed, exit_code=2, classification=context_overflow`（参见“输入体积预检”）。
+
 ### 详细文档
 
 - **完整工具参数说明**:
