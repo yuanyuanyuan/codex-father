@@ -199,9 +199,11 @@
       under `.codex-father/sessions/<id>/events.jsonl`
       （已实现：使用 `StateManager + EventLogger` 统一写入 JSONL（0600/0700）；
       CLI 严格仅输出 start 与 orchestration_completed 两行）
-- [ ] T021 Implement retry policy (max attempts=2, exponential backoff) and emit
+- [x] T021 Implement retry policy (max attempts=2, exponential backoff) and emit
       `task_retry_scheduled`
-      （缺少重试策略实现与 task_retry_scheduled 事件）
+      （已实现：在 `runTaskWithRetry` 中按配置或默认进行指数回退；在每次失败且允许
+      重试时写入 JSONL 事件 `task_retry_scheduled`，包含 `{ nextAttempt, delayMs }`；
+      测试覆盖失败一次后重试与事件负载验证）
 - [ ] T022 Implement SWW isolation workspaces under
       `.codex-father/sessions/<id>/workspaces/agent_<n>/` and patches under
       `patches/`

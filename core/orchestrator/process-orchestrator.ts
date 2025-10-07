@@ -322,6 +322,38 @@ export class ProcessOrchestrator {
         attempt,
         willRetry: attempt < maxAttempts,
       });
+
+      // 若仍可重试，则调度下一次尝试（T021）：指数回退，并发出 task_retry_scheduled（仅 JSONL）。
+      if (attempt < maxAttempts) {
+        const policy = this.config.retryPolicy ?? {
+          maxAttempts: 2,
+          backoff: 'exponential',
+          initialDelayMs: 10,
+          maxDelayMs: 1000,
+        };
+        const initial = Math.max(0, Number(policy.initialDelayMs ?? 10));
+        const cap = Math.max(initial, Number(policy.maxDelayMs ?? 1000));
+        const exp = Math.max(0, attempt - 1);
+        const nextDelay = Math.min(policy.backoff === 'fixed' ? initial : initial * 2 ** exp, cap);
+
+        const retryEvent: { event: string; taskId?: string; role?: string; data?: unknown } = {
+          event: 'task_retry_scheduled',
+          taskId: task.id,
+          data: { nextAttempt: attempt + 1, delayMs: nextDelay },
+        };
+        if (typeof task.role === 'string') {
+          retryEvent.role = task.role;
+        }
+        await this.emitEvent(retryEvent);
+
+        // 测试环境不进行真实等待，以保证用例快速；否则进行轻量延迟。
+        const waitMs = process.env.ORCHESTRATOR_TESTS ? 0 : nextDelay;
+        if (waitMs > 0) {
+          await new Promise((r) => setTimeout(r, waitMs));
+        } else {
+          await Promise.resolve();
+        }
+      }
     }
   }
 
