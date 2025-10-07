@@ -2,9 +2,11 @@ import type { CLIParser } from '../parser.js';
 import type { CommandResult } from '../../lib/types.js';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'node:path';
-import * as fs from 'node:fs/promises';
+// no fs needed; JSONL writing handled by EventLogger
 import { getConfig } from '../config-loader.js';
 import { ProcessOrchestrator } from '../../orchestrator/process-orchestrator.js';
+import { EventLogger } from '../../session/event-logger.js';
+import { StateManager } from '../../orchestrator/state-manager.js';
 
 interface OrchestrateDefaults {
   mode: 'manual' | 'llm';
@@ -129,6 +131,14 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
       const sessionDir = path.join('.codex-father', 'sessions', orchestrationId);
       const eventsFile = path.join(sessionDir, 'events.jsonl');
 
+      // 使用 StateManager + EventLogger 统一写入 JSONL（0600）并保留 redaction 管线
+      const eventLogger = new EventLogger({
+        logDir: sessionDir,
+        asyncWrite: false,
+        validateEvents: false, // 记录器为通用 JSONL；结构校验由上层契约测试覆盖
+      });
+      const stateManager = new StateManager({ orchestrationId, eventLogger } as any);
+
       const makeTimestamp = (): string => new Date().toISOString();
       let seq = 0;
 
@@ -156,26 +166,7 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         data: { successRate },
       };
 
-      async function ensureDir0700(dir: string): Promise<void> {
-        await fs.mkdir(dir, { recursive: true, mode: 0o700 });
-        // 再次 chmod 避免 umask 影响
-        await fs.chmod(dir, 0o700).catch(() => {});
-      }
-
-      async function appendJsonl0600(file: string, line: unknown): Promise<void> {
-        const payload = JSON.stringify(line) + '\n';
-        try {
-          await fs.appendFile(file, payload, { encoding: 'utf8', mode: 0o600 });
-        } catch (err) {
-          // 若父目录不存在，创建后重试一次
-          if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-            await ensureDir0700(path.dirname(file));
-            await fs.appendFile(file, payload, { encoding: 'utf8', mode: 0o600 });
-          } else {
-            throw err;
-          }
-        }
-      }
+      // JSONL 写入交由 EventLogger，CLI 仅负责 stdout（stream-json）
 
       const buildJsonSummary = (
         status: 'success' | 'failure',
@@ -194,15 +185,16 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
           ...details,
         });
 
-      // stream-json 模式：仅输出两条事件到 stdout，并同步写入 events.jsonl
+      // stream-json 模式：仅输出两条事件到 stdout，同时经 StateManager 写入 JSONL
       if (outputFormat === 'stream-json') {
-        // 写入到文件（保证目录 0700、文件 0600）
-        await ensureDir0700(sessionDir);
-        await appendJsonl0600(eventsFile, startEvent);
-        await appendJsonl0600(eventsFile, completedEvent);
+        await stateManager.emitEvent({ event: startEvent.event, data: startEvent.data });
 
         // 严格控制 stdout：仅两条 JSON 行
         process.stdout.write(JSON.stringify(startEvent) + '\n');
+        await stateManager.emitEvent({
+          event: completedEvent.event,
+          data: completedEvent.data,
+        });
         process.stdout.write(JSON.stringify(completedEvent) + '\n');
 
         const result: CommandResult = {
