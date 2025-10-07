@@ -8,7 +8,7 @@
 
 这是 **Codex Father** 的发布汇总页。MCP 子包已完成以下关键版本：
 
-- v1.6.1：被动通知与状态稳定性改进（提前写入 state.json、Trap 自建骨架、统一 Exit Code 行、严格预设与分类语义）
+- v1.6.1：仓库整洁度与编排增强（依赖清理、事件契约与 AGENTS 指南同步、SWW 工作区异常不再中断队列、Orchestrator CI 矩阵 Node 18/20）
 - v1.6.0：移除系统 fallback，自动同步 `.codex-father` 内置脚本并提供显式缺失错误
 - v1.4.0：可发现性与传输增强（默认 NDJSON；`--transport=content-length`；`codex.clean`/`codex.metrics`；`codex.logs`
   增强）
