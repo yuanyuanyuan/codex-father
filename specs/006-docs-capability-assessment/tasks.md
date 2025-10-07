@@ -246,9 +246,9 @@
 - [x] T028 [P] CLI doc updates: extend
       `specs/006-docs-capability-assessment/quickstart.md` with real examples
       （quickstart.md 增补 orchestrate/ logs CLI 示例、事件片段与 JSONL 路径说明）
-- [ ] T029 [P] Performance smoke: concurrent 10 agents baseline log in
+- [x] T029 [P] Performance smoke: concurrent 10 agents baseline log in
       `core/orchestrator/tests/performance.smoke.test.ts`
-      （core/orchestrator/tests/performance.smoke.test.ts 尚未创建）
+      （已新增并通过：performance.smoke.test.ts — 10 并发任务完成，事件数符合预期）
 - [ ] T030 Repository hygiene: eslint/prettier run; ensure no unused deps;
       update `docs/developer/AGENTS.md` pointers if paths changed
       （尚未执行 eslint/prettier 清理或同步 docs/developer/AGENTS.md）
