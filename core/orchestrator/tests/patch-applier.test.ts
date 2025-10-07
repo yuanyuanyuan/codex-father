@@ -1,20 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PatchApplier } from '../patch-applier';
-import type { PatchApplyResult, PatchProposal } from '../types';
+import type { PatchApplyOptions } from '../patch-applier';
+import type { PatchProposal } from '../types';
 
-type StrategyResult = PatchApplyResult & {
-  strategy?: 'git' | 'native';
-  usedFallback?: boolean;
-};
-
-type ApplyOptions = {
-  gitApplyAvailable?: boolean;
-  fallbackToNative?: boolean;
-  strategies: {
-    git: (proposal: PatchProposal) => Promise<StrategyResult>;
-    native: (proposal: PatchProposal) => Promise<StrategyResult>;
-  };
-};
+type StrategyResult = Awaited<ReturnType<PatchApplier['apply']>>;
+type StrategyFn = (proposal: PatchProposal) => Promise<StrategyResult>;
 
 describe('PatchApplier 策略分支', () => {
   const buildProposal = (overrides: Partial<PatchProposal> = {}): PatchProposal => ({
@@ -23,23 +13,25 @@ describe('PatchApplier 策略分支', () => {
     summary: overrides.summary,
   });
 
+  const invoke = async (
+    applier: PatchApplier,
+    proposal: PatchProposal,
+    options?: PatchApplyOptions
+  ): Promise<StrategyResult> => applier.apply(proposal, options);
+
   it('git 可用时应优先调用 git 策略并返回 strategy="git"', async () => {
     const applier = new PatchApplier();
     const proposal = buildProposal({ id: 'patch_git_first' });
-    const gitStrategy = vi.fn<ApplyOptions['strategies']['git']>().mockResolvedValue({
+    const gitStrategy = vi.fn<StrategyFn>().mockResolvedValue({
       success: true,
       strategy: 'git',
-    });
-    const nativeStrategy = vi.fn<ApplyOptions['strategies']['native']>().mockResolvedValue({
+    } as StrategyResult);
+    const nativeStrategy = vi.fn<StrategyFn>().mockResolvedValue({
       success: true,
       strategy: 'native',
-    });
+    } as StrategyResult);
 
-    const result = await (
-      applier as unknown as {
-        apply: (proposal: PatchProposal, options: ApplyOptions) => Promise<StrategyResult>;
-      }
-    ).apply(proposal, {
+    const result = await invoke(applier, proposal, {
       gitApplyAvailable: true,
       fallbackToNative: true,
       strategies: { git: gitStrategy, native: nativeStrategy },
@@ -54,21 +46,17 @@ describe('PatchApplier 策略分支', () => {
   it('git 失败时应回退 native 并标记 usedFallback=true', async () => {
     const applier = new PatchApplier();
     const proposal = buildProposal({ id: 'patch_git_fallback' });
-    const gitStrategy = vi.fn<ApplyOptions['strategies']['git']>().mockResolvedValue({
+    const gitStrategy = vi.fn<StrategyFn>().mockResolvedValue({
       success: false,
       errorMessage: 'git apply rejected',
       strategy: 'git',
-    });
-    const nativeStrategy = vi.fn<ApplyOptions['strategies']['native']>().mockResolvedValue({
+    } as StrategyResult);
+    const nativeStrategy = vi.fn<StrategyFn>().mockResolvedValue({
       success: true,
       strategy: 'native',
-    });
+    } as StrategyResult);
 
-    const result = await (
-      applier as unknown as {
-        apply: (proposal: PatchProposal, options: ApplyOptions) => Promise<StrategyResult>;
-      }
-    ).apply(proposal, {
+    const result = await invoke(applier, proposal, {
       gitApplyAvailable: true,
       fallbackToNative: true,
       strategies: { git: gitStrategy, native: nativeStrategy },
@@ -85,7 +73,7 @@ describe('PatchApplier 策略分支', () => {
     const applier = new PatchApplier();
     const proposal = buildProposal({ id: 'patch_empty', targetFiles: [] });
 
-    const result = await applier.apply(proposal);
+    const result = await invoke(applier, proposal);
 
     expect(result.success, '缺少目标文件时必须失败').toBe(false);
     expect(result.errorMessage ?? '', '错误信息应提示目标文件为空').toMatch(
@@ -96,20 +84,14 @@ describe('PatchApplier 策略分支', () => {
   it('当 git 抛错且 native 也失败时需冒泡最终失败错误', async () => {
     const applier = new PatchApplier();
     const proposal = buildProposal({ id: 'patch_double_failure' });
-    const gitStrategy = vi
-      .fn<ApplyOptions['strategies']['git']>()
-      .mockRejectedValue(new Error('git apply exploded'));
-    const nativeStrategy = vi.fn<ApplyOptions['strategies']['native']>().mockResolvedValue({
+    const gitStrategy = vi.fn<StrategyFn>().mockRejectedValue(new Error('git apply exploded'));
+    const nativeStrategy = vi.fn<StrategyFn>().mockResolvedValue({
       success: false,
       strategy: 'native',
       errorMessage: 'native diff rejected',
-    });
+    } as StrategyResult);
 
-    const result = await (
-      applier as unknown as {
-        apply: (proposal: PatchProposal, options: ApplyOptions) => Promise<StrategyResult>;
-      }
-    ).apply(proposal, {
+    const result = await invoke(applier, proposal, {
       gitApplyAvailable: true,
       fallbackToNative: true,
       strategies: { git: gitStrategy, native: nativeStrategy },
@@ -121,5 +103,30 @@ describe('PatchApplier 策略分支', () => {
     expect(result.errorMessage ?? '', '需包含来自回退失败的上下文').toMatch(
       /native|失败|fallback/i
     );
+  });
+
+  it('请求回退但未提供 native 策略时应标记 usedFallback 并提示缺少策略', async () => {
+    const applier = new PatchApplier();
+    const proposal = buildProposal({ id: 'patch_no_native' });
+    const gitStrategy = vi.fn<StrategyFn>().mockResolvedValue({
+      success: false,
+      strategy: 'git',
+      errorMessage: 'git apply rejected',
+    } as StrategyResult);
+
+    const result = await invoke(applier, proposal, {
+      gitApplyAvailable: true,
+      fallbackToNative: true,
+      strategies: { git: gitStrategy },
+    });
+
+    expect(gitStrategy).toHaveBeenCalledTimes(1);
+    expect(result.success).toBe(false);
+    expect(result.strategy).toBe('git');
+    expect(result.usedFallback).toBe(true);
+    expect(
+      result.errorMessage ?? '',
+      '应提示 native fallback 不可用（未提供 native 策略）'
+    ).toMatch(/native fallback 不可用（未提供 native 策略）/);
   });
 });

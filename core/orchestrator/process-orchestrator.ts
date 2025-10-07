@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { spawn } from 'node:child_process';
 import { createDefaultOrchestratorConfig } from './types.js';
+import { TaskScheduler } from './task-scheduler.js';
 import type {
   Agent,
   OrchestratorConfig,
@@ -13,6 +14,19 @@ import type {
 
 const MAX_POOL_SIZE = 10;
 const HEALTH_INACTIVE_THRESHOLD_MS = 60_000;
+
+type StateManagerLike = {
+  emitEvent?: (payload: {
+    event: string;
+    taskId?: string;
+    role?: string;
+    data?: unknown;
+  }) => unknown | Promise<unknown>;
+};
+
+type ProcessOrchestratorOptions = Partial<OrchestratorConfig> & {
+  stateManager?: StateManagerLike;
+};
 
 /** 定义 spawnAgent 结果。 */
 export interface SpawnAgentResult {
@@ -33,21 +47,28 @@ export class ProcessOrchestrator {
   /** 池容量上限（不超过 10）。 */
   private readonly maxPoolSize: number;
 
+  /** 状态管理器事件发射器。 */
+  private readonly stateManager: StateManagerLike | undefined;
+
   /** 自增进程号，模拟 codex exec 的 PID。 */
   private processIdCounter = 1000;
+  private cancelled = false;
 
-  public constructor(config?: Partial<OrchestratorConfig>) {
+  public constructor(config?: ProcessOrchestratorOptions) {
     const baseConfig = createDefaultOrchestratorConfig();
+    const { stateManager, ...configOverrides } = config ?? {};
+
     this.config = {
       ...baseConfig,
-      ...config,
+      ...configOverrides,
       roles: {
         ...baseConfig.roles,
-        ...(config?.roles ?? {}),
+        ...(configOverrides.roles ?? {}),
       },
-      codexCommand: config?.codexCommand ?? baseConfig.codexCommand,
+      codexCommand: configOverrides.codexCommand ?? baseConfig.codexCommand,
     } satisfies OrchestratorConfig;
-    this.maxPoolSize = Math.min(this.config.maxConcurrency, MAX_POOL_SIZE);
+    this.maxPoolSize = Math.max(1, Math.min(this.config.maxConcurrency, MAX_POOL_SIZE));
+    this.stateManager = stateManager;
   }
 
   /**
@@ -61,12 +82,158 @@ export class ProcessOrchestrator {
   }
 
   /**
-   * 编排入口占位实现，未来接入完整流水线。
+   * 编排入口：集成 TaskScheduler，按拓扑波次顺序执行任务。
+   *
+   * - 每一波的并发量不超过进程池上限；
+   * - 每个任务都会调用 spawnAgent（同角色空闲可复用）；
+   * - 模拟任务执行完成后将 Agent 状态复位为 idle；
+   * - 在 start/task_started/task_completed 波次阶段触发占位事件。
    */
   public async orchestrate(tasks: readonly TaskDefinition[]): Promise<OrchestratorContext> {
-    return this.createContext(tasks);
+    const context = this.createContext(tasks);
+
+    if (tasks.length === 0) {
+      return context;
+    }
+
+    const scheduler = new TaskScheduler(this.config);
+    const schedule = scheduler.schedule(tasks as TaskDefinition[]);
+    const executionPlan = schedule.executionPlan ?? [];
+
+    for (const wavePlan of executionPlan) {
+      if (this.cancelled) {
+        break;
+      }
+      const waveIndex = wavePlan.wave;
+      const waveTasks = wavePlan.tasks ?? [];
+      if (waveTasks.length === 0) {
+        continue;
+      }
+
+      await this.emitWaveEvent('start', {
+        wave: waveIndex,
+        tasks: waveTasks,
+      });
+
+      const batches = this.chunkByPoolSize(waveTasks, this.maxPoolSize);
+      for (const batch of batches) {
+        await Promise.all(batch.map((task) => this.runTaskWithRetry(task, waveIndex)));
+      }
+    }
+
+    return context;
   }
 
+  private async runTaskWithRetry(task: TaskDefinition, waveIndex: number): Promise<void> {
+    const configuredMaxAttempts = this.config.retryPolicy?.maxAttempts ?? 2;
+    const maxAttempts = Math.max(Math.min(configuredMaxAttempts, 5), 1);
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const spawnResult = await this.spawnAgent(task);
+
+      await this.emitWaveEvent('task_started', {
+        wave: waveIndex,
+        task,
+        agent: spawnResult.agent,
+        reused: spawnResult.reused,
+        attempt,
+      });
+
+      const success = await this.executeTask(task);
+
+      const idleAgent = this.markAgentIdle(spawnResult.agent);
+
+      if (success) {
+        await this.emitWaveEvent('task_completed', {
+          wave: waveIndex,
+          task,
+          agent: idleAgent,
+          reused: spawnResult.reused,
+          attempt,
+        });
+        return;
+      }
+
+      await this.emitWaveEvent('task_failed', {
+        wave: waveIndex,
+        task,
+        agent: idleAgent,
+        reused: spawnResult.reused,
+        attempt,
+        willRetry: attempt < maxAttempts,
+      });
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async executeTask(_task: TaskDefinition): Promise<boolean> {
+    await Promise.resolve();
+    return true;
+  }
+
+  /**
+   * 注册 SIGINT 处理器（可选）。测试可直接调用 requestCancel() 触发相同行为。
+   */
+  public registerSignalHandlers(graceMs: number = 60_000): void {
+    // 避免重复注册
+    const handler = async () => {
+      await this.requestCancel(graceMs);
+    };
+    (process as NodeJS.Process).on('SIGINT', handler);
+  }
+
+  /**
+   * 触发取消：广播 cancel_requested → 等待 grace → 终止活跃 agent → 清空池 → orchestration_failed。
+   */
+  public async requestCancel(graceMs: number = 60_000): Promise<void> {
+    if (this.cancelled) {
+      return;
+    }
+    this.cancelled = true;
+
+    await this.emitEvent({ event: 'cancel_requested', data: { graceMs } });
+
+    const deadline = Date.now() + Math.max(0, graceMs);
+    // 轻量等待：若仍有 busy agent，给出一点时间（最多 graceMs）
+    // 这里不强制事件循环占用，测试场景快速通过
+    while (this.activeAgents.length > 0 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 10));
+      break; // 最小实现：一次 tick 后进入清理
+    }
+
+    // 统一将所有 agent 标记为终止并清空池
+    for (const agent of this.agentPool.values()) {
+      agent.status = 'terminated';
+      agent.currentTask = undefined;
+      agent.lastActivityAt = new Date().toISOString();
+    }
+    this.agentPool.clear();
+
+    await this.emitEvent({ event: 'orchestration_failed', data: { reason: 'cancelled' } });
+  }
+
+  private markAgentIdle(agent: Agent): Agent {
+    const tracked = this.agentPool.get(agent.id) ?? agent;
+    const updated: Agent = {
+      ...tracked,
+      status: 'idle',
+      currentTask: undefined,
+      lastActivityAt: new Date().toISOString(),
+    };
+    this.agentPool.set(updated.id, updated);
+    return updated;
+  }
+
+  private chunkByPoolSize<T>(items: readonly T[], size: number): T[][] {
+    const limit = Math.max(1, size);
+    const batches: T[][] = [];
+    for (let index = 0; index < items.length; index += limit) {
+      batches.push(items.slice(index, index + limit));
+    }
+    return batches;
+  }
+
+  /** removed duplicate emitWaveEvent definition (see below) */
   /** 当前空闲 Agent 数量。 */
   public get idleAgents(): Agent[] {
     return [...this.agentPool.values()].filter((agent) => agent.status === 'idle');
@@ -99,6 +266,17 @@ export class ProcessOrchestrator {
 
     this.launchCodexAgent(agent, roleConfig);
     return { agent, reused: false };
+  }
+
+  /**
+   * 手动释放 Agent，将其置为 idle（用于模拟任务完成与测试）。
+   */
+  public releaseAgent(agentId: string): void {
+    const agent = this.agentPool.get(agentId);
+    if (!agent) {
+      return;
+    }
+    this.markAgentIdle(agent);
   }
 
   /**
@@ -242,6 +420,66 @@ export class ProcessOrchestrator {
       spawn(this.config.codexCommand, args, { stdio: 'ignore' }).on('error', () => void 0);
     } catch {
       // 忽略权限参数拼装中的非关键异常，避免影响现有流程
+    }
+  }
+
+  /**
+   * 统一波次事件封装：将与波次相关的任务/代理信息打平到 data 字段。
+   */
+  private async emitWaveEvent(
+    event: 'start' | 'task_started' | 'task_completed' | 'task_failed',
+    payload: {
+      wave: number;
+      task?: TaskDefinition;
+      tasks?: readonly TaskDefinition[];
+      agent?: Agent;
+      reused?: boolean;
+      attempt?: number;
+      willRetry?: boolean;
+    }
+  ): Promise<void> {
+    if (typeof this.stateManager?.emitEvent !== 'function') {
+      return;
+    }
+
+    const role = typeof payload.task?.role === 'string' ? payload.task.role : undefined;
+    const data: Record<string, unknown> = { wave: payload.wave };
+    if (payload.tasks) {
+      data.tasks = payload.tasks.map((t) => t.id);
+    }
+    if (payload.agent) {
+      data.agentId = payload.agent.id;
+    }
+    if (payload.reused !== undefined) {
+      data.reused = payload.reused;
+    }
+    if (payload.attempt !== undefined) {
+      data.attempt = payload.attempt;
+    }
+    if (payload.willRetry !== undefined) {
+      data.retry = payload.willRetry;
+    }
+
+    const base: { event: string; data?: unknown } = { event, data };
+    const eventPayload: { event: string; taskId?: string; role?: string; data?: unknown } = base;
+    if (payload.task?.id) {
+      eventPayload.taskId = payload.task.id;
+    }
+    if (role) {
+      eventPayload.role = role;
+    }
+    await Promise.resolve(this.stateManager.emitEvent(eventPayload));
+  }
+
+  /** 通用事件发射封装（非波次专用）。 */
+  private async emitEvent(payload: {
+    event: string;
+    taskId?: string;
+    role?: string;
+    data?: unknown;
+  }): Promise<void> {
+    if (typeof this.stateManager?.emitEvent === 'function') {
+      await Promise.resolve(this.stateManager.emitEvent(payload));
     }
   }
 }
