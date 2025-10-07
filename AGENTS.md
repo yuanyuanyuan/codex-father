@@ -46,6 +46,54 @@
 - CLI 集成回归可执行 `./job.sh metrics --json` 与
   `./job.sh clean --dry-run --json` 检查结构化字段是否完整。
 
+## Gates 与 Events
+
+- 质量 Gates：在 `core/lib/models/code-quality.ts`
+  中定义阈值校验（`metric`、`operator`、`threshold`、`required`）。当
+  `required=true` 且校验失败，记录到失败清单并用于摘要输出。
+- Stream-JSON 事件（stdout）：与 `docs/schemas/stream-json-event.schema.json`
+  一致，包含 `start`、`task_scheduled`、`task_started`、`tool_use`、
+  `task_completed`、`task_failed`、`patch_applied`、`patch_failed`、
+  `concurrency_reduced`、`concurrency_increased`、`resource_exhausted`、
+  `cancel_requested`、`orchestration_completed`、`orchestration_failed`。
+- JSONL 审计事件（仅文件）：追加到
+  `.codex-father/sessions/<run-id>/events.jsonl`，含过程性审计信息：`understanding_validated`/`understanding_failed`、
+  `decomposition_failed`、`manual_intervention_requested`、
+  `task_retry_scheduled` 等。它们不进入 stdout 流，亦不改变 stdout 两行约束。
+- 事件写入：`core/orchestrator/state-manager.ts` 统一写入 JSONL；CLI 侧
+  `core/cli/commands/logs-command.ts` 提供 `logs` 查看能力。
+- 最佳实践：
+  - 追加式写入，避免覆盖；扩展字段放入 `data`，保留 `eventId`、`timestamp`。
+  - 回归查看：`codex-father logs --session <id>` 或用 `jq -c` 读取 JSONL。
+
+### 执行 Gate 顺序
+
+1. 人工干预（Manual Intervention，可配）：
+   - 若 `enabled=true & requireAck=true` 且未确认，写入 JSONL
+     `manual_intervention_requested` 并终止（随后 `orchestration_failed`）。
+   - 认可（ack=true）时继续后续步骤。
+2. 理解校验（Understanding Check，可配）：
+   - 通过：写入 `understanding_validated`（JSONL）。
+   - 失败：写入 `understanding_failed` →
+     `orchestration_failed`（JSONL），阻断执行。
+3. 任务分解（Task Decomposer）：
+   - 失败：写入 `decomposition_failed` →
+     `orchestration_failed`（JSONL），阻断调度。
+
+### SWW 事件映射
+
+- SWW 成功：发出 `tool_use`（补丁摘要）与 `patch_applied`（stream-json）。
+- SWW 失败：发出 `task_failed{reason=patch_failed}` 与
+  `patch_failed`（stream-json）。
+- 资源联动：压力上升/下降分别发
+  `concurrency_reduced`/`concurrency_increased`（stream-json）。
+
+### Stdout 契约
+
+- CLI `orchestrate` 的 stdout 仅输出两行摘要：`start` 与
+  `orchestration_completed` （或
+  `orchestration_failed`），其余详细事件写入 JSONL 审计文件。
+
 ## 提交与 PR 指南
 
 - 使用 Conventional

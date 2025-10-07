@@ -9,7 +9,7 @@ Auto-generated from all feature plans. Last updated: 2025-09-30
 - 文件系统（Codex
   Profile：`~/.codex/config.toml`，状态文件：`.codex-father/`） (008-ultrathink-codex-0)
 
-- Node.js >=18 + TypeScript ^5 + commander, fs-extra, yaml, zod, winston
+- Node.js >=18 + TypeScript ^5 + commander, yaml, zod, winston
   (006-docs-capability-assessment)
 - Files (.codex-father/sessions/<id>/) (006-docs-capability-assessment)
 
@@ -104,7 +104,7 @@ npx @modelcontextprotocol/inspector npm run mcp:start  # 使用 Inspector 调试
   vitest ^1.6.1
 
 - 006-docs-capability-assessment: Added Node.js >=18 + TypeScript ^5 +
-  commander, fs-extra, yaml, zod, winston
+  commander, yaml, zod, winston（可选：`winston-syslog` 用于 Syslog 输出）
 
 ### 2025-10-02 - MVP1 Polish & Release Prep
 

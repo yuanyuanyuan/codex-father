@@ -250,9 +250,11 @@
 - [x] T029 [P] Performance smoke: concurrent 10 agents baseline log in
       `core/orchestrator/tests/performance.smoke.test.ts`
       （已新增并通过：performance.smoke.test.ts — 10 并发任务完成，事件数符合预期）
-- [ ] T030 Repository hygiene: eslint/prettier run; ensure no unused deps;
+- [x] T030 Repository hygiene: eslint/prettier run; ensure no unused deps;
       update `docs/developer/AGENTS.md` pointers if paths changed
-      （尚未执行 eslint/prettier 清理或同步 docs/developer/AGENTS.md）
+      （已完成：移除未使用依赖 chokidar/mermaid/fs-extra/@types/fs-extra/supertest/@types/supertest/jscpd；
+      保留 tslib/rimraf/vite/@vitest/coverage-v8；新增 winston-syslog 以启用可选 Syslog 传输；
+      同步 `AGENTS.md` 增补 Gates/Events 说明；通过 `npm run check:all` 与 `npm run test:orchestrator` 本地验证）
 
 ## Dependencies
 
@@ -311,7 +313,9 @@ Task: "JSON/JSONL contracts & redaction"   (core/orchestrator/tests/json-output.
 - [x] All entities have model/schema tasks (T011)
       （core/orchestrator/types.ts 已落地数据模型）
 - [ ] All tests come before implementation (T005–T010 before T011+)
-      （仍有核心实现（T013-T019）缺失，待完成后再次核对测试顺序）
+      （现状：历史提交并非严格“先测后码”，但已补齐契约/集成测试覆盖；后续增量开发将按
+      TDD 执行并在 PR 中附带用例与结果。若需严格依赖顺序校验，可在新增任务中引入
+      pre-commit 钩子与 CI 检查脚本，对新增目录的实现前置对应用例。）
 - [x] Parallel tasks truly independent ([P] only on different files)
       （当前 [P] 任务分布于不同测试文件，无文件冲突）
 - [x] Each task specifies exact file path

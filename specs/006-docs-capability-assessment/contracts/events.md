@@ -12,14 +12,17 @@
 - `tool_use`：下游工具/命令调用摘要（敏感信息脱敏）
 - `task_completed`：任务完成，附带耗时与输出数
 - `task_failed`：任务失败，附带错误摘要
+- `patch_applied`：补丁成功应用（来源于 SWW 映射）
+- `patch_failed`：补丁应用失败（来源于 SWW 映射）
+- `concurrency_reduced`：资源压力导致并发下降
+- `concurrency_increased`：资源恢复导致并发上升
+- `resource_exhausted`：资源耗尽或接近耗尽（阈值命中）
 - `cancel_requested`：收到用户取消信号
 - `orchestration_completed`：整体成功完成（含成功率）
 - `orchestration_failed`：整体失败（含失败清单）
 
-附注（与 008 对齐）：扩展运营类事件（如
-`patch_applied`、`patch_failed`、`task_retry_scheduled`、`concurrency_reduced`
-等）仅写入 JSONL 审计日志；如需对外提示，请通过 `tool_use` 或相关 `task_*`
-事件的 `data` 字段表达。
+说明：以上事件与 `docs/schemas/stream-json-event.schema.json` 保持一致，用于严格的
+stdout 流输出契约（stream-json）。
 
 ## 来源与路由（STDOUT 规约）
 
@@ -57,3 +60,14 @@
 
 - 路径：`.codex-father/sessions/<orchestrationId>/events.jsonl`
 - 语义：append-only；每行一个完整事件对象；时间序列可重放
+
+### JSONL 专用审计事件（不进入 stdout 流）
+
+- `understanding_validated`：理解校验通过（Understanding gate）
+- `understanding_failed`：理解校验失败（阻断执行）
+- `decomposition_failed`：任务分解失败（阻断执行）
+- `manual_intervention_requested`：人工干预请求已发起（未确认前阻断）
+- `task_retry_scheduled`：任务失败后已安排重试（含 `nextAttempt`、`delayMs`）
+
+说明：这些事件仅用于审计追踪与回放，不影响 stdout 两行摘要约束；如需对外体现，
+请通过 `tool_use` 或 `task_*` 的 `data` 字段做摘要性表达。
