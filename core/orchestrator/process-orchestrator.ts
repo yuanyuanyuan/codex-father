@@ -122,7 +122,13 @@ export class ProcessOrchestrator {
     // 在调度前进行任务分解有效性校验（T045 最小集成）
     try {
       const decomposer = new TaskDecomposer();
-      await decomposer.decompose({ requirement: '', mode: 'manual', manualTasks: tasks as any });
+      // 最小实现：视为已分解，仅进行拓扑/重复校验
+      decomposer.validate(tasks as any);
+      // 成功时发出分解完成事件，供上层观测
+      await this.emitEvent({
+        event: 'decomposition_completed',
+        data: { tasksCount: tasks.length },
+      });
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'decomposition_failed';
       // 仅写入 JSONL 审计：分解失败 + 终止
