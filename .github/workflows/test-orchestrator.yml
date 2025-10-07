@@ -20,16 +20,19 @@ on:
 jobs:
   orchestrator-tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['18', '20']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Node
+      - name: Setup Node ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
-      - name: Run orchestrator tests
+      - name: Run orchestrator tests (ORCHESTRATOR_TESTS=1)
         run: ORCHESTRATOR_TESTS=1 npm run test:orchestrator
-

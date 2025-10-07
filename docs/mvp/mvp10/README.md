@@ -152,6 +152,15 @@ core/cli/start.ts auto --json --task "生成 patch 并验证"
   - 严控上下文：默认不携带上一轮对话；如需摘要辅助可用 `--context-head/--context-grep`。
   - 脱敏：必要时加 `--redact`。
 
+### 行为与事件（编排侧）
+
+- SWW 工作区异常（prepareWorkspace 失败）不再中断队列：
+  - 当前版本将该类错误映射为 `task_failed(reason=patch_failed)` 与 `patch_failed`（仅 JSONL 审计额外记录细节），继续处理后续补丁，保证长队列的顺序与一致性。
+  - 成功补丁仍发 `tool_use`（工具=patch_applier）与 `patch_applied`。
+- JSONL 审计事件 vs stdout 契约：
+  - stdout 仅两行：`start` 与 `orchestration_completed/failed`。
+  - 详细过程事件（如 `understanding_*`、`decomposition_*`、`task_retry_scheduled`）仅写入 JSONL；对外必要提示请通过 `tool_use/task_*` 的 `data` 字段摘要表达。
+
 ### 用 orchestrate 的实现（MVP/可演进）
 
 - 目标形态：输入 `tasks.json`（或从 `TODO.md` 解析），每个 task = 一次独立 run。

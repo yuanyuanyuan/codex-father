@@ -18,8 +18,10 @@
     decomposition 的多路径断言
   - 资源联动：concurrency_reduced /
     concurrency_increased 的降级/恢复联动与 from/to 字段
-  - SWW 映射与顺序：长队列部分失败保持事件配对与顺序一致性（tool_use+patch_applied
-    / task_failed+patch_failed）
+- SWW 映射与顺序：长队列部分失败保持事件配对与顺序一致性（tool_use+patch_applied
+  / task_failed+patch_failed）
+- SWW 工作区异常：prepareWorkspace 失败映射为 patch_failed，不再中断队列
+- CI 改进：新增 orchestrator 专用工作流（.github/workflows/test-orchestrator.yml），Node 版本矩阵（18/20），仅在 orchestrator/schema/contracts/AGENTS 等路径变化时触发
 - 补丁模式默认将 diff 落盘并仅在日志中输出预览，新增
   `--patch-output`、`--patch-preview-lines`、`--no-patch-preview`、
   `--no-patch-artifact` 等 CLI 开关，配合元数据记录哈希与行数。
