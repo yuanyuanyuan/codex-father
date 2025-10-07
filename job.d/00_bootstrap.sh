@@ -175,6 +175,8 @@ latest_file_by_mtime() {
 safe_classify() {
   # Usage: safe_classify <last_msg_file|""> <log_file> <exit_code>
   local last_msg_file="$1"; local log_file="$2"; local code="$3"
+  local err_file
+  err_file="$(dirname "$log_file")/bootstrap.err"
   SC_CLASSIFICATION="normal"; SC_TOKENS_USED=""
   if declare -F classify_exit >/dev/null 2>&1; then
     classify_exit "$last_msg_file" "$log_file" "$code"
@@ -194,21 +196,24 @@ safe_classify() {
       SC_CLASSIFICATION='normal'
     fi
   else
-    if grep -Eqi 'context|token|length|too long|exceed|truncat' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    # 输入/参数错误优先识别，避免误判为网络/鉴权
+    if grep -Eqi '(未知参数|Unknown[[:space:]]+(argument|option)|invalid[[:space:]]+(option|argument)|错误:[[:space:]]+--[A-Za-z0-9_-]+[[:space:]]*需要|用法:[[:space:]]*start\.sh|Usage:[[:space:]]*start\.sh)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
+      SC_CLASSIFICATION='input_error'
+    elif grep -Eqi 'context|token|length|too long|exceed|truncat' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='context_overflow'
-    elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='approval_required'
-    elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='sandbox_denied'
-    elif grep -Eqi 'timeout|timed[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed|ENOTFOUND|EAI_AGAIN|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'timeout|timed[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed|ENOTFOUND|EAI_AGAIN|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='network_error'
-    elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='config_error'
-    elif grep -Eqi 'unauthorized|forbidden|invalid api key|401|403' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'unauthorized|forbidden|invalid api key|401|403' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='auth_error'
-    elif grep -Eqi 'too many requests|rate limit|429' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'too many requests|rate limit|429' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='rate_limited'
-    elif grep -Eqi 'Command failed|non-zero exit|failed to execute' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'Command failed|non-zero exit|failed to execute' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='tool_error'
     else
       SC_CLASSIFICATION='error'
