@@ -5,6 +5,8 @@ import { spawn } from 'node:child_process';
 import { createDefaultOrchestratorConfig } from './types.js';
 import { TaskScheduler } from './task-scheduler.js';
 import { TaskDecomposer } from './task-decomposer.js';
+import { UnderstandingCheck } from './understanding-check.js';
+import type { UnderstandingCheckOptions } from './understanding-check.js';
 import type {
   Agent,
   OrchestratorConfig,
@@ -34,6 +36,23 @@ type ProcessOrchestratorOptions = Partial<OrchestratorConfig> & {
   resourceMonitor?: ResourceMonitorLike;
   taskTimeoutMs?: number;
   resourceThresholds?: { cpuHighWatermark?: number };
+  /**
+   * 可选的理解一致性评估函数注入点（用于测试或外部实现）。
+   * 若未提供且 orchestrate 未传入 requirement/restatement，将跳过理解检查。
+   */
+  understandingEvaluator?: (input: {
+    requirement: string;
+    restatement: string;
+  }) => Promise<{ consistent: boolean; issues: string[] }>;
+  /**
+   * 可选的理解门控（集中式配置）：当提供 requirement + restatement + evaluateConsistency 时，
+   * orchestrate() 会在任务分解之前先执行理解一致性校验。
+   */
+  understanding?: {
+    requirement: string;
+    restatement: string;
+    evaluateConsistency: UnderstandingCheckOptions['evaluateConsistency'];
+  };
 };
 
 /** 定义 spawnAgent 结果。 */
@@ -68,11 +87,29 @@ export class ProcessOrchestrator {
 
   /** 资源阈值（可注入）。 */
   private readonly resourceThresholds?: { cpuHighWatermark?: number };
+  /** 理解检查评估器（可注入）。 */
+  private readonly understandingEvaluator?: (input: {
+    requirement: string;
+    restatement: string;
+  }) => Promise<{ consistent: boolean; issues: string[] }>;
+  /** 理解门控（集中式配置）。 */
+  private readonly understanding?: {
+    requirement: string;
+    restatement: string;
+    evaluateConsistency: UnderstandingCheckOptions['evaluateConsistency'];
+  };
 
   public constructor(config?: ProcessOrchestratorOptions) {
     const baseConfig = createDefaultOrchestratorConfig();
-    const { stateManager, resourceMonitor, taskTimeoutMs, resourceThresholds, ...configOverrides } =
-      config ?? {};
+    const {
+      stateManager,
+      resourceMonitor,
+      taskTimeoutMs,
+      resourceThresholds,
+      understandingEvaluator,
+      understanding,
+      ...configOverrides
+    } = config ?? {};
 
     this.config = {
       ...baseConfig,
@@ -96,6 +133,12 @@ export class ProcessOrchestrator {
     if (resourceThresholds) {
       this.resourceThresholds = resourceThresholds;
     }
+    if (understandingEvaluator) {
+      this.understandingEvaluator = understandingEvaluator;
+    }
+    if (understanding) {
+      this.understanding = understanding;
+    }
   }
 
   /**
@@ -116,8 +159,43 @@ export class ProcessOrchestrator {
    * - 模拟任务执行完成后将 Agent 状态复位为 idle；
    * - 在 start/task_started/task_completed 波次阶段触发占位事件。
    */
-  public async orchestrate(tasks: readonly TaskDefinition[]): Promise<OrchestratorContext> {
+  public async orchestrate(
+    tasks: readonly TaskDefinition[],
+    opts?: { requirement?: string; restatement?: string }
+  ): Promise<OrchestratorContext> {
     const context = this.createContext(tasks);
+
+    // 在任务分解前进行「理解一致性」门控（集中式配置 understanding）
+    if (
+      this.understanding &&
+      typeof this.understanding.requirement === 'string' &&
+      this.understanding.requirement.trim() &&
+      typeof this.understanding.restatement === 'string' &&
+      this.understanding.restatement.trim() &&
+      typeof this.understanding.evaluateConsistency === 'function'
+    ) {
+      try {
+        const checker = new UnderstandingCheck({
+          evaluateConsistency: this.understanding.evaluateConsistency,
+        });
+        await checker.validate({
+          requirement: this.understanding.requirement.trim(),
+          restatement: this.understanding.restatement.trim(),
+        });
+        await this.emitEvent({ event: 'understanding_validated' });
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : 'understanding_inconsistent';
+        await this.emitEvent({
+          event: 'understanding_failed',
+          data: { reason: 'understanding_invalid', detail },
+        });
+        await this.emitEvent({
+          event: 'orchestration_failed',
+          data: { reason: 'understanding_invalid', detail },
+        });
+        return context;
+      }
+    }
 
     // 在调度前进行任务分解有效性校验（T045 最小集成）
     try {
@@ -145,6 +223,37 @@ export class ProcessOrchestrator {
 
     if (tasks.length === 0) {
       return context;
+    }
+
+    // 在调度前新增「理解一致性」门（T049） - 兼容旧签名（opts + understandingEvaluator）
+    if (
+      opts &&
+      typeof opts.requirement === 'string' &&
+      opts.requirement.trim() &&
+      typeof opts.restatement === 'string' &&
+      opts.restatement.trim() &&
+      typeof this.understandingEvaluator === 'function'
+    ) {
+      try {
+        const checker = new UnderstandingCheck({
+          evaluateConsistency: this.understandingEvaluator,
+        });
+        await checker.validate({
+          requirement: opts.requirement.trim(),
+          restatement: opts.restatement.trim(),
+        });
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'understanding_inconsistent';
+        await this.emitEvent({
+          event: 'understanding_failed',
+          data: { reason, stage: 'pre_scheduling' },
+        });
+        await this.emitEvent({
+          event: 'orchestration_failed',
+          data: { reason: 'understanding_invalid', detail: reason },
+        });
+        return context;
+      }
     }
 
     const scheduler = new TaskScheduler(this.config);
