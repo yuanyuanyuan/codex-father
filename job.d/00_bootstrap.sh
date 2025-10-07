@@ -197,7 +197,7 @@ safe_classify() {
     fi
   else
     # 输入/参数错误优先识别，避免误判为网络/鉴权
-    if grep -Eqi '(未知参数|Unknown[[:space:]]+(argument|option)|invalid[[:space:]]+(option|argument)|错误:[[:space:]]+--[A-Za-z0-9_-]+[[:space:]]*需要|用法:[[:space:]]*start\.sh|Usage:[[:space:]]*start\.sh)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
+    if grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|错误:[[:space:]]+--[A-Za-z0-9_-]+[[:space:]]*需要|用法:[[:space:]]*start\.sh|Usage:[[:space:]]*start\.sh)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='input_error'
     elif grep -Eqi 'context|token|length|too long|exceed|truncat' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='context_overflow'
@@ -225,7 +225,8 @@ derive_exit_code_from_log() {
   local log="$1"
   [[ -f "$log" ]] || { echo ""; return 0; }
   local ln
-  ln=$(grep -E "^Exit Code:[[:space:]]*-?[0-9]+" "$log" | tail -n1 || true)
+  # 匹配包含 Exit Code 的行（不要求行首），兼容 trap 合并行写法
+  ln=$(grep -E "Exit Code:[[:space:]]*-?[0-9]+" "$log" | tail -n1 || true)
   if [[ -n "$ln" ]]; then
     echo "$ln" | sed -E 's/.*Exit Code:[[:space:]]*(-?[0-9]+).*/\1/'
   else

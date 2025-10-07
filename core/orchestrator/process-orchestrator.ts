@@ -125,6 +125,11 @@ export class ProcessOrchestrator {
       await decomposer.decompose({ requirement: '', mode: 'manual', manualTasks: tasks as any });
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'decomposition_failed';
+      // 仅写入 JSONL 审计：分解失败 + 终止
+      await this.emitEvent({
+        event: 'decomposition_failed',
+        data: { reason: 'decomposition_invalid', detail: reason },
+      });
       await this.emitEvent({
         event: 'orchestration_failed',
         data: { reason: 'decomposition_invalid', detail: reason },

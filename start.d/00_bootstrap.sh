@@ -77,6 +77,8 @@ trap 'code=$?; if [[ $code -ne 0 ]]; then \
       echo "[trap] 非零退出（可能为早期错误或参数问题）。Exit Code: ${code}"; \
     } >> "${CODEX_LOG_FILE}"; \
   fi; \
+  # 始终追加独立的 Exit Code 行，便于状态归纳器识别
+  echo "Exit Code: ${code}" >> "${CODEX_LOG_FILE}"; \
   codex__emergency_mark_failed "$code" >/dev/null 2>&1 || true; \
 fi' EXIT
 
@@ -244,7 +246,7 @@ EOF
 
   # 简易分类：参数/用法错误 → input_error；否则 error
   local cls="error"
-  if [[ -f "${dir}/bootstrap.err" ]] && grep -Eqi '(未知参数|Unknown[[:space:]]+(argument|option)|invalid[[:space:]]+(option|argument)|用法:|Usage:)' "${dir}/bootstrap.err" 2>/dev/null; then
+  if [[ -f "${dir}/bootstrap.err" ]] && grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|用法:|Usage:)' "${dir}/bootstrap.err" 2>/dev/null; then
     cls="input_error"
   fi
 
