@@ -2,6 +2,7 @@ import type { CLIParser } from '../parser.js';
 import type { CommandResult } from '../../lib/types.js';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'node:path';
+// no fs needed; JSONL writing handled by EventLogger
 import { getConfig } from '../config-loader.js';
 import { ProcessOrchestrator } from '../../orchestrator/process-orchestrator.js';
 import { EventLogger } from '../../session/event-logger.js';
@@ -130,8 +131,17 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
       const sessionDir = path.join('.codex-father', 'sessions', orchestrationId);
       const eventsFile = path.join(sessionDir, 'events.jsonl');
 
+<<<<<<< HEAD
       // 使用 EventLogger + StateManager 统一写 JSONL
       const eventLogger = new EventLogger({ logDir: sessionDir, asyncWrite: false, validateEvents: false });
+=======
+      // 使用 StateManager + EventLogger 统一写入 JSONL（0600）并保留 redaction 管线
+      const eventLogger = new EventLogger({
+        logDir: sessionDir,
+        asyncWrite: false,
+        validateEvents: false, // 记录器为通用 JSONL；结构校验由上层契约测试覆盖
+      });
+>>>>>>> a144b6f (feat(cli,orchestrator): route orchestrate events through StateManager to JSONL + stdout (T020))
       const stateManager = new StateManager({ orchestrationId, eventLogger } as any);
 
       const makeTimestamp = (): string => new Date().toISOString();
@@ -161,8 +171,12 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         data: { successRate },
       };
 
+<<<<<<< HEAD
       // orchestrator 保持最小化注入，不改变 stdout 纪律
       const orchestrator = new ProcessOrchestrator({ stateManager });
+=======
+      // JSONL 写入交由 EventLogger，CLI 仅负责 stdout（stream-json）
+>>>>>>> a144b6f (feat(cli,orchestrator): route orchestrate events through StateManager to JSONL + stdout (T020))
 
       const buildJsonSummary = (
         status: 'success' | 'failure',
@@ -183,7 +197,10 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
 
       // stream-json 模式：仅输出两条事件到 stdout，同时经 StateManager 写入 JSONL
       if (outputFormat === 'stream-json') {
+<<<<<<< HEAD
         // 事件写入 JSONL（0600/0700）由 StateManager 负责，保持与脱敏管线一致
+=======
+>>>>>>> a144b6f (feat(cli,orchestrator): route orchestrate events through StateManager to JSONL + stdout (T020))
         await stateManager.emitEvent({ event: startEvent.event, data: startEvent.data });
 
         // 严格控制 stdout：仅两条 JSON 行

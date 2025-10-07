@@ -158,8 +158,11 @@ classify_exit() {
   fi
   # Classification
   if [[ "$code" -ne 0 ]]; then
+    # 参数/用法错误优先判定（例如未知预设/未知参数/无效选项/用法）
+    if grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|用法:|Usage:)' "$log_file" "$last_msg_file" 2>/dev/null; then
+      CLASSIFICATION='input_error'; EXIT_REASON='Invalid CLI arguments or usage'
     # 更精确的网络错误判定：避免将“network access enabled”等正常提示误判为网络错误
-    if grep -Eqi 'timeout|timed[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed|ENOTFOUND|EAI_AGAIN|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)' "$log_file" "$last_msg_file" 2>/dev/null; then
+    elif grep -Eqi 'timeout|timed[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed|ENOTFOUND|EAI_AGAIN|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='network_error'; EXIT_REASON='Network error or timeout'
     # 显式识别“模型不支持/无效模型”之类的配置错误
     elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" "$last_msg_file" 2>/dev/null; then
