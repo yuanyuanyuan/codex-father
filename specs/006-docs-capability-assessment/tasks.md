@@ -181,10 +181,13 @@
       （已增强：CLI 将根据配置开启默认脱敏模式集合（password/token/apiKey/authorization/
       sk- 格式），StateManager 统一对 key=value、冒号分隔与自由文本进行掩码；新增
       测试覆盖 tool_use 摘要混合场景。）
-- [ ] T053 Implement session recovery from Codex rollout
+- [x] T053 Implement session recovery from Codex rollout
       (`codex exec resume <SESSION_ID>` integration) in
       `process-orchestrator.ts`
-      （process-orchestrator.ts 未支持 codex exec resume）
+      （已接入：在 CLI `orchestrate` 新增 `--resume <path>`，调用
+      `ProcessOrchestrator.resumeSession` 触发 `codex exec resume`；保留
+      sandbox=workspace-write/approval=never 透传，不影响 stdout 两行契约；
+      测试覆盖 resume 快捷路径与参数集）
 - [ ] T054 Ensure resource timeout + auto downscale behavior paths are
       implemented and observable (tie with `resource-monitor.ts`)
       （resource-monitor.ts 未与并发调度联动超时降级）
