@@ -77,7 +77,203 @@ trap 'code=$?; if [[ $code -ne 0 ]]; then \
       echo "[trap] 非零退出（可能为早期错误或参数问题）。Exit Code: ${code}"; \
     } >> "${CODEX_LOG_FILE}"; \
   fi; \
+  codex__emergency_mark_failed "$code" >/dev/null 2>&1 || true; \
 fi' EXIT
+
+# 应急 closeout：在收到终止信号时，立即将会话 state.json 标记为 stopped，避免调用方长时间等待。
+# 仅依赖 job.sh 预写入的初始 state.json 与环境变量 CODEX_SESSION_DIR。
+codex__emergency_mark_stopped() {
+  [[ -n "${CODEX_SESSION_DIR:-}" ]] || return 0
+  local dir="$CODEX_SESSION_DIR"
+  local state_file="${dir}/state.json"
+  [[ -f "$state_file" ]] || return 0
+
+  # 轻量 JSON 转义（与 03_finalize.sh 保持一致的最小实现）
+  if ! declare -F json_escape >/dev/null 2>&1; then
+    json_escape() {
+      local s=$1
+      s=${s//\\/\\\\}
+      s=${s//\"/\\\"}
+      s=${s//$'\n'/\\n}
+      s=${s//$'\r'/}
+      s=${s//$'\t'/\\t}
+      printf '%s' "$s"
+    }
+  fi
+
+  # 读取已有字段，保持元数据稳定
+  set +e
+  local id created_at tag cwd log_file meta_glob last_glob title existing_resumed_from existing_args_json
+  id="$(basename "$dir")"
+  created_at=$(grep -E '"created_at"' "$state_file" | sed -E 's/.*"created_at"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  tag=$(grep -E '"tag"' "$state_file" | sed -E 's/.*"tag"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  cwd=$(grep -E '"cwd"' "$state_file" | sed -E 's/.*"cwd"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  log_file=$(grep -E '"log_file"' "$state_file" | sed -E 's/.*"log_file"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  meta_glob=$(grep -E '"meta_glob"' "$state_file" | sed -E 's/.*"meta_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  last_glob=$(grep -E '"last_message_glob"' "$state_file" | sed -E 's/.*"last_message_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  title=$(grep -E '"title"' "$state_file" | sed -E 's/.*"title"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  existing_resumed_from=$(grep -E '"resumed_from"' "$state_file" | sed -E 's/.*"resumed_from"\s*:\s*"?([^",}]*)"?.*/\1/' | head -n1 || true)
+  if [[ "$existing_resumed_from" == "null" ]]; then existing_resumed_from=""; fi
+  existing_args_json="[]"
+  if command -v node >/dev/null 2>&1; then
+    local args_dump
+    if args_dump=$(node - "$state_file" <<'EOF'
+const fs = require('fs');
+const file = process.argv[2] || process.argv[1];
+try {
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (Array.isArray(data.args)) {
+    process.stdout.write(JSON.stringify(data.args));
+  }
+} catch (_) { /* noop */ }
+EOF
+); then
+      if [[ -n "$args_dump" ]]; then existing_args_json="$args_dump"; fi
+    fi
+  fi
+  set -e
+
+  local updated_at; updated_at=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+  [[ -n "$created_at" ]] || created_at="$updated_at"
+  [[ -n "$cwd" ]] || cwd="$(pwd)"
+  [[ -n "$log_file" ]] || log_file="${CODEX_LOG_FILE:-${dir}/job.log}"
+  [[ -n "$meta_glob" ]] || meta_glob="${dir}/*.meta.json"
+  [[ -n "$last_glob" ]] || last_glob="${dir}/*.last.txt"
+
+  local title_json="null"
+  if [[ -n "$title" ]]; then title_json="\"$(json_escape "$title")\""; fi
+  local resume_json="null"
+  if [[ -n "$existing_resumed_from" ]]; then resume_json="\"$(json_escape "$existing_resumed_from")\""; fi
+
+  umask 077
+  cat > "${state_file}.tmp" <<EOF
+{
+  "id": "$(json_escape "$id")",
+  "pid": null,
+  "state": "stopped",
+  "exit_code": null,
+  "classification": "user_cancelled",
+  "tokens_used": null,
+  "effective_sandbox": null,
+  "effective_network_access": null,
+  "effective_approval_policy": null,
+  "sandbox_bypass": null,
+  "cwd": "$(json_escape "$cwd")",
+  "created_at": "$(json_escape "$created_at")",
+  "updated_at": "$(json_escape "$updated_at")",
+  "tag": "$(json_escape "${tag:-}")",
+  "log_file": "$(json_escape "$log_file")",
+  "meta_glob": "$(json_escape "$meta_glob")",
+  "last_message_glob": "$(json_escape "$last_glob")",
+  "args": ${existing_args_json},
+  "title": ${title_json},
+  "resumed_from": ${resume_json}
+}
+EOF
+  mv -f "${state_file}.tmp" "$state_file"
+  rm -f "${dir}/pid" 2>/dev/null || true
+}
+
+# EXIT 非零的应急落盘（失败）
+codex__emergency_mark_failed() {
+  local code="${1:-1}"
+  [[ -n "${CODEX_SESSION_DIR:-}" ]] || return 0
+  local dir="$CODEX_SESSION_DIR"
+  local state_file="${dir}/state.json"
+  [[ -f "$state_file" ]] || return 0
+
+  if ! declare -F json_escape >/dev/null 2>&1; then
+    json_escape() {
+      local s=$1
+      s=${s//\\/\\\\}
+      s=${s//\"/\\\"}
+      s=${s//$'\n'/\\n}
+      s=${s//$'\r'/}
+      s=${s//$'\t'/\\t}
+      printf '%s' "$s"
+    }
+  fi
+
+  set +e
+  local id created_at tag cwd log_file meta_glob last_glob title existing_resumed_from existing_args_json
+  id="$(basename "$dir")"
+  created_at=$(grep -E '"created_at"' "$state_file" | sed -E 's/.*"created_at"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  tag=$(grep -E '"tag"' "$state_file" | sed -E 's/.*"tag"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  cwd=$(grep -E '"cwd"' "$state_file" | sed -E 's/.*"cwd"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  log_file=$(grep -E '"log_file"' "$state_file" | sed -E 's/.*"log_file"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  meta_glob=$(grep -E '"meta_glob"' "$state_file" | sed -E 's/.*"meta_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  last_glob=$(grep -E '"last_message_glob"' "$state_file" | sed -E 's/.*"last_message_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  title=$(grep -E '"title"' "$state_file" | sed -E 's/.*"title"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  existing_resumed_from=$(grep -E '"resumed_from"' "$state_file" | sed -E 's/.*"resumed_from"\s*:\s*"?([^",}]*)"?.*/\1/' | head -n1 || true)
+  if [[ "$existing_resumed_from" == "null" ]]; then existing_resumed_from=""; fi
+  existing_args_json="[]"
+  if command -v node >/dev/null 2>&1; then
+    local args_dump
+    if args_dump=$(node - "$state_file" <<'EOF'
+const fs = require('fs');
+const file = process.argv[2] || process.argv[1];
+try {
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (Array.isArray(data.args)) {
+    process.stdout.write(JSON.stringify(data.args));
+  }
+} catch (_) { /* noop */ }
+EOF
+); then
+      if [[ -n "$args_dump" ]]; then existing_args_json="$args_dump"; fi
+    fi
+  fi
+  set -e
+
+  local updated_at; updated_at=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+  [[ -n "$created_at" ]] || created_at="$updated_at"
+  [[ -n "$cwd" ]] || cwd="$(pwd)"
+  [[ -n "$log_file" ]] || log_file="${CODEX_LOG_FILE:-${dir}/job.log}"
+  [[ -n "$meta_glob" ]] || meta_glob="${dir}/*.meta.json"
+  [[ -n "$last_glob" ]] || last_glob="${dir}/*.last.txt"
+
+  # 简易分类：参数/用法错误 → input_error；否则 error
+  local cls="error"
+  if [[ -f "${dir}/bootstrap.err" ]] && grep -Eqi '(未知参数|Unknown[[:space:]]+(argument|option)|invalid[[:space:]]+(option|argument)|用法:|Usage:)' "${dir}/bootstrap.err" 2>/dev/null; then
+    cls="input_error"
+  fi
+
+  local title_json="null"
+  if [[ -n "$title" ]]; then title_json="\"$(json_escape "$title")\""; fi
+  local resume_json="null"
+  if [[ -n "$existing_resumed_from" ]]; then resume_json="\"$(json_escape "$existing_resumed_from")\""; fi
+
+  umask 077
+  cat > "${state_file}.tmp" <<EOF
+{
+  "id": "$(json_escape "$id")",
+  "pid": null,
+  "state": "failed",
+  "exit_code": ${code},
+  "classification": "${cls}",
+  "tokens_used": null,
+  "effective_sandbox": null,
+  "effective_network_access": null,
+  "effective_approval_policy": null,
+  "sandbox_bypass": null,
+  "cwd": "$(json_escape "$cwd")",
+  "created_at": "$(json_escape "$created_at")",
+  "updated_at": "$(json_escape "$updated_at")",
+  "tag": "$(json_escape "${tag:-}")",
+  "log_file": "$(json_escape "$log_file")",
+  "meta_glob": "$(json_escape "$meta_glob")",
+  "last_message_glob": "$(json_escape "$last_glob")",
+  "args": ${existing_args_json},
+  "title": ${title_json},
+  "resumed_from": ${resume_json}
+}
+EOF
+  mv -f "${state_file}.tmp" "$state_file"
+  rm -f "${dir}/pid" 2>/dev/null || true
+}
+
+# 捕获常见终止信号，立即落盘 stopped 状态
+trap 'codex__emergency_mark_stopped' TERM INT HUP QUIT
 
 KNOWN_FLAGS=(
   "-f" "--file" "-F" "--file-override" "-c" "--content" "-l" "--log-file"
