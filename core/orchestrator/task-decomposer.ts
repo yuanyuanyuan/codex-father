@@ -102,6 +102,30 @@ export class TaskDecomposer {
     return { tasks, dependencies: map };
   }
 
+  /**
+   * 对已给定的任务数组进行快速合法性校验：
+   * - 校验 ID 唯一性
+   * - 规范化依赖并检查是否存在循环依赖
+   *
+   * 注意：为空任务列表时视为无需校验，直接返回。
+   */
+  public validate(tasks: readonly { id: string; dependencies?: string[] }[]): void {
+    const list = Array.isArray(tasks) ? tasks : [];
+    if (list.length === 0) {
+      return;
+    }
+    const normalized = list.map((t) => ({
+      id: t.id,
+      dependencies: Array.isArray(t.dependencies) ? t.dependencies : [],
+    }));
+    this.assertUniqueIds(normalized.map((t) => t.id));
+    const deps = this.buildDependencyMap(normalized);
+    this.assertNoCycles(
+      normalized.map((t) => t.id),
+      deps
+    );
+  }
+
   private assertUniqueIds(ids: readonly string[]): void {
     const seen = new Set<string>();
     for (const id of ids) {

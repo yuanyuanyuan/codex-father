@@ -77,6 +77,8 @@ trap 'code=$?; if [[ $code -ne 0 ]]; then \
       echo "[trap] 非零退出（可能为早期错误或参数问题）。Exit Code: ${code}"; \
     } >> "${CODEX_LOG_FILE}"; \
   fi; \
+  # 始终追加独立的 Exit Code 行，便于状态归纳器识别
+  echo "Exit Code: ${code}" >> "${CODEX_LOG_FILE}"; \
   codex__emergency_mark_failed "$code" >/dev/null 2>&1 || true; \
 fi' EXIT
 
@@ -86,7 +88,12 @@ codex__emergency_mark_stopped() {
   [[ -n "${CODEX_SESSION_DIR:-}" ]] || return 0
   local dir="$CODEX_SESSION_DIR"
   local state_file="${dir}/state.json"
-  [[ -f "$state_file" ]] || return 0
+  # 若缺失 state.json，先创建一个最小骨架，避免竞态导致无法落盘
+  if [[ ! -f "$state_file" ]]; then
+    mkdir -p "$dir" 2>/dev/null || true
+    umask 077
+    printf '{"id":"%s","state":"running"}\n' "$(basename "$dir")" > "$state_file" 2>/dev/null || true
+  fi
 
   # 轻量 JSON 转义（与 03_finalize.sh 保持一致的最小实现）
   if ! declare -F json_escape >/dev/null 2>&1; then
@@ -180,7 +187,13 @@ codex__emergency_mark_failed() {
   [[ -n "${CODEX_SESSION_DIR:-}" ]] || return 0
   local dir="$CODEX_SESSION_DIR"
   local state_file="${dir}/state.json"
-  [[ -f "$state_file" ]] || return 0
+  # 若缺失 state.json，先创建一个最小骨架，避免竞态导致无法落盘
+  if [[ ! -f "$state_file" ]]; then
+    mkdir -p "$dir" 2>/dev/null || true
+    umask 077
+    printf '{"id":"%s","state":"running"}\n' "$(basename "$dir")" > "$state_file" 2>/dev/null || true
+  fi
+
 
   if ! declare -F json_escape >/dev/null 2>&1; then
     json_escape() {
@@ -234,7 +247,7 @@ EOF
 
   # 简易分类：参数/用法错误 → input_error；否则 error
   local cls="error"
-  if [[ -f "${dir}/bootstrap.err" ]] && grep -Eqi '(未知参数|Unknown[[:space:]]+(argument|option)|invalid[[:space:]]+(option|argument)|用法:|Usage:)' "${dir}/bootstrap.err" 2>/dev/null; then
+  if [[ -f "${dir}/bootstrap.err" ]] && grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|用法:|Usage:)' "${dir}/bootstrap.err" 2>/dev/null; then
     cls="input_error"
   fi
 

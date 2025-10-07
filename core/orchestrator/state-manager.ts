@@ -31,7 +31,6 @@ export class StateManager {
   private eventLogger?: EventLoggerLike;
   private seq: number = 0;
   private redactionPatterns?: (RegExp | string)[];
-  private sessionDir?: string;
 
   /**
    * 使用可选初始状态创建管理器。
@@ -53,7 +52,6 @@ export class StateManager {
       }
       // 允许通过 sessionDir 启用内置 JSONL 事件记录器（当未显式提供 eventLogger 时）。
       if (!this.eventLogger && typeof bootstrap.sessionDir === 'string' && bootstrap.sessionDir) {
-        this.sessionDir = bootstrap.sessionDir;
         this.eventLogger = createJsonlEventLogger(bootstrap.sessionDir);
       }
       if (bootstrap.redactionPatterns) {

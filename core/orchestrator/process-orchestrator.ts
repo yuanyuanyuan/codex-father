@@ -4,6 +4,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { createDefaultOrchestratorConfig } from './types.js';
 import { TaskScheduler } from './task-scheduler.js';
+import { TaskDecomposer } from './task-decomposer.js';
 import type {
   Agent,
   OrchestratorConfig,
@@ -89,8 +90,12 @@ export class ProcessOrchestrator {
       ({
         captureSnapshot: () => ({ cpuUsage: 0, memoryUsage: 0, timestamp: Date.now() }),
       } as ResourceMonitorLike);
-    this.taskTimeoutMs = taskTimeoutMs;
-    this.resourceThresholds = resourceThresholds;
+    if (typeof taskTimeoutMs === 'number') {
+      this.taskTimeoutMs = taskTimeoutMs;
+    }
+    if (resourceThresholds) {
+      this.resourceThresholds = resourceThresholds;
+    }
   }
 
   /**
@@ -113,6 +118,30 @@ export class ProcessOrchestrator {
    */
   public async orchestrate(tasks: readonly TaskDefinition[]): Promise<OrchestratorContext> {
     const context = this.createContext(tasks);
+
+    // 在调度前进行任务分解有效性校验（T045 最小集成）
+    try {
+      const decomposer = new TaskDecomposer();
+      // 最小实现：视为已分解，仅进行拓扑/重复校验
+      decomposer.validate(tasks as any);
+      // 成功时发出分解完成事件，供上层观测
+      await this.emitEvent({
+        event: 'decomposition_completed',
+        data: { tasksCount: tasks.length },
+      });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'decomposition_failed';
+      // 仅写入 JSONL 审计：分解失败 + 终止
+      await this.emitEvent({
+        event: 'decomposition_failed',
+        data: { reason: 'decomposition_invalid', detail: reason },
+      });
+      await this.emitEvent({
+        event: 'orchestration_failed',
+        data: { reason: 'decomposition_invalid', detail: reason },
+      });
+      return context;
+    }
 
     if (tasks.length === 0) {
       return context;
@@ -446,7 +475,6 @@ export class ProcessOrchestrator {
   }
 
   /**
-<<<<<<< HEAD
    * 统一波次事件封装：将与波次相关的任务/代理信息打平到 data 字段。
    */
   private async emitWaveEvent(
@@ -507,8 +535,6 @@ export class ProcessOrchestrator {
   }
 
   /**
-=======
->>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
    * 恢复先前的 Codex 会话（非阻塞）。
    */
   public async resumeSession(opts: { rolloutPath: string; requirement?: string }): Promise<void> {
@@ -541,48 +567,32 @@ export class ProcessOrchestrator {
     activeTasks: Array<{ id: string; startedAt: number }>;
   }): Promise<void> {
     const cpuHighWatermark: number =
-<<<<<<< HEAD
       (this as unknown as { config?: { resourceThresholds?: { cpuHighWatermark?: number } } })
         ?.config?.resourceThresholds?.cpuHighWatermark ??
-=======
-      ((this as any).config?.resourceThresholds?.cpuHighWatermark as number | undefined) ??
->>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
       this.resourceThresholds?.cpuHighWatermark ??
       0.9;
 
     const taskTimeoutMs: number =
       this.taskTimeoutMs ??
-<<<<<<< HEAD
       (this as unknown as { config?: { taskTimeoutMs?: number; taskTimeout?: number } })?.config
         ?.taskTimeoutMs ??
-=======
-      (this.config as any).taskTimeoutMs ??
->>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
       this.config.taskTimeout ??
       30 * 60 * 1000;
 
     const snapshot = this.resourceMonitor.captureSnapshot();
     if (typeof snapshot?.cpuUsage === 'number' && snapshot.cpuUsage > cpuHighWatermark) {
-<<<<<<< HEAD
       await Promise.resolve(
         this.stateManager?.emitEvent?.({
           event: 'concurrency_reduced',
           data: { reason: 'resource_exhausted' },
         })
       );
-=======
-      await this.stateManager.emitEvent({
-        event: 'concurrency_reduced',
-        data: { reason: 'resource_exhausted' },
-      });
->>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
     }
 
     const now = Date.now();
     for (const t of ctx?.activeTasks ?? []) {
       const startedAt = typeof t.startedAt === 'number' ? t.startedAt : Number.NaN;
       if (Number.isFinite(startedAt) && now - startedAt > taskTimeoutMs) {
-<<<<<<< HEAD
         await Promise.resolve(
           this.stateManager?.emitEvent?.({
             event: 'task_failed',
@@ -590,13 +600,6 @@ export class ProcessOrchestrator {
             data: { reason: 'timeout' },
           })
         );
-=======
-        await this.stateManager.emitEvent({
-          event: 'task_failed',
-          taskId: t.id,
-          data: { reason: 'timeout' },
-        });
->>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
       }
     }
   }
