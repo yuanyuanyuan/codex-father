@@ -4,6 +4,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { createDefaultOrchestratorConfig } from './types.js';
 import { TaskScheduler } from './task-scheduler.js';
+import { TaskDecomposer } from './task-decomposer.js';
 import type {
   Agent,
   OrchestratorConfig,
@@ -117,6 +118,19 @@ export class ProcessOrchestrator {
    */
   public async orchestrate(tasks: readonly TaskDefinition[]): Promise<OrchestratorContext> {
     const context = this.createContext(tasks);
+
+    // 在调度前进行任务分解有效性校验（T045 最小集成）
+    try {
+      const decomposer = new TaskDecomposer();
+      await decomposer.decompose({ requirement: '', mode: 'manual', manualTasks: tasks as any });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'decomposition_failed';
+      await this.emitEvent({
+        event: 'orchestration_failed',
+        data: { reason: 'decomposition_invalid', detail: reason },
+      });
+      return context;
+    }
 
     if (tasks.length === 0) {
       return context;
