@@ -62,7 +62,6 @@ export class ProcessOrchestrator {
   private cancelled = false;
   /** 资源监控器（可注入）。 */
   public readonly resourceMonitor: ResourceMonitorLike;
-
   /** 任务超时时间（毫秒，可注入）。 */
   private readonly taskTimeoutMs?: number;
 
@@ -447,6 +446,7 @@ export class ProcessOrchestrator {
   }
 
   /**
+<<<<<<< HEAD
    * 统一波次事件封装：将与波次相关的任务/代理信息打平到 data 字段。
    */
   private async emitWaveEvent(
@@ -507,6 +507,8 @@ export class ProcessOrchestrator {
   }
 
   /**
+=======
+>>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
    * 恢复先前的 Codex 会话（非阻塞）。
    */
   public async resumeSession(opts: { rolloutPath: string; requirement?: string }): Promise<void> {
@@ -539,32 +541,48 @@ export class ProcessOrchestrator {
     activeTasks: Array<{ id: string; startedAt: number }>;
   }): Promise<void> {
     const cpuHighWatermark: number =
+<<<<<<< HEAD
       (this as unknown as { config?: { resourceThresholds?: { cpuHighWatermark?: number } } })
         ?.config?.resourceThresholds?.cpuHighWatermark ??
+=======
+      ((this as any).config?.resourceThresholds?.cpuHighWatermark as number | undefined) ??
+>>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
       this.resourceThresholds?.cpuHighWatermark ??
       0.9;
 
     const taskTimeoutMs: number =
       this.taskTimeoutMs ??
+<<<<<<< HEAD
       (this as unknown as { config?: { taskTimeoutMs?: number; taskTimeout?: number } })?.config
         ?.taskTimeoutMs ??
+=======
+      (this.config as any).taskTimeoutMs ??
+>>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
       this.config.taskTimeout ??
       30 * 60 * 1000;
 
     const snapshot = this.resourceMonitor.captureSnapshot();
     if (typeof snapshot?.cpuUsage === 'number' && snapshot.cpuUsage > cpuHighWatermark) {
+<<<<<<< HEAD
       await Promise.resolve(
         this.stateManager?.emitEvent?.({
           event: 'concurrency_reduced',
           data: { reason: 'resource_exhausted' },
         })
       );
+=======
+      await this.stateManager.emitEvent({
+        event: 'concurrency_reduced',
+        data: { reason: 'resource_exhausted' },
+      });
+>>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
     }
 
     const now = Date.now();
     for (const t of ctx?.activeTasks ?? []) {
       const startedAt = typeof t.startedAt === 'number' ? t.startedAt : Number.NaN;
       if (Number.isFinite(startedAt) && now - startedAt > taskTimeoutMs) {
+<<<<<<< HEAD
         await Promise.resolve(
           this.stateManager?.emitEvent?.({
             event: 'task_failed',
@@ -572,6 +590,13 @@ export class ProcessOrchestrator {
             data: { reason: 'timeout' },
           })
         );
+=======
+        await this.stateManager.emitEvent({
+          event: 'task_failed',
+          taskId: t.id,
+          data: { reason: 'timeout' },
+        });
+>>>>>>> 378410c (feat(orchestrator): add resumeSession and handleResourcePressure (T040/T041))
       }
     }
   }
