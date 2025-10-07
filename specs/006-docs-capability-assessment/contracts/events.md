@@ -66,6 +66,7 @@ stdout 流输出契约（stream-json）。
 - `understanding_validated`：理解校验通过（Understanding gate）
 - `understanding_failed`：理解校验失败（阻断执行）
 - `decomposition_failed`：任务分解失败（阻断执行）
+- `decomposition_completed`：任务分解完成（用于审计顺序，不要求对外展示）
 - `manual_intervention_requested`：人工干预请求已发起（未确认前阻断）
 - `task_retry_scheduled`：任务失败后已安排重试（含 `nextAttempt`、`delayMs`）
 
