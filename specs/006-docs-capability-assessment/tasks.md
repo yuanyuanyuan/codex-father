@@ -283,6 +283,7 @@ Task: "JSON/JSONL contracts & redaction"   (core/orchestrator/tests/json-output.
 
 - [x] All contracts have corresponding tests (T005–T007)
       （core/cli 与 orchestrator 契约测试均通过，包括 stream event schema）
+      （core/cli 与 orchestrator 契约测试均通过，包括 stream event schema）
 - [x] All entities have model/schema tasks (T011)
       （core/orchestrator/types.ts 已落地数据模型）
 - [ ] All tests come before implementation (T005–T010 before T011+)
@@ -298,6 +299,7 @@ Task: "JSON/JSONL contracts & redaction"   (core/orchestrator/tests/json-output.
 
 - Done: 35 / 56
 - Pending: 21 / 56
+ 
 - Next [P] batch recommendation:
   1. T039（core/orchestrator/tests/redaction.security.test.ts）—修复红线脱敏，去除 superSecret/sk-* 泄露
   2. T040（core/orchestrator/tests/session-recovery.integration.test.ts）—实现 resumeSession，补齐 codex exec rollout 恢复
