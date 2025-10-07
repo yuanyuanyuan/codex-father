@@ -107,12 +107,12 @@
 - [x] T039 [P] Security test: redaction of sensitive data in events/logs in
       `core/orchestrator/tests/redaction.security.test.ts`
       （已实现：StateManager.emitEvent 支持 redactionPatterns；敏感信息写入前被替换为 [REDACTED]）
-- [ ] T040 [P] Integration: session recovery from Codex rollout in
+- [x] T040 [P] Integration: session recovery from Codex rollout in
       `core/orchestrator/tests/session-recovery.integration.test.ts`
-      （process-orchestrator.ts 未整合 codex exec resume 会话恢复）
-- [ ] T041 [P] Integration: resource exhaustion → auto downscale + task timeout
+      （已实现：ProcessOrchestrator.resumeSession 调用 codex exec resume，默认 sandbox=workspace-write/approval=never；测试通过）
+- [x] T041 [P] Integration: resource exhaustion → auto downscale + task timeout
       in `core/orchestrator/tests/resource-timeout.integration.test.ts`
-      （resource-monitor.ts 未触发资源耗尽降级路径）
+      （已实现：handleResourcePressure 触发 concurrency_reduced 与 task_failed(timeout)；测试通过）
 - [ ] T042 [P] Contract test: manual intervention mode gating in
       `core/orchestrator/tests/manual-intervention.contract.test.ts`
       （未实现 manual intervention gating 和事件发射）
