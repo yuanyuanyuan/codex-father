@@ -242,6 +242,7 @@ print_unknown_arg_help() {
     echo "❌ 未知参数: ${unknown}"
     echo "💡 是否想使用以下参数？"
     local s; for s in "${suggestions[@]}"; do flag_help_line "$s"; done | sed 's/^/   /'
+    echo "🔎 如果你是直接把一句话当作参数传入，CLI 会自动将其视为 --task 的内容；建议改为显式写法：--task \"<文本>\"。"
     echo "📖 运行 --help 查看完整参数列表"
   } >&2
 }
@@ -359,6 +360,7 @@ usage() {
   - 如果未提供 -f/-F/-c/--prepend/--append 等输入且存在环境变量 INSTRUCTIONS，则使用该变量作为基底。
   - 如果仍无输入且通过管道/重定向提供了 STDIN，则使用 STDIN 作为基底。
   - 以上均不满足时，使用脚本内置默认内容。
+  - 容错：若传入了非选项的“位置参数”，将自动视为 --task 的文本内容；为避免歧义，推荐显式书写：--task "<文本>"。
   - 默认将日志保存在 ${CODEX_LOG_DIR_DEFAULT}，并按“日期/标签”分层：logs/YYYYMMDD/<tag|untagged>/codex-YYYYMMDD_HHMMSS-<tag>.log；
     可通过 --flat-logs 改为平铺至 --log-dir。摘要附加到 ${REPO_ROOT}/codex_run_recording.txt。
   - 日志默认回显“最终合成的指令”与“各来源列表”，可用 --no-echo-instructions 关闭；或用 --echo-limit 控制回显的行数。
