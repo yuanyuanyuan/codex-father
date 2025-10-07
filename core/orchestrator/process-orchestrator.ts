@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
 import { spawn } from 'node:child_process';
+import * as fsp from 'node:fs/promises';
 import { createDefaultOrchestratorConfig } from './types.js';
 import { TaskScheduler } from './task-scheduler.js';
 import { TaskDecomposer } from './task-decomposer.js';
@@ -53,6 +54,12 @@ type ProcessOrchestratorOptions = Partial<OrchestratorConfig> & {
     restatement: string;
     evaluateConsistency: UnderstandingCheckOptions['evaluateConsistency'];
   };
+  /**
+   * 可选：会话根目录（.codex-father/sessions/<id>）。若提供，将在 orchestrate() 起始阶段
+   * 预创建 `<sessionDir>/patches/` 与 `<sessionDir>/workspaces/`，并在创建 Agent 时将
+   * workDir 指向 `<sessionDir>/workspaces/agent_<n>`。
+   */
+  sessionDir?: string;
 };
 
 /** 定义 spawnAgent 结果。 */
@@ -98,6 +105,10 @@ export class ProcessOrchestrator {
     restatement: string;
     evaluateConsistency: UnderstandingCheckOptions['evaluateConsistency'];
   };
+  /** 会话根目录（若提供则在创建 Agent 时使用）。 */
+  private readonly sessionDir?: string;
+  /** 递增的 agent 下标，用于构造 workspaces/agent_<n> 目录。 */
+  private agentSequence = 0;
 
   public constructor(config?: ProcessOrchestratorOptions) {
     const baseConfig = createDefaultOrchestratorConfig();
@@ -108,6 +119,7 @@ export class ProcessOrchestrator {
       resourceThresholds,
       understandingEvaluator,
       understanding,
+      sessionDir,
       ...configOverrides
     } = config ?? {};
 
@@ -138,6 +150,9 @@ export class ProcessOrchestrator {
     }
     if (understanding) {
       this.understanding = understanding;
+    }
+    if (typeof sessionDir === 'string' && sessionDir.trim()) {
+      this.sessionDir = sessionDir.trim();
     }
   }
 
@@ -253,6 +268,16 @@ export class ProcessOrchestrator {
           data: { reason: 'understanding_invalid', detail: reason },
         });
         return context;
+      }
+    }
+
+    // 如提供会话目录，预创建 patches 目录与 workspaces 根（0700）
+    if (this.sessionDir) {
+      try {
+        await fsp.mkdir(path.join(this.sessionDir, 'patches'), { recursive: true, mode: 0o700 });
+        await fsp.mkdir(path.join(this.sessionDir, 'workspaces'), { recursive: true, mode: 0o700 });
+      } catch {
+        // 目录创建失败不阻断流程
       }
     }
 
@@ -454,6 +479,13 @@ export class ProcessOrchestrator {
     }
 
     const agent = this.createAgent(task);
+    try {
+      await fsp.mkdir(agent.sessionDir, { recursive: true, mode: 0o700 });
+      await fsp.mkdir(path.join(agent.sessionDir, 'patches'), { recursive: true, mode: 0o700 });
+      await fsp.mkdir(agent.workDir, { recursive: true, mode: 0o700 });
+    } catch {
+      // 忽略目录创建错误以避免影响主流程
+    }
     this.agentPool.set(agent.id, agent);
 
     this.launchCodexAgent(agent, roleConfig);
@@ -548,8 +580,22 @@ export class ProcessOrchestrator {
   private createAgent(task: TaskDefinition): Agent {
     const agentId = `agent_${randomUUID()}`;
     const nowIso = new Date().toISOString();
-    const workDir = process.cwd();
-    const sessionDir = path.join(workDir, '.codex-father', 'sessions', agentId);
+    const cwd = process.cwd();
+    // 会话目录采用优先注入的 sessionDir；否则回退到每 agent 独立目录
+    const sessionDir = this.sessionDir ?? path.join(cwd, '.codex-father', 'sessions', agentId);
+    // 为该 Agent 准备独立工作目录：<sessionDir>/workspaces/agent_<n>
+    this.agentSequence += 1;
+    const workDir = path.join(sessionDir, 'workspaces', `agent_${this.agentSequence}`);
+    // 尝试创建必要目录（不抛出阻断异常）
+    void (async () => {
+      try {
+        await fsp.mkdir(sessionDir, { recursive: true, mode: 0o700 });
+        await fsp.mkdir(path.join(sessionDir, 'patches'), { recursive: true, mode: 0o700 });
+        await fsp.mkdir(workDir, { recursive: true, mode: 0o700 });
+      } catch {
+        // 忽略
+      }
+    })();
 
     return {
       id: agentId,
