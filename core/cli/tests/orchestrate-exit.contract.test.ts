@@ -84,4 +84,29 @@ describe('Orchestrate CLI exit codes and summary (T006)', () => {
     expect(second.event).toBe('orchestration_completed');
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
+
+  it('supports --resume to trigger session recovery without altering stdout contract', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`process.exit:${code ?? 0}`);
+    }) as any);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined as any);
+
+    let thrown: Error | null = null;
+    try {
+      await parser.parse([
+        'node',
+        'codex-father',
+        'orchestrate',
+        '占位需求',
+        '--resume',
+        '/tmp/codex-rollout.json',
+      ]);
+    } catch (error) {
+      thrown = error as Error;
+    }
+
+    expect(thrown?.message).toBe('process.exit:0');
+    const combinedLogs = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(combinedLogs.includes('/tmp/codex-rollout.json')).toBe(true);
+  });
 });

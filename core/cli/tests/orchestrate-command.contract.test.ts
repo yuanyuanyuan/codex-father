@@ -31,17 +31,20 @@ describe('Orchestrate CLI contract (T005)', () => {
 
     const optionFlags = orchestrateCommand?.options.map((opt) => opt.flags) ?? [];
 
-    expect(optionFlags).toEqual(
-      expect.arrayContaining([
-        '--mode <manual|llm>',
-        '--tasks-file <path>',
-        '--max-concurrency <n>',
-        '--task-timeout <minutes>',
-        '--success-threshold <0-1>',
-        '--output-format <json|stream-json>',
-        '--config <path>',
-      ])
-    );
+    // 放宽校验：包含核心选项即可（不同 Commander 渲染可能调序）
+    const expectedFlags = [
+      '--mode <manual|llm>',
+      '--tasks-file <path>',
+      '--max-concurrency <n>',
+      '--task-timeout <minutes>',
+      '--success-threshold <0-1>',
+      '--output-format <json|stream-json>',
+      '--resume <path>',
+      '--config <path>',
+    ];
+    for (const flag of expectedFlags) {
+      expect(optionFlags).toContain(flag);
+    }
   });
 
   it('renders help output that mirrors contract examples', () => {

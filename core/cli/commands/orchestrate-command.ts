@@ -99,7 +99,34 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         return result;
       }
 
-      // 2) 调用编排器（当前占位：空任务列表）
+      // 2) resume 模式：若提供 --resume <rolloutPath>，调用 orchestrator.resumeSession 并快速返回成功结果
+      const rolloutPath = typeof options.resume === 'string' ? options.resume.trim() : '';
+      if (rolloutPath) {
+        try {
+          const orchestrator = new ProcessOrchestrator({});
+          await orchestrator.resumeSession({ rolloutPath, requirement });
+          const executionTime = Date.now() - startTime;
+          const result: CommandResult = {
+            success: true,
+            message: `已触发会话恢复: ${rolloutPath}`,
+            executionTime,
+            exitCode: 0,
+          };
+          return result;
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          const result: CommandResult = {
+            success: false,
+            message: `会话恢复触发失败: ${msg}`,
+            errors: [msg],
+            executionTime: Date.now() - startTime,
+            exitCode: 4,
+          };
+          return result;
+        }
+      }
+
+      // 3) 调用编排器（当前占位：空任务列表）
       let tasksTotal = 0;
       try {
         const orchestrator = new ProcessOrchestrator({
@@ -123,7 +150,7 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         return result;
       }
 
-      // 3) 产生占位成功率，并在 orchestrator 返回后再进行事件写入/输出
+      // 4) 产生占位成功率，并在 orchestrator 返回后再进行事件写入/输出
       const successRate = 0.92;
       const executionTime = Date.now() - startTime;
 
@@ -353,6 +380,10 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         {
           flags: '--config <path>',
           description: '额外的 YAML 编排配置文件',
+        },
+        {
+          flags: '--resume <path>',
+          description: '恢复 Codex 会话：rollout/state 路径',
         },
       ],
     }
