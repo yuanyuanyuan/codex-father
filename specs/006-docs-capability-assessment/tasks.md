@@ -204,10 +204,12 @@
       （已实现：在 `runTaskWithRetry` 中按配置或默认进行指数回退；在每次失败且允许
       重试时写入 JSONL 事件 `task_retry_scheduled`，包含 `{ nextAttempt, delayMs }`；
       测试覆盖失败一次后重试与事件负载验证）
-- [ ] T022 Implement SWW isolation workspaces under
+- [x] T022 Implement SWW isolation workspaces under
       `.codex-father/sessions/<id>/workspaces/agent_<n>/` and patches under
       `patches/`
-      （未创建会话隔离工作区/patches 目录结构）
+      （已实现：Orchestrator 在 spawnAgent 前确保 `<sessionDir>/patches/` 与
+      `<sessionDir>/workspaces/agent_<n>` 存在；Agent.workDir 指向对应工作目录。
+      新增契约测试 `workspaces-structure.contract.test.ts` 验证结构。）
 - [ ] T023 Implement cancel handling (SIGINT): broadcast stop → wait 60s →
       terminate → summary report
       （未实现 SIGINT 取消流程（广播/等待/总结））
