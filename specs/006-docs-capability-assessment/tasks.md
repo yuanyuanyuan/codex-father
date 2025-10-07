@@ -236,9 +236,10 @@
 - [x] T025 [P] Unit tests for SWW failure/rollback paths in
       `core/orchestrator/tests/sww-coordinator.test.ts`
       （sww-coordinator.test.ts 覆盖冲突、preCheck 失败、队列串行与回滚场景；本轮针对命令验证全部通过）
-- [ ] T026 [P] Unit tests for resource monitor thresholds/hysteresis in
+- [x] T026 [P] Unit tests for resource monitor thresholds/hysteresis in
       `core/orchestrator/tests/resource-monitor.test.ts`
-      （resource-monitor.test.ts 已编写阈值/滞回用例，但因 shouldDownscale 未导出导致本轮测试全数失败）
+      （已通过：resource-monitor.test.ts、resource-monitor.hysteresis.test.ts；
+      实现导出 shouldDownscale 并覆盖阈值与滞回恢复路径）
 - [x] T027 [P] Unit tests for patch-applier strategies in
       `core/orchestrator/tests/patch-applier.test.ts`
       （patch-applier.test.ts 覆盖 git 优先、fallback 与 native-only 策略分支；全部断言通过）
