@@ -210,12 +210,17 @@
       （已实现：Orchestrator 在 spawnAgent 前确保 `<sessionDir>/patches/` 与
       `<sessionDir>/workspaces/agent_<n>` 存在；Agent.workDir 指向对应工作目录。
       新增契约测试 `workspaces-structure.contract.test.ts` 验证结构。）
-- [ ] T023 Implement cancel handling (SIGINT): broadcast stop → wait 60s →
+- [x] T023 Implement cancel handling (SIGINT): broadcast stop → wait 60s →
       terminate → summary report
-      （未实现 SIGINT 取消流程（广播/等待/总结））
-- [ ] T024 Ensure sandbox and approvals defaults: `workspace-write`, `never` for
+      （已实现最小取消链路：写入 `cancel_requested`，等待后终止活跃 agent 并清空池，
+      最终写入 `orchestration_failed`（reason=cancelled）。契约测试通过：
+      `core/orchestrator/tests/cancel-handling.contract.test.ts`）
+- [x] T024 Ensure sandbox and approvals defaults: `workspace-write`, `never` for
       orchestrator; codex processes inherit safety config
-      （默认 sandbox=workspace-write / approval=never 未注入子进程）
+      （已确认：默认角色配置 developer/tester/reviewer 均为 sandbox=workspace-write、
+      permissionMode=never；`launchCodexAgent` 透传 `--ask-for-approval` 与
+      `--sandbox` 参数。测试覆盖：
+      `core/orchestrator/tests/sandbox-approvals.defaults.test.ts`）
 
 ## Phase 3.5: Polish
 
