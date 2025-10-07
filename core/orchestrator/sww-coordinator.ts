@@ -15,9 +15,20 @@ interface PatchEventPayload {
 /**
  * SWWCoordinator 实现单写窗口与补丁排队喵。
  */
+type StateManagerLike = {
+  emitEvent?: (payload: {
+    event: string;
+    taskId?: string;
+    role?: string;
+    data?: unknown;
+  }) => unknown | Promise<unknown>;
+};
+
 type SWWOptions = {
   /** 基础工作根目录；若未提供，则使用 process.cwd() */
   readonly workRoot?: string;
+  /** 可选：状态事件发射器，用于写入 JSONL/stream 事件 */
+  readonly stateManager?: StateManagerLike;
 };
 
 export class SWWCoordinator {
@@ -41,9 +52,14 @@ export class SWWCoordinator {
 
   /** 工作根目录（隔离目录的基底）。 */
   private readonly workRoot: string;
+  /** 可选的状态事件发射器。 */
+  private readonly stateManager?: StateManagerLike;
 
   public constructor(options?: SWWOptions) {
     this.workRoot = options?.workRoot ?? process.cwd();
+    if (options && options.stateManager) {
+      this.stateManager = options.stateManager;
+    }
   }
 
   /** 暴露事件历史，方便测试与诊断。 */
@@ -134,6 +150,56 @@ export class SWWCoordinator {
     this.eventHistory.push(payload);
     for (const listener of this.listeners[event]) {
       listener(payload);
+    }
+
+    // 将补丁事件映射到 JSONL/stream 事件：
+    // - 成功：tool_use（工具=patch_applier），并补充 patch_applied 审计事件
+    // - 失败：task_failed（reason=patch_failed），并补充 patch_failed 审计事件
+    const sm = this.stateManager;
+    if (sm && typeof sm.emitEvent === 'function') {
+      if (event === 'patch_applied') {
+        void Promise.resolve(
+          sm.emitEvent?.({
+            event: 'tool_use',
+            taskId: patch.taskId,
+            data: {
+              tool: 'patch_applier',
+              patchId: patch.id,
+              sequence: patch.sequence,
+              filePath: patch.filePath,
+              workDir,
+              result: 'applied',
+            },
+          })
+        );
+        void Promise.resolve(
+          sm.emitEvent?.({
+            event: 'patch_applied',
+            taskId: patch.taskId,
+            data: { patchId: patch.id, filePath: patch.filePath, workDir },
+          })
+        );
+      } else if (event === 'patch_failed') {
+        void Promise.resolve(
+          sm.emitEvent?.({
+            event: 'task_failed',
+            taskId: patch.taskId,
+            data: {
+              reason: 'patch_failed',
+              patchId: patch.id,
+              filePath: patch.filePath,
+              errorMessage,
+            },
+          })
+        );
+        void Promise.resolve(
+          sm.emitEvent?.({
+            event: 'patch_failed',
+            taskId: patch.taskId,
+            data: { patchId: patch.id, filePath: patch.filePath, errorMessage },
+          })
+        );
+      }
     }
   }
 

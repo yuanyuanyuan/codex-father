@@ -107,9 +107,9 @@
 - [x] T041 [P] Integration: resource exhaustion → auto downscale + task timeout
       in `core/orchestrator/tests/resource-timeout.integration.test.ts`
       （已实现：handleResourcePressure 触发 concurrency_reduced 与 task_failed(timeout)；测试通过）
-- [ ] T042 [P] Contract test: manual intervention mode gating in
+- [x] T042 [P] Contract test: manual intervention mode gating in
       `core/orchestrator/tests/manual-intervention.contract.test.ts`
-      （manual-intervention.contract.test.ts 期望拒绝执行，但 orchestrator.orchestrate() 仍返回成功上下文，缺少 gating 实现）
+      （已通过：orchestrator 在调度前接入 manualIntervention gate；requireAck 时拒绝并写入 JSONL 事件）
 - [x] T043 [P] Contract test: logs viewing/export CLI in
       `core/cli/tests/logs-command.contract.test.ts`
       （npx vitest run core/cli/tests/logs-command.contract.test.ts）
@@ -125,19 +125,20 @@
 - [x] T013 Implement `process-orchestrator.ts`: pool management (size ≤10),
       spawn `codex exec`, health check, graceful shutdown (60s)
       （ProcessOrchestrator 已实现并发池、codex exec 启动、healthCheck 与 requestCancel/shutdown；pool/health/cancel 测试通过）
-- [ ] T014 Implement `sww-coordinator.ts`: Single Writer Window + two‑phase
+- [x] T014 Implement `sww-coordinator.ts`: Single Writer Window + two‑phase
       write, queue, sequence; append audit `patch_applied`/`patch_failed`;
       stream提示使用 `tool_use`/`task_failed`（保持与事件 Schema 一致）
-      （SWWCoordinator 尚未发出 tool_use/task_failed 事件或串联外部日志）
+      （已接入：SWWCoordinator 支持 stateManager.emitEvent；成功映射 tool_use + patch_applied；
+      失败映射 task_failed(reason=patch_failed) + patch_failed；用例覆盖 sww-events.stream.contract.test.ts）
 - [x] T015 Implement `patch-applier.ts`: prefer `git apply`, fallback to native;
       return strategy + usedFallback
       （core/orchestrator/patch-applier.ts 已实现 git 优先与 native 回退；对应策略测试通过）
 - [x] T016 Implement `quick-validate.ts`: run configured steps, fail on missing
       when `failOnMissing: true`
       （quick-validate.ts 支持 failOnMissing 与顺序执行 steps；测试覆盖错误与警告路径）
-- [ ] T017 Implement `resource-monitor.ts`: sample `os`/`process` metrics,
+- [x] T017 Implement `resource-monitor.ts`: sample `os`/`process` metrics,
       thresholds, hysteresis, auto up/down concurrency
-      （resource-monitor.ts 未导出 shouldDownscale；滞回/降级测试失败）
+      （已实现并导出 shouldDownscale；阈值与滞回用例通过）
 - [x] T018 Implement `state-manager.ts`: Stream-JSON emitter + success rate
       aggregation; write JSONL via `EventLogger`
       （StateManager.emitEvent 提供 seq 递增与 JSONL 写入；state-manager.test.ts 验证通过）
