@@ -72,3 +72,41 @@ stdout 流输出契约（stream-json）。
 
 说明：这些事件仅用于审计追踪与回放，不影响 stdout 两行摘要约束；如需对外体现，
 请通过 `tool_use` 或 `task_*` 的 `data` 字段做摘要性表达。
+
+## 场景示例（节选）
+
+### 1) Manual Intervention + Understanding（ACK 通过）
+
+stdout（stream-json，仍仅两行）：
+
+```json
+{ "event": "start", "data": { "totalTasks": 1 } }
+{ "event": "orchestration_completed", "data": { "successRate": 1 } }
+```
+
+JSONL（审计，完整顺序）：
+
+```json
+{ "event": "understanding_validated", "data": {} }
+{ "event": "start", "data": { "wave": 0, "tasks": ["t1"] } }
+{ "event": "task_started", "taskId": "t1", "data": { "wave": 0 } }
+{ "event": "task_completed", "taskId": "t1", "data": { "wave": 0 } }
+{ "event": "orchestration_completed", "data": { "successRate": 1 } }
+```
+
+### 2) SWW 长队列（部分失败）
+
+队列：p_1(OK), p_2(OK), p_3(FAIL), p_4(OK)… 按顺序处理。
+
+JSONL（节选与配对）：
+
+```json
+{ "event": "tool_use",       "data": { "tool": "patch_applier", "patchId": "p_1" } }
+{ "event": "patch_applied",  "data": { "patchId": "p_1" } }
+{ "event": "tool_use",       "data": { "tool": "patch_applier", "patchId": "p_2" } }
+{ "event": "patch_applied",  "data": { "patchId": "p_2" } }
+{ "event": "task_failed",    "data": { "reason": "patch_failed", "patchId": "p_3" } }
+{ "event": "patch_failed",   "data": { "patchId": "p_3" } }
+```
+
+说明：失败不会打乱后续补丁事件顺序；stdout 契约保持不变。

@@ -1,0 +1,35 @@
+name: Orchestrator Tests
+
+on:
+  push:
+    branches: [ "feat/specs-006-docs-capability-assessment", "main", "release", "**/batch-*" ]
+    paths:
+      - 'core/orchestrator/**'
+      - 'docs/schemas/stream-json-event.schema.json'
+      - 'specs/006-docs-capability-assessment/contracts/events.md'
+      - 'AGENTS.md'
+      - 'package.json'
+  pull_request:
+    paths:
+      - 'core/orchestrator/**'
+      - 'docs/schemas/stream-json-event.schema.json'
+      - 'specs/006-docs-capability-assessment/contracts/events.md'
+      - 'AGENTS.md'
+      - 'package.json'
+
+jobs:
+  orchestrator-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run orchestrator tests
+        run: ORCHESTRATOR_TESTS=1 npm run test:orchestrator
+

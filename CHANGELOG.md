@@ -9,6 +9,17 @@
 
 ### ♻️ 改进
 
+- T030 仓库整洁度（依赖/文档）
+  - 移除未使用依赖：chokidar/mermaid/fs-extra/@types-fs-extra/supertest/@types-supertest/jscpd
+  - 保留：tslib/rimraf/vite/@vitest/coverage-v8；新增可选依赖 winston-syslog（用于 Syslog 输出）
+  - 同步契约与指引：events.md 增补 JSONL 审计事件；AGENTS.md 增补 Gates/Events；开发文档移除 fs-extra 主依赖描述
+- 测试增强（不改运行时逻辑）
+  - Gate 顺序与阻断：manualIntervention → understanding →
+    decomposition 的多路径断言
+  - 资源联动：concurrency_reduced /
+    concurrency_increased 的降级/恢复联动与 from/to 字段
+  - SWW 映射与顺序：长队列部分失败保持事件配对与顺序一致性（tool_use+patch_applied
+    / task_failed+patch_failed）
 - 补丁模式默认将 diff 落盘并仅在日志中输出预览，新增
   `--patch-output`、`--patch-preview-lines`、`--no-patch-preview`、
   `--no-patch-artifact` 等 CLI 开关，配合元数据记录哈希与行数。
