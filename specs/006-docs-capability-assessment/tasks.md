@@ -193,9 +193,11 @@
       （已联动：`handleResourcePressure` 在高负载时动态下调并发池大小并发出
       `concurrency_reduced`，恢复时上调并发并发出 `concurrency_increased`；
       调度阶段按 `currentPoolSize` 分批执行；新增用例验证降级生效。）
-- [ ] T055 Implement manual intervention mode (config flag) to gate
+- [x] T055 Implement manual intervention mode (config flag) to gate
       execution/role fallback; emit prompts as events
-      （manual intervention 模式配置与事件缺失）
+      （已接入：core/orchestrator/process-orchestrator.ts 添加 manualIntervention gate；
+      失败时仅写 JSONL：manual_intervention_requested → orchestration_failed{reason:manual_cancelled}；
+      用例通过：core/orchestrator/tests/manual-intervention.contract.test.ts）
 - [x] T056 Add `logs` CLI command at `core/cli/commands/logs-command.ts` to
       view/export `.codex-father/sessions/<id>/events.jsonl`
       （已实现读取/导出并支持 --follow/--limit/--format，见 core/cli/commands/logs-command.ts）

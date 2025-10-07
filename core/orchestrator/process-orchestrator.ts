@@ -37,6 +37,7 @@ type ProcessOrchestratorOptions = Partial<OrchestratorConfig> & {
   resourceMonitor?: ResourceMonitorLike;
   taskTimeoutMs?: number;
   resourceThresholds?: { cpuHighWatermark?: number };
+  manualIntervention?: { enabled?: boolean; requireAck?: boolean; ack?: boolean };
   /**
    * 可选的理解一致性评估函数注入点（用于测试或外部实现）。
    * 若未提供且 orchestrate 未传入 requirement/restatement，将跳过理解检查。
@@ -96,6 +97,8 @@ export class ProcessOrchestrator {
 
   /** 资源阈值（可注入）。 */
   private readonly resourceThresholds?: { cpuHighWatermark?: number };
+  /** 人工干预配置（可注入）。 */
+  private readonly manualIntervention?: { enabled?: boolean; requireAck?: boolean; ack?: boolean };
   /** 理解检查评估器（可注入）。 */
   private readonly understandingEvaluator?: (input: {
     requirement: string;
@@ -119,6 +122,7 @@ export class ProcessOrchestrator {
       resourceMonitor,
       taskTimeoutMs,
       resourceThresholds,
+      manualIntervention,
       understandingEvaluator,
       understanding,
       sessionDir,
@@ -147,6 +151,9 @@ export class ProcessOrchestrator {
     }
     if (resourceThresholds) {
       this.resourceThresholds = resourceThresholds;
+    }
+    if (manualIntervention) {
+      this.manualIntervention = manualIntervention;
     }
     if (understandingEvaluator) {
       this.understandingEvaluator = understandingEvaluator;
@@ -182,6 +189,23 @@ export class ProcessOrchestrator {
     opts?: { requirement?: string; restatement?: string }
   ): Promise<OrchestratorContext> {
     const context = this.createContext(tasks);
+
+    // 人工干预门控：在任何理解/分解/调度动作之前执行
+    if (this.manualIntervention?.enabled) {
+      const needAck = !!this.manualIntervention.requireAck;
+      const ack = !!this.manualIntervention.ack;
+      if (needAck && !ack) {
+        await this.emitEvent({
+          event: 'manual_intervention_requested',
+          data: { reason: 'manual_gate', requireAck: true },
+        });
+        await this.emitEvent({
+          event: 'orchestration_failed',
+          data: { reason: 'manual_cancelled' },
+        });
+        throw new Error('manual intervention required');
+      }
+    }
 
     // 在任务分解前进行「理解一致性」门控（集中式配置 understanding）
     if (
