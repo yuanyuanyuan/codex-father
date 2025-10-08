@@ -1,8 +1,15 @@
 import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
 
-const orchestratorExcluded =
-  process.env.ORCHESTRATOR_TESTS === '1' ? [] : ['core/orchestrator/tests/**'];
+// 当仅跑 orchestrator 测试时，不应排除 core/orchestrator/tests/**
+const cliArgs = process.argv.join(' ').toLowerCase();
+const orchestratorFlag = (process.env.ORCHESTRATOR_TESTS ?? '').toString().toLowerCase();
+const runOnlyOrchestrator =
+  cliArgs.includes('core/orchestrator/tests') ||
+  orchestratorFlag === '1' ||
+  orchestratorFlag === 'true' ||
+  orchestratorFlag === 'yes';
+const orchestratorExcluded = runOnlyOrchestrator ? [] : ['core/orchestrator/tests/**'];
 
 export default defineConfig({
   test: {
