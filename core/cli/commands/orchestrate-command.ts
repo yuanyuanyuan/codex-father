@@ -715,6 +715,7 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
           reportPath,
           reportWriteError,
           completedTasks: stats.completedTasks,
+          failedTasks: failedTaskIds,
           failedTaskIds,
           failedTaskDetails,
           remediationSuggestions,
