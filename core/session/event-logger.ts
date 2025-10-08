@@ -16,6 +16,12 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { Event, EventType, EventSchema } from '../lib/types.js';
+import {
+  createSensitiveRedactor,
+  DEFAULT_REDACTION_PATTERNS,
+  type SensitiveRedactor,
+  type RedactionPattern,
+} from '../lib/security/redaction.js';
 
 /**
  * 事件日志记录器配置
@@ -26,6 +32,8 @@ export interface EventLoggerConfig {
   autoFlush?: boolean; // 是否自动刷新到磁盘 (默认: true)
   validateEvents?: boolean; // 是否验证事件格式 (默认: true)
   asyncWrite?: boolean; // 是否异步写入（默认: autoFlush 为 false 时启用），启用后 logEvent 不等待磁盘完成
+  redactionPatterns?: ReadonlyArray<RedactionPattern>; // 自定义脱敏规则
+  redactSensitiveData?: boolean; // 显式禁用脱敏（默认启用）
 }
 
 /**
@@ -47,10 +55,15 @@ export class EventLogger {
   private logFilePath: string;
   private config: Required<EventLoggerConfig>;
   private writeLock: Promise<void> = Promise.resolve();
+  private redactor: SensitiveRedactor;
 
   constructor(config: EventLoggerConfig) {
     const autoFlush = config.autoFlush ?? true;
     const asyncWrite = config.asyncWrite ?? !autoFlush;
+    const redactSensitiveData = config.redactSensitiveData !== false;
+    const patterns = redactSensitiveData
+      ? (config.redactionPatterns ?? DEFAULT_REDACTION_PATTERNS)
+      : [];
 
     this.config = {
       logDir: config.logDir,
@@ -58,9 +71,12 @@ export class EventLogger {
       autoFlush,
       validateEvents: config.validateEvents ?? true,
       asyncWrite,
+      redactionPatterns: patterns,
+      redactSensitiveData,
     };
 
     this.logFilePath = path.join(this.config.logDir, this.config.logFileName);
+    this.redactor = createSensitiveRedactor(patterns);
   }
 
   /**
@@ -80,9 +96,11 @@ export class EventLogger {
       ...event,
     };
 
+    const sanitizedEvent = this.redactor(fullEvent) as Event;
+
     // 验证事件格式 (如果启用)
     if (this.config.validateEvents && !options?.skipValidation) {
-      const result = EventSchema.safeParse(fullEvent);
+      const result = EventSchema.safeParse(sanitizedEvent);
       if (!result.success) {
         throw new Error(`Invalid event format: ${JSON.stringify(result.error.errors)}`);
       }
@@ -90,7 +108,7 @@ export class EventLogger {
 
     // 使用锁确保写入操作串行化 (避免竞态条件)
     this.writeLock = this.writeLock.then(async () => {
-      await this.writeEventToFile(fullEvent);
+      await this.writeEventToFile(sanitizedEvent);
     });
 
     // 异步写入：不等待磁盘完成，直接返回 eventId
@@ -98,7 +116,7 @@ export class EventLogger {
       await this.writeLock;
     }
 
-    return fullEvent.eventId;
+    return sanitizedEvent.eventId;
   }
 
   /**

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "t_prepare",
+    "title": "准备",
+    "description": "初始化环境",
+    "role": "developer",
+    "command": "npm install",
+    "logSnippet": "install ok"
+  },
+  {
+    "id": "t_fail",
+    "title": "失败任务",
+    "description": "模拟失败",
+    "role": "developer",
+    "dependencies": ["t_prepare"],
+    "command": "npm test",
+    "logSnippet": "E2E failed",
+    "simulateFailure": true
+  }
+]

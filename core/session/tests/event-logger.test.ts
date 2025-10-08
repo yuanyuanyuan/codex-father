@@ -344,6 +344,35 @@ describe('EventLogger', () => {
     });
   });
 
+  describe('敏感信息脱敏', () => {
+    it('应该在写入前掩盖敏感内容', async () => {
+      const jobId = uuidv4();
+      await logger.logEvent({
+        type: EventType.JOB_CREATED,
+        jobId,
+        data: {
+          apiKey: 'sk-XYZ123456789',
+          notes: 'Authorization: Bearer sk-secret token=abc',
+          processEnv: { OPENAI_API_KEY: 'sk-987654321', SAFE_FLAG: 'ok' },
+          env: ['PASSWORD=topsecret'],
+        },
+      });
+
+      const events = await logger.readAllEvents();
+      expect(events).toHaveLength(1);
+      const event = events[0];
+      expect(event.data.apiKey).toBe('[REDACTED]');
+      expect(typeof event.data.notes).toBe('string');
+      expect((event.data.notes as string).includes('[REDACTED]')).toBe(true);
+      expect(event.data.processEnv).toBe('[REDACTED]');
+      expect(event.data.env).toEqual(['[REDACTED]']);
+
+      const raw = await fs.readFile(logger.getLogFilePath(), 'utf-8');
+      expect(raw).not.toContain('sk-XYZ123456789');
+      expect(raw).not.toContain('topsecret');
+    });
+  });
+
   describe('边缘情况', () => {
     it('应该处理空日志文件 (返回空数组)', async () => {
       const events = await logger.readAllEvents();

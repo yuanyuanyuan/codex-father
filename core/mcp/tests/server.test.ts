@@ -47,6 +47,7 @@ vi.mock('../../session/session-manager.js', () => {
 vi.mock('../bridge-layer.js', () => {
   return {
     createBridgeLayer: vi.fn(),
+    registerDiagnosticTools: vi.fn(async () => {}),
   };
 });
 
@@ -62,10 +63,11 @@ describe('MCPServer', () => {
   let mockProcessManager: any;
   let mockSessionManager: any;
   let mockBridgeLayer: any;
+  let registerDiagnosticTools: any;
   let mockEventMapper: any;
   let mockCodexClient: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // 创建 mock MCP Server
     mockServer = {
       connect: vi.fn().mockResolvedValue(undefined),
@@ -123,6 +125,8 @@ describe('MCPServer', () => {
       callTool: vi.fn().mockResolvedValue({ success: true, data: 'result' }),
     };
     vi.mocked(createBridgeLayer).mockReturnValue(mockBridgeLayer);
+    // capture registerDiagnosticTools from mocked module (ESM import)
+    ({ registerDiagnosticTools } = await import('../bridge-layer.js'));
 
     // 创建 mock EventMapper
     mockEventMapper = {
@@ -401,6 +405,13 @@ describe('MCPServer', () => {
 
       expect(server).toBeInstanceOf(MCPServer);
       expect(mockProcessManager.start).toHaveBeenCalled();
+    });
+
+    it('在 enableDiagnosticTools=true 时注册诊断只读工具', async () => {
+      const server = createMCPServer({ enableDiagnosticTools: true });
+      await server.start();
+
+      expect(registerDiagnosticTools).toHaveBeenCalledWith(mockBridgeLayer);
     });
   });
 

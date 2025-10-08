@@ -135,6 +135,60 @@
     "sources": ["start.sh:36"]
   },
   {
+    "name": "CODEX_STRUCTURED_INSTRUCTIONS_FILE",
+    "description": "Normalized structured instructions JSON written under .codex-father/instructions/",
+    "type": "string",
+    "components": ["cli-wrapper", "shell/start.sh"],
+    "default": null,
+    "allowed": null,
+    "sources": ["core/cli/legacy-compatibility.ts:64"]
+  },
+  {
+    "name": "CODEX_STRUCTURED_INSTRUCTIONS_SOURCE",
+    "description": "Original structured instructions file path resolved by CLI",
+    "type": "string",
+    "components": ["cli-wrapper", "shell/start.sh"],
+    "default": null,
+    "allowed": null,
+    "sources": ["core/cli/legacy-compatibility.ts:65"]
+  },
+  {
+    "name": "CODEX_STRUCTURED_INSTRUCTIONS_FORMAT",
+    "description": "Source format detected for structured instructions",
+    "type": "string",
+    "components": ["cli-wrapper", "shell/start.sh"],
+    "default": null,
+    "allowed": ["json", "yaml", "xml"],
+    "sources": ["core/cli/legacy-compatibility.ts:66"]
+  },
+  {
+    "name": "CODEX_STRUCTURED_INSTRUCTIONS_ID",
+    "description": "Structured instruction set identifier (from payload)",
+    "type": "string",
+    "components": ["cli-wrapper", "shell/start.sh"],
+    "default": null,
+    "allowed": null,
+    "sources": ["core/cli/legacy-compatibility.ts:67"]
+  },
+  {
+    "name": "CODEX_STRUCTURED_INSTRUCTIONS_VERSION",
+    "description": "Structured instruction set semantic version",
+    "type": "string",
+    "components": ["cli-wrapper", "shell/start.sh"],
+    "default": null,
+    "allowed": null,
+    "sources": ["core/cli/legacy-compatibility.ts:68"]
+  },
+  {
+    "name": "CODEX_STRUCTURED_TASK_ID",
+    "description": "Selected task id when executing structured instructions",
+    "type": "string",
+    "components": ["cli-wrapper", "shell/start.sh"],
+    "default": null,
+    "allowed": null,
+    "sources": ["core/cli/legacy-compatibility.ts:71"]
+  },
+  {
     "name": "REDACT_ENABLE",
     "description": "Enable output redaction via default/custom patterns.",
     "type": "boolean-like",

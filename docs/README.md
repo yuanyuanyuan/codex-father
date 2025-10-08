@@ -19,6 +19,8 @@
 
 - **[用户文档总览](user/README.md)**
 - [快速开始](user/quick-start.md) - 5 分钟上手
+- [Auto 命令](user/auto.md) - 路由 + 高质量模板（MVP12）
+- [Orchestrate vs Auto](user/orchestrate-vs-auto.md) - 何时用谁？
 - [安装指南](user/installation.md) - 完整安装步骤
 - [配置指南](user/configuration.md) - 三种客户端配置
 - [首次运行测试](user/first-run.md) - 功能验证
@@ -71,10 +73,12 @@
 
 适合：想要了解项目发展历程和未来规划的开发者
 
-- **[MVP 文档总览](mvp/README.md)**
-- [MVP3 文档](mvp/mvp3/) - 能力评估和非交互模式
+- **[MVP 文档总览](mvp/README.md)**（含“全局实施路线图”）
 - [MVP4 文档](mvp/mvp4/) - PRD 草案
 - [MVP5 文档](mvp/mvp5/) - Worktree 集成计划
+- [MVP10 文档](mvp/mvp10/README.md) - 单窗自动化与编排增强（与 auto 汇合）
+- [MVP11 文档](mvp/MVP11/PRD.md) - 四种模式（CLI/作业/MCP/内嵌）整合 PRD
+- [MVP12 文档](mvp/mvp12/README.md) - 自动模型路由与高质量工作流（不改官方源）
 
 ---
 

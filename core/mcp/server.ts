@@ -21,6 +21,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { SingleProcessManager, createProcessManager } from '../process/manager.js';
 import { SessionManager, createSessionManager } from '../session/session-manager.js';
 import { BridgeLayer, createBridgeLayer } from './bridge-layer.js';
+import { registerDiagnosticTools } from './bridge-layer.js';
 import { EventMapper, createEventMapper } from './event-mapper.js';
 import { EventType } from '../lib/types.js';
 import { PROJECT_VERSION } from '../lib/version.js';
@@ -40,6 +41,7 @@ export interface MCPServerConfig {
   maxRestartAttempts?: number;
   restartDelay?: number;
   timeout?: number;
+  enableDiagnosticTools?: boolean; // 是否注册诊断只读工具（默认 false）
 }
 
 /**
@@ -65,6 +67,7 @@ export class MCPServer {
       serverName: config.serverName || 'codex-father',
       serverVersion: config.serverVersion || PROJECT_VERSION,
       debug: config.debug || false,
+      enableDiagnosticTools: config.enableDiagnosticTools ?? true,
     };
     if (config.codexCommand !== undefined) {
       this.config.codexCommand = config.codexCommand;
@@ -86,6 +89,9 @@ export class MCPServer {
     }
     if (config.timeout !== undefined) {
       this.config.timeout = config.timeout;
+    }
+    if (config.enableDiagnosticTools !== undefined) {
+      this.config.enableDiagnosticTools = config.enableDiagnosticTools;
     }
 
     // 创建 MCP Server
@@ -161,6 +167,17 @@ export class MCPServer {
 
     // 启动进程管理器
     await this.processManager.start();
+
+    // 根据配置注册诊断只读工具（不影响默认工具集）
+    if (this.config.enableDiagnosticTools) {
+      try {
+        await registerDiagnosticTools(this.bridgeLayer);
+      } catch (e) {
+        if (this.config.debug) {
+          console.warn('[MCPServer] Failed to register diagnostic tools:', (e as Error).message);
+        }
+      }
+    }
 
     // 启动后再注册处理器，确保 CodexClient 可用
     this.registerHandlers();

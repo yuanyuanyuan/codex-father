@@ -1,0 +1,19 @@
+[
+  {
+    "id": "t_setup",
+    "title": "准备环境",
+    "description": "初始化项目配置并检查依赖",
+    "role": "developer",
+    "command": "npm install",
+    "logSnippet": "installed dependencies"
+  },
+  {
+    "id": "t_implement",
+    "title": "实现功能",
+    "description": "编写核心逻辑并补充测试",
+    "role": "developer",
+    "dependencies": ["t_setup"],
+    "command": "npm test",
+    "logSnippet": "all tests passed"
+  }
+]

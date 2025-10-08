@@ -10,6 +10,7 @@
 2. [📦 安装指南](installation.md) - 完整安装步骤
 3. [⚙️ 配置指南](configuration.md) - 配置客户端
 4. [🚀 首次运行测试](first-run.md) - 验证功能
+5. [🩺 诊断 Playbook](mcp-diagnostic-playbook.md) - 常见问题快速定位
 
 ## 📖 使用指南
 

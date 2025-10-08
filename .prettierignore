@@ -12,3 +12,4 @@ test-results/
 *.tsbuildinfo*
 mcp/codex-mcp-server/node_modules/
 mcp/codex-mcp-server/dist/
+core/cli/tests/fixtures/invalid-*.json

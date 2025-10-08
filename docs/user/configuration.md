@@ -39,48 +39,50 @@ gedit ~/.config/Claude/claude_desktop_config.json
 
 ### 步骤 2：添加 Codex Father 配置
 
-#### 方式 A：使用 npx（推荐）
-
-```json
-{
-  "mcpServers": {
-    "codex-father-prod": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"],
-      "env": {
-        "NODE_ENV": "production"
-      }
-    }
-  }
-}
-```
-
-**优点**：
-
-- 无需安装，自动使用最新版本
-- 配置简单
-
-#### 方式 B：使用全局安装
-
-**前提**：已运行 `npm install -g @starkdev020/codex-father-mcp-server`
+#### 方式 A：用户级部署（推荐）
 
 ```json
 {
   "mcpServers": {
     "codex-father-prod": {
       "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
       }
     }
   }
 }
 ```
 
+> 将 `/ABS/PATH/TO/...` 替换为你的绝对路径，可参考 `~/.codex-father-runtime`
+> 与 `~/.codex-father-sessions`（记得展开为完整路径）。
+> 如果想把运行时锁定到当前项目，可直接将上述路径写成
+> `/path/to/your/project/.codex-father` 并在项目目录执行
+> `mkdir -p .codex-father/sessions`。
+
 **优点**：
 
-- 启动速度更快
-- 可以锁定版本
+- 启动速度更快，可复用同一运行目录
+- 日志与会话落在用户级目录，避免污染项目
+- 结合 `npm install -g @starkdev020/codex-father-mcp-server` 一次安装即可
+
+#### 方式 B：按需启动（npx 快速试用）
+
+```json
+{
+  "mcpServers": {
+    "codex-father-prod": {
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server"]
+    }
+  }
+}
+```
+
+**适用场景**：临时验证或偶发使用；建议配合客户端提高启动超时时间。
 
 #### 方式 C：使用源码路径
 
@@ -143,22 +145,26 @@ gedit ~/.config/Claude/claude_desktop_config.json
       "args": ["./mcp/codex-mcp-server/dist/index.js"]
     },
     "codex-father-prod": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"],
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
       }
     }
   }
 }
 ```
 
-- `codex-father-preview`：直接引用仓库内 `dist/index.js`，适合本地调试最新代码。
-- `codex-father-prod`：通过 `npx` 拉取发布版本，并设置 `NODE_ENV=production`。
+> 将 `/ABS/PATH/TO/...` 替换为你实际的绝对路径，例如
+> `~/.codex-father-runtime` 与 `~/.codex-father-sessions`（需要展开为完整路径）。
 
-> 如果生产环境使用 npm 全局安装，将 `codex-father-prod` 的 `command` 改成
-> `"codex-mcp-server"` 即可；若需要自定义 dist 路径，调整 `codex-father-preview`
-> 的 `args` 为你的构建产物路径。
+- `codex-father-preview`：直接引用仓库内 `dist/index.js`，适合本地调试最新代码。
+- `codex-father-prod`：推荐使用用户级部署并显式指定运行与日志目录。
+
+> 若需临时体验，可改用 `npx` 形式：`"command": "npx"` + `"args": ["-y",
+> "@starkdev020/codex-father-mcp-server"]`，并适当调高客户端握手超时。
 
 ### 步骤 3：重启 Claude Code CLI
 
@@ -222,31 +228,73 @@ vim ~/.codex/config.toml
 
 ### 步骤 3：添加 MCP 服务器配置
 
+> 参考来源：OpenAI Codex 官方文档 `docs/config.md#mcp_servers`
+> （收录于 `refer-research/index.md`），该章节明确要求使用
+> TOML 的 `mcp_servers` 顶级表定义服务器、并推荐根据需要调整
+> `startup_timeout_sec` / `tool_timeout_sec`。
+
 #### 推荐：同时配置预览与生产服务器
 
-```toml
 [mcp_servers.codex-father-preview]
 command = "node"
 args = ["/abs/path/to/repo/mcp/codex-mcp-server/dist/index.js"]
 
 [mcp_servers.codex-father-prod]
-command = "npx"
-args = ["-y", "@starkdev020/codex-father-mcp-server"]
+command = "codex-mcp-server"
+args = ["--transport=ndjson"]
 env.NODE_ENV = "production"
+env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
+env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
+startup_timeout_sec = 45
+tool_timeout_sec = 120
 ```
 
-> 如果生产环境使用全局安装，将 `codex-father-prod` 的 `command` 改成
-> `"codex-father-mcp-server"`。
+> 将 `/ABS/PATH/TO/...` 替换为绝对路径（如 `~/.codex-father-runtime` 与
+> `~/.codex-father-sessions`，需展开为完整路径）。如需临时试用，可改用
+> `command = "npx"` + `args = ["-y", "@starkdev020/codex-father-mcp-server"]`。
 
 ### 步骤 4：验证配置
 
 ```bash
 # 启动 Codex 会话
-codex
+ codex
 
-# 在会话中测试
+# 在会话中测试（示例）
 请列出当前项目的文件
 ```
+
+---
+
+## 🧭 Orchestrator 配置映射（实验性）
+
+`orchestrate` 命令会从项目配置的 `orchestrator` 节点读取可选字段并注入运行时：
+
+- `manualIntervention`: `{ enabled, requireAck, ack }`
+  - 当 `enabled=true & requireAck=true & ack=false` 时，执行前会发出 `manual_intervention_requested` 并终止；用于人工确认门控。
+- `understanding`: `{ requirement, restatement, evaluateConsistency }`
+  - 当三者均提供且 `evaluateConsistency="builtin"` 时，采用内置宽松校验（恒通过）；
+  - 字段存在时，将在任务分解前执行“理解一致性”门控，并在失败时终止（事件：`understanding_failed`）。
+
+示例（配置文件片段）：
+
+```json
+{
+  "orchestrator": {
+    "manualIntervention": { "enabled": true, "requireAck": true, "ack": false },
+    "understanding": {
+      "requirement": "实现登录与会话恢复",
+      "restatement": "用户可登录，并在异常后恢复会话继续执行",
+      "evaluateConsistency": "builtin"
+    }
+  }
+}
+```
+
+注意：上述配置为实验性映射，后续版本可能会将 `evaluateConsistency` 替换为可插件化的校验器引用。
+
+> 如需与官方行为保持一致，可通过 `codex config mcp add` / `codex config mcp list`
+> 命令管理条目（详见 `docs/config.md` 中的 "You can also manage these entries from
+> the CLI" 段落）。
 
 ---
 
@@ -260,10 +308,12 @@ codex
 {
   "mcpServers": {
     "codex-father-prod": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"],
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
       "env": {
-        "APPROVAL_POLICY": "on-failure"
+        "APPROVAL_POLICY": "on-failure",
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
       }
     }
   }
@@ -289,14 +339,18 @@ codex
 {
   "mcpServers": {
     "codex-father-prod": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"],
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
       "env": {
         "APPROVAL_POLICY": "on-failure",
         "LOG_LEVEL": "info",
         "CODEX_CONFIG_PATH": "~/.codex/config.toml",
-        "MAX_CONCURRENT_JOBS": "10"
-      }
+        "MAX_CONCURRENT_JOBS": "10",
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
+      },
+      "startup_timeout_sec": 45,
+      "tool_timeout_sec": 120
     }
   }
 }
@@ -327,11 +381,13 @@ codex
 {
   "mcpServers": {
     "codex-father-prod": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"],
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
       "env": {
         "LOG_FILE": "/path/to/codex-father.log",
-        "LOG_LEVEL": "debug"
+        "LOG_LEVEL": "debug",
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
       }
     }
   }
@@ -346,10 +402,12 @@ codex
 {
   "mcpServers": {
     "codex-father-prod": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"],
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
       "env": {
-        "WHITELIST_COMMANDS": "ls,pwd,git status,npm test"
+        "WHITELIST_COMMANDS": "ls,pwd,git status,npm test",
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
       }
     }
   }
@@ -373,14 +431,16 @@ codex
       }
     },
     "codex-father-prod": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"],
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
       "env": {
         "APPROVAL_POLICY": "on-failure",
         "LOG_LEVEL": "info",
         "MAX_CONCURRENT_JOBS": "5",
         "TIMEOUT_MS": "300000",
-        "WHITELIST_COMMANDS": "ls,pwd,git status"
+        "WHITELIST_COMMANDS": "ls,pwd,git status",
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
       }
     },
     "other-mcp-server": {
@@ -404,8 +464,8 @@ command = "node"
 args = ["/abs/path/to/repo/mcp/codex-mcp-server/dist/index.js"]
 
 [mcp_servers.codex-father-prod]
-command = "npx"
-args = ["-y", "@starkdev020/codex-father-mcp-server"]
+command = "codex-mcp-server"
+args = ["--transport=ndjson"]
 
 [mcp_servers.codex-father-prod.env]
 APPROVAL_POLICY = "on-failure"
@@ -415,10 +475,13 @@ NODE_ENV = "production"
 CODEX_MCP_NAME_STYLE = "underscore-only"
 CODEX_MCP_TOOL_PREFIX = "cf"
 CODEX_MCP_HIDE_ORIGINAL = "1"
+CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
+CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
 ```
 
-> 如果已全局安装 codex-father MCP，可将 `codex-father-prod` 的 `command` 改成
-> `"codex-father-mcp-server"`。
+> 将 `/ABS/PATH/TO/...` 替换为绝对路径（如 `~/.codex-father-runtime` 与
+> `~/.codex-father-sessions`，需展开为完整路径）。若仅需临时体验，可将
+> `command` 改为 `"npx"` 并恢复原 `args`。
 
 ---
 

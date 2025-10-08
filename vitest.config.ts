@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
 
+const orchestratorExcluded =
+  process.env.ORCHESTRATOR_TESTS === '1' ? [] : ['core/orchestrator/tests/**'];
+
 export default defineConfig({
   test: {
     // Test environment
@@ -18,7 +21,7 @@ export default defineConfig({
       'dist/**',
       'mcp/codex-mcp-server/**',
       'refer-research/**',
-      'core/orchestrator/tests/**', // TODO: enable once orchestrator modules are implemented
+      ...orchestratorExcluded,
       '**/*.bench.ts',
     ],
 

@@ -4,8 +4,9 @@
  */
 
 import { LegacyScriptRunner, type ScriptResult } from './scripts.js';
-import { AppError } from './error-boundary.js';
+import { AppError, createError } from './error-boundary.js';
 import type { CommandContext, CommandResult } from '../lib/types.js';
+import { prepareStructuredInstructions, type PreparedInstructions } from './instructions/index.js';
 
 /**
  * 将 Shell 脚本结果转换为 CLI 命令结果
@@ -34,13 +35,63 @@ export class LegacyCommandHandler {
    * 处理 start 命令
    */
   static async handleStart(context: CommandContext): Promise<CommandResult> {
+    const rawInstructions = context.options.instructions;
+    const instructionsPath = typeof rawInstructions === 'string' ? rawInstructions.trim() : '';
+    const rawTaskId = context.options.task;
+    const taskId = typeof rawTaskId === 'string' ? rawTaskId.trim() : '';
+    let prepared: PreparedInstructions | undefined;
+
     try {
+      if (taskId && !instructionsPath) {
+        throw createError.validation('--task 选项需要同时指定 --instructions 文件');
+      }
+
+      if (instructionsPath) {
+        const prepareOptions = {
+          cwd: context.workingDirectory,
+          ...(taskId ? { expectedTaskId: taskId } : {}),
+        };
+        prepared = await prepareStructuredInstructions(instructionsPath, prepareOptions);
+      }
+
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+      };
+
+      if (prepared) {
+        env.CODEX_STRUCTURED_INSTRUCTIONS_FILE = prepared.normalizedPath;
+        env.CODEX_STRUCTURED_INSTRUCTIONS_SOURCE = prepared.sourcePath;
+        env.CODEX_STRUCTURED_INSTRUCTIONS_FORMAT = prepared.format;
+        env.CODEX_STRUCTURED_INSTRUCTIONS_ID = prepared.data.id;
+        env.CODEX_STRUCTURED_INSTRUCTIONS_VERSION = prepared.data.version;
+      }
+
+      if (taskId) {
+        env.CODEX_STRUCTURED_TASK_ID = taskId;
+      }
+
       const result = await LegacyScriptRunner.start(context.args, {
         workingDirectory: context.workingDirectory,
         captureOutput: !context.verbose,
+        env,
       });
 
-      return adaptScriptResult(result);
+      const commandResult = adaptScriptResult(result);
+      if (prepared) {
+        commandResult.data = {
+          ...(commandResult.data as Record<string, unknown> | undefined),
+          structuredInstructions: {
+            source: prepared.sourcePath,
+            normalized: prepared.normalizedPath,
+            format: prepared.format,
+            id: prepared.data.id,
+            version: prepared.data.version,
+            taskId: taskId || undefined,
+          },
+        };
+      }
+
+      return commandResult;
     } catch (error) {
       if (error instanceof AppError) {
         throw error;

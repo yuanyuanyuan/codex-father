@@ -5,6 +5,100 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，本项目遵循
 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### ✨ 新增
+
+- CLI: `orchestrate:report` 新增 `--duration-precision <0|1|2>`（与
+  `--duration-format` 协同控制人类摘要时长精度，不影响 JSON）。
+- MCP 诊断：`grep-events` 支持 `ignoreCase`（大小写不敏感）与
+  `regex`（正则匹配）。
+- rMCP 脚本：新增 `diagnose-report` 命令，一步拿到 `reason` 并按 Playbook 行动。
+
+### ♻️ 改进
+
+- 诊断工具严格化（入参与错误码映射）：
+  - `read-report-file`/`read-events-preview`/`read-report-metrics`
+    要求绝对路径；
+    - 不存在→`not_found`（ENOENT）；权限不足→`permission_denied`（EACCES/EPERM）；相对路径/缺参→`invalid_arguments`。
+  - `grep-events` 新增参数校验：`q` 必须非空、`limit` 为正整数；并支持
+    `ignoreCase`/`regex`。
+- SWW：补充“多轮交错重放×顺序扰动”用例，验证重放在复杂场景仍遵循全局入队顺序（FIFO）。
+
+### 🧪 测试
+
+- `core/mcp/tests/diagnostic-tools.test.ts` 增加 6 条断言：
+  - `read-report-metrics` 相对路径→`invalid_arguments`，缺文件→`not_found`；
+  - `grep-events` 空 `q` / 相对路径 / 缺文件→对应
+    `invalid_arguments`/`not_found`；
+  - `grep-events` 在 `ignoreCase`/`regex` 模式下匹配计数正确；非法正则经
+    `call-with-downgrade` 映射为 `invalid_arguments`。
+- `core/orchestrator/tests/sww-multi-round-interleaved.perturbed-order.test.ts`：多轮交错重放×顺序扰动。
+
+### 📚 文档
+
+- 新增
+  `docs/user/mcp-diagnostic-playbook.md`：提供 ASCII 决策树（reason→行动）与命令演示。
+- 更新 `docs/user/mcp-diagnostic-tools.md`：补充 `not_found`/`permission_denied`
+  枚举与 `grep-events` 新参数示例。
+- `docs/user/orchestrate-report.md` 补充 `--duration-precision`
+  说明；README 顶部增加“快速开始”直达提醒。
+
+### 🔎 示例输出（rMCP 降级诊断片段）
+
+```
+$ node scripts/rmcp-client.mjs diagnose-report --path /abs/path/to/missing-report.json
+诊断结果：degraded=true, reason=not_found
+{
+  "status": "ok",
+  "degraded": true,
+  "reason": "not_found",
+  "result": null
+}
+```
+
+- T030 仓库整洁度（依赖/文档）
+  - 移除未使用依赖：chokidar/mermaid/fs-extra/@types-fs-extra/supertest/@types-supertest/jscpd
+  - 保留：tslib/rimraf/vite/@vitest/coverage-v8；新增可选依赖 winston-syslog（用于 Syslog 输出）
+  - 同步契约与指引：events.md 增补 JSONL 审计事件；AGENTS.md 增补 Gates/Events；开发文档移除 fs-extra 主依赖描述
+- 测试增强（不改运行时逻辑）
+  - Gate 顺序与阻断：manualIntervention → understanding →
+    decomposition 的多路径断言
+  - 资源联动：concurrency_reduced /
+    concurrency_increased 的降级/恢复联动与 from/to 字段
+- SWW 映射与顺序：长队列部分失败保持事件配对与顺序一致性（tool_use+patch_applied
+  / task_failed+patch_failed）
+- SWW 工作区异常：prepareWorkspace 失败映射为 patch_failed，不再中断队列
+- CI 改进：新增 orchestrator 专用工作流（.github/workflows/test-orchestrator.yml），Node 版本矩阵（18/20），仅在 orchestrator/schema/contracts/AGENTS 等路径变化时触发
+- 补丁模式默认将 diff 落盘并仅在日志中输出预览，新增
+  `--patch-output`、`--patch-preview-lines`、`--no-patch-preview`、
+  `--no-patch-artifact` 等 CLI 开关，配合元数据记录哈希与行数。
+- 更新 `codex.help`/README/故障排除文档，强调缩减日志噪声的推荐参数（如
+  `--no-echo-instructions`、`--no-carry-context`、`view=result-only`）。
+- CLI: `start` 命令支持 `--instructions`（JSON/YAML/XML）+ `--task`
+  结构化指令文件，执行前会校验 schema、输出归一化副本，并通过
+  `CODEX_STRUCTURED_*` 环境变量传递给 Shell。
+- 新增 `job.sh resume` 子命令与 `codex.resume` MCP 工具，可复用 `state.json`
+  中记录的参数重启任务，并在会话状态写入 `resumed_from` 与 `args`
+  字段，便于断线续跑与审计。
+
+### 🛠️ 修复
+
+- MCP: 修正 `codex.logs` 在 `.codex-father`
+  目录下重复拼接路径的问题，并在报错时附带 `details.searched`
+  帮助排查路径探测历史。
+- CLI: 可写沙箱在未显式允许时将 `never` 自动归一为
+  `on-failure`，避免健康检查类任务在无人值守环境下直接触发 `approval_required`。
+- docs/help: 补充未受支持参数 (`--notes`/`--files`/裸文本) 的错误案例与修复指南，避免再次触发退出码 2。
+- CLI/job: 消除 `state.json`
+  写入竞态（启动前先写入初始 running，trap 兜底缺失时自建骨架），失败/停止均能稳定落盘并被动通知可用。
+- CLI: trap 统一追加 `Exit Code: <N>`
+  独立行，状态归纳器可稳定解析退出码；停止场景强制归类为 `user_cancelled`。
+- CLI: `--preset` 严格校验（仅 `sprint|analysis|secure|fast`），未知预设直接作为
+  `input_error` 失败并提示修正。
+- 分类精度：`input_error` 优先于网络/工具错误匹配；超限预检统一
+  `context_overflow` 并在日志中写出 `[input-check]` 提示。
+
 ---
 
 ## [1.0.0] - 2025-10-01

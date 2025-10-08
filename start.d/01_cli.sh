@@ -77,15 +77,15 @@ normalize_sandbox_and_approvals() {
     local effective_sandbox="$sandbox"
     if [[ -z "$effective_sandbox" ]]; then effective_sandbox="workspace-write"; fi
     if [[ "$effective_sandbox" != "read-only" ]]; then
-      local override="${WRITABLE_SANDBOX_APPROVAL_OVERRIDE:-on-request}"
+      local override="${WRITABLE_SANDBOX_APPROVAL_OVERRIDE:-on-failure}"
       if [[ "$approval" == "never" ]]; then
         set_codex_flag_value "--ask-for-approval" "$override"
         approval="$override"
-        APPROVAL_NOTE="已将审批策略调整为 ${override}（避免 never 与可写沙箱组合触发只读降级）"
+        APPROVAL_NOTE="已将审批策略调整为 ${override}（避免 never 与可写沙箱组合导致审批链路阻塞）"
       elif [[ -z "$approval" ]]; then
         set_codex_flag_value "--ask-for-approval" "$override"
         approval="$override"
-        APPROVAL_NOTE="已设置审批策略为 ${override}（可写沙箱需要审批以避免只读降级）"
+        APPROVAL_NOTE="已设置审批策略为 ${override}（可写沙箱默认使用非交互审批，若需人工审批请显式指定 on-request）"
       fi
     fi
   fi
@@ -151,6 +151,45 @@ compute_effective_runtime_flags() {
   EFFECTIVE_BYPASS=$has_bypass
 }
 
+TS_FROM_RUN_ID=""
+TS_DISPLAY_FROM_RUN_ID=""
+
+infer_ts_from_run_id() {
+  local run_id="$1"
+  TS_FROM_RUN_ID=""
+  TS_DISPLAY_FROM_RUN_ID=""
+  local normalized="${run_id//_/}"
+  local digits=""
+  if [[ "$normalized" =~ ^(exec|codex)-([0-9]{14}) ]]; then
+    digits="${BASH_REMATCH[2]}"
+  elif [[ "$normalized" =~ ^([0-9]{14})$ ]]; then
+    digits="${BASH_REMATCH[1]}"
+  else
+    return 1
+  fi
+  local year="${digits:0:4}"
+  local month="${digits:4:2}"
+  local day="${digits:6:2}"
+  local hour="${digits:8:2}"
+  local minute="${digits:10:2}"
+  local second="${digits:12:2}"
+  TS_FROM_RUN_ID="${year}${month}${day}_${hour}${minute}${second}"
+  TS_DISPLAY_FROM_RUN_ID="${year}-${month}-${day}T${hour}:${minute}:${second}Z"
+  return 0
+}
+
+set_ts_from_run_id_candidate() {
+  local candidate="$1"
+  [[ -n "$candidate" ]] || return 1
+  if infer_ts_from_run_id "$candidate"; then
+    TS="${TS_FROM_RUN_ID}"
+    TS_DISPLAY="${TS_DISPLAY_FROM_RUN_ID}"
+    TS_SOURCE="run-id"
+    return 0
+  fi
+  return 1
+}
+
 FILE_INPUT=""
 CLI_CONTENT=""
 PREPEND_CONTENT=""
@@ -159,6 +198,10 @@ PREPEND_FILE=""
 APPEND_FILE=""
 DRY_RUN=0
 PATCH_MODE=0
+PATCH_CAPTURE_ARTIFACT=${PATCH_CAPTURE_ARTIFACT:-1}
+PATCH_ARTIFACT_FILE="${PATCH_ARTIFACT_FILE:-}"
+PATCH_PREVIEW_LINES=${PATCH_PREVIEW_LINES:-40}
+
 JSON_OUTPUT=0
 
 # 补丁模式提示文案（仅输出可应用补丁，不执行写入）
@@ -177,6 +220,10 @@ OVERRIDE_FILE="" # -F/--file-override 指定的基底文件（可为 '-' 表示 
 CODEX_GLOBAL_ARGS=()
 CODEX_EXEC_ARGS=()
 VALIDATION_ERROR=""
+
+# 位置参数容错：将首个非选项位置参数视为 --task，并连续吸收后续非选项 token 组成一段文本
+FALLBACK_TASK_TEXT=""
+FALLBACK_TASK_USED=0
 
 # 循环运行与上下文压缩参数（默认关闭循环，不携带上下文）
 REPEAT_UNTIL=""
@@ -207,6 +254,11 @@ REQUIRE_CHANGE_GLOBS=()   # --require-change-in <glob>（可多次）
 REQUIRE_GIT_COMMIT=0      # --require-git-commit
 AUTO_COMMIT_ON_DONE=0     # --auto-commit-on-done
 AUTO_COMMIT_MESSAGE=${AUTO_COMMIT_MESSAGE:-"docs(progress): auto update"}
+
+# 日志目录控制：记录是否显式请求/指定
+USER_REQUESTED_FLAT_LOGS=0
+USER_PROVIDED_LOG_FILE=0
+FLAT_LOGS_NOTE=""
 
 # 上下文溢出自动重试（默认开启，最多重试2次）
 ON_CONTEXT_OVERFLOW_RETRY="${ON_CONTEXT_OVERFLOW_RETRY:-1}"
@@ -245,6 +297,7 @@ while [[ $# -gt 0 ]]; do
       SRC_TYPES+=("C"); SRC_VALUES+=("${2}"); shift 2 ;;
     -l|--log-file)
       [[ $# -ge 2 ]] || { echo "错误: -l/--log-file 需要一个路径参数" >&2; exit 2; }
+      USER_PROVIDED_LOG_FILE=1
       CODEX_LOG_FILE="${2}"; shift 2 ;;
     --log-dir)
       [[ $# -ge 2 ]] || { echo "错误: --log-dir 需要一个目录参数" >&2; exit 2; }
@@ -255,6 +308,7 @@ while [[ $# -gt 0 ]]; do
     --log-subdirs)
       CODEX_LOG_SUBDIRS=1; shift 1 ;;
     --flat-logs)
+      USER_REQUESTED_FLAT_LOGS=1
       CODEX_LOG_SUBDIRS=0; shift 1 ;;
     --echo-instructions)
       CODEX_ECHO_INSTRUCTIONS=1; shift 1 ;;
@@ -431,6 +485,20 @@ while [[ $# -gt 0 ]]; do
       APPEND_FILE="${2}"; shift 2 ;;
     --patch-mode)
       PATCH_MODE=1; shift 1 ;;
+    --patch-output)
+      [[ $# -ge 2 ]] || { echo "错误: --patch-output 需要一个路径参数" >&2; exit 2; }
+      PATCH_ARTIFACT_FILE="${2}"; shift 2 ;;
+    --no-patch-artifact)
+      PATCH_CAPTURE_ARTIFACT=0; shift 1 ;;
+    --patch-preview-lines)
+      [[ $# -ge 2 ]] || { echo "错误: --patch-preview-lines 需要一个数字参数" >&2; exit 2; }
+      if [[ ! "${2}" =~ ^[0-9]+$ ]]; then
+        echo "错误: --patch-preview-lines 只能是非负整数" >&2
+        exit 2
+      fi
+      PATCH_PREVIEW_LINES="${2}"; shift 2 ;;
+    --no-patch-preview)
+      PATCH_PREVIEW_LINES=0; shift 1 ;;
     --dry-run)
       DRY_RUN=1; shift 1 ;;
     --json)
@@ -447,17 +515,48 @@ while [[ $# -gt 0 ]]; do
       set --
       break ;;
     *)
-      print_unknown_arg_help "${1}"
-      exit 2 ;;
+      # 若是非选项 token，则作为 --task 的容错输入累积；否则报告未知参数
+      if [[ "${1}" != -* ]]; then
+        if [[ -z "${FALLBACK_TASK_TEXT}" ]]; then
+          FALLBACK_TASK_TEXT="${1}"
+        else
+          FALLBACK_TASK_TEXT+=" ${1}"
+        fi
+        FALLBACK_TASK_USED=1
+        shift
+        continue
+      else
+        print_unknown_arg_help "${1}"
+        exit 2
+      fi ;;
   esac
 done
+
+# 若使用了位置参数容错，则在解析结束后补记为文本输入源（等价于 --task "..."）
+if [[ ${FALLBACK_TASK_USED} -eq 1 && -n "${FALLBACK_TASK_TEXT}" ]]; then
+  SRC_TYPES+=("C")
+  SRC_VALUES+=("${FALLBACK_TASK_TEXT}")
+  # 将提示写入标准错误，帮助新调用方尽快纠正调用方式
+  echo "[hint] 检测到位置参数，已按 --task 处理；建议改用: --task \"<文本>\"" >&2
+fi
+
+# 若显式请求 --flat-logs 但既未指定 --log-file 也未设置 CODEX_SESSION_DIR，则忽略该请求。
+if [[ "${CODEX_LOG_SUBDIRS}" == "0" ]]; then
+  if (( USER_REQUESTED_FLAT_LOGS == 1 )) && (( USER_PROVIDED_LOG_FILE == 0 )) \
+     && [[ -z "${CODEX_SESSION_DIR:-}" ]] && [[ -z "${CODEX_LOG_FILE:-}" ]]; then
+    CODEX_LOG_SUBDIRS=1
+    FLAT_LOGS_NOTE="[hint] 忽略 --flat-logs：未指定 --log-file 或 CODEX_SESSION_DIR 时默认使用分层日志目录，避免会话日志混杂。"
+  fi
+fi
 
 # 应用预设（如提供）
 if [[ -n "${PRESET_NAME:-}" ]]; then
   if declare -F apply_preset >/dev/null 2>&1; then
-    apply_preset "${PRESET_NAME}" || true
+    if ! apply_preset "${PRESET_NAME}"; then
+      VALIDATION_ERROR="错误: 未知预设: ${PRESET_NAME}（可选: sprint|analysis|secure|fast）"
+    fi
   else
-    echo "[warn] 预设功能不可用：缺少 lib/presets.sh" >&2
+    VALIDATION_ERROR="错误: 预设功能不可用：缺少 lib/presets.sh"
   fi
 fi
 
@@ -470,7 +569,25 @@ else
   echo "[hint] 未指定 --tag，日志目录将使用默认标签 untagged；建议调用时通过 --tag <name> 区分任务" >&2
   TAG_SUFFIX=""
 fi
-TS="$(date +%Y%m%d_%H%M%S)"
+TS=""
+TS_DISPLAY=""
+TS_SOURCE=""
+
+if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+  set_ts_from_run_id_candidate "$(basename "${CODEX_SESSION_DIR}")" || true
+fi
+
+if [[ -n "${CODEX_LOG_FILE:-}" ]]; then
+  set_ts_from_run_id_candidate "$(basename "$(dirname "${CODEX_LOG_FILE}")")" || true
+fi
+
+if [[ -z "${TS}" ]]; then
+  TS="$(date +%Y%m%d_%H%M%S)"
+  TS_SOURCE="local-clock"
+fi
+if [[ -z "${TS_DISPLAY}" ]]; then
+  TS_DISPLAY="$(date +%Y-%m-%dT%H:%M:%S%:z)"
+fi
 if [[ -z "${CODEX_LOG_FILE}" ]]; then
   if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
     mkdir -p "${CODEX_SESSION_DIR}"
@@ -490,6 +607,18 @@ if [[ -z "${CODEX_LOG_FILE}" ]]; then
   fi
 fi
 mkdir -p "$(dirname "${CODEX_LOG_FILE}")"
+
+if [[ "${TS_SOURCE}" != "run-id" ]]; then
+  if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+    set_ts_from_run_id_candidate "$(basename "${CODEX_SESSION_DIR}")" || true
+  elif [[ -n "${CODEX_LOG_FILE:-}" ]]; then
+    set_ts_from_run_id_candidate "$(basename "$(dirname "${CODEX_LOG_FILE}")")" || true
+  fi
+fi
+
+if [[ -z "${TS_DISPLAY}" ]]; then
+  TS_DISPLAY="$(date +%Y-%m-%dT%H:%M:%S%:z)"
+fi
 INSTR_FILE="${CODEX_LOG_FILE%.log}.instructions.md"
 META_FILE="${CODEX_LOG_FILE%.log}.meta.json"
 if [[ -z "${CODEX_LOG_AGGREGATE_FILE}" ]]; then
@@ -499,11 +628,21 @@ if [[ -z "${CODEX_LOG_AGGREGATE_JSONL_FILE}" ]]; then
   CODEX_LOG_AGGREGATE_JSONL_FILE="$(dirname "${CODEX_LOG_FILE}")/aggregate.jsonl"
 fi
 
+if (( PATCH_MODE == 1 )) && (( PATCH_CAPTURE_ARTIFACT == 1 )); then
+  if [[ -z "${PATCH_ARTIFACT_FILE}" ]]; then
+    if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+      PATCH_ARTIFACT_FILE="${CODEX_SESSION_DIR}/patch.diff"
+    else
+      PATCH_ARTIFACT_FILE="${CODEX_LOG_FILE%.log}.patch.diff"
+    fi
+  fi
+fi
+
 # 校验 Codex 旗标冲突（预设可能注入 --full-auto）。如有问题，写入日志并退出。
 validate_conflicting_codex_args
 if [[ -n "${VALIDATION_ERROR}" ]]; then
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Meta: ${META_FILE}"
@@ -520,7 +659,7 @@ fi
 normalize_sandbox_and_approvals
 if [[ -n "${VALIDATION_ERROR}" ]]; then
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Meta: ${META_FILE}"

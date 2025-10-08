@@ -49,7 +49,7 @@ compress_context_file() {
 
 # Compose final instructions with explicit section wrappers
 compose_instructions() {
-  local ts_iso; ts_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local ts_iso; ts_iso=$(date +"%Y-%m-%dT%H:%M:%S%:z")
   SOURCE_LINES=()
   local sections=""
 
@@ -158,8 +158,11 @@ classify_exit() {
   fi
   # Classification
   if [[ "$code" -ne 0 ]]; then
+    # 参数/用法错误优先判定（例如未知预设/未知参数/无效选项/用法）
+    if grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|用法:|Usage:)' "$log_file" "$last_msg_file" 2>/dev/null; then
+      CLASSIFICATION='input_error'; EXIT_REASON='Invalid CLI arguments or usage'
     # 更精确的网络错误判定：避免将“network access enabled”等正常提示误判为网络错误
-    if grep -Eqi 'timeout|timed[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed|ENOTFOUND|EAI_AGAIN|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)' "$log_file" "$last_msg_file" 2>/dev/null; then
+    elif grep -Eqi 'timeout|timed[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed|ENOTFOUND|EAI_AGAIN|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='network_error'; EXIT_REASON='Network error or timeout'
     # 显式识别“模型不支持/无效模型”之类的配置错误
     elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" "$last_msg_file" 2>/dev/null; then
@@ -189,3 +192,141 @@ classify_exit() {
     fi
   fi
 }
+
+: "${PATCH_CAPTURE_ARTIFACT:=1}"
+: "${PATCH_PREVIEW_LINES:=40}"
+: "${PATCH_ARTIFACT_FILE:=}"
+: "${PATCH_ARTIFACT_CAPTURED:=0}"
+if ! declare -p PATCH_ARTIFACT_PATHS >/dev/null 2>&1; then
+  declare -gA PATCH_ARTIFACT_PATHS=()
+fi
+if ! declare -p PATCH_ARTIFACT_HASHES >/dev/null 2>&1; then
+  declare -gA PATCH_ARTIFACT_HASHES=()
+fi
+if ! declare -p PATCH_ARTIFACT_LINES >/dev/null 2>&1; then
+  declare -gA PATCH_ARTIFACT_LINES=()
+fi
+if ! declare -p PATCH_ARTIFACT_BYTES >/dev/null 2>&1; then
+  declare -gA PATCH_ARTIFACT_BYTES=()
+fi
+
+if ! declare -F codex_detect_patch_output >/dev/null 2>&1; then
+  codex_detect_patch_output() {
+    local file="$1"
+    [[ -f "$file" ]] || return 1
+    [[ -s "$file" ]] || return 1
+    if grep -Eqs '^(diff --git|Index: |@@ |--- |\+\+\+ |\*\*\* Begin Patch)' "$file"; then
+      return 0
+    fi
+    if grep -Eqs '^(apply_patch <<|```diff)' "$file"; then
+      return 0
+    fi
+    return 1
+  }
+fi
+
+if ! declare -F codex_compute_patch_artifact_path >/dev/null 2>&1; then
+  codex_compute_patch_artifact_path() {
+    local run_idx="${1:-1}"
+    local base="${PATCH_ARTIFACT_FILE:-}"
+    local suffix=""
+    if (( run_idx > 1 )); then
+      suffix=".r${run_idx}"
+    fi
+    if [[ -z "$base" ]]; then
+      if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+        echo "${CODEX_SESSION_DIR}/patch${suffix}.diff"
+      else
+        echo "${CODEX_LOG_FILE%.log}${suffix}.patch.diff"
+      fi
+    else
+      if (( run_idx == 1 )); then
+        echo "$base"
+      else
+        local dir name stem ext
+        dir=$(dirname -- "$base")
+        name=$(basename -- "$base")
+        if [[ "$name" == *.* && "$name" != .* ]]; then
+          stem="${name%.*}"
+          ext=".${name##*.}"
+        else
+          stem="$name"
+          ext=""
+        fi
+        echo "${dir}/${stem}${suffix}${ext}"
+      fi
+    fi
+  }
+fi
+
+if ! declare -F codex_publish_output >/dev/null 2>&1; then
+  codex_publish_output() {
+    local output_file="$1"
+    local run_idx="${2:-1}"
+    local log_file="${CODEX_LOG_FILE:-}"
+    [[ -n "$log_file" ]] || return 0
+    [[ -f "$output_file" ]] || return 0
+
+    local capture="${PATCH_CAPTURE_ARTIFACT:-0}"
+    local preview="${PATCH_PREVIEW_LINES:-0}"
+    local handled=0
+
+    if (( PATCH_MODE == 1 )) && (( capture == 1 )) && codex_detect_patch_output "$output_file"; then
+      local artifact_path
+      artifact_path=$(codex_compute_patch_artifact_path "$run_idx")
+      if [[ -n "$artifact_path" ]]; then
+        mkdir -p "$(dirname -- "$artifact_path")"
+        cp "$output_file" "$artifact_path"
+
+        local hash=""
+        if command -v sha256sum >/dev/null 2>&1; then
+          hash=$(sha256sum "$artifact_path" | awk '{print $1}')
+        elif command -v shasum >/dev/null 2>&1; then
+          hash=$(shasum -a 256 "$artifact_path" | awk '{print $1}')
+        fi
+        local lines bytes
+        lines=$(wc -l <"$output_file" 2>/dev/null | tr -d ' ')
+        bytes=$(wc -c <"$output_file" 2>/dev/null | tr -d ' ')
+
+        PATCH_ARTIFACT_CAPTURED=1
+        PATCH_ARTIFACT_PATHS[$run_idx]="$artifact_path"
+        PATCH_ARTIFACT_HASHES[$run_idx]="$hash"
+        PATCH_ARTIFACT_LINES[$run_idx]="$lines"
+        PATCH_ARTIFACT_BYTES[$run_idx]="$bytes"
+
+        {
+          echo "[patch-artifact] run=${run_idx} saved=${artifact_path}"
+          if [[ -n "$hash" ]]; then
+            echo "[patch-artifact] sha256=${hash} lines=${lines:-0} bytes=${bytes:-0}"
+          else
+            echo "[patch-artifact] lines=${lines:-0} bytes=${bytes:-0}"
+          fi
+          if (( preview > 0 )); then
+            echo "[patch-preview] first ${preview} lines:"
+            sed -n "1,${preview}p" "$output_file"
+            local total_lines=${lines:-0}
+            local tail_lines=5
+            if (( total_lines > preview )); then
+              echo "[patch-preview] ... truncated (total ${total_lines} lines)"
+              if (( tail_lines > 0 )); then
+                echo "[patch-preview] last ${tail_lines} lines:"
+                tail -n "$tail_lines" "$output_file"
+              fi
+            fi
+          else
+            echo "[patch-preview] preview disabled (--no-patch-preview)"
+          fi
+          echo
+        } >> "$log_file"
+        handled=1
+      fi
+    fi
+
+    if (( handled == 0 )); then
+      if (( PATCH_MODE == 1 )) && (( capture == 1 )); then
+        echo "[patch-artifact] run=${run_idx} 未检测到补丁内容，已保留完整输出。" >> "$log_file"
+      fi
+      cat "$output_file" >> "$log_file"
+    fi
+  }
+fi

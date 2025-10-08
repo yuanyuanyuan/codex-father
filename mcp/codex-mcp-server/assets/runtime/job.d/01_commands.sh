@@ -9,6 +9,9 @@ cmd_start() {
     esac
   done
 
+  local resume_source="${RESUME_SOURCE_JOB_ID:-}"
+  RESUME_SOURCE_JOB_ID=""
+
   local job_id; job_id=$(gen_job_id "$tag")
   local base_dir; base_dir=$(resolve_workspace_base "$cwd")
   local sess_root; sess_root=$(sessions_dir "$base_dir")
@@ -42,6 +45,10 @@ cmd_start() {
   local args_json; args_json=$(build_args_json_array "${pass_args[@]}")
 
   local state_json
+  local resume_json="null"
+  if [[ -n "$resume_source" ]]; then
+    resume_json="\"$(json_escape_local "$resume_source")\""
+  fi
   state_json=$(cat <<EOF
 {
   "id": "$(json_escape_local "$job_id")",
@@ -62,7 +69,8 @@ cmd_start() {
   "meta_glob": "$(json_escape_local "${run_dir}/*.meta.json")",
   "last_message_glob": "$(json_escape_local "${run_dir}/*.last.txt")",
   "args": ${args_json},
-  "title": null
+  "title": null,
+  "resumed_from": ${resume_json}
 }
 EOF
 )
@@ -77,14 +85,111 @@ EOF
   "logFile": "$(json_escape_local "$log_file")",
   "metaGlob": "$(json_escape_local "${run_dir}/*.meta.json")",
   "lastMessageGlob": "$(json_escape_local "${run_dir}/*.last.txt")",
-  "tag": "$(json_escape_local "${st_tag}")"
+  "tag": "$(json_escape_local "${st_tag}")",
+  "resumedFrom": ${resume_json}
 }
 JSON
   else
     echo "Job started: ${job_id} (pid: ${pid:-})"
     echo "Run dir: ${run_dir}"
     echo "Log: ${log_file}"
+    if [[ -n "$resume_source" ]]; then
+      echo "Resumed from: ${resume_source}"
+    fi
   fi
+}
+
+cmd_resume() {
+  local json_out=0 cwd="" tag=""
+  local job_id=""
+  local -a extra_args=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json)
+        json_out=1; shift ;;
+      --cwd)
+        [[ $# -ge 2 ]] || { err "--cwd 需要路径"; exit 2; }
+        cwd="$2"; shift 2 ;;
+      --tag)
+        [[ $# -ge 2 ]] || { err "--tag 需要一个值"; exit 2; }
+        tag="$2"; shift 2 ;;
+      --)
+        shift
+        extra_args=("$@")
+        break ;;
+      -*)
+        err "未知参数: $1"; usage; exit 2 ;;
+      *)
+        if [[ -z "$job_id" ]]; then
+          job_id="$1"
+          shift
+        else
+          err "多余的位置参数: $1"; exit 2
+        fi
+        ;;
+    esac
+  done
+
+  if [[ -z "$job_id" ]]; then
+    err "用法: job.sh resume <job-id> [--tag <t>] [--cwd <dir>] [--json] [-- <start 参数…>]"
+    exit 2
+  fi
+
+  local base_dir; base_dir=$(resolve_workspace_base "$cwd")
+  local run_dir
+  run_dir="$(sessions_dir "$base_dir")/${job_id}"
+  [[ -d "$run_dir" ]] || { err "未找到任务目录: ${run_dir}"; exit 2; }
+
+  local state_file="${run_dir}/state.json"
+  [[ -f "$state_file" ]] || { err "任务 state.json 不存在，无法 resume: ${state_file}"; exit 2; }
+
+  local -a saved_args=()
+  if mapfile -t -d '' saved_args < <(extract_args_from_state "$state_file"); then
+    if (( ${#saved_args[@]} > 0 )) && [[ -z "${saved_args[-1]}" ]]; then
+      unset 'saved_args[-1]'
+    fi
+  else
+    local rc=$?
+    case "$rc" in
+      2)
+        err "resume 依赖 Node.js 解析 state.json，请确保 'node' 可用"; exit 2 ;;
+      3)
+        err "state.json 缺少 args 数组，无法复用原始参数"; exit 2 ;;
+      4)
+        err "解析 state.json 失败，请检查文件格式"; exit 2 ;;
+      *)
+        err "解析 state.json 失败 (退出码: ${rc})"; exit 2 ;;
+    esac
+  fi
+
+  if (( ${#saved_args[@]} == 0 )); then
+    err "原任务未记录可复用的 start 参数"; exit 2
+  fi
+
+  local prev_tag
+  prev_tag=$(grep -E '"tag"' "$state_file" | sed -E 's/.*"tag"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  if [[ "$prev_tag" == "null" ]]; then prev_tag=""; fi
+  if [[ -z "$tag" ]]; then tag="$prev_tag"; fi
+
+  local prev_cwd
+  prev_cwd=$(grep -E '"cwd"' "$state_file" | sed -E 's/.*"cwd"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  if [[ "$prev_cwd" == "null" ]]; then prev_cwd=""; fi
+  if [[ -z "$cwd" ]]; then cwd="$prev_cwd"; fi
+
+  local -a start_args=()
+  if (( json_out == 1 )); then start_args+=("--json"); fi
+  if [[ -n "$tag" ]]; then start_args+=("--tag" "$tag"); fi
+  if [[ -n "$cwd" ]]; then start_args+=("--cwd" "$cwd"); fi
+
+  start_args+=("${saved_args[@]}")
+  if (( ${#extra_args[@]} > 0 )); then
+    start_args+=("${extra_args[@]}")
+  fi
+
+  local prev_resume="${RESUME_SOURCE_JOB_ID:-}"
+  RESUME_SOURCE_JOB_ID="$job_id"
+  cmd_start "${start_args[@]}"
+  RESUME_SOURCE_JOB_ID="$prev_resume"
 }
 
 cmd_status() {

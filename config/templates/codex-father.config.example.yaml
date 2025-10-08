@@ -1,0 +1,21 @@
+# Codex Father Orchestrator 示例配置（可复制到项目根目录并按需调整）
+
+version: 1.0.0
+environment: development
+
+orchestrator:
+  # 人工确认门控：需显式确认后继续
+  manualIntervention:
+    enabled: true
+    requireAck: true
+    ack: false
+
+  # 理解一致性门：当 requirement/restatement 提供时先校验（builtin 为宽松示例）
+  understanding:
+    requirement: "实现登录与会话恢复"
+    restatement: "用户可登录，并在异常后恢复会话继续执行"
+    evaluateConsistency: "builtin"
+
+# 说明：
+# - CLI 会读取 orchestrator 节点的以上字段并注入运行时（实验性映射）。
+# - builtin 评估器始终通过，仅用于示例；实际项目可接入更严格校验。

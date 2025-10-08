@@ -33,6 +33,9 @@ describe('Redaction pipeline security contract (T039)', () => {
       data: {
         argsSummary: 'POST /login password=superSecret',
         apiKey: 'sk-12345ABCDE',
+        processEnv: { OPENAI_API_KEY: 'sk-abc0987654321' },
+        env: ['CODEX_API_KEY=sk-xyz'],
+        environmentSnapshot: { CODEX_SECRET: 'superSecretValue' },
       },
     });
 
@@ -42,6 +45,13 @@ describe('Redaction pipeline security contract (T039)', () => {
     const serialized = JSON.stringify(parsed);
     expect(serialized).not.toContain('superSecret');
     expect(serialized).not.toContain('sk-12345ABCDE');
+    expect(serialized).not.toContain('sk-abc0987654321');
+    expect(serialized).not.toContain('superSecretValue');
     expect(serialized).toContain('[REDACTED]');
+    expect(parsed.data?.apiKey).toBe('[REDACTED]');
+    expect(parsed.data?.processEnv).toBe('[REDACTED]');
+    expect(parsed.data?.env).toEqual(['[REDACTED]']);
+    expect(parsed.data?.environmentSnapshot).toBe('[REDACTED]');
+    expect((parsed.data?.argsSummary as string) ?? '').toContain('[REDACTED]');
   });
 });

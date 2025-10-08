@@ -8,6 +8,9 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05-purple)](https://modelcontextprotocol.io/)
 
+> ⚡
+> 5 分钟上手：查看“[快速开始](docs/user/quick-start.md)”并一键试跑主路径示例。
+
 ## 📋 目录
 
 - [特性](#特性)
@@ -139,16 +142,25 @@
 
 ### 开箱即用的 MCP 服务器
 
-本项目提供了一个完整的 MCP 服务器实现，支持通过 npx 一键启动：
+本项目提供了一个完整的 MCP 服务器实现，推荐将运行时与日志放在用户级目录中，避免污染业务仓库：
 
 ```bash
-# 直接运行（推荐）
-npx @starkdev020/codex-father-mcp-server
+# 1) 安装一次（建议全局安装）
+npm install -g @starkdev020/codex-father-mcp-server
 
-# 或者克隆仓库本地开发
+# 2) 准备独立目录
+export CODEX_RUNTIME_HOME="$HOME/.codex-father-runtime"
+export CODEX_SESSIONS_HOME="$HOME/.codex-father-sessions"
+mkdir -p "$CODEX_RUNTIME_HOME" "$CODEX_SESSIONS_HOME"
+
+# 3) 启动服务器（默认 NDJSON 传输）
+CODEX_MCP_PROJECT_ROOT="$CODEX_RUNTIME_HOME" \
+CODEX_SESSIONS_ROOT="$CODEX_SESSIONS_HOME" \
+codex-mcp-server --transport=ndjson
+
+# 4) 克隆仓库本地开发（可选）
 git clone https://github.com/yuanyuanyuan/codex-father.git
-cd codex-father/mcp/codex-mcp-server
-npm install && npm run dev
+cd codex-father && npm install
 ```
 
 ### 集成到 MCP 客户端
@@ -161,8 +173,13 @@ npm install && npm run dev
 {
   "mcpServers": {
     "codex-father": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"]
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
+      "env": {
+        "NODE_ENV": "production",
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
+      }
     }
   }
 }
@@ -172,15 +189,47 @@ npm install && npm run dev
 
 ```toml
 [mcp_servers.codex-father]
-command = "npx"
-args = ["-y", "@starkdev020/codex-father-mcp-server"]
+command = "codex-mcp-server"
+args = ["--transport=ndjson"]
+env.NODE_ENV = "production"
+env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
+env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
+startup_timeout_sec = 45
+tool_timeout_sec = 120
 ```
 
 **Claude Code CLI** - 在项目根目录创建 `.claude/mcp_settings.json`
 
 📖 **完整使用文档**: [MCP 服务器使用指南](mcp/codex-mcp-server/README.md)
 
-> 包含详细的配置说明、实战示例、故障排除和 rMCP 集成说明
+### 新手传参速览（start.sh/job.sh）
+
+- 标准传参：使用 `--task "<文本>"` 指定任务说明；常用组合：
+  - `--sandbox workspace-write`、`--ask-for-approval on-failure|on-request`
+  - `--model "gpt-5-codex high"` 或 `--model gpt-5-codex high`
+  - `--codex-config <key=value>` 追加细粒度开关（如联网）
+- 位置参数容错：如果直接把一段话当成“位置参数”（没有任何
+  `--flag`）传给脚本，CLI 会自动把它当作 `--task`
+  内容处理，并在日志/标准错误输出提示；推荐长期改为显式 `--task`
+  写法以避免歧义。
+- 异步执行：优先通过 `job.sh start ... --json` 启动，拿到 `jobId` 后用
+  `job.sh status/logs` 跟踪；日志与元数据写入
+  `.codex-father/sessions/<job-id>/`。
+- 快速示例：
+
+  ```bash
+  ./job.sh start --task "检查 README，输出改进建议" \
+    --sandbox workspace-write --ask-for-approval on-failure --json
+
+  # 若不小心写成（位置参数）：
+  ./job.sh start "检查 README，输出改进建议" --sandbox workspace-write --ask-for-approval on-failure --json
+  # CLI 也会将其视为 --task，但会给出 [hint] 提示，建议改回显式 --task
+  ```
+
+> 包含详细的配置说明、实战示例、故障排除和 rMCP 集成说明 Codex
+> CLI 的更多配置细节请参考
+> [`refer-research/openai-codex/docs/config.md#mcp_servers`](refer-research/openai-codex/docs/config.md)
+> （收录于本仓库的 `refer-research/index.md`）。
 
 ### 本地 rMCP CLI 快速体验
 
@@ -240,6 +289,19 @@ npm run rmcp:client -- --help
 - 补丁模式：
   - 仅在需要“只输出补丁”时添加 `--patch-mode`；看到日志 `Patch Mode: on`
     即表示已注入 `policy-note`。
+  - 默认会将补丁写入 `<session>/patch.diff`（或 `--patch-output`
+    指定的路径），日志仅保留预览，可用 `--patch-preview-lines`
+    调整、`--no-patch-preview` 关闭回显。
+  - 如需恢复旧行为（将完整补丁写进日志），传入 `--no-patch-artifact`。
+- 结构化 instructions：
+  - 准备 JSON/YAML/XML 描述的任务文件后，可执行
+    `./start.sh --instructions path/to/task.json --task T032`；CLI 会先校验 schema 再写入
+    `.codex-father/instructions/` 并通过 `CODEX_STRUCTURED_*`
+    环境变量注入给 Shell。
+  - 若传入 `--task`，会校验是否存在同名任务 ID；缺少 `--instructions`
+    时 CLI 会直接报错。
+  - 详细数据模型、执行语义与示例见
+    [`specs/structured-instructions/`](specs/structured-instructions/README.md)。
 - 快速自检：
   - 联网+补丁模式示例：
     ```bash
@@ -250,6 +312,29 @@ npm run rmcp:client -- --help
       --codex-config sandbox_workspace_write.network_access=true \
       --patch-mode
     ```
+
+- 输入体积预检（超限立刻拒绝）
+  - CLI 会在执行前估算上下文体积；默认
+    `INPUT_TOKEN_LIMIT=32000`（粗略：字节/4≈tokens）。
+  - 超过硬上限会直接报错并退出码 2，状态落为
+    `failed`、`classification=context_overflow`，日志包含
+    `[input-check] Estimated tokens ... exceed hard limit ...`。
+  - 解决：拆分任务或仅传入摘要。可配合 `--docs` +
+    `--context-head/--context-grep` 策略压缩，或临时提高
+    `INPUT_TOKEN_LIMIT`（不推荐长期依赖）。
+
+- 预设严格校验（未知值直接失败）
+  - `--preset`
+    仅接受：`sprint|analysis|secure|fast`；未知预设将直接报错并退出码 2。
+  - 日志/状态：`failed`，`classification=input_error`；`bootstrap.err` 与
+    `job.log` 都会给出明确提示。
+
+- 状态与分类语义（便于被动通知）
+  - 正常完成：`state=completed, exit_code=0, classification=normal`（日志包含
+    `Exit Code: 0`）。
+  - 用户中断：`state=stopped, exit_code=null, classification=user_cancelled`（强制覆盖，不受日志其他关键词影响）。
+  - 参数错误：`state=failed, exit_code=2, classification=input_error`（例如未知预设/未知参数/用法错误）。
+  - 上下文超限：`state=failed, exit_code=2, classification=context_overflow`（参见“输入体积预检”）。
 
 ### 详细文档
 

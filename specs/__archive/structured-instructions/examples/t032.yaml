@@ -1,0 +1,73 @@
+version: "1.0"
+id: "feat/003-docs-mvp3-execution-3"
+context: 在该分支上进行 D1 预览环境状态检查与迁移演练。
+objective: 完成 T032：运行预览 D1 状态与迁移；若凭据不足则生成运行手册；随后提交并创建 PR。
+env:
+  allow:
+    - CODEX_*
+    - PNPM_HOME
+constraints:
+  timeoutMs: 900000
+tasks:
+  - id: T032
+    description: D1 预览状态与迁移（凭据不足不失败）
+    steps:
+      - id: status-remote
+        run: pnpm db:status:preview:remote
+        continueOnError: true
+        errorMatchers:
+          - "Not authenticated.*wrangler"
+          - "No configured D1.*preview"
+          - "Missing environment variable"
+      - id: migrate-preview
+        run: pnpm db:migrate:preview
+        continueOnError: true
+        errorMatchers:
+          - "Not authenticated.*wrangler"
+          - "No configured D1.*preview"
+          - "Missing environment variable"
+      - id: write-runbook
+        when: "step:status-remote.failed || step:migrate-preview.failed"
+        run:
+          shell: bash
+          script: |
+            mkdir -p docs/ops && cat > docs/ops/d1-migration-preview.md <<'MD'
+            # D1 预览迁移 Runbook
+
+            ## 登录 Wrangler
+            - 运行 `wrangler login` 并在浏览器授权。
+            - 或使用 `CLOUDFLARE_API_TOKEN`（最小权限：D1:Edit, Account:Read）。
+
+            ## 远程 D1 绑定
+            - 在 `wrangler.toml` 配置 `d1_databases` 的 preview 绑定。
+            - 验证：`wrangler d1 list`、`wrangler d1 execute <DB> --command '.schema' --remote`。
+
+            ## 所需 Secrets
+            - `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_API_TOKEN`（存入 `wrangler secret put`）。
+            - 本项目注入以 `CODEX_` 前缀透传。
+
+            ## 验证命令
+            - `pnpm db:status:preview:remote`
+            - `pnpm db:migrate:preview`
+
+            ## 常见错误
+            - Not authenticated: 重新 `wrangler login` 或检查 Token 权限。
+            - D1 未绑定: 检查 `wrangler.toml` 的 preview 环境配置。
+            MD
+        artifacts:
+          - docs/ops/d1-migration-preview.md
+vcs:
+  branch: feat/003-docs-mvp3-execution-3
+  commitMessage: "docs(ops): preview D1 migration runbook + status (T032)"
+  pr:
+    title: "docs(ops): preview D1 migration runbook + status (T032)"
+    body: >-
+      Adds runbook for Wrangler login, D1 remote config, and secrets.
+      Includes preview status/migration execution flow with soft-fail semantics.
+    labels: ["docs", "ops", "preview", "T032"]
+    draft: false
+response:
+  artifacts:
+    - docs/ops/d1-migration-preview.md
+    - .codex-father/sessions/*/aggregate.txt
+  format: markdown

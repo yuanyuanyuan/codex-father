@@ -22,6 +22,8 @@ usage() {
 命令:
   start [start.sh 同参…] [--tag <t>] [--cwd <dir>] [--json]
         后台启动一次 codex 运行，立刻返回 job-id 与句柄。
+  resume <job-id> [--tag <t>] [--cwd <dir>] [--json] [-- <start 参数…>]
+        复用既有任务的参数重新启动 start.sh，返回新的 job-id。
   status <job-id> [--json]
         查询任务状态，若已结束则补充分类与摘要。
   logs <job-id> [--tail N] [--follow]
@@ -116,6 +118,34 @@ json_escape_local() {
   printf '%s' "$s"
 }
 
+extract_args_from_state() {
+  local state_file="$1"
+  [[ -f "$state_file" ]] || return 1
+  if ! command -v node >/dev/null 2>&1; then
+    return 2
+  fi
+  node - "$state_file" <<'EOF'
+const fs = require('fs');
+const file = process.argv[2] || process.argv[1];
+if (!file || file === '-') {
+  process.exit(4);
+}
+try {
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (!Array.isArray(data.args)) {
+    process.exit(3);
+  }
+  for (const arg of data.args) {
+    const value = typeof arg === 'string' ? arg : String(arg ?? '');
+    process.stdout.write(value);
+    process.stdout.write('\u0000');
+  }
+} catch (error) {
+  process.exit(4);
+}
+EOF
+}
+
 write_state() {
   local state_file="$1"; shift
   local json="$1"; shift || true
@@ -145,6 +175,8 @@ latest_file_by_mtime() {
 safe_classify() {
   # Usage: safe_classify <last_msg_file|""> <log_file> <exit_code>
   local last_msg_file="$1"; local log_file="$2"; local code="$3"
+  local err_file
+  err_file="$(dirname "$log_file")/bootstrap.err"
   SC_CLASSIFICATION="normal"; SC_TOKENS_USED=""
   if declare -F classify_exit >/dev/null 2>&1; then
     classify_exit "$last_msg_file" "$log_file" "$code"
@@ -164,21 +196,24 @@ safe_classify() {
       SC_CLASSIFICATION='normal'
     fi
   else
-    if grep -Eqi 'context|token|length|too long|exceed|truncat' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    # 输入/参数错误优先识别，避免误判为网络/鉴权
+    if grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|错误:[[:space:]]+--[A-Za-z0-9_-]+[[:space:]]*需要|用法:[[:space:]]*start\.sh|Usage:[[:space:]]*start\.sh)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
+      SC_CLASSIFICATION='input_error'
+    elif grep -Eqi 'context|token|length|too long|exceed|truncat' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='context_overflow'
-    elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='approval_required'
-    elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='sandbox_denied'
-    elif grep -Eqi 'timeout|timed[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed|ENOTFOUND|EAI_AGAIN|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'timeout|timed[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed|ENOTFOUND|EAI_AGAIN|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='network_error'
-    elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='config_error'
-    elif grep -Eqi 'unauthorized|forbidden|invalid api key|401|403' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'unauthorized|forbidden|invalid api key|401|403' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='auth_error'
-    elif grep -Eqi 'too many requests|rate limit|429' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'too many requests|rate limit|429' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='rate_limited'
-    elif grep -Eqi 'Command failed|non-zero exit|failed to execute' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'Command failed|non-zero exit|failed to execute' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='tool_error'
     else
       SC_CLASSIFICATION='error'
@@ -190,7 +225,8 @@ derive_exit_code_from_log() {
   local log="$1"
   [[ -f "$log" ]] || { echo ""; return 0; }
   local ln
-  ln=$(grep -E "^Exit Code:[[:space:]]*-?[0-9]+" "$log" | tail -n1 || true)
+  # 匹配包含 Exit Code 的行（不要求行首），兼容 trap 合并行写法
+  ln=$(grep -E "Exit Code:[[:space:]]*-?[0-9]+" "$log" | tail -n1 || true)
   if [[ -n "$ln" ]]; then
     echo "$ln" | sed -E 's/.*Exit Code:[[:space:]]*(-?[0-9]+).*/\1/'
   else
@@ -225,7 +261,7 @@ status_compute_and_update() {
   local running=0
   if pid_alive "$pid"; then running=1; fi
 
-  local state exit_code classification tokens_used title last_msg meta_file
+  local state exit_code classification tokens_used title last_msg meta_file resumed_from=""
   local effective_sandbox_json="null" effective_network_json="null" effective_approval_json="null" sandbox_bypass_json="null"
   title=$(derive_title_from_instructions "$run_dir")
 
@@ -292,7 +328,8 @@ status_compute_and_update() {
       state="completed"
     elif [[ "$code" -lt 0 ]]; then
       state="stopped"
-      if [[ "$classification" == "null" ]]; then classification="\"user_cancelled\""; fi
+      # 强制覆盖为用户中断，避免误判为审批等其他分类
+      classification="\"user_cancelled\""
       exit_code="null"
     else
       state="failed"
@@ -301,10 +338,22 @@ status_compute_and_update() {
 
   # Read tag/cwd from existing state if present to keep stable metadata
   local tag="" cwd="" created_at=""
+  local -a existing_args=()
+  local args_json="[]"
   if [[ -f "$state_file" ]]; then
     # Try to recover original fields
     tag=$(grep -E '"tag"' "$state_file" | sed -E 's/.*"tag"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
     cwd=$(grep -E '"cwd"' "$state_file" | sed -E 's/.*"cwd"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+    resumed_from=$(grep -E '"resumed_from"' "$state_file" | sed -E 's/.*"resumed_from"\s*:\s*"?([^",}]*)"?.*/\1/' | head -n1 || true)
+    if [[ "$resumed_from" == "null" ]]; then resumed_from=""; fi
+    if mapfile -t -d '' existing_args < <(extract_args_from_state "$state_file"); then
+      if (( ${#existing_args[@]} > 0 )) && [[ -z "${existing_args[-1]}" ]]; then
+        unset 'existing_args[-1]'
+      fi
+      if (( ${#existing_args[@]} > 0 )); then
+        args_json=$(build_args_json_array "${existing_args[@]}")
+      fi
+    fi
   fi
 
   local updated_at; updated_at=$(now_iso)
@@ -327,6 +376,11 @@ status_compute_and_update() {
   local meta_glob_json="\"$(json_escape_local "$meta_glob")\""
   local last_glob_json="\"$(json_escape_local "$last_glob")\""
 
+  local resumed_json="null"
+  if [[ -n "$resumed_from" ]]; then
+    resumed_json="\"$(json_escape_local "$resumed_from")\""
+  fi
+
   local json
   json=$(cat <<EOF
 {
@@ -347,7 +401,9 @@ status_compute_and_update() {
   "log_file": "$(json_escape_local "$log_file")",
   "meta_glob": ${meta_glob_json},
   "last_message_glob": ${last_glob_json},
-  "title": ${title_json}
+  "args": ${args_json},
+  "title": ${title_json},
+  "resumed_from": ${resumed_json}
 }
 EOF
 )
@@ -371,5 +427,6 @@ EOF
       echo "effective_approval: ${effective_approval_json//\"/}"
     fi
     [[ -n "$title" ]] && echo "title: $title"
+    [[ -n "$resumed_from" ]] && echo "resumed_from: $resumed_from"
   fi
 }

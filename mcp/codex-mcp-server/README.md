@@ -46,16 +46,27 @@ npm install
 npm run dev
 ```
 
-### 方式二：使用 npx（一键启动）
+### 方式二：用户级部署（推荐）
 
-包已发布到 npmjs，可以直接运行：
+一次安装即可在所有 MCP 客户端共用同一份运行时与日志目录：
 
 ```bash
-# 直接运行，无需额外配置
-npx @starkdev020/codex-father-mcp-server
+# 1. 安装（首次执行即可）
+npm install -g @starkdev020/codex-father-mcp-server
+
+# 2. 准备独立目录，避免污染业务仓库
+export CODEX_RUNTIME_HOME="$HOME/.codex-father-runtime"
+export CODEX_SESSIONS_HOME="$HOME/.codex-father-sessions"
+mkdir -p "$CODEX_RUNTIME_HOME" "$CODEX_SESSIONS_HOME"
+
+# 3. 启动服务（默认 NDJSON 传输）
+CODEX_MCP_PROJECT_ROOT="$CODEX_RUNTIME_HOME" \
+CODEX_SESSIONS_ROOT="$CODEX_SESSIONS_HOME" \
+codex-mcp-server --transport=ndjson
 ```
 
-> 💡 **提示**：首次运行会自动下载，后续启动会更快
+> 💡 **提示**：首次启动会自动在 `$CODEX_RUNTIME_HOME/.codex-father/`
+> 下同步官方脚本副本。
 
 ### 方式三：集成到 MCP 客户端
 
@@ -81,10 +92,12 @@ npx @starkdev020/codex-father-mcp-server
 {
   "mcpServers": {
     "codex-father": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"],
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
       }
     }
   }
@@ -99,9 +112,11 @@ Codex CLI 支持 MCP 服务器配置，在 `~/.codex/config.toml` 中添加：
 
 ```toml
 [mcp_servers.codex-father]
-command = "npx"
-args = ["-y", "@starkdev020/codex-father-mcp-server"]
-env = { NODE_ENV = "production" }
+command = "codex-mcp-server"
+args = ["--transport=ndjson"]
+env.NODE_ENV = "production"
+env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
+env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
 ```
 
 然后运行 Codex：
@@ -119,8 +134,12 @@ codex
 {
   "mcpServers": {
     "codex-father": {
-      "command": "npx",
-      "args": ["-y", "@starkdev020/codex-father-mcp-server"]
+      "command": "codex-mcp-server",
+      "args": ["--transport=ndjson"],
+      "env": {
+        "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
+        "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
+      }
     }
   }
 }
@@ -249,13 +268,18 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
   - 运行后，`<session>/job.meta.json` 的 `effective_network_access` 应显示
     `enabled`（我们会以运行日志为准回填真实状态）。
 - 审批与沙箱：
-  - `workspace-write + never` 会被规范化为 `on-request`
-    以避免只读降级；日志中会有 `[arg-normalize]` 提示。
-  - 如需无人值守，建议 `on-failure`；或显式
+  - `workspace-write + never` 会被规范化为 `on-failure`（日志含
+    `[arg-normalize]` 提示），避免任务卡在审批环节；若需保留 `never`
+    可设置环境变量 `ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1`。
+  - 需要人工审批时请显式传
+    `approvalPolicy="on-request"`；若确定要全自动运行仍可结合
     `dangerouslyBypass=true`（高风险，仅限隔离环境）。
 - 补丁模式：
   - 仅在需要“只输出补丁（patch/diff）”时设置 `patchMode=true`；日志会显示
     `Patch Mode: on` 并注入 `policy-note`。
+  - diff 将自动写入 `<session>/patch.diff`（或 `--patch-output`
+    指定路径），日志只回显前若干行，可搭配 `--patch-preview-lines` 或
+    `--no-patch-preview` 控制体积；传入 `--no-patch-artifact` 可恢复旧行为。
 - 快速自检（MCP 工具调用示例）：
   - 单次执行（联网 + 补丁模式）：
     ```json
@@ -363,7 +387,10 @@ CLI 也可运行。
   - `carryContext` (boolean) - `false` 时追加 `--no-carry-context`
   - `compressContext` (boolean) - `false` 时追加 `--no-compress-context`
   - `contextHead` (number) - 控制上下文保留长度（追加 `--context-head`）
-  - `patchMode` (boolean) - 开启补丁模式
+  - `patchMode`
+    (boolean) - 开启补丁模式（diff 会写入会话目录；如需自定义落盘或回显策略，可通过
+    `args` 传递 `--patch-output`、`--patch-preview-lines`、`--no-patch-preview`
+    或 `--no-patch-artifact`）
   - `requireChangeIn` (string[]) - 重复追加 `--require-change-in`
   - `requireGitCommit` (boolean) - 强制生成 Git 提交
   - `autoCommitOnDone` (boolean) - 成功后自动提交

@@ -1,3 +1,5 @@
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import type { Patch, PatchApplyResult } from './types.js';
 
 type PatchEventType = 'patch_applied' | 'patch_failed';
@@ -7,11 +9,28 @@ interface PatchEventPayload {
   readonly patch: Patch;
   readonly timestamp: string;
   readonly errorMessage?: string;
+  readonly workDir?: string | undefined;
 }
 
 /**
  * SWWCoordinator 实现单写窗口与补丁排队喵。
  */
+type StateManagerLike = {
+  emitEvent?: (payload: {
+    event: string;
+    taskId?: string;
+    role?: string;
+    data?: unknown;
+  }) => unknown | Promise<unknown>;
+};
+
+type SWWOptions = {
+  /** 基础工作根目录；若未提供，则使用 process.cwd() */
+  readonly workRoot?: string;
+  /** 可选：状态事件发射器，用于写入 JSONL/stream 事件 */
+  readonly stateManager?: StateManagerLike;
+};
+
 export class SWWCoordinator {
   /** 当前写窗口由哪一个任务持有。 */
   private currentWriter: string | null = null;
@@ -22,6 +41,9 @@ export class SWWCoordinator {
   /** 队列处理中的 promise，避免并发 drain。 */
   private processingPromise: Promise<void> | null = null;
 
+  /** 终止标记：请求中止后不再处理后续补丁（当前写入窗口内的补丁仍可能完成）。 */
+  private aborted = false;
+
   /** 补丁事件回调。 */
   private readonly listeners: Record<PatchEventType, Set<(event: PatchEventPayload) => void>> = {
     patch_applied: new Set(),
@@ -30,6 +52,18 @@ export class SWWCoordinator {
 
   /** 补丁事件历史记录。 */
   private readonly eventHistory: PatchEventPayload[] = [];
+
+  /** 工作根目录（隔离目录的基底）。 */
+  private readonly workRoot: string;
+  /** 可选的状态事件发射器。 */
+  private readonly stateManager?: StateManagerLike;
+
+  public constructor(options?: SWWOptions) {
+    this.workRoot = options?.workRoot ?? process.cwd();
+    if (options && options.stateManager) {
+      this.stateManager = options.stateManager;
+    }
+  }
 
   /** 暴露事件历史，方便测试与诊断。 */
   public get events(): readonly PatchEventPayload[] {
@@ -73,11 +107,32 @@ export class SWWCoordinator {
   public async applyPatch(patch: Patch): Promise<PatchApplyResult> {
     const ownsWindow = this.acquireWindow(patch.taskId);
     try {
+      // 冲突预检：若目标文件已在补丁创建后被其他补丁修改，则判定为冲突
+      const conflict = this.detectConflict(patch);
+      if (conflict) {
+        patch.status = 'failed';
+        patch.error = conflict;
+        return { success: false, errorMessage: conflict };
+      }
+
       const validationError = this.preCheck(patch);
       if (validationError) {
         patch.status = 'failed';
         patch.error = validationError;
         return { success: false, errorMessage: validationError };
+      }
+
+      // 准备隔离工作目录（每个补丁唯一）
+      let workDir: string | undefined;
+      try {
+        workDir = await this.prepareWorkspace(patch);
+      } catch (err) {
+        const reason =
+          err instanceof Error ? err.message : String(err ?? 'workspace_prepare_failed');
+        patch.status = 'failed';
+        patch.error = reason;
+        // 返回失败结果，交由上层 drainQueue() 统一发出 patch_failed 及映射事件，避免重复
+        return { success: false, errorMessage: reason };
       }
 
       patch.status = 'applying';
@@ -86,6 +141,8 @@ export class SWWCoordinator {
       patch.status = 'applied';
       patch.appliedAt = new Date().toISOString();
       delete patch.error;
+      // 应用成功，记录事件
+      this.emitPatchEvent('patch_applied', patch, undefined, workDir);
       return { success: true };
     } finally {
       if (ownsWindow) {
@@ -94,12 +151,58 @@ export class SWWCoordinator {
     }
   }
 
+  /**
+   * 简单冲突检测：若任一目标文件在补丁创建时间之后已经被应用补丁修改，则认为存在冲突。
+   * 仅基于事件历史与时间戳的启发式判断，无需实际三方合并。
+   */
+  private detectConflict(patch: Patch): string | undefined {
+    if (!Array.isArray(patch.targetFiles) || patch.targetFiles.length === 0) {
+      return undefined;
+    }
+    const createdAtMs = Date.parse(patch.createdAt ?? '');
+    if (!Number.isFinite(createdAtMs)) {
+      return undefined;
+    }
+
+    for (const evt of this.eventHistory) {
+      if (evt.event !== 'patch_applied') {
+        continue;
+      }
+      const appliedPatch = evt.patch;
+      if (appliedPatch.id === patch.id) {
+        continue;
+      }
+
+      const appliedAtMs = Date.parse(appliedPatch.appliedAt ?? evt.timestamp);
+      if (!Number.isFinite(appliedAtMs)) {
+        continue;
+      }
+
+      // 检查任一目标文件是否被其他补丁修改过
+      const appliedTargets = new Set<string>(appliedPatch.targetFiles ?? []);
+      const overlaps = patch.targetFiles.some((f) => appliedTargets.has(f));
+      if (overlaps && appliedAtMs > createdAtMs) {
+        const conflictFile = patch.targetFiles.find((f) => appliedTargets.has(f)) ?? 'unknown';
+        return `PATCH_CONFLICT: target ${conflictFile} changed at ${new Date(
+          appliedAtMs
+        ).toISOString()} after patch creation ${new Date(createdAtMs).toISOString()}`;
+      }
+    }
+    return undefined;
+  }
+
   /** 派发补丁事件。 */
-  public emitPatchEvent(event: PatchEventType, patch: Patch, errorMessage?: string): void {
+  public emitPatchEvent(
+    event: PatchEventType,
+    patch: Patch,
+    errorMessage?: string,
+    workDir?: string
+  ): void {
     const basePayload: Omit<PatchEventPayload, 'errorMessage'> = {
       event,
       patch: { ...patch },
       timestamp: new Date().toISOString(),
+      workDir,
     };
 
     const payload: PatchEventPayload =
@@ -109,18 +212,85 @@ export class SWWCoordinator {
     for (const listener of this.listeners[event]) {
       listener(payload);
     }
+
+    // 将补丁事件映射到 JSONL/stream 事件：
+    // - 成功：tool_use（工具=patch_applier），并补充 patch_applied 审计事件
+    // - 失败：task_failed（reason=patch_failed），并补充 patch_failed 审计事件
+    const sm = this.stateManager;
+    if (sm && typeof sm.emitEvent === 'function') {
+      if (event === 'patch_applied') {
+        void Promise.resolve(
+          sm.emitEvent?.({
+            event: 'tool_use',
+            taskId: patch.taskId,
+            data: {
+              tool: 'patch_applier',
+              patchId: patch.id,
+              sequence: patch.sequence,
+              filePath: patch.filePath,
+              workDir,
+              result: 'applied',
+            },
+          })
+        );
+        void Promise.resolve(
+          sm.emitEvent?.({
+            event: 'patch_applied',
+            taskId: patch.taskId,
+            data: { patchId: patch.id, filePath: patch.filePath, workDir },
+          })
+        );
+      } else if (event === 'patch_failed') {
+        void Promise.resolve(
+          sm.emitEvent?.({
+            event: 'task_failed',
+            taskId: patch.taskId,
+            data: {
+              reason: 'patch_failed',
+              patchId: patch.id,
+              filePath: patch.filePath,
+              errorMessage,
+            },
+          })
+        );
+        void Promise.resolve(
+          sm.emitEvent?.({
+            event: 'patch_failed',
+            taskId: patch.taskId,
+            data: { patchId: patch.id, filePath: patch.filePath, errorMessage },
+          })
+        );
+      }
+    }
   }
 
   private async drainQueue(): Promise<void> {
+    if (this.aborted) {
+      // 丢弃所有待处理补丁
+      this.patchQueue.length = 0;
+      return;
+    }
     while (this.patchQueue.length > 0) {
+      if (this.aborted) {
+        this.patchQueue.length = 0;
+        break;
+      }
       const patch = this.patchQueue.shift()!;
       const result = await this.applyPatch(patch);
-      if (result.success) {
-        this.emitPatchEvent('patch_applied', patch);
-      } else {
+      if (!result.success) {
         this.emitPatchEvent('patch_failed', patch, result.errorMessage);
       }
     }
+  }
+
+  /**
+   * 为补丁创建隔离工作目录：<workRoot>/.sww/<taskId>/<seq>-<patchId>
+   */
+  private async prepareWorkspace(patch: Patch): Promise<string> {
+    const seq = String(patch.sequence).padStart(4, '0');
+    const dir = path.join(this.workRoot, '.sww', patch.taskId, `${seq}-${patch.id}`);
+    await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+    return dir;
   }
 
   private acquireWindow(taskId: string): boolean {
@@ -149,5 +319,23 @@ export class SWWCoordinator {
       return `Patch status ${patch.status} is not eligible for apply`;
     }
     return undefined;
+  }
+
+  /**
+   * 请求中止：清空队列，阻止后续 drain；当前写入窗口内的补丁不强行终止。
+   * @returns 被丢弃的补丁数量（估算值）
+   */
+  public requestAbort(): number {
+    this.aborted = true;
+    const dropped = this.patchQueue.length;
+    this.patchQueue.length = 0;
+    return dropped;
+  }
+
+  /**
+   * 清除中止标记，允许后续继续入队与处理（供重放/恢复使用）。
+   */
+  public resetAbort(): void {
+    this.aborted = false;
   }
 }

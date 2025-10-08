@@ -12,7 +12,11 @@ import { registerTaskCommand } from './commands/task-command.js';
 import { registerConfigCommand } from './commands/config-command.js';
 import { registerQueueCommand } from './commands/queue-command.js';
 import { registerMCPCommand } from './commands/mcp-command.js';
-import { registerOrchestrateCommand } from './commands/orchestrate-command.js';
+import {
+  registerOrchestrateCommand,
+  registerOrchestrateReportCommand,
+} from './commands/orchestrate-command.js';
+import { registerLogsCommand } from './commands/logs-command.js';
 import type { CommandContext, CommandResult } from '../lib/types.js';
 
 /**
@@ -80,6 +84,14 @@ class CodexFatherCLI {
         options: [
           { flags: '--timeout <ms>', description: 'Execution timeout in milliseconds' },
           { flags: '--capture', description: 'Capture script output', defaultValue: true },
+          {
+            flags: '--instructions <file>',
+            description: 'Path to structured instructions file (JSON/YAML/XML)',
+          },
+          {
+            flags: '--task <id>',
+            description: 'Task id defined in structured instructions',
+          },
         ],
       }
     );
@@ -135,8 +147,12 @@ class CodexFatherCLI {
     // mcp 命令 (MVP1 实现)
     registerMCPCommand(parser);
 
+    // logs 命令（导出/跟随会话日志）
+    registerLogsCommand(parser);
+
     // orchestrate 命令（多 Agent 编排脚手架）
     registerOrchestrateCommand(parser);
+    registerOrchestrateReportCommand(parser);
 
     // status 命令 (立即可用)
     parser.registerCommand(
