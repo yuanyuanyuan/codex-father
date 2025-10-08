@@ -58,7 +58,7 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "test:watch": "vitest --watch",
-    "test:orchestrator": "vitest run -c vitest.orchestrator.config.ts",
+    "test:orchestrator": "ORCHESTRATOR_TESTS=1 vitest run -c vitest.orchestrator.config.ts",
     "test:orchestrator:file": "ORCHESTRATOR_TESTS=1 vitest run --reporter=dot",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "typecheck:watch": "tsc --noEmit -p tsconfig.build.json --watch",
