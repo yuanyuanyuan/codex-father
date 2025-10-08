@@ -17,6 +17,29 @@
   `on-failure`，避免无人值守健康检查被判定 `approval_required`；需要保留 `never`
   时可设置 `ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1`。
 
+## [2.0.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.6.0...mcp-v2.0.0) (2025-10-08)
+
+### Breaking Changes
+
+- **contracts:**
+  调整部分 CLI/MCP 诊断与报告摘要的字段与默认行为，以对齐新的指标与别名规则（详见文档与契约测试）。
+
+### Features
+
+- **diagnostics:**
+  增强诊断工具（strict 参数校验、错误码映射、grep-events 支持 ignoreCase/regex），并补 Playbook 与端到端示例。
+
+### Fixes
+
+- **release/ci:**
+  稳定包含 Orchestrator 定向测试与配置检测；修复一处 JSON 摘要别名契约（`failedTasks`）。
+
+### Internal
+
+- **lint:** 将 `vitest.config.ts` 与 `vitest.orchestrator.config.ts` 纳入 ESLint
+  TS 项目，消除 CI 噪音。
+- **tests:** 增强 JSON 输出契约的覆盖率与零任务边界校验。
+
 ## [1.6.1](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.6.0...mcp-v1.6.1) (2025-10-08)
 
 ### Fixes
