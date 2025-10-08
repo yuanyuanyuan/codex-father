@@ -27,8 +27,22 @@ for (let i = 0; i < lines.length; i += 1) {
 }
 
 if (startIndex === -1) {
-  console.error(`[mcp-extract-changelog] could not find changelog entry for ${version}`);
-  process.exit(1);
+  // fallback to Unreleased or minimal notes when entry is missing
+  let unreleasedStart=-1;
+  const unreleasedRe=/^##\s*\[?Unreleased\]?/i;
+  for(let i=0;i<lines.length;i+=1){if(unreleasedRe.test(lines[i])){unreleasedStart=i;break;}}
+  if(unreleasedStart!==-1){
+    let unreleasedEnd=lines.length;
+    for(let i=unreleasedStart+1;i<lines.length;i+=1){if(/^##\s/.test(lines[i])){unreleasedEnd=i;break;}}
+    const unreleasedEntry=lines.slice(unreleasedStart,unreleasedEnd).join('\n').trim();
+    if(unreleasedEntry){
+      const rewritten=unreleasedEntry.replace(unreleasedRe,`## [${version}]`);
+      process.stdout.write(`${rewritten}\n\n> Notes auto-generated from Unreleased due to missing explicit entry for ${version}.\n`);
+      process.exit(0);
+    }
+  }
+  process.stdout.write(`## [${version}]\n\n_No curated changelog entry found. This release notes was auto-generated._\n`);
+  process.exit(0);
 }
 
 let endIndex = lines.length;
