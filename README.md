@@ -1,5 +1,7 @@
 # Codex Father - TypeScript MCP Server (MVP1)
 
+语言: 中文 | [English](README.en.md)
+
 > MCP (Model Context Protocol) 服务器，用于将 Codex
 > CLI 暴露为标准 MCP 工具，支持单进程异步执行和审批机制。
 

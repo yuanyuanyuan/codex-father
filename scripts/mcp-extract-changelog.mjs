@@ -17,6 +17,8 @@ if (!fs.existsSync(changelogPath)) {
 
 const content = fs.readFileSync(changelogPath, 'utf8');
 const lines = content.split(/\r?\n/);
+const repo = process.env.GITHUB_REPOSITORY || '';
+const href = repo ? `https://github.com/${repo}/blob/main/mcp/codex-mcp-server/CHANGELOG.md` : 'mcp/codex-mcp-server/CHANGELOG.md';
 const headingPattern = new RegExp(`^#{2,3}\\s*\\[?${version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]?`);
 let startIndex = -1;
 for (let i = 0; i < lines.length; i += 1) {
@@ -37,11 +39,11 @@ if (startIndex === -1) {
     const unreleasedEntry=lines.slice(unreleasedStart,unreleasedEnd).join('\n').trim();
     if(unreleasedEntry){
       const rewritten=unreleasedEntry.replace(unreleasedRe,`## [${version}]`);
-      process.stdout.write(`${rewritten}\n\n> Notes auto-generated from Unreleased due to missing explicit entry for ${version}.\n`);
+      process.stdout.write(`${rewritten}\n\n> Notes auto-generated from Unreleased due to missing explicit entry for ${version}.\n\nSee also: [CHANGELOG](${href})\n`);
       process.exit(0);
     }
   }
-  process.stdout.write(`## [${version}]\n\n_No curated changelog entry found. This release notes was auto-generated._\n`);
+  process.stdout.write(`## [${version}]\n\n_No curated changelog entry found. This release notes was auto-generated._\n\nSee also: [CHANGELOG](${href})\n`);
   process.exit(0);
 }
 
@@ -59,4 +61,4 @@ if (!entry) {
   process.exit(1);
 }
 
-process.stdout.write(`${entry}\n`);
+process.stdout.write(`${entry}\n\nSee also: [CHANGELOG](${href})\n`);

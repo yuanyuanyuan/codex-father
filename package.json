@@ -88,6 +88,7 @@
     "docs:build": "echo 'Documentation generation will be enabled when core/lib/index.ts exists'",
     "docs:api": "typedoc",
     "docs:api:watch": "typedoc --watch",
+    "docs:check-bilingual": "bash scripts/hooks/check-bilingual-docs.sh",
     "release": "semantic-release",
     "release:preflight": "bash scripts/release-mcp.sh --preflight",
     "release:dry-run": "bash scripts/release-mcp.sh --dry-run",

@@ -1,0 +1,58 @@
+name: Annotate Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      tagName:
+        description: 'Tag to annotate (e.g., mcp-v2.0.0)'
+        required: true
+      version:
+        description: 'Version for notes (defaults to tagName without prefix mcp-v)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  annotate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate notes
+        id: gen
+        env:
+          TAG: ${{ inputs.tagName }}
+          VERSION_IN: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="${TAG}"
+          VER="${VERSION_IN:-}"
+          if [ -z "${VER}" ]; then
+            VER="${TAG#mcp-v}"
+          fi
+          echo "version=${VER}" >> "$GITHUB_OUTPUT"
+          node scripts/mcp-extract-changelog.mjs "${VER}" > .notes.tag
+          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
+          cat .notes.tag >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Annotate and push tag
+        env:
+          TAG: ${{ inputs.tagName }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+          git tag -fa "$TAG" -F .notes.tag
+          git push origin :refs/tags/"$TAG" || true
+          git push origin refs/tags/"$TAG" -f
+

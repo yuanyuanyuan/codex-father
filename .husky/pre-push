@@ -3,6 +3,9 @@
 
 set -eu
 
+echo "🌐 Checking README-linked bilingual docs..."
+bash scripts/hooks/check-bilingual-docs.sh
+
 echo "🛡️ Running pre-push full checks (check:all:parallel)..."
 if ! npm run -s check:all:parallel; then
   echo "❌ Pre-push checks failed. Push aborted. Use --no-verify to bypass (not recommended)."
@@ -10,4 +13,3 @@ if ! npm run -s check:all:parallel; then
 fi
 
 echo "✅ Pre-push checks passed"
-
