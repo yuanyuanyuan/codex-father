@@ -13,6 +13,8 @@
 > ⚡
 > 5 分钟上手：查看“[快速开始](docs/user/quick-start.md)”并一键试跑主路径示例。
 
+> 📘 强烈推荐：面向零基础用户的《[用户使用手册](docs/user/manual.md)》手把手讲解安装、配置、使用与排错，含操作示例与流程图。
+
 ## 📋 目录
 
 - [特性](#特性)
@@ -83,8 +85,8 @@
 - [x] 审批策略 + 终端交互 UI（白名单/策略注入）
 - [x] 事件记录与会话持久化（JSONL/metadata）
 - [x] 合同/契约测试（tools/call 形态与时延）
-- [ ] Orchestrate 多代理编排 CLI（`orchestrate` 命令）
-- [ ] SWW 单写者窗口 + 两阶段写入（补丁生成→串行应用→快速校验）
+- [x] Orchestrate 多代理编排 CLI（`orchestrate` 命令，基础可用，持续演进）
+- [x] SWW 单写者窗口 + 两阶段写入（基础实现与测试，持续完善）
 - [ ] 资源监控与并发调度（≤10 并发，TaskScheduler）
 - [ ] 事件模式与审计日志完善（统一 schema 导出）
 
@@ -348,6 +350,10 @@ npm run rmcp:client -- --help
 - **Codex rMCP 集成**:
   [关于 Codex rMCP](mcp/codex-mcp-server/README.md#🔗-关于-codex-rmcp-支持)
 - **[Codex 0.44 兼容指南](docs/architecture/mcp-integration.md)**
+
+> 说明：`auto` 子命令目前处于规划阶段，示例与 PRD 请见
+> `docs/mvp/mvp10`、`docs/user/auto.md`；稳定可用的方案请优先使用 `orchestrate`
+> 与 MCP 工具集。
 
 ## 🛠️ 开发
 
