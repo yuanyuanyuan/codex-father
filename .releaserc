@@ -8,7 +8,8 @@
       {
         "generateNotesCmd": "node scripts/mcp-extract-changelog.mjs ${nextRelease.version}",
         "prepareCmd": "bash -lc 'node -e \"const fs=require(\\\"fs\\\");const p=\\\"mcp/codex-mcp-server/package.json\\\";const pkg=JSON.parse(fs.readFileSync(p));pkg.version=\\\"${nextRelease.version}\\\";fs.writeFileSync(p, JSON.stringify(pkg, null, 2)+\\\"\\n\\\");console.log(\\\"set version to ${nextRelease.version}\\\");\"; cd mcp/codex-mcp-server && npm pack'",
-        "publishCmd": "bash -lc 'if [ -n \"$NPM_TOKEN\" ]; then cd mcp/codex-mcp-server && npm publish --access public --registry https://registry.npmjs.org/; else echo \"[semantic-release] skip npmjs publish: NPM_TOKEN missing\"; fi'"
+        "publishCmd": "bash -lc 'if [ -n \"$NPM_TOKEN\" ]; then cd mcp/codex-mcp-server && npm publish --access public --registry https://registry.npmjs.org/; else echo \"[semantic-release] skip npmjs publish: NPM_TOKEN missing\"; fi'",
+        "successCmd": "bash -lc 'set -e; node scripts/mcp-extract-changelog.mjs ${nextRelease.version} > .release_notes.txt; git fetch --tags --force; git tag -f -a ${nextRelease.gitTag} -F .release_notes.txt; git push origin :refs/tags/${nextRelease.gitTag} || true; git push origin refs/tags/${nextRelease.gitTag} -f; rm -f .release_notes.txt'"
       }
     ],
     [
