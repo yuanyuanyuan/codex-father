@@ -148,11 +148,11 @@ async function main(): Promise<void> {
       : undefined,
     retryPolicy: {
       maxAttempts: retryMax,
-      backoff: retryBackoff as any,
+      backoff: retryBackoff as 'fixed' | 'exponential',
       initialDelayMs: retryInitial,
       maxDelayMs: retryMaxMs,
     },
-  } as any);
+  });
 
   await stateManager.emitEvent({ event: 'start', data: { sessionId } });
 

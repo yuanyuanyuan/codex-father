@@ -30,6 +30,7 @@ interface MCPCommandOptions {
   maxRestartAttempts?: number; // 最大重启次数
   restartDelay?: number; // 重启延迟(毫秒)
   timeout?: number; // 请求超时时间(毫秒)
+  enableDiagnosticTools?: boolean; // 注册诊断只读工具
 }
 
 /**
@@ -81,6 +82,10 @@ export function registerMCPCommand(parser: CLIParser): void {
         }
         if (context.options.timeout) {
           options.timeout = Number(context.options.timeout);
+        }
+        if (Object.prototype.hasOwnProperty.call(context.options, 'enableDiagnosticTools')) {
+          const raw = context.options.enableDiagnosticTools as unknown;
+          options.enableDiagnosticTools = raw === true || raw === 'true';
         }
 
         // 输出启动信息
@@ -138,6 +143,9 @@ export function registerMCPCommand(parser: CLIParser): void {
         }
         if (typeof options.timeout === 'number') {
           serverConfig.timeout = options.timeout;
+        }
+        if (typeof options.enableDiagnosticTools === 'boolean') {
+          serverConfig.enableDiagnosticTools = options.enableDiagnosticTools;
         }
 
         const server = createMCPServer(serverConfig as Parameters<typeof createMCPServer>[0]);
@@ -238,6 +246,10 @@ export function registerMCPCommand(parser: CLIParser): void {
         {
           flags: '--timeout <ms>',
           description: 'Request timeout in milliseconds (default: 30000)',
+        },
+        {
+          flags: '--enable-diagnostic-tools',
+          description: 'Register read-only diagnostic tools (report/events)',
         },
       ],
     }

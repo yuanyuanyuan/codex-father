@@ -22,8 +22,9 @@
 - 事件模型：统一使用 JSONL 追加式写入，字段扩展进入 `data`，保留 `event`、`timestamp`、`seq` 等基础字段。
   - 写入实现：`core/orchestrator/state-manager.ts`
   - 事件 schema 参考：`docs/schemas/stream-json-event.schema.json`
-- stdout 契约（只对 orchestrate CLI）：
-  - 标准输出仅两行：`start` 与 `orchestration_completed`（或 `orchestration_failed`）。详见：`core/cli/commands/orchestrate-command.ts`
+- stdout 契约：
+  - orchestrate CLI：标准输出仅两行 Stream‑JSON 事件：`start` 与 `orchestration_completed`（或 `orchestration_failed`）。详见：`core/cli/commands/orchestrate-command.ts`
+  - auto 命令（来自 MVP12）：默认 `--output-format json`，在 `--output-format stream-json` 下同样仅输出两行事件；如需“同时保留两行事件又获得 JSON 摘要”，可使用 `--save-stream <file>`。
   - 其他事件全部写入会话 JSONL，不进入 stdout。
 - 会话目录（默认 0700）：`.codex-father/sessions/<id>/`
   - `events.jsonl`（0600）

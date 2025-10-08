@@ -218,6 +218,10 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         ['json', 'stream-json'],
         DEFAULTS.outputFormat
       );
+      const saveStreamPath =
+        typeof options.saveStream === 'string' && options.saveStream.trim()
+          ? (options.saveStream as string).trim()
+          : '';
 
       // 支持 --config <path>（命令级优先），否则回退到全局 context.configPath
       const configFile =
@@ -354,6 +358,52 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
 
       await stateManager.emitEvent({ event: startEvent.event, data: startEvent.data });
 
+      // 从项目配置映射可选 orchestrator 字段（手动干预/理解门控），保持向后兼容
+      type ProjectOrchestratorCfg = {
+        manualIntervention?: { enabled?: boolean; requireAck?: boolean; ack?: boolean };
+        understanding?: {
+          requirement?: string;
+          restatement?: string;
+          evaluateConsistency?: 'builtin';
+        };
+      };
+      const projectOrchestrator =
+        (projectConfig as unknown as { orchestrator?: ProjectOrchestratorCfg })?.orchestrator ?? {};
+      const manualIntervention =
+        typeof projectOrchestrator?.manualIntervention === 'object'
+          ? {
+              enabled: projectOrchestrator.manualIntervention.enabled === true,
+              requireAck: projectOrchestrator.manualIntervention.requireAck === true,
+              ack: projectOrchestrator.manualIntervention.ack === true,
+            }
+          : undefined;
+      const understandingCfg:
+        | {
+            requirement: string;
+            restatement: string;
+            evaluateConsistency: (input: {
+              requirement: string;
+              restatement: string;
+            }) => Promise<{ consistent: boolean; issues: string[] }>;
+          }
+        | undefined =
+        typeof projectOrchestrator?.understanding === 'object'
+          ? {
+              requirement: String(projectOrchestrator.understanding.requirement ?? ''),
+              restatement: String(projectOrchestrator.understanding.restatement ?? ''),
+              evaluateConsistency:
+                projectOrchestrator.understanding.evaluateConsistency === 'builtin'
+                  ? async (): Promise<{ consistent: boolean; issues: string[] }> => ({
+                      consistent: true,
+                      issues: [] as string[],
+                    })
+                  : async (): Promise<{ consistent: boolean; issues: string[] }> => ({
+                      consistent: true,
+                      issues: [] as string[],
+                    }),
+            }
+          : undefined;
+
       const orchestrator = new ProcessOrchestrator({
         maxConcurrency,
         taskTimeout: taskTimeoutMs,
@@ -362,6 +412,10 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         mode,
         stateManager,
         sessionDir,
+        ...(manualIntervention ? { manualIntervention } : {}),
+        ...(understandingCfg?.requirement && understandingCfg?.restatement
+          ? { understanding: understandingCfg }
+          : {}),
       });
 
       let ctx: OrchestratorContext | undefined;
@@ -374,7 +428,7 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
 
       const executionTime = Date.now() - startTime;
 
-      const fallbackStats = {
+      const fallbackStats: OrchestrationRunStats = {
         totalTasks: tasksTotal,
         completedTasks: orchestrationError ? 0 : tasksTotal,
         failedTasks: orchestrationError ? tasksTotal : 0,
@@ -384,13 +438,25 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
             ? 1
             : (ctx?.tasks?.length ?? tasksTotal) / tasksTotal,
         failedTaskIds: orchestrationError ? tasks.map((task) => task.id) : [],
-      } satisfies OrchestrationRunStats;
+      } as OrchestrationRunStats;
 
       const stats = ctx?.stats ?? fallbackStats;
-      const successRate = stats.successRate;
+      // successRate 保护：保证在 [0,1] 且为有效数值
+      const successRate = Number.isFinite(stats.successRate)
+        ? Math.min(1, Math.max(0, stats.successRate))
+        : 0;
       const failedTaskIds = Array.isArray(stats.failedTaskIds) ? stats.failedTaskIds : [];
       const meetsThreshold = successRate >= successThreshold;
       const isSuccess = !orchestrationError && meetsThreshold;
+      const avgTaskDurationMs =
+        typeof stats.avgTaskDurationMs === 'number' ? stats.avgTaskDurationMs : undefined;
+      const avgAttempts = typeof stats.avgAttempts === 'number' ? stats.avgAttempts : undefined;
+      const totalExecutionMsStats =
+        typeof stats.totalExecutionMs === 'number' ? stats.totalExecutionMs : undefined;
+      const avgRetryDelayMs =
+        typeof stats.avgRetryDelayMs === 'number' ? stats.avgRetryDelayMs : undefined;
+      const totalRetriesStat =
+        typeof stats.totalRetries === 'number' ? stats.totalRetries : undefined;
 
       const taskMap = new Map(tasks.map((task) => [task.id, task] as const));
       const failedTaskDetails = failedTaskIds.map((taskId) => {
@@ -402,6 +468,7 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
           description: task?.description,
           command: meta.command,
           logSnippet: meta.logSnippet,
+          simulateFailure: meta.simulateFailure === true,
         };
       });
 
@@ -414,7 +481,110 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
           )
         : [];
 
+      // 失败分类（启发式）
+      const categories = [
+        'insufficient_context',
+        'permission_denied',
+        'dependency_not_ready',
+        'other',
+      ] as const;
+      type FailureCategory = (typeof categories)[number] | 'orchestration_error';
+      const failureBreakdown: Record<FailureCategory, number> = {
+        insufficient_context: 0,
+        permission_denied: 0,
+        dependency_not_ready: 0,
+        other: 0,
+        orchestration_error: 0,
+      };
+      const categorize = (detail?: {
+        command?: string;
+        logSnippet?: string;
+        simulateFailure?: boolean;
+      }): FailureCategory => {
+        const t = [detail?.command, detail?.logSnippet]
+          .filter((s): s is string => typeof s === 'string' && s.length > 0)
+          .join(' ')
+          .toLowerCase();
+        if (/permission|denied|forbidden|eacces|eprem/.test(t)) {
+          return 'permission_denied';
+        }
+        if (/missing|not found|undefined|no such file/.test(t)) {
+          return 'insufficient_context';
+        }
+        if (/dependency|not ready|locked|wait/.test(t)) {
+          return 'dependency_not_ready';
+        }
+        return 'other';
+      };
+      if (orchestrationError && failedTaskDetails.length === 0) {
+        failureBreakdown.orchestration_error = 1;
+      } else {
+        for (const d of failedTaskDetails) {
+          const partial: { command?: string; logSnippet?: string; simulateFailure?: boolean } = {};
+          if (typeof d.command === 'string') {
+            partial.command = d.command;
+          }
+          if (typeof d.logSnippet === 'string') {
+            partial.logSnippet = d.logSnippet;
+          }
+          if (typeof d.simulateFailure === 'boolean') {
+            partial.simulateFailure = d.simulateFailure;
+          }
+          const cat = categorize(partial);
+          failureBreakdown[cat] += 1;
+        }
+      }
+
+      // 分类整改建议（启发式）
+      const remediationByCategory: Record<FailureCategory, readonly string[]> = {
+        insufficient_context: [
+          '补充缺失文件/路径/变量等上下文，确认路径与文件名正确',
+          '在任务描述中添加明确的输入/依赖说明',
+        ],
+        permission_denied: [
+          '检查审批策略/沙箱与权限；必要时申请更高权限或调整角色配置',
+          '确认写入目录与命令不被策略禁止（如只读沙箱）',
+        ],
+        dependency_not_ready: [
+          '等待依赖服务或文件就绪，或在上游任务完成后再执行',
+          '调整重试/退避参数，或放宽依赖的准备判定',
+        ],
+        other: ['查看失败日志与命令，尝试在本地复现并最小化重现步骤'],
+        orchestration_error: ['检查 orchestrator 错误详情与版本差异，必要时降级/重试'],
+      };
+
       const reportPath = path.join(sessionDir, 'report.json');
+      // 提取全局 FR/NFR 引用（来自 requirement），并构建按任务的引用映射（任务标题/描述 + 全局引用）
+      const globalRefs = extractReferences(requirement);
+      const referencesByTask: Record<string, { fr: string[]; nfr: string[] }> = {};
+      for (const t of tasks) {
+        const text = `${typeof t.title === 'string' ? t.title : ''} ${
+          typeof t.description === 'string' ? t.description : ''
+        }`;
+        const local = extractReferences(text);
+        // 合并去重：任务本地 + 全局 requirement
+        const fr = Array.from(new Set([...(local.fr ?? []), ...(globalRefs.fr ?? [])]));
+        const nfr = Array.from(new Set([...(local.nfr ?? []), ...(globalRefs.nfr ?? [])]));
+        referencesByTask[t.id] = { fr, nfr };
+      }
+      // 生成 FR/NFR 覆盖映射：按 ID -> 覆盖的任务列表
+      const coverageFr: Record<string, { coveredByTasks: string[] }> = {};
+      const coverageNfr: Record<string, { coveredByTasks: string[] }> = {};
+      for (const [taskId, ref] of Object.entries(referencesByTask)) {
+        for (const id of ref.fr ?? []) {
+          if (!coverageFr[id]) {
+            coverageFr[id] = { coveredByTasks: [] };
+          }
+          coverageFr[id].coveredByTasks.push(taskId);
+        }
+        for (const id of ref.nfr ?? []) {
+          if (!coverageNfr[id]) {
+            coverageNfr[id] = { coveredByTasks: [] };
+          }
+          coverageNfr[id].coveredByTasks.push(taskId);
+        }
+      }
+
       const reportPayload: Record<string, unknown> = {
         orchestrationId,
         requirement,
@@ -429,10 +599,23 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         failedTasks: stats.failedTasks,
         failedTaskIds,
         failedTaskDetails,
+        remediationByCategory,
+        failureBreakdown,
         remediationSuggestions,
         eventsFile,
         generatedAt: new Date().toISOString(),
         executionTimeMs: executionTime,
+        metrics: {
+          totalExecutionMs: totalExecutionMsStats ?? executionTime,
+          avgTaskDurationMs,
+          avgAttempts,
+          ...(avgRetryDelayMs !== undefined ? { avgRetryDelayMs } : {}),
+          ...(totalRetriesStat !== undefined ? { totalRetries: totalRetriesStat } : {}),
+          failureRate: Math.max(0, Math.min(1, 1 - successRate)),
+        },
+        references: globalRefs,
+        referencesByTask,
+        referencesCoverage: { fr: coverageFr, nfr: coverageNfr },
       };
       if (orchestrationError) {
         reportPayload.error = orchestrationError;
@@ -494,6 +677,17 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         process.stdout.write(JSON.stringify(completedEvent) + '\n');
       }
 
+      if (saveStreamPath) {
+        try {
+          const dir = path.dirname(saveStreamPath);
+          await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+          const payload = `${JSON.stringify(startEvent)}\n${JSON.stringify(completedEvent)}\n`;
+          await fs.writeFile(saveStreamPath, payload, { encoding: 'utf-8', mode: 0o600 });
+        } catch {
+          // 保存失败不影响主流程或 stdout 契约
+        }
+      }
+
       const buildJsonSummary = (
         status: 'success' | 'failure',
         details: Record<string, unknown>
@@ -539,16 +733,6 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
       } as const;
 
       if (isSuccess) {
-        const summary = [
-          '编排成功 ✅',
-          `需求: ${requirement}`,
-          `模式: ${mode}，最大并发: ${maxConcurrency}`,
-          `成功率: ${(successRate * 100).toFixed(1)}% (阈值 ${(successThreshold * 100).toFixed(1)}%)`,
-          `任务: 已完成 ${stats.completedTasks}/${stats.totalTasks}`,
-          `事件文件: ${eventsFile}`,
-          `报告: ${reportPath}${reportWriteError ? ' (写入失败)' : ''}`,
-        ].join('\n');
-
         const message = buildJsonSummary('success', {
           completedAt: new Date().toISOString(),
           reportWriteError,
@@ -556,7 +740,8 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
 
         const result: CommandResult = {
           success: true,
-          message: outputFormat === 'json' ? message : summary,
+          // 保持 stdout 契约：当 outputFormat=stream-json 时，不再输出人类可读摘要，只保留两行事件
+          message: outputFormat === 'json' ? message : '',
           data: baseData,
           executionTime,
           exitCode: 0,
@@ -597,13 +782,11 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
       }
 
       const failureMessage =
-        outputFormat === 'json'
-          ? buildJsonSummary('failure', failureDetails)
-          : failureLines.join('\n');
+        outputFormat === 'json' ? buildJsonSummary('failure', failureDetails) : ''; // stream-json 保持两行事件，不输出额外摘要
 
       const result: CommandResult = {
         success: false,
-        message: failureMessage,
+        message: failureMessage ?? '',
         errors:
           outputFormat === 'json'
             ? orchestrationError
@@ -640,6 +823,10 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
           flags: '--mode <manual|llm>',
           description: '任务分解模式 (manual|llm)',
           defaultValue: DEFAULTS.mode,
+        },
+        {
+          flags: '--save-stream <path>',
+          description: '将两行 stream-json 事件同步保存到指定文件',
         },
         {
           flags: '--tasks-file <path>',
@@ -747,6 +934,59 @@ export function registerOrchestrateReportCommand(parser: CLIParser): void {
         ? (report.remediationSuggestions as string[])
         : [];
       const eventsFile = typeof report.eventsFile === 'string' ? report.eventsFile : undefined;
+      const metrics = (
+        report.metrics && typeof report.metrics === 'object'
+          ? (report.metrics as Record<string, unknown>)
+          : {}
+      ) as Record<string, unknown>;
+      const totalExecutionMs =
+        typeof metrics.totalExecutionMs === 'number'
+          ? (metrics.totalExecutionMs as number)
+          : undefined;
+      const avgTaskDurationMs =
+        typeof metrics.avgTaskDurationMs === 'number'
+          ? (metrics.avgTaskDurationMs as number)
+          : undefined;
+      const avgAttempts =
+        typeof metrics.avgAttempts === 'number' ? (metrics.avgAttempts as number) : undefined;
+
+      // 友好化时长格式：支持 --duration-format <auto|ms|s|m> 与 --duration-precision <0|1|2>
+      type DurationMode = 'auto' | 'ms' | 's' | 'm';
+      const durationMode: DurationMode = (() => {
+        const raw = String((options.durationFormat ?? 'auto') as string).toLowerCase();
+        return raw === 'ms' || raw === 's' || raw === 'm' ? (raw as DurationMode) : 'auto';
+      })();
+      const durationPrecision: 0 | 1 | 2 = (() => {
+        const raw = options.durationPrecision as unknown;
+        const n = typeof raw === 'string' ? Number(raw) : (raw as number);
+        if (Number.isFinite(n)) {
+          const clamped = Math.max(0, Math.min(2, Math.trunc(n)));
+          return clamped as 0 | 1 | 2;
+        }
+        return 1;
+      })();
+      const formatDuration = (ms?: number): string | undefined => {
+        if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) {
+          return undefined;
+        }
+        if (durationMode === 'ms') {
+          return `${Math.round(ms)}ms`;
+        }
+        if (durationMode === 'auto' && ms < 1000) {
+          return `${Math.round(ms)}ms`;
+        }
+        const seconds = ms / 1000;
+        if (durationMode === 's' || (durationMode === 'auto' && seconds < 60)) {
+          return `${seconds.toFixed(durationPrecision)}s`;
+        }
+        if (durationMode === 'm') {
+          const minutes = seconds / 60;
+          return `${minutes.toFixed(durationPrecision)}m`;
+        }
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return s > 0 ? `${m}m ${s}s` : `${m}m`;
+      };
 
       const summaryLines = [
         `报告: ${reportPath}`,
@@ -759,8 +999,106 @@ export function registerOrchestrateReportCommand(parser: CLIParser): void {
           : '任务: 未提供',
       ];
       summaryLines.push(eventsFile ? `事件日志: ${eventsFile}` : '事件日志: 未提供');
+      const refs = (
+        report.references && typeof report.references === 'object'
+          ? (report.references as Record<string, unknown>)
+          : {}
+      ) as { fr?: unknown; nfr?: unknown };
+      const frList = Array.isArray(refs.fr) ? (refs.fr as string[]) : [];
+      const nfrList = Array.isArray(refs.nfr) ? (refs.nfr as string[]) : [];
+      if (frList.length > 0 || nfrList.length > 0) {
+        const frText = frList.length > 0 ? `FR: ${frList.join(', ')}` : '';
+        const nfrText = nfrList.length > 0 ? `NFR: ${nfrList.join(', ')}` : '';
+        const refParts = [frText, nfrText].filter(Boolean).join('；');
+        summaryLines.push(`引用: ${refParts}`);
+      }
+      if (
+        totalExecutionMs !== undefined ||
+        avgTaskDurationMs !== undefined ||
+        avgAttempts !== undefined ||
+        typeof metrics.avgRetryDelayMs === 'number'
+      ) {
+        const parts: string[] = [];
+        if (totalExecutionMs !== undefined) {
+          parts.push(
+            `总执行时长: ${formatDuration(totalExecutionMs) ?? `${Math.round(totalExecutionMs)}ms`}`
+          );
+        }
+        if (avgTaskDurationMs !== undefined) {
+          parts.push(
+            `平均任务时长: ${formatDuration(avgTaskDurationMs) ?? `${Math.round(avgTaskDurationMs)}ms`}`
+          );
+        }
+        if (avgAttempts !== undefined) {
+          parts.push(`平均尝试次数: ${avgAttempts.toFixed(2)}`);
+        }
+        if (typeof metrics.avgRetryDelayMs === 'number') {
+          parts.push(
+            `平均重试等待: ${formatDuration(metrics.avgRetryDelayMs as number) ?? `${Math.round(metrics.avgRetryDelayMs as number)}ms`}`
+          );
+        }
+        if (typeof metrics.totalRetries === 'number') {
+          parts.push(`总重试次数: ${metrics.totalRetries as number}`);
+        }
+        const failureRate =
+          typeof total === 'number' && typeof completed === 'number'
+            ? Math.max(0, Math.min(1, (total - completed) / total))
+            : undefined;
+        if (failureRate !== undefined && Number.isFinite(failureRate)) {
+          parts.push(`失败占比: ${(failureRate * 100).toFixed(1)}%`);
+        }
+        if (parts.length > 0) {
+          summaryLines.push(`指标: ${parts.join(', ')}`);
+        }
+      }
       if (failedTasks.length > 0) {
         summaryLines.push(`失败任务: ${failedTasks.join(', ')}`);
+      }
+      const fb = ((report as Record<string, unknown>).failureBreakdown ?? {}) as Record<
+        string,
+        number | undefined
+      >;
+      // 分类别名映射（用于人类可读摘要，不改变 JSON 字段名）
+      const catAlias: Record<string, string> = {
+        insufficient_context: '上下文不足',
+        permission_denied: '权限不足',
+        dependency_not_ready: '依赖未就绪',
+        other: '其他',
+        orchestration_error: '编排错误',
+      };
+      const fbKeys = Object.entries(fb)
+        .filter(
+          ([k, v]) => typeof v === 'number' && (v as number) > 0 && k !== 'orchestration_error'
+        )
+        .map(([k]) => k);
+      if (fbKeys.length > 0) {
+        summaryLines.push(
+          `失败分类: ${fbKeys
+            .map((k) => `${catAlias[k] ?? k.replaceAll('_', '-')}: ${fb[k]}`)
+            .join(', ')}`
+        );
+
+        // 建议摘要（Top-2 类别，每类取一条）
+        const sorted = Object.entries(fb)
+          .filter(
+            ([k, v]) => k !== 'orchestration_error' && typeof v === 'number' && (v as number) > 0
+          )
+          .sort((a, b) => (b[1] as number) - (a[1] as number))
+          .slice(0, 2)
+          .map(([k]) => k);
+        const remByCat = ((report as Record<string, unknown>).remediationByCategory ??
+          {}) as Record<string, string[]>;
+        const suggestionParts: string[] = [];
+        for (const k of sorted) {
+          const suggestions = Array.isArray(remByCat[k]) ? remByCat[k] : [];
+          if (suggestions.length > 0) {
+            const label = catAlias[k] ?? k.replaceAll('_', '-');
+            suggestionParts.push(`${label}: ${suggestions[0]}`);
+          }
+        }
+        if (suggestionParts.length > 0) {
+          summaryLines.push(`建议摘要: ${suggestionParts.join('；')}`);
+        }
       }
       if (remediation.length > 0) {
         summaryLines.push('整改建议:');
@@ -793,6 +1131,14 @@ export function registerOrchestrateReportCommand(parser: CLIParser): void {
           flags: '--session-id <id>',
           description: '使用会话 ID 推导报告路径（.codex-father/sessions/<id>/report.json）',
         },
+        {
+          flags: '--duration-format <auto|ms|s|m>',
+          description: '摘要时长单位显示模式（默认 auto）',
+        },
+        {
+          flags: '--duration-precision <0|1|2>',
+          description: '与 s/m 模式配合的小数精度（默认 1）',
+        },
       ],
     }
   );
@@ -815,3 +1161,23 @@ const decodeExecutionMeta = (
   } catch {}
   return {};
 };
+
+function extractReferences(requirement: string): { fr: string[]; nfr: string[] } {
+  const text = String(requirement ?? '');
+  const frMatches = new Set<string>();
+  const nfrMatches = new Set<string>();
+
+  // 支持 FR-123、FR 123、fr_123 等常见写法
+  const frRegex = /(FR)[\s_\-]?(\d{1,4})/gi;
+  const nfrRegex = /(NFR)[\s_\-]?(\d{1,4})/gi;
+
+  let m: RegExpExecArray | null;
+  while ((m = frRegex.exec(text)) !== null) {
+    frMatches.add(`FR-${m[2]}`);
+  }
+  while ((m = nfrRegex.exec(text)) !== null) {
+    nfrMatches.add(`NFR-${m[2]}`);
+  }
+
+  return { fr: Array.from(frMatches), nfr: Array.from(nfrMatches) };
+}

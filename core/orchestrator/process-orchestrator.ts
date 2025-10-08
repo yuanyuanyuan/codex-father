@@ -40,6 +40,8 @@ type ProcessOrchestratorOptions = Partial<OrchestratorConfig> & {
   taskTimeoutMs?: number;
   resourceThresholds?: { cpuHighWatermark?: number };
   manualIntervention?: { enabled?: boolean; requireAck?: boolean; ack?: boolean };
+  /** 可选：SWW 单写窗口协调器（用于在取消时中止未处理补丁） */
+  sww?: { requestAbort: () => number; resetAbort?: () => void };
   /**
    * 可选的理解一致性评估函数注入点（用于测试或外部实现）。
    * 若未提供且 orchestrate 未传入 requirement/restatement，将跳过理解检查。
@@ -116,6 +118,8 @@ export class ProcessOrchestrator {
   };
   /** 会话根目录（若提供则在创建 Agent 时使用）。 */
   private readonly sessionDir?: string;
+  /** 可选：SWW 协调器（取消时请求中止）。 */
+  private readonly sww?: { requestAbort: () => number; resetAbort?: () => void };
   /** 递增的 agent 下标，用于构造 workspaces/agent_<n> 目录。 */
   private agentSequence = 0;
   /** 当前编排运行统计，用于计算成功率与失败清单。 */
@@ -124,12 +128,24 @@ export class ProcessOrchestrator {
     completed: number;
     failed: number;
     failedTaskIds: string[];
+    attemptsSum: number;
+    durationsSumMs: number;
+    measuredTasks: number;
+    retryDelaySumMs: number;
+    retryScheduledCount: number;
   } = {
     total: 0,
     completed: 0,
     failed: 0,
     failedTaskIds: [],
+    attemptsSum: 0,
+    durationsSumMs: 0,
+    measuredTasks: 0,
+    retryDelaySumMs: 0,
+    retryScheduledCount: 0,
   };
+  /** 编排开始时间（用于总时长统计）。 */
+  private startedAtMs: number = 0;
 
   public constructor(config?: ProcessOrchestratorOptions) {
     const baseConfig = createDefaultOrchestratorConfig();
@@ -142,6 +158,7 @@ export class ProcessOrchestrator {
       understandingEvaluator,
       understanding,
       sessionDir,
+      sww,
       ...configOverrides
     } = config ?? {};
 
@@ -180,6 +197,9 @@ export class ProcessOrchestrator {
     if (typeof sessionDir === 'string' && sessionDir.trim()) {
       this.sessionDir = sessionDir.trim();
     }
+    if (sww && typeof sww.requestAbort === 'function') {
+      this.sww = sww;
+    }
   }
 
   /**
@@ -205,6 +225,7 @@ export class ProcessOrchestrator {
     opts?: { requirement?: string; restatement?: string }
   ): Promise<OrchestratorContext> {
     const context = this.createContext(tasks);
+    this.startedAtMs = Date.now();
     this.cancelled = false;
     this.cancelledAt = undefined;
     this.lastFailureReason = undefined;
@@ -213,6 +234,11 @@ export class ProcessOrchestrator {
       completed: 0,
       failed: 0,
       failedTaskIds: [],
+      attemptsSum: 0,
+      durationsSumMs: 0,
+      measuredTasks: 0,
+      retryDelaySumMs: 0,
+      retryScheduledCount: 0,
     };
 
     if (typeof this.stateManager?.update === 'function') {
@@ -377,9 +403,12 @@ export class ProcessOrchestrator {
   private async runTaskWithRetry(task: TaskDefinition, waveIndex: number): Promise<void> {
     const configuredMaxAttempts = this.config.retryPolicy?.maxAttempts ?? 2;
     const maxAttempts = Math.max(Math.min(configuredMaxAttempts, 5), 1);
+    const taskStartMs = Date.now();
+    let usedAttempts = 0;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const spawnResult = await this.spawnAgent(task);
+      usedAttempts = attempt;
 
       await this.emitWaveEvent('task_started', {
         wave: waveIndex,
@@ -395,6 +424,9 @@ export class ProcessOrchestrator {
 
       if (success) {
         this.runStats.completed += 1;
+        this.runStats.measuredTasks += 1;
+        this.runStats.attemptsSum += usedAttempts;
+        this.runStats.durationsSumMs += Math.max(0, Date.now() - taskStartMs);
         await this.emitWaveEvent('task_completed', {
           wave: waveIndex,
           task,
@@ -439,6 +471,9 @@ export class ProcessOrchestrator {
 
         // 测试环境不进行真实等待，以保证用例快速；否则进行轻量延迟。
         const waitMs = process.env.ORCHESTRATOR_TESTS ? 0 : nextDelay;
+        // 统计重试等待时间（基于计划值），用于生成 avgRetryDelayMs
+        this.runStats.retryDelaySumMs += nextDelay;
+        this.runStats.retryScheduledCount += 1;
         if (waitMs > 0) {
           await new Promise((r) => setTimeout(r, waitMs));
         } else {
@@ -449,6 +484,10 @@ export class ProcessOrchestrator {
 
     this.runStats.failed += 1;
     this.runStats.failedTaskIds.push(task.id);
+    // 记录最终失败任务的耗时与尝试次数
+    this.runStats.measuredTasks += 1;
+    this.runStats.attemptsSum += Math.max(1, usedAttempts || maxAttempts);
+    this.runStats.durationsSumMs += Math.max(0, Date.now() - taskStartMs);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -584,6 +623,13 @@ export class ProcessOrchestrator {
     this.lastFailureReason = 'cancelled';
 
     await this.emitEvent({ event: 'cancel_requested', data: { graceMs } });
+
+    // 通知 SWW 中止：尽快丢弃未开始的补丁，允许当前写窗口自然完成
+    try {
+      this.sww?.requestAbort?.();
+    } catch {
+      // 不中断主流程
+    }
 
     const deadline = Date.now() + Math.max(0, graceMs);
     // 轻量等待：若仍有 busy agent，给出一点时间（最多 graceMs）
@@ -948,15 +994,41 @@ export class ProcessOrchestrator {
     failedTasks: number;
     successRate: number;
     failedTaskIds: readonly string[];
+    avgTaskDurationMs?: number;
+    avgAttempts?: number;
+    totalExecutionMs?: number;
+    avgRetryDelayMs?: number;
+    totalRetries?: number;
   } {
-    const { total, completed, failed, failedTaskIds } = this.runStats;
+    const {
+      total,
+      completed,
+      failed,
+      failedTaskIds,
+      attemptsSum,
+      durationsSumMs,
+      measuredTasks,
+      retryDelaySumMs,
+      retryScheduledCount,
+    } = this.runStats;
     const successRate = total > 0 ? completed / total : failed > 0 ? 0 : 1;
+    const avgTaskDurationMs = measuredTasks > 0 ? durationsSumMs / measuredTasks : undefined;
+    const avgAttempts = measuredTasks > 0 ? attemptsSum / measuredTasks : undefined;
+    const totalExecutionMs =
+      this.startedAtMs > 0 ? Math.max(0, Date.now() - this.startedAtMs) : undefined;
+    const avgRetryDelayMs =
+      retryScheduledCount > 0 ? retryDelaySumMs / retryScheduledCount : undefined;
     return {
       totalTasks: total,
       completedTasks: completed,
       failedTasks: failed,
       successRate,
       failedTaskIds: [...failedTaskIds],
+      ...(avgTaskDurationMs !== undefined ? { avgTaskDurationMs } : {}),
+      ...(avgAttempts !== undefined ? { avgAttempts } : {}),
+      ...(totalExecutionMs !== undefined ? { totalExecutionMs } : {}),
+      ...(avgRetryDelayMs !== undefined ? { avgRetryDelayMs } : {}),
+      ...(retryScheduledCount > 0 ? { totalRetries: retryScheduledCount } : {}),
     };
   }
 
@@ -967,6 +1039,15 @@ export class ProcessOrchestrator {
     const rolloutPath = opts?.rolloutPath?.trim();
     if (!rolloutPath) {
       throw new Error('rolloutPath is required');
+    }
+
+    // 若存在 SWW，则在恢复前清理中止标记，允许后续补丁重放
+    try {
+      if (this.sww && typeof this.sww.resetAbort === 'function') {
+        this.sww.resetAbort();
+      }
+    } catch {
+      // 忽略非关键异常
     }
 
     const args: string[] = [

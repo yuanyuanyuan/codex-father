@@ -1,0 +1,21 @@
+name: Checklist Sync (soft)
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  checklist-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run checklist sync (soft)
+        run: node scripts/checklist-sync.mjs --strict || true
+

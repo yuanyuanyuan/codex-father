@@ -7,7 +7,55 @@
 
 ## [Unreleased]
 
+### ✨ 新增
+
+- CLI: `orchestrate:report` 新增 `--duration-precision <0|1|2>`（与
+  `--duration-format` 协同控制人类摘要时长精度，不影响 JSON）。
+- MCP 诊断：`grep-events` 支持 `ignoreCase`（大小写不敏感）与
+  `regex`（正则匹配）。
+- rMCP 脚本：新增 `diagnose-report` 命令，一步拿到 `reason` 并按 Playbook 行动。
+
 ### ♻️ 改进
+
+- 诊断工具严格化（入参与错误码映射）：
+  - `read-report-file`/`read-events-preview`/`read-report-metrics`
+    要求绝对路径；
+    - 不存在→`not_found`（ENOENT）；权限不足→`permission_denied`（EACCES/EPERM）；相对路径/缺参→`invalid_arguments`。
+  - `grep-events` 新增参数校验：`q` 必须非空、`limit` 为正整数；并支持
+    `ignoreCase`/`regex`。
+- SWW：补充“多轮交错重放×顺序扰动”用例，验证重放在复杂场景仍遵循全局入队顺序（FIFO）。
+
+### 🧪 测试
+
+- `core/mcp/tests/diagnostic-tools.test.ts` 增加 6 条断言：
+  - `read-report-metrics` 相对路径→`invalid_arguments`，缺文件→`not_found`；
+  - `grep-events` 空 `q` / 相对路径 / 缺文件→对应
+    `invalid_arguments`/`not_found`；
+  - `grep-events` 在 `ignoreCase`/`regex` 模式下匹配计数正确；非法正则经
+    `call-with-downgrade` 映射为 `invalid_arguments`。
+- `core/orchestrator/tests/sww-multi-round-interleaved.perturbed-order.test.ts`：多轮交错重放×顺序扰动。
+
+### 📚 文档
+
+- 新增
+  `docs/user/mcp-diagnostic-playbook.md`：提供 ASCII 决策树（reason→行动）与命令演示。
+- 更新 `docs/user/mcp-diagnostic-tools.md`：补充 `not_found`/`permission_denied`
+  枚举与 `grep-events` 新参数示例。
+- `docs/user/orchestrate-report.md` 补充 `--duration-precision`
+  说明；README 顶部增加“快速开始”直达提醒。
+
+### 🔎 示例输出（rMCP 降级诊断片段）
+
+```
+$ node scripts/rmcp-client.mjs diagnose-report --path /abs/path/to/missing-report.json
+诊断结果：degraded=true, reason=not_found
+{
+  "status": "ok",
+  "degraded": true,
+  "reason": "not_found",
+  "result": null
+}
+```
 
 - T030 仓库整洁度（依赖/文档）
   - 移除未使用依赖：chokidar/mermaid/fs-extra/@types-fs-extra/supertest/@types-supertest/jscpd

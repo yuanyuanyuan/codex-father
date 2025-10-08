@@ -146,6 +146,52 @@ describe('Orchestrate CLI exit codes and summary (T006)', () => {
     expect(combinedLogs.includes('/tmp/codex-rollout.json')).toBe(true);
   });
 
+  it('supports --save-stream to persist two stream-json lines into a file', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`process.exit:${code ?? 0}`);
+    }) as any);
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true as any);
+
+    const savePath = join(__dirname, 'fixtures', `stream-${Date.now()}.jsonl`);
+
+    let thrown: Error | null = null;
+    try {
+      await parser.parse([
+        'node',
+        'codex-father',
+        'orchestrate',
+        '保存流事件',
+        '--mode',
+        'manual',
+        '--tasks-file',
+        manualTasksPath,
+        '--output-format',
+        'stream-json',
+        '--save-stream',
+        savePath,
+      ]);
+    } catch (error) {
+      thrown = error as Error;
+    }
+
+    expect(thrown?.message).toBe('process.exit:0');
+    const file = await readFile(savePath, 'utf-8');
+    const lines = file
+      .trim()
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    expect(lines).toHaveLength(2);
+    const first = JSON.parse(lines[0]);
+    const second = JSON.parse(lines[1]);
+    expect(first.event).toBe('start');
+    expect(second.event).toBe('orchestration_completed');
+
+    await rm(savePath, { force: true });
+    exitSpy.mockRestore();
+    writeSpy.mockRestore();
+  });
+
   it('produces failure report with remediation suggestions when任务失败', async () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new Error(`process.exit:${code ?? 0}`);
@@ -189,5 +235,44 @@ describe('Orchestrate CLI exit codes and summary (T006)', () => {
     expect((report.remediationSuggestions as string[])[0]).toContain('npm test');
 
     expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it('returns exit code 5 when tasks JSON is invalid and emits no stream events', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`process.exit:${code ?? 0}`);
+    }) as any);
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true as any);
+
+    // 准备一个无效 JSON 文件
+    const tmpInvalid = join(__dirname, 'fixtures', `invalid-${Date.now()}.json`);
+    await import('node:fs/promises').then(async (fs) => {
+      await fs.writeFile(tmpInvalid, '{ invalid json', 'utf-8');
+    });
+
+    let thrown: Error | null = null;
+    try {
+      await parser.parse([
+        'node',
+        'codex-father',
+        'orchestrate',
+        '无效任务',
+        '--mode',
+        'manual',
+        '--tasks-file',
+        tmpInvalid,
+        '--output-format',
+        'stream-json',
+      ]);
+    } catch (error) {
+      thrown = error as Error;
+    }
+
+    expect(thrown?.message).toBe('process.exit:5');
+    // 不应输出 stream-json 事件
+    const lines = writeSpy.mock.calls.map((call) => String(call[0]).trim()).filter(Boolean);
+    expect(lines).toHaveLength(0);
+
+    exitSpy.mockRestore();
+    writeSpy.mockRestore();
   });
 });

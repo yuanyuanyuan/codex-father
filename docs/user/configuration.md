@@ -257,11 +257,40 @@ tool_timeout_sec = 120
 
 ```bash
 # 启动 Codex 会话
-codex
+ codex
 
 # 在会话中测试（示例）
 请列出当前项目的文件
 ```
+
+---
+
+## 🧭 Orchestrator 配置映射（实验性）
+
+`orchestrate` 命令会从项目配置的 `orchestrator` 节点读取可选字段并注入运行时：
+
+- `manualIntervention`: `{ enabled, requireAck, ack }`
+  - 当 `enabled=true & requireAck=true & ack=false` 时，执行前会发出 `manual_intervention_requested` 并终止；用于人工确认门控。
+- `understanding`: `{ requirement, restatement, evaluateConsistency }`
+  - 当三者均提供且 `evaluateConsistency="builtin"` 时，采用内置宽松校验（恒通过）；
+  - 字段存在时，将在任务分解前执行“理解一致性”门控，并在失败时终止（事件：`understanding_failed`）。
+
+示例（配置文件片段）：
+
+```json
+{
+  "orchestrator": {
+    "manualIntervention": { "enabled": true, "requireAck": true, "ack": false },
+    "understanding": {
+      "requirement": "实现登录与会话恢复",
+      "restatement": "用户可登录，并在异常后恢复会话继续执行",
+      "evaluateConsistency": "builtin"
+    }
+  }
+}
+```
+
+注意：上述配置为实验性映射，后续版本可能会将 `evaluateConsistency` 替换为可插件化的校验器引用。
 
 > 如需与官方行为保持一致，可通过 `codex config mcp add` / `codex config mcp list`
 > 命令管理条目（详见 `docs/config.md` 中的 "You can also manage these entries from

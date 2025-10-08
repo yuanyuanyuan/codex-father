@@ -170,6 +170,33 @@ program
     }
   });
 
+// 诊断演示：对 read-report-file 执行降级调用，给出 reason 与建议
+program
+  .command('diagnose-report')
+  .description('通过 call-with-downgrade 读取报告并输出 reason，便于按 Playbook 采取行动')
+  .requiredOption('--path <absPath>', 'report.json 的绝对路径')
+  .action(async (cmdOptions, command) => {
+    const abs = cmdOptions.path;
+    const globalOptions = command.parent.opts();
+    try {
+      await withClient(globalOptions, async (client) => {
+        const result = await client.callTool({
+          name: 'call-with-downgrade',
+          arguments: { targetTool: 'read-report-file', arguments: { path: abs }, fallback: null },
+        });
+        const r = result?.result ?? result;
+        if (r?.degraded) {
+          console.log(`诊断结果：degraded=true, reason=${r.reason}`);
+        } else {
+          console.log('诊断结果：OK（已成功读取报告）');
+        }
+        console.log(JSON.stringify(result, null, 2));
+      });
+    } catch (error) {
+      handleError(error);
+    }
+  });
+
 program
   .command('ping')
   .description('发送 ping 请求，检验基础连通性')

@@ -2,6 +2,12 @@
 
 > **目标**：让您在 5 分钟内完成 Codex Father 的安装、配置和第一次使用测试。
 
+> 一键试跑（最短路径）：
+>
+> - 复制配置模板：`cp config/templates/codex-father.config.example.yaml ./codex-father.config.yaml`
+> - 执行主路径演练：`codex-father orchestrate "演练主路径 FR-123" --mode manual --tasks-file core/cli/tests/fixtures/manual.tasks.json --output-format stream-json`
+> - 查看报告摘要：`codex-father orchestrate:report --path .codex-father/sessions/<id>/report.json`
+
 ## 📋 您将学到
 
 - [x] 安装 Codex Father
@@ -237,6 +243,107 @@ JSON
 2. **运行测试**：查看 [首次运行测试](first-run.md) 运行 10 个渐进式测试
 3. **场景化使用**：查看 [使用场景](use-cases/README.md) 了解 15+ 实际使用场景
 4. **故障排除**：如有问题，查看 [故障排除指南](troubleshooting.md)
+
+---
+
+## 🧭 Orchestrate 主路径快速演练（CLI）
+
+> 目标：用最小手工任务文件走通“提交 → 分解 → 执行 → 写入 → 汇总”的主路径，并生成报告与事件日志。
+
+1) 运行主路径（仅两行 stdout）
+
+```bash
+codex-father orchestrate "演练主路径 FR-123 NFR-7" \
+  --mode manual \
+  --tasks-file core/cli/tests/fixtures/manual.tasks.json \
+  --output-format stream-json
+```
+
+- stdout 仅两行 Stream-JSON：`start` 与 `orchestration_completed`。
+- 第二行中包含 `reportPath` 与 `orchestrationId`。
+
+2) 查看报告摘要或 JSON
+
+```bash
+# 人类摘要
+codex-father orchestrate:report --path .codex-father/sessions/<id>/report.json
+
+# JSON 输出（含 metrics 与 FR/NFR 引用）
+codex-father --json orchestrate:report --session-id <id>
+```
+
+3) 失败分支演练（期望 exit code=1）
+
+```bash
+codex-father orchestrate "失败分支 FR-9" \
+  --mode manual \
+  --tasks-file core/cli/tests/fixtures/manual.failure.tasks.json \
+  --output-format stream-json \
+  --success-threshold 0.95
+```
+
+> 样例任务文件：
+> - 成功：`core/cli/tests/fixtures/manual.tasks.json`
+> - 失败：`core/cli/tests/fixtures/manual.failure.tasks.json`
+
+更多字段与指标说明见：`docs/user/orchestrate-report.md`。
+
+### 复制模板 → 运行（最短路径）
+
+1) 复制示例配置（含人工确认与理解门控映射，均可按需关闭）
+
+```bash
+cp config/templates/codex-father.config.example.yaml ./codex-father.config.yaml
+```
+
+2) 执行主路径（最小任务文件）
+
+```bash
+codex-father orchestrate "演练主路径 FR-123" \
+  --mode manual \
+  --tasks-file core/cli/tests/fixtures/manual.tasks.json \
+  --output-format stream-json
+```
+
+3) 查看报告与建议
+
+```bash
+codex-father orchestrate:report --path .codex-father/sessions/<id>/report.json
+```
+
+若需要失败分支示例以观察“失败分类/建议摘要”，将 `--tasks-file` 替换为 `manual.failure.tasks.json` 并将 `--success-threshold` 调高至 `0.95`。
+
+---
+
+## 🚀 Auto 快速演练（路由 + 高质量模板）
+
+> 目标：一条命令完成“自动模型路由 → 结构化指令（PLAN→EXECUTE）→ 执行”，采用“两行 Stream‑JSON 事件”契约，详细事件写入 JSONL。
+
+1) 路由并执行（默认输出 JSON 摘要）
+
+```bash
+codex-father auto "重构登录模块 FR-210 NFR-7"
+# stdout：JSON 摘要（默认 --output-format json）
+```
+
+2) 两行事件（适用于自动化/CI）
+
+```bash
+codex-father auto "重构登录模块 FR-210 NFR-7" --output-format stream-json
+# stdout 仅两行：{"event":"start",...}\n{"event":"orchestration_completed",...}
+```
+
+3) 只看路由决策（不执行）
+
+```bash
+codex-father auto "是代码改动还是研究评审？" --route-dry-run --route-explain json
+```
+
+说明：
+- auto 的补丁应用通过 SWWCoordinator 串行处理，避免与 orchestrate/外部流程竞写；取消/恢复与 orchestrate 语义一致。
+- 当目标 provider 不可用或 wire_api 不匹配时，auto 会回退到 `gpt-5-codex high` 并在 JSONL 中标注 `routeFallback`。
+
+更多示例与原理见：`docs/mvp/mvp12/README.md`。
 
 ---
 

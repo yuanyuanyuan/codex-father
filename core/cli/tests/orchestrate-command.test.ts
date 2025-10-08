@@ -74,6 +74,7 @@ describe('CLI integration for orchestrate command', () => {
 
     vi.doMock('../commands/orchestrate-command.js', () => ({
       registerOrchestrateCommand: registerSpy,
+      registerOrchestrateReportCommand: vi.fn(),
     }));
 
     const mockedParser = {

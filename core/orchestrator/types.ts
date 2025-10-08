@@ -247,6 +247,11 @@ export interface OrchestrationRunStats {
   readonly failedTasks: number;
   readonly successRate: number;
   readonly failedTaskIds: readonly string[];
+  readonly avgTaskDurationMs?: number;
+  readonly avgAttempts?: number;
+  readonly totalExecutionMs?: number;
+  readonly avgRetryDelayMs?: number;
+  readonly totalRetries?: number;
 }
 
 export interface OrchestratorContext {

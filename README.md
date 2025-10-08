@@ -8,6 +8,9 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05-purple)](https://modelcontextprotocol.io/)
 
+> ⚡
+> 5 分钟上手：查看“[快速开始](docs/user/quick-start.md)”并一键试跑主路径示例。
+
 ## 📋 目录
 
 - [特性](#特性)

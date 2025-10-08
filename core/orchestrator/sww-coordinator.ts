@@ -41,6 +41,9 @@ export class SWWCoordinator {
   /** 队列处理中的 promise，避免并发 drain。 */
   private processingPromise: Promise<void> | null = null;
 
+  /** 终止标记：请求中止后不再处理后续补丁（当前写入窗口内的补丁仍可能完成）。 */
+  private aborted = false;
+
   /** 补丁事件回调。 */
   private readonly listeners: Record<PatchEventType, Set<(event: PatchEventPayload) => void>> = {
     patch_applied: new Set(),
@@ -104,6 +107,14 @@ export class SWWCoordinator {
   public async applyPatch(patch: Patch): Promise<PatchApplyResult> {
     const ownsWindow = this.acquireWindow(patch.taskId);
     try {
+      // 冲突预检：若目标文件已在补丁创建后被其他补丁修改，则判定为冲突
+      const conflict = this.detectConflict(patch);
+      if (conflict) {
+        patch.status = 'failed';
+        patch.error = conflict;
+        return { success: false, errorMessage: conflict };
+      }
+
       const validationError = this.preCheck(patch);
       if (validationError) {
         patch.status = 'failed';
@@ -138,6 +149,46 @@ export class SWWCoordinator {
         this.releaseWindow();
       }
     }
+  }
+
+  /**
+   * 简单冲突检测：若任一目标文件在补丁创建时间之后已经被应用补丁修改，则认为存在冲突。
+   * 仅基于事件历史与时间戳的启发式判断，无需实际三方合并。
+   */
+  private detectConflict(patch: Patch): string | undefined {
+    if (!Array.isArray(patch.targetFiles) || patch.targetFiles.length === 0) {
+      return undefined;
+    }
+    const createdAtMs = Date.parse(patch.createdAt ?? '');
+    if (!Number.isFinite(createdAtMs)) {
+      return undefined;
+    }
+
+    for (const evt of this.eventHistory) {
+      if (evt.event !== 'patch_applied') {
+        continue;
+      }
+      const appliedPatch = evt.patch;
+      if (appliedPatch.id === patch.id) {
+        continue;
+      }
+
+      const appliedAtMs = Date.parse(appliedPatch.appliedAt ?? evt.timestamp);
+      if (!Number.isFinite(appliedAtMs)) {
+        continue;
+      }
+
+      // 检查任一目标文件是否被其他补丁修改过
+      const appliedTargets = new Set<string>(appliedPatch.targetFiles ?? []);
+      const overlaps = patch.targetFiles.some((f) => appliedTargets.has(f));
+      if (overlaps && appliedAtMs > createdAtMs) {
+        const conflictFile = patch.targetFiles.find((f) => appliedTargets.has(f)) ?? 'unknown';
+        return `PATCH_CONFLICT: target ${conflictFile} changed at ${new Date(
+          appliedAtMs
+        ).toISOString()} after patch creation ${new Date(createdAtMs).toISOString()}`;
+      }
+    }
+    return undefined;
   }
 
   /** 派发补丁事件。 */
@@ -214,7 +265,16 @@ export class SWWCoordinator {
   }
 
   private async drainQueue(): Promise<void> {
+    if (this.aborted) {
+      // 丢弃所有待处理补丁
+      this.patchQueue.length = 0;
+      return;
+    }
     while (this.patchQueue.length > 0) {
+      if (this.aborted) {
+        this.patchQueue.length = 0;
+        break;
+      }
       const patch = this.patchQueue.shift()!;
       const result = await this.applyPatch(patch);
       if (!result.success) {
@@ -259,5 +319,23 @@ export class SWWCoordinator {
       return `Patch status ${patch.status} is not eligible for apply`;
     }
     return undefined;
+  }
+
+  /**
+   * 请求中止：清空队列，阻止后续 drain；当前写入窗口内的补丁不强行终止。
+   * @returns 被丢弃的补丁数量（估算值）
+   */
+  public requestAbort(): number {
+    this.aborted = true;
+    const dropped = this.patchQueue.length;
+    this.patchQueue.length = 0;
+    return dropped;
+  }
+
+  /**
+   * 清除中止标记，允许后续继续入队与处理（供重放/恢复使用）。
+   */
+  public resetAbort(): void {
+    this.aborted = false;
   }
 }

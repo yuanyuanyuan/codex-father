@@ -74,7 +74,9 @@ export interface ISessionManager {
 /**
  * MCP 工具处理器类型
  */
-type ToolHandler = (params: unknown) => Promise<MCPToolsCallResult>;
+type ToolResult = { status: string; [key: string]: unknown };
+// 允许默认任务型工具返回 MCPToolsCallResult，诊断工具返回通用 ToolResult
+type ToolHandler = (params: unknown) => Promise<ToolResult | MCPToolsCallResult>;
 
 /**
  * MCP 桥接层配置
@@ -188,7 +190,7 @@ export class BridgeLayer {
    * @param params 工具参数
    * @returns 工具调用结果
    */
-  async callTool(toolName: string, params: unknown): Promise<MCPToolsCallResult> {
+  async callTool(toolName: string, params: unknown): Promise<ToolResult | MCPToolsCallResult> {
     const tool = this.tools.get(toolName);
 
     if (!tool) {
@@ -427,4 +429,491 @@ export class BridgeLayer {
  */
 export function createBridgeLayer(config: BridgeLayerConfig): BridgeLayer {
   return new BridgeLayer(config);
+}
+
+/**
+ * 可选：注册诊断只读工具（不作为默认工具，以避免破坏现有契约测试）。
+ * - read-report-file: 读取 report.json 并返回 JSON
+ * - read-events-preview: 读取 events.jsonl 末尾 N 行
+ */
+export async function registerDiagnosticTools(bridge: BridgeLayer): Promise<void> {
+  const fs = await import('node:fs/promises');
+  const path = await import('node:path');
+
+  // 工具 1：read-report-file
+  const readReportTool: MCPTool = {
+    name: 'read-report-file',
+    description: 'Read an orchestration report.json by absolute or relative path',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Path to report.json' },
+      },
+      required: ['path'],
+    },
+  };
+
+  bridge.registerTool(readReportTool, async (params: unknown) => {
+    if (!params || typeof params !== 'object') {
+      throw new Error('Invalid tool parameters: must be an object');
+    }
+    const p = (params as { path?: string }).path;
+    if (!p || typeof p !== 'string') {
+      throw new Error('Invalid tool parameters: path is required and must be a string');
+    }
+    // 仅接受绝对路径，避免符号链接/盘符差异导致的定位偏差
+    if (!path.isAbsolute(p)) {
+      throw new Error('EINVALID: path must be absolute');
+    }
+    const abs = p;
+    let raw: string;
+    try {
+      raw = await fs.readFile(abs, 'utf-8');
+    } catch (err) {
+      const e = err as NodeJS.ErrnoException;
+      if (e?.code === 'ENOENT') {
+        throw new Error(`ENOENT: not_found ${abs}`);
+      }
+      if (e?.code === 'EACCES' || e?.code === 'EPERM') {
+        throw new Error(`EACCES: permission_denied ${abs}`);
+      }
+      throw err as Error;
+    }
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      status: 'ok',
+      path: abs,
+      report: parsed,
+    };
+  });
+
+  // 工具 2：read-events-preview
+  const readEventsTool: MCPTool = {
+    name: 'read-events-preview',
+    description: 'Read last N lines from a events.jsonl file',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Path to events.jsonl' },
+        limit: { type: 'number', description: 'Number of lines from the end (default 100)' },
+      },
+      required: ['path'],
+    },
+  };
+
+  bridge.registerTool(readEventsTool, async (params: unknown) => {
+    if (!params || typeof params !== 'object') {
+      throw new Error('Invalid tool parameters: must be an object');
+    }
+    const { path: p, limit } = params as { path?: string; limit?: number };
+    if (!p || typeof p !== 'string') {
+      throw new Error('Invalid tool parameters: path is required and must be a string');
+    }
+    if (!path.isAbsolute(p)) {
+      throw new Error('EINVALID: path must be absolute');
+    }
+    const abs = p;
+    let content: string;
+    try {
+      content = await fs.readFile(abs, 'utf-8');
+    } catch (err) {
+      const e = err as NodeJS.ErrnoException;
+      if (e?.code === 'ENOENT') {
+        throw new Error(`ENOENT: not_found ${abs}`);
+      }
+      if (e?.code === 'EACCES' || e?.code === 'EPERM') {
+        throw new Error(`EACCES: permission_denied ${abs}`);
+      }
+      throw err as Error;
+    }
+    const lines = content.trim().split(/\r?\n/);
+    const n =
+      typeof limit === 'number' && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 100;
+    const preview = lines.slice(-n);
+    return {
+      status: 'ok',
+      path: abs,
+      count: preview.length,
+      lines: preview,
+    };
+  });
+
+  // 工具 3：read-session-artifacts
+  const readSessionArtifacts: MCPTool = {
+    name: 'read-session-artifacts',
+    description: 'Resolve .codex-father session artifacts (report.json, events.jsonl) by sessionId',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sessionId: { type: 'string', description: 'Session ID (e.g., orc_xxx)' },
+        baseDir: { type: 'string', description: 'Base directory (default: process.cwd())' },
+      },
+      required: ['sessionId'],
+    },
+  };
+
+  bridge.registerTool(readSessionArtifacts, async (params: unknown) => {
+    if (!params || typeof params !== 'object') {
+      throw new Error('Invalid tool parameters: must be an object');
+    }
+    const { sessionId, baseDir } = params as { sessionId?: string; baseDir?: string };
+    if (!sessionId || typeof sessionId !== 'string') {
+      throw new Error('Invalid tool parameters: sessionId is required and must be a string');
+    }
+    const root = typeof baseDir === 'string' && baseDir.trim() ? baseDir.trim() : process.cwd();
+    const sessionDir = path.join(root, '.codex-father', 'sessions', sessionId);
+    const report = path.join(sessionDir, 'report.json');
+    const events = path.join(sessionDir, 'events.jsonl');
+    // Validate existence (do not throw if missing, return existence flags)
+    const exists = async (p: string): Promise<boolean> =>
+      fs
+        .access(p)
+        .then(() => true)
+        .catch(() => false);
+    const reportExists = await exists(report);
+    const eventsExists = await exists(events);
+    return {
+      status: 'ok',
+      sessionDir,
+      reportPath: reportExists ? report : null,
+      eventsPath: eventsExists ? events : null,
+    } as unknown as MCPToolsCallResult;
+  });
+
+  // 追加轻量只读/诊断工具（扩充矩阵，无副作用）
+  const simpleTool = (
+    name: string,
+    description: string,
+    schema: Record<string, unknown>,
+    handler: ToolHandler
+  ): void => {
+    const tool: MCPTool = {
+      name,
+      description,
+      inputSchema: schema as unknown as MCPTool['inputSchema'],
+    };
+    bridge.registerTool(tool, handler);
+  };
+
+  // 4: list-tools
+  simpleTool(
+    'list-tools',
+    'List all available MCP tools',
+    { type: 'object', properties: {} },
+    async () => ({
+      status: 'ok',
+      tools: bridge.getTools().map((t) => t.name),
+    })
+  );
+
+  // 5: ping-bridge
+  simpleTool(
+    'ping-bridge',
+    'Ping the MCP bridge layer',
+    { type: 'object', properties: {} },
+    async () => ({
+      status: 'ok',
+      now: new Date().toISOString(),
+    })
+  );
+
+  // 6: echo
+  simpleTool(
+    'echo',
+    'Echo back the given payload',
+    { type: 'object', properties: { payload: { type: 'object' } }, required: ['payload'] },
+    async (params) => ({ status: 'ok', payload: (params as { payload?: unknown }).payload })
+  );
+
+  // 7: exists
+  simpleTool(
+    'exists',
+    'Check if a path exists',
+    { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+    async (params) => {
+      const p = (params as { path?: string }).path;
+      const abs = path.resolve(String(p));
+      const ok = await fs
+        .access(abs)
+        .then(() => true)
+        .catch(() => false);
+      return { status: 'ok', path: abs, exists: ok };
+    }
+  );
+
+  // 8: stat-path
+  simpleTool(
+    'stat-path',
+    'Stat a file or directory',
+    { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+    async (params) => {
+      const abs = path.resolve(String((params as { path?: string }).path));
+      const s = await fs.stat(abs).catch(() => null);
+      return s
+        ? {
+            status: 'ok',
+            path: abs,
+            size: s.size,
+            mtimeMs: s.mtimeMs,
+            isFile: s.isFile(),
+            isDirectory: s.isDirectory(),
+          }
+        : { status: 'error', path: abs, error: 'ENOENT' };
+    }
+  );
+
+  // 9: list-dir
+  simpleTool(
+    'list-dir',
+    'List directory entries (name only)',
+    {
+      type: 'object',
+      properties: { path: { type: 'string' }, limit: { type: 'number' } },
+      required: ['path'],
+    },
+    async (params) => {
+      const { path: p, limit } = params as { path?: string; limit?: number };
+      const abs = path.resolve(String(p));
+      const entries = await fs.readdir(abs).catch(() => [] as string[]);
+      const n = typeof limit === 'number' && limit > 0 ? Math.floor(limit) : entries.length;
+      return { status: 'ok', path: abs, entries: entries.slice(0, n) };
+    }
+  );
+
+  // 10: list-sessions
+  simpleTool(
+    'list-sessions',
+    'List .codex-father session IDs in baseDir',
+    {
+      type: 'object',
+      properties: { baseDir: { type: 'string' } },
+    },
+    async (params) => {
+      const base = (params as { baseDir?: string })?.baseDir || process.cwd();
+      const sessRoot = path.join(base, '.codex-father', 'sessions');
+      const entries = await fs.readdir(sessRoot).catch(() => [] as string[]);
+      const ids = entries.filter((n) => n.startsWith('orc_'));
+      return { status: 'ok', baseDir: base, sessionRoot: sessRoot, sessionIds: ids };
+    }
+  );
+
+  // 11: get-latest-session
+  simpleTool(
+    'get-latest-session',
+    'Return latest session directory by mtime',
+    { type: 'object', properties: { baseDir: { type: 'string' } } },
+    async (params) => {
+      const base = (params as { baseDir?: string })?.baseDir || process.cwd();
+      const sessRoot = path.join(base, '.codex-father', 'sessions');
+      const entries = await fs.readdir(sessRoot).catch(() => [] as string[]);
+      let best: { id: string; mtimeMs: number } | null = null;
+      for (const id of entries) {
+        const p = path.join(sessRoot, id);
+        const s = await fs.stat(p).catch(() => null);
+        if (s?.isDirectory()) {
+          if (!best || s.mtimeMs > best.mtimeMs) {
+            best = { id, mtimeMs: s.mtimeMs };
+          }
+        }
+      }
+      return { status: 'ok', sessionId: best?.id ?? null };
+    }
+  );
+
+  // 12: read-report-metrics
+  simpleTool(
+    'read-report-metrics',
+    'Read metrics and references from report.json',
+    { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+    async (params) => {
+      const p = (params as { path?: string }).path;
+      if (!p || typeof p !== 'string') {
+        throw new Error('Invalid tool parameters: path is required and must be a string');
+      }
+      if (!path.isAbsolute(p)) {
+        throw new Error('EINVALID: path must be absolute');
+      }
+      const abs = p;
+      let raw: string;
+      try {
+        raw = await fs.readFile(abs, 'utf-8');
+      } catch (err) {
+        const e = err as NodeJS.ErrnoException;
+        if (e?.code === 'ENOENT') {
+          throw new Error(`ENOENT: not_found ${abs}`);
+        }
+        if (e?.code === 'EACCES' || e?.code === 'EPERM') {
+          throw new Error(`EACCES: permission_denied ${abs}`);
+        }
+        throw err as Error;
+      }
+      const json = JSON.parse(raw) as Record<string, unknown>;
+      return {
+        status: 'ok',
+        metrics: json.metrics ?? null,
+        references: json.references ?? null,
+        referencesByTask: json.referencesByTask ?? null,
+        referencesCoverage: json.referencesCoverage ?? null,
+      };
+    }
+  );
+
+  // 13: grep-events (contains/regex)
+  simpleTool(
+    'grep-events',
+    'Filter events.jsonl lines by substring or regex',
+    {
+      type: 'object',
+      properties: {
+        path: { type: 'string' },
+        q: { type: 'string' },
+        limit: { type: 'number' },
+        ignoreCase: { type: 'boolean' },
+        regex: { type: 'boolean' },
+      },
+      required: ['path', 'q'],
+    },
+    async (params) => {
+      const {
+        path: p,
+        q,
+        limit,
+        ignoreCase,
+        regex,
+      } = params as {
+        path?: string;
+        q?: string;
+        limit?: number;
+        ignoreCase?: boolean;
+        regex?: boolean;
+      };
+      if (!p || typeof p !== 'string') {
+        throw new Error('Invalid tool parameters: path is required and must be a string');
+      }
+      if (!path.isAbsolute(p)) {
+        throw new Error('EINVALID: path must be absolute');
+      }
+      if (typeof q !== 'string' || q.trim().length === 0) {
+        throw new Error('EINVALID: q is required and must be non-empty string');
+      }
+      if (
+        typeof limit !== 'undefined' &&
+        !(typeof limit === 'number' && Number.isFinite(limit) && limit > 0)
+      ) {
+        throw new Error('EINVALID: limit must be a positive integer');
+      }
+      const abs = p;
+      let content = '';
+      try {
+        content = await fs.readFile(abs, 'utf-8');
+      } catch (err) {
+        const e = err as NodeJS.ErrnoException;
+        if (e?.code === 'ENOENT') {
+          throw new Error(`ENOENT: not_found ${abs}`);
+        }
+        if (e?.code === 'EACCES' || e?.code === 'EPERM') {
+          throw new Error(`EACCES: permission_denied ${abs}`);
+        }
+        throw err as Error;
+      }
+      const lines = content
+        .trim()
+        .split(/\r?\n/)
+        .filter((l) => {
+          if (regex === true) {
+            try {
+              const r = new RegExp(q, ignoreCase === true ? 'i' : undefined);
+              return r.test(l);
+            } catch {
+              throw new Error('EINVALID: invalid_regex');
+            }
+          }
+          if (ignoreCase === true) {
+            return l.toLowerCase().includes(q.toLowerCase());
+          }
+          return l.includes(q);
+        });
+      const n = typeof limit === 'number' && limit > 0 ? Math.floor(limit) : lines.length;
+      return { status: 'ok', count: Math.min(n, lines.length), lines: lines.slice(0, n) };
+    }
+  );
+
+  // 14: resolve-path
+  simpleTool(
+    'resolve-path',
+    'Resolve a path to absolute one',
+    { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+    async (params) => ({
+      status: 'ok',
+      absPath: path.resolve(String((params as { path?: string }).path)),
+    })
+  );
+
+  // 15: call-with-downgrade（405/通信降级诊断）
+  simpleTool(
+    'call-with-downgrade',
+    'Call a tool; if method not allowed or communication issue, return degraded result',
+    {
+      type: 'object',
+      properties: {
+        targetTool: { type: 'string' },
+        arguments: { type: 'object' },
+        fallback: { type: 'object' },
+      },
+      required: ['targetTool'],
+    },
+    async (params) => {
+      const {
+        targetTool,
+        arguments: args,
+        fallback,
+      } = params as {
+        targetTool?: string;
+        arguments?: Record<string, unknown>;
+        fallback?: unknown;
+      };
+      try {
+        const result = await bridge.callTool(String(targetTool), args ?? {});
+        return { status: 'ok', degraded: false, result };
+      } catch (err) {
+        const message = (err instanceof Error ? err.message : String(err)).toLowerCase();
+        let reason:
+          | 'method_not_allowed'
+          | 'invalid_arguments'
+          | 'not_found'
+          | 'permission_denied'
+          | 'timeout'
+          | 'communication_error'
+          | 'server_error' = 'communication_error';
+        if (message.includes('unknown tool')) {
+          reason = 'method_not_allowed';
+        } else if (
+          message.includes('invalid tool parameters') ||
+          message.includes('einvalid') ||
+          (message.includes('invalid') && message.includes('parameters'))
+        ) {
+          reason = 'invalid_arguments';
+        } else if (message.includes('enoent') || message.includes('not_found')) {
+          reason = 'not_found';
+        } else if (
+          message.includes('eacces') ||
+          message.includes('eperm') ||
+          message.includes('permission_denied')
+        ) {
+          reason = 'permission_denied';
+        } else if (message.includes('timeout')) {
+          reason = 'timeout';
+        } else if (message.includes('error')) {
+          reason = 'server_error';
+        }
+        return {
+          status: 'ok',
+          degraded: true,
+          reason,
+          error: err instanceof Error ? err.message : String(err),
+          result: fallback ?? null,
+        };
+      }
+    }
+  );
 }
