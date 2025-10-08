@@ -1,4 +1,135 @@
-# Troubleshooting (EN)
+# 🆘 Troubleshooting (EN)
 
-Common issues and fixes for connectivity, approvals, networking, logs, and reset.
+Common issues and quick fixes. For the full env var list and defaults, see:
 
+- Human‑readable: ../environment-variables-reference.en.md
+- Machine‑readable: ../environment-variables.json, ../environment-variables.csv
+
+## Quick diagnosis by symptom
+
+- Server not connecting
+- Unknown tool / naming mismatch
+- Command execution failures
+- Permission errors
+- Performance problems
+- Approval policy issues
+- Passive notifications missing
+
+---
+
+## Server not connecting
+
+Symptoms
+
+- “Not connected” in Claude Desktop
+- Requests have no response
+
+Steps
+
+1) Validate config format (Claude Desktop)
+
+```bash
+cat ~/Library/Application\ Support/Claude/claude_desktop_config.json | jq .
+```
+
+2) Check commands
+
+```bash
+npx -y @starkdev020/codex-father-mcp-server   # npx path
+codex-mcp-server --version                    # global install
+```
+
+3) Check Node.js version (>= 18)
+
+```bash
+node --version
+```
+
+Fixes
+
+- Reconfigure using the recommended JSON/TOML
+- Fully quit and restart the client
+- Use MCP Inspector for interactive debugging:
+
+```bash
+npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
+```
+
+---
+
+## Unknown tool name / naming mismatch
+
+Cause: different clients prefer dot vs underscore tool names; Codex 0.44 responses may reject dotted names.
+
+Fix
+
+- Set `CODEX_MCP_NAME_STYLE=underscore-only`.
+- Optionally set `CODEX_MCP_TOOL_PREFIX=cf` and `CODEX_MCP_HIDE_ORIGINAL=1` to expose only `cf_*` tools.
+- Use `codex.help` to list tools or query a specific tool with `format: 'json'`.
+
+---
+
+## Command execution failures
+
+Check Codex CLI presence and syntax; test on terminal first. If you see `400 Unsupported model`, switch to a supported model or adjust provider mapping. For reasoning effort use `minimal|low|medium|high`.
+
+Patch mode notes: `--patch-mode` adds a policy note and writes diffs to `<session>/patch.diff`. Tune visibility with `--patch-preview-lines` or `--no-patch-preview`; disable artifact with `--no-patch-artifact`.
+
+Network restricted by default: enable via CLI `--codex-config sandbox_workspace_write.network_access=true` or set the MCP tool argument accordingly; verify `<session>/job.meta.json` shows `effective_network_access: enabled`.
+
+Resuming jobs: use `./job.sh status <jobId> --json` then `./job.sh resume <jobId> ...`. For MCP, call `codex.resume` with `jobId` and optional `args`.
+
+---
+
+## Permission errors
+
+Fix common cases by adjusting file permissions or running installs with proper rights. On Windows PowerShell, set execution policy to `RemoteSigned` for local scripts.
+
+---
+
+## Performance problems
+
+- Limit concurrency via `MAX_CONCURRENT_JOBS`
+- Clean large log folders periodically
+
+---
+
+## Approval policy issues
+
+- Too many prompts? Prefer `on-failure` for mostly non‑interactive flows.
+- Need fully unattended? Consider `never` (only in trusted environments) or an explicit “dangerously bypass” option; understand the risks first.
+
+---
+
+## Passive notifications missing
+
+Common causes include input size precheck failures (`context_overflow`) and early invalid parameters (`input_error`). Inspect `events.jsonl` and `job.log` under `.codex-father/sessions/<jobId>/`. Upgrade to the latest version if you suspect old path joining bugs for logs.
+
+Self‑checks (examples): see Chinese doc for the shell scenarios; semantics are the same.
+
+---
+
+## Advanced diagnostics
+
+Enable debug logging:
+
+```json
+{
+  "mcpServers": {
+    "codex-father": {
+      "env": {
+        "LOG_LEVEL": "debug",
+        "LOG_FILE": "/tmp/codex-father-debug.log"
+      }
+    }
+  }
+}
+```
+
+Inspect with MCP Inspector (see command above).
+
+---
+
+## Get more help
+
+When filing an issue, include: error text/screenshots, your config, OS and Node.js versions, and relevant logs.
