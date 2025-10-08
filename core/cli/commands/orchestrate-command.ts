@@ -952,11 +952,11 @@ export function registerOrchestrateReportCommand(parser: CLIParser): void {
 
       // 友好化时长格式：支持 --duration-format <auto|ms|s|m> 与 --duration-precision <0|1|2>
       type DurationMode = 'auto' | 'ms' | 's' | 'm';
-      const durationMode: DurationMode = (() => {
+      const durationMode: DurationMode = ((): DurationMode => {
         const raw = String((options.durationFormat ?? 'auto') as string).toLowerCase();
         return raw === 'ms' || raw === 's' || raw === 'm' ? (raw as DurationMode) : 'auto';
       })();
-      const durationPrecision: 0 | 1 | 2 = (() => {
+      const durationPrecision: 0 | 1 | 2 = ((): 0 | 1 | 2 => {
         const raw = options.durationPrecision as unknown;
         const n = typeof raw === 'string' ? Number(raw) : (raw as number);
         if (Number.isFinite(n)) {
