@@ -37,6 +37,46 @@ Overview of MCP Server, Process Manager, Session Manager, Approval System, and
 CLI. See: [Architecture Overview](docs/architecture/overview.en.md) and
 [MCP Integration](docs/architecture/mcp-integration.en.md).
 
+```text
+┌─────────────────┐
+│  MCP Client     │  (Claude Desktop, MCP Inspector)
+│  (stdio/SSE)    │
+└────────┬────────┘
+         │ JSON-RPC 2.0
+         │
+┌────────▼────────────────────────────────────────┐
+│  MCP Server (core/mcp/server.ts)                │
+│  - Protocol handling                            │
+│  - Tool registration                            │
+│  - Event forwarding                             │
+└────────┬────────────────────────────────────────┘
+         │
+         │ Bridge Layer
+         │
+┌────────▼────────────────────────────────────────┐
+│  Process Manager (core/process/manager.ts)      │
+│  - Codex CLI lifecycle                          │
+│  - JSON-RPC communication                       │
+│  - Health monitoring                            │
+└────────┬────────────────────────────────────────┘
+         │
+         │
+┌────────▼────────────────────────────────────────┐
+│  Session Manager (core/session/)                │
+│  - Session lifecycle                            │
+│  - Event logging (.jsonl)                       │
+│  - Config persistence (.json)                   │
+└────────┬────────────────────────────────────────┘
+         │
+         │
+┌────────▼────────────────────────────────────────┐
+│  Approval System (core/approval/)               │
+│  - Policy engine                                │
+│  - Terminal UI (inquirer)                       │
+│  - Whitelist management                         │
+└─────────────────────────────────────────────────┘
+```
+
 ## Quick Start
 
 ```bash
@@ -61,6 +101,24 @@ Full details: [User Quick Start](docs/user/quick-start.en.md).
 - Beginner‑friendly User Guide: [docs/user/manual.en.md](docs/user/manual.en.md)
 - User docs index: [docs/user/README.en.md](docs/user/README.en.md)
 
+### First‑time tips
+
+- Models & effort: `--model gpt-5-codex` or `--model "gpt-5-codex high"`; switch
+  if backend rejects.
+- Networking: restricted by default; enable via
+  `--codex-config sandbox_workspace_write.network_access=true` and verify
+  `effective_network_access: enabled` in `<session>/job.meta.json`.
+- Approvals & sandbox: prefer `on-failure` for unattended; bypass only if you
+  fully trust the environment.
+- Patch mode: `--patch-mode` stores diffs (`patch.diff`), preview lines limited;
+  tune with `--patch-preview-lines`/`--no-patch-preview`/`--no-patch-artifact`.
+- Structured instructions: `--instructions path/to/task.json --task T032`; see
+  [Structured Instructions](specs/structured-instructions/README.en.md).
+- Input size guard: very large inputs are rejected; split or compress context.
+- Preset validation: unknown presets fail fast with clear messages.
+- Status semantics: completed/normal, stopped/user_cancelled,
+  failed/input_error, failed/context_overflow, etc.
+
 ## Feature Status
 
 - [x] MCP server (initialize/tools.list/tools.call)
@@ -82,10 +140,73 @@ flows.
   [docs/developer/DEVELOPMENT.en.md](docs/developer/DEVELOPMENT.en.md)
 - Developer docs: [docs/developer/README.en.md](docs/developer/README.en.md)
 
+### Project structure
+
+```text
+codex-father/
+├── core/ (approval, cli, mcp, process, session, lib)
+├── tests/
+├── docs/
+└── specs/
+```
+
+### Dev commands
+
+```bash
+npm run typecheck
+npm run lint && npm run lint:check
+npm run format && npm run format:check
+npm run check:all      # sequential CI‑like
+npm run check:all:fast # parallel + smart tests
+npm run check:all:parallel
+```
+
+### Fast checks & cache guard
+
+- Cache guard tracks toolchain/config fingerprints and cleans caches when
+  changed.
+- Smart tests prefer `vitest related`, fallback to full run.
+
+### Git hooks
+
+- pre‑commit: lint‑staged + fast checks
+- pre‑push: README‑linked bilingual docs check + full checks
+
 ## Testing
 
-Run tests with `npm test` or see coverage in CI. See the Chinese README for
-detailed counts.
+Run tests with `npm test` or see coverage in CI.
+
+### Debugging
+
+- MCP Inspector
+
+```bash
+npx @modelcontextprotocol/inspector npm run mcp:start
+```
+
+- VS Code
+
+```json
+{
+  "type": "node",
+  "request": "launch",
+  "name": "Debug MCP Server",
+  "program": "${workspaceFolder}/core/cli/start.ts",
+  "args": ["mcp", "--debug"],
+  "env": { "NODE_ENV": "development" }
+}
+```
+
+### Performance baseline
+
+```bash
+npm run benchmark
+
+# Targets (typical):
+# - MCP response: < 500ms
+# - Event delay:  < 100ms
+# - Memory:       < 100MB
+```
 
 ## Documentation
 
@@ -98,6 +219,18 @@ detailed counts.
 - Env vars:
   [docs/environment-variables-reference.en.md](docs/environment-variables-reference.en.md)
 
+Role‑based navigation
+
+- First‑time user: [Quick Start](docs/user/quick-start.en.md) →
+  [First Run](docs/user/first-run.en.md) →
+  [Use Cases](docs/user/use-cases/README.en.md)
+- Developer: [Development](docs/developer/DEVELOPMENT.en.md) →
+  [Architecture Overview](docs/architecture/overview.en.md) →
+  [Contributing](docs/developer/contributing.en.md)
+- Operator: [Deploy](docs/operations/DEPLOY.en.md) →
+  [Configuration](docs/user/configuration.en.md) →
+  [Troubleshooting](docs/user/troubleshooting.en.md)
+
 ## Contributing
 
 - Contribution guide (EN):
@@ -108,3 +241,31 @@ detailed counts.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Roadmap
+
+- 006 — Multi‑Agent Orchestration (ongoing)
+  - CLI: `orchestrate` command
+  - Max concurrency ≤ 10; timeouts and success thresholds
+  - SWW two‑phase writes; stream‑JSON event schema
+  - Exit conditions: success rate ≥ threshold and no `patch_failed`
+
+See: `specs/006-docs-capability-assessment/*`.
+
+## Use Cases
+
+Codex Father helps with:
+
+- Code review
+- Refactoring
+- Docs generation
+- Test generation
+- Bug fixes
+- Performance optimization
+
+See **[15+ examples](docs/user/use-cases/examples.en.md)** for more.
+
+## Releases
+
+- Full flow: `docs/releases/RELEASE_FLOW_MCP.md` (ZH)
+- Current version notes: see [Releases index](docs/releases/README.en.md)
