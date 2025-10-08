@@ -25,9 +25,13 @@
     "development-tools"
   ],
   "author": "Codex Father Maintainers",
+  "bin": {
+    "codex-father": "bin/codex-father"
+  },
   "files": [
     "dist",
     "config",
+    "bin",
     "start.sh",
     "job.sh",
     "lib",
