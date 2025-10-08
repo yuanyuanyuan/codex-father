@@ -11,7 +11,9 @@
     "src/**/*",
     "specs/**/*",
     "mcp/codex-mcp-server/src/**/*",
-    "scripts/**/*"
+    "scripts/**/*",
+    "vitest.config.ts",
+    "vitest.orchestrator.config.ts"
   ],
   "exclude": [
     "node_modules",
