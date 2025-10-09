@@ -57,13 +57,24 @@ sessions_dir() {
     printf '%s' "${CODEX_SESSIONS_ROOT%/}"
     return
   fi
-  local base
+  local base parent
   if [[ -n "$hint" ]]; then
     base="$hint"
   else
     base="$JOB_ROOT_DIR"
   fi
-  printf '%s/.codex-father/sessions' "$base"
+  parent="$(dirname "$base")"
+  local -a candidates=(
+    "$base/.codex-father/sessions"
+    "$base/.codex-father-sessions"
+    "$parent/.codex-father-sessions"
+    "$parent/.codex-father/sessions"
+  )
+  local c
+  for c in "${candidates[@]}"; do
+    if [[ -d "$c" ]]; then printf '%s' "$c"; return; fi
+  done
+  printf '%s' "${candidates[0]}"
 }
 
 resolve_workspace_base() {
@@ -205,7 +216,7 @@ safe_classify() {
       SC_CLASSIFICATION='approval_required'
     elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='sandbox_denied'
-    elif grep -Eqi 'timeout|timed[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed|ENOTFOUND|EAI_AGAIN|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
+    elif grep -Eqi '(ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)|request[[:space:]]+tim(ed|e)[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed)' "$log_file" ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='network_error'
     elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='config_error'
@@ -219,6 +230,23 @@ safe_classify() {
       SC_CLASSIFICATION='error'
     fi
   fi
+}
+
+# 检测“仅产出补丁(补丁模式)”是否满足成功条件：
+# - 启用了 --patch-mode（从日志推断）
+# - last_msg 中包含可应用的补丁片段与控制信号 CONTROL: DONE
+patch_only_success() {
+  local last_msg_file="$1"; local log_file="$2"
+  [[ -n "$last_msg_file" && -f "$last_msg_file" ]] || return 1
+  # 判断是否是补丁模式（多种线索，尽量宽松匹配）
+  if ! grep -Eiq -- "(--patch-mode|补丁模式|patch[ -]?mode)" "$log_file" 2>/dev/null; then
+    return 2
+  fi
+  # 判断补丁与控制标记
+  grep -Eq "^\*\*\* Begin Patch" "$last_msg_file" 2>/dev/null || return 3
+  grep -Eq "^\*\*\* End Patch" "$last_msg_file" 2>/dev/null   || return 4
+  grep -Eq "CONTROL:[[:space:]]*DONE" "$last_msg_file" 2>/dev/null || return 5
+  return 0
 }
 
 derive_exit_code_from_log() {
@@ -322,6 +350,15 @@ status_compute_and_update() {
           tokens_used="null"
         fi
       fi
+    fi
+
+    # 优化：若为“仅产出补丁”任务且补丁已正确生成，则将状态视为成功
+    # 条件：非零退出码 + 补丁模式 + last_msg 含有效补丁 + CONTROL: DONE
+    if [[ "$code" -ne 0 ]] && patch_only_success "${last_msg:-}" "${log_file}"; then
+      code=0
+      exit_code="0"
+      state="completed"
+      classification="\"patch_only\""
     fi
     # stopped vs completed/failed: rely on exit_code
     if [[ "$code" -eq 0 ]]; then

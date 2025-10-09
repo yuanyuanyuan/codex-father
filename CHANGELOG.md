@@ -81,6 +81,9 @@ $ node scripts/rmcp-client.mjs diagnose-report --path /abs/path/to/missing-repor
 - 新增 `job.sh resume` 子命令与 `codex.resume` MCP 工具，可复用 `state.json`
   中记录的参数重启任务，并在会话状态写入 `resumed_from` 与 `args`
   字段，便于断线续跑与审计。
+- Job 状态归一化（补丁模式）：当启用 `--patch-mode` 且最后消息包含可应用补丁以及
+  `CONTROL: DONE` 时，即使底层退出码非 0，也将规范化为
+  `state=completed`、`exit_code=0`、`classification=patch_only`，便于无人值守场景直接消费产物（不再被审批拦截的“失败表象”干扰）。
 
 ### 🛠️ 修复
 

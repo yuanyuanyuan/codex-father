@@ -57,13 +57,25 @@ sessions_dir() {
     printf '%s' "${CODEX_SESSIONS_ROOT%/}"
     return
   fi
-  local base
+  local base parent
   if [[ -n "$hint" ]]; then
     base="$hint"
   else
     base="$JOB_ROOT_DIR"
   fi
-  printf '%s/.codex-father/sessions' "$base"
+  parent="$(dirname "$base")"
+  # Prefer existing well-known roots; fall back to project-local default
+  local -a candidates=(
+    "$base/.codex-father/sessions"
+    "$base/.codex-father-sessions"
+    "$parent/.codex-father-sessions"
+    "$parent/.codex-father/sessions"
+  )
+  local c
+  for c in "${candidates[@]}"; do
+    if [[ -d "$c" ]]; then printf '%s' "$c"; return; fi
+  done
+  printf '%s' "${candidates[0]}"
 }
 
 resolve_workspace_base() {
@@ -175,6 +187,8 @@ latest_file_by_mtime() {
 safe_classify() {
   # Usage: safe_classify <last_msg_file|""> <log_file> <exit_code>
   local last_msg_file="$1"; local log_file="$2"; local code="$3"
+  local err_file
+  err_file="$(dirname "$log_file")/bootstrap.err"
   SC_CLASSIFICATION="normal"; SC_TOKENS_USED=""
   if declare -F classify_exit >/dev/null 2>&1; then
     classify_exit "$last_msg_file" "$log_file" "$code"
@@ -194,13 +208,16 @@ safe_classify() {
       SC_CLASSIFICATION='normal'
     fi
   else
-    if grep -Eqi 'context|token|length|too long|exceed|truncat' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    # 输入/用法错误优先
+    if grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|用法:[[:space:]]*start\.sh|Usage:[[:space:]]*start\.sh|用法:|Usage:)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
+      SC_CLASSIFICATION='input_error'
+    elif grep -Eqi 'context|token|length|too long|exceed|truncat' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='context_overflow'
     elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       SC_CLASSIFICATION='approval_required'
     elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       SC_CLASSIFICATION='sandbox_denied'
-    elif grep -Eqi 'timeout|timed[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed|ENOTFOUND|EAI_AGAIN|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi '(ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)|request[[:space:]]+tim(ed|e)[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed)' "$log_file" ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='network_error'
     elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       SC_CLASSIFICATION='config_error'
@@ -220,7 +237,8 @@ derive_exit_code_from_log() {
   local log="$1"
   [[ -f "$log" ]] || { echo ""; return 0; }
   local ln
-  ln=$(grep -E "^Exit Code:[[:space:]]*-?[0-9]+" "$log" | tail -n1 || true)
+  # Match anywhere in the line to tolerate prefix noise
+  ln=$(grep -E "Exit Code:[[:space:]]*-?[0-9]+" "$log" | tail -n1 || true)
   if [[ -n "$ln" ]]; then
     echo "$ln" | sed -E 's/.*Exit Code:[[:space:]]*(-?[0-9]+).*/\1/'
   else

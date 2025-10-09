@@ -298,6 +298,11 @@ npm run rmcp:client -- --help
     指定的路径），日志仅保留预览，可用 `--patch-preview-lines`
     调整、`--no-patch-preview` 关闭回显。
   - 如需恢复旧行为（将完整补丁写进日志），传入 `--no-patch-artifact`。
+  - 状态归一化：在 `--patch-mode`
+    下，若最后消息包含可应用补丁（`*** Begin Patch`/`*** End Patch`）且带有
+    `CONTROL: DONE`， `job.sh status`
+    会将该任务视为完成（`state=completed, exit_code=0, classification=patch_only`），方便直接消费
+    `job.r*.last.txt` 的补丁产物。
 - 结构化 instructions：
   - 准备 JSON/YAML/XML 描述的任务文件后，可执行
     `./start.sh --instructions path/to/task.json --task T032`；CLI 会先校验 schema 再写入

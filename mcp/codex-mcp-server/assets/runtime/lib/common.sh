@@ -158,19 +158,25 @@ classify_exit() {
   fi
   # Classification
   if [[ "$code" -ne 0 ]]; then
-    if grep -Eqi 'timeout|timed out|deadlineexceeded|fetch failed|network|enotfound|econn|getaddrinfo' "$log_file" "$last_msg_file" 2>/dev/null; then
+    # 优先识别输入/用法错误（加入 bootstrap.err 扫描）
+    local _err_file
+    _err_file="$(dirname "$log_file")/bootstrap.err"
+    if grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|用法:|Usage:)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${_err_file:+"$_err_file"} 2>/dev/null; then
+      CLASSIFICATION='input_error'; EXIT_REASON='Invalid CLI arguments or usage'
+    # 更精确网络错误匹配：排除裸 "timeout" 等叙述性文本；不扫描 last_msg_file（可能为补丁）
+    elif grep -Eqi '(ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)|request[[:space:]]+tim(ed|e)[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed)' "$log_file" ${_err_file:+"$_err_file"} 2>/dev/null; then
       CLASSIFICATION='network_error'; EXIT_REASON='Network error or timeout'
-    elif grep -Eqi '(context|token).*(limit|overflow|exceed|max|length|truncat|too (long|large))|maximum context|prompt too large' "$log_file" "$last_msg_file" 2>/dev/null; then
+    elif grep -Eqi '(context|token).*(limit|overflow|exceed|max|length|truncat|too (long|large))|maximum context|prompt too large' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       CLASSIFICATION='context_overflow'; EXIT_REASON='Context or token limit exceeded'
-    elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" "$last_msg_file" 2>/dev/null; then
+    elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       CLASSIFICATION='approval_required'; EXIT_REASON='Approval policy blocked a command'
-    elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" "$last_msg_file" 2>/dev/null; then
+    elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       CLASSIFICATION='sandbox_denied'; EXIT_REASON='Sandbox policy denied operation'
-    elif grep -Eqi 'unauthorized|forbidden|invalid api key|401|403' "$log_file" "$last_msg_file" 2>/dev/null; then
+    elif grep -Eqi 'unauthorized|forbidden|invalid api key|401|403' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       CLASSIFICATION='auth_error'; EXIT_REASON='Authentication/authorization error'
-    elif grep -Eqi 'too many requests|rate limit|429' "$log_file" "$last_msg_file" 2>/dev/null; then
+    elif grep -Eqi 'too many requests|rate limit|429' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       CLASSIFICATION='rate_limited'; EXIT_REASON='Rate limit encountered'
-    elif grep -Eqi 'Command failed|non-zero exit|failed to execute' "$log_file" "$last_msg_file" 2>/dev/null; then
+    elif grep -Eqi 'Command failed|non-zero exit|failed to execute' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       CLASSIFICATION='tool_error'; EXIT_REASON='Tool/command execution failed'
     else
       CLASSIFICATION='error'; EXIT_REASON='Unknown error'

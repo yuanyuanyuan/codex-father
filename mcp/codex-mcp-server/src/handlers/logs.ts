@@ -88,14 +88,19 @@ export async function handleLogs(
     if (baseName === 'sessions') {
       variants.push(base);
       variants.push(path.join(base, '..', '.codex-father', 'sessions'));
+      variants.push(path.join(base, '..', '.codex-father-sessions'));
     } else if (baseName === '.codex-father') {
       variants.push(path.join(base, 'sessions'));
       variants.push(path.join(base, '..', '.codex-father', 'sessions'));
       variants.push(path.join(base, '.codex-father', 'sessions'));
+      variants.push(path.join(base, '..', '.codex-father-sessions'));
+      variants.push(path.join(base, '.codex-father-sessions'));
     } else {
       variants.push(path.join(base, '.codex-father', 'sessions'));
+      variants.push(path.join(base, '.codex-father-sessions'));
       variants.push(path.join(base, 'sessions'));
       variants.push(path.join(base, '..', '.codex-father', 'sessions'));
+      variants.push(path.join(base, '..', '.codex-father-sessions'));
     }
     for (const variant of variants) {
       const resolved = path.resolve(variant);

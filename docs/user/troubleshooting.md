@@ -340,6 +340,14 @@ cat .codex-father/logs/latest.log
   完全关闭日志回显。
 - 恢复旧行为：传入 `--no-patch-artifact`，补丁会完整写入日志而不落盘。
 
+**状态归一化（仅产出补丁的任务）**：
+
+- 当开启 `--patch-mode`，且“最后消息”包含可应用补丁片段（`*** Begin Patch`/`*** End Patch`）并以 `CONTROL: DONE` 收尾时，
+  即便底层日志存在非 0 退出码或审批拦截表象，`job.sh status` 也会将其规范化为：
+  `state=completed, exit_code=0, classification=patch_only`。
+- 这样可以在无人值守流水线中直接消费 `<session>/job.r*.last.txt` 的补丁产物，而无需处理“审批导致失败”的假阳性。
+- 若需要保留原始失败语义，请关闭 `--patch-mode` 或确保执行路径中不会触发审批门槛。
+
 ### 查看补丁清单（logs --patches）
 
 补丁清单位于 `<session>/patches/manifest.jsonl`。你可以用内置命令快速查看/跟随：
