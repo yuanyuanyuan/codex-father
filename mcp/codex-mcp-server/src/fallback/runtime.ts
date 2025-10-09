@@ -26,8 +26,17 @@ function sanitizeTag(raw: unknown): string {
 }
 
 function timestampSegment(): string {
-  const isoTs = new Date().toISOString().replace(/[-:TZ.]/g, '');
-  return isoTs.slice(0, 14);
+  // 使用系统本地时区，返回 YYYYMMDDHHmmSS（14 位）
+  const d = new Date();
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  return (
+    String(d.getFullYear()) +
+    pad2(d.getMonth() + 1) +
+    pad2(d.getDate()) +
+    pad2(d.getHours()) +
+    pad2(d.getMinutes()) +
+    pad2(d.getSeconds())
+  );
 }
 
 function ensureDir(dir: string): void {

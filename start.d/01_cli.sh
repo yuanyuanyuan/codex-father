@@ -174,7 +174,14 @@ infer_ts_from_run_id() {
   local minute="${digits:10:2}"
   local second="${digits:12:2}"
   TS_FROM_RUN_ID="${year}${month}${day}_${hour}${minute}${second}"
-  TS_DISPLAY_FROM_RUN_ID="${year}-${month}-${day}T${hour}:${minute}:${second}Z"
+  # 按本地时区格式化显示时间（带偏移），避免误导性的 UTC Z 后缀
+  local dt_str="${year}-${month}-${day} ${hour}:${minute}:${second}"
+  if ts_disp=$(date -d "$dt_str" "+%Y-%m-%dT%H:%M:%S%:z" 2>/dev/null); then
+    TS_DISPLAY_FROM_RUN_ID="$ts_disp"
+  else
+    # 兼容性兜底：无法解析时退化为不带偏移的本地时间
+    TS_DISPLAY_FROM_RUN_ID="${year}-${month}-${day}T${hour}:${minute}:${second}"
+  fi
   return 0
 }
 

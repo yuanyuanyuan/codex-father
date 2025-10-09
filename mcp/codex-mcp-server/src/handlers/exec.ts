@@ -24,8 +24,16 @@ export async function handleExec(
   applyConvenienceOptions(args, params);
   const tag = params.tag ? String(params.tag) : '';
   const cwd = params.cwd ? String(params.cwd) : '';
-  const isoTs = new Date().toISOString().replace(/[-:TZ.]/g, '');
-  const ts = isoTs.slice(0, 14);
+  // 使用系统本地时区生成 YYYYMMDDHHmmSS（14 位）时间戳，避免默认 UTC
+  const now = new Date();
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  const ts =
+    String(now.getFullYear()) +
+    pad2(now.getMonth() + 1) +
+    pad2(now.getDate()) +
+    pad2(now.getHours()) +
+    pad2(now.getMinutes()) +
+    pad2(now.getSeconds());
   const safeTag = tag ? tag.replace(/[^A-Za-z0-9_.-]/g, '-').replace(/^-+|-+$/g, '') : 'untagged';
   const baseDir = cwd || ctx.projectRoot;
   const sessionsRoot = path.resolve(baseDir, '.codex-father', 'sessions');

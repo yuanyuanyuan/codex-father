@@ -16,6 +16,9 @@
 - **runtime:** 可写沙箱 + `never` 组合默认改为归一到
   `on-failure`，避免无人值守健康检查被判定 `approval_required`；需要保留 `never`
   时可设置 `ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1`。
+- **exec/runtime:** `runId`
+  目录名时间戳改为使用系统本地时区（`exec-YYYYMMDDHHmmss-<tag>`），并在 CLI 展示时附带本地偏移而非固定
+  `Z`。
 
 ## [2.0.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.6.0...mcp-v2.0.0) (2025-10-08)
 

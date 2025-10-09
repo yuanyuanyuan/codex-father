@@ -218,7 +218,8 @@ tool_timeout_sec = 120
   写法以避免歧义。
 - 异步执行：优先通过 `job.sh start ... --json` 启动，拿到 `jobId` 后用
   `job.sh status/logs` 跟踪；日志与元数据写入
-  `.codex-father/sessions/<job-id>/`。
+  `.codex-father/sessions/<job-id>/`。注意：会话目录名中的时间戳使用系统本地时区（如
+  `exec-YYYYMMDDHHmmss-<tag>`），便于人工检索；不再使用 UTC。
 - 快速示例：
 
   ```bash

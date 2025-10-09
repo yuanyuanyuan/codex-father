@@ -411,6 +411,9 @@ CLI 也可运行。
 
 同名下划线别名：`codex_exec`
 
+> 注意：`runId`
+> 与会话目录名中的时间戳片段（`exec-YYYYMMDDHHmmss-<tag>`）使用系统本地时区生成，便于人工检索与对应日志；不再使用 UTC。
+
 ### `codex.start` - 异步启动
 
 立即返回 `jobId`，任务在后台运行。

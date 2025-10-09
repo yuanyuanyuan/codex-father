@@ -17,6 +17,7 @@ docs/api/
 *.tgz
 codex-father-*.tgz
 mcp/codex-mcp-server/*.tgz
+mcp/codex-mcp-server/tsconfig.tsbuildinfo
 .tsbuildinfo.build
 tmp
 tsconfig.tsbuildinfo

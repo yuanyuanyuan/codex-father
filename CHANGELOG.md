@@ -98,6 +98,8 @@ $ node scripts/rmcp-client.mjs diagnose-report --path /abs/path/to/missing-repor
   `input_error` 失败并提示修正。
 - 分类精度：`input_error` 优先于网络/工具错误匹配；超限预检统一
   `context_overflow` 并在日志中写出 `[input-check]` 提示。
+- MCP/CLI: 会话目录名时间戳改为“系统本地时区”（`exec-YYYYMMDDHHmmss-<tag>`），并在 CLI 由 run-id 反推的显示时间附带本地偏移（不再使用 UTC
+  `Z`）。
 
 ---
 
