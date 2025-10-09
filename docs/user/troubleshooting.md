@@ -329,7 +329,7 @@ cat .codex-father/logs/latest.log
 ### 看到 `<instructions-section type="policy-note">` / `Patch Mode: on`
 
 **说明**：已启用补丁模式（`--patch-mode`）。系统会追加 policy-note，要求
-仅输出可应用的补丁，并将 diff 自动写入 `<session>/patch.diff`
+仅输出可应用的补丁，并将 diff 自动写入 `<session>/patches/patch.diff`
 （或 `--patch-output` 自定义路径）。为避免与风格/解释类“基础指令”冲突，补丁模式下会跳过 base 指令注入，仅保留任务文本与 policy-note。
 日志只保留前若干行预览，以免撑爆上下文。
 
@@ -339,6 +339,37 @@ cat .codex-father/logs/latest.log
 - 调整回显：`--patch-preview-lines 80` 控制预览行数，`--no-patch-preview`
   完全关闭日志回显。
 - 恢复旧行为：传入 `--no-patch-artifact`，补丁会完整写入日志而不落盘。
+
+### 查看补丁清单（logs --patches）
+
+补丁清单位于 `<session>/patches/manifest.jsonl`。你可以用内置命令快速查看/跟随：
+
+```bash
+# 查看最近 50 条补丁记录（默认 text 输出）
+codex-father logs <sessionId> --patches --limit 50
+
+# 跟随补丁清单（类似 tail -f）
+codex-father logs <sessionId> --patches --follow
+
+# 以 JSON 行原样输出，便于管道处理
+codex-father logs <sessionId> --patches --format json --limit 200
+```
+
+常见 jq 过滤示例（直接对清单文件操作）：
+
+```bash
+# 仅显示已应用的补丁（applied），输出 seq/patchId/path/sha256（TSV）
+jq -r 'select(.status=="applied") | [.sequence,.patchId,.path,.sha256] | @tsv' \
+  .codex-father/sessions/<sessionId>/patches/manifest.jsonl
+
+# 显示失败补丁及错误信息
+jq -r 'select(.status=="failed") | {seq:.sequence, id:.patchId, path, error}' \
+  .codex-father/sessions/<sessionId>/patches/manifest.jsonl
+
+# 最近 10 条记录（按文件行尾截取），并提取关键字段
+tail -n 10 .codex-father/sessions/<sessionId>/patches/manifest.jsonl \
+  | jq -r '{ts: (.appliedAt // .createdAt), status, id: .patchId, path, sha: .sha256}'
+```
 
 ### `effective_network_access` 显示为 `restricted`
 

@@ -8,6 +8,7 @@ type LogsCommandOptions = {
   format?: LogsFormat | string;
   limit?: number | string;
   output?: string;
+  patches?: boolean | string;
 };
 
 function toLogsCommandOptions(rawOptions: Record<string, unknown> | undefined): LogsCommandOptions {
@@ -41,6 +42,13 @@ function toLogsCommandOptions(rawOptions: Record<string, unknown> | undefined): 
     const outputValue = rawOptions['output'];
     if (typeof outputValue === 'string') {
       options.output = outputValue;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(rawOptions, 'patches')) {
+    const patchesValue = rawOptions['patches'];
+    if (typeof patchesValue === 'boolean' || typeof patchesValue === 'string') {
+      options.patches = patchesValue;
     }
   }
 
@@ -97,17 +105,23 @@ function resolveEventsPath(pathModule: typeof import('node:path'), runId: string
   return pathModule.join('.codex-father', 'sessions', runId, 'events.jsonl');
 }
 
+function resolvePatchesManifestPath(pathModule: typeof import('node:path'), runId: string): string {
+  return pathModule.join('.codex-father', 'sessions', runId, 'patches', 'manifest.jsonl');
+}
+
 function resolveExportPath(
   pathModule: typeof import('node:path'),
   sessionId: string,
-  requestedPath?: string
+  requestedPath?: string,
+  kind: 'events' | 'patches' = 'events'
 ): { outputPath: string; isCustom: boolean } {
   if (typeof requestedPath === 'string' && requestedPath.trim().length > 0) {
     return { outputPath: pathModule.resolve(requestedPath.trim()), isCustom: true };
   }
 
   const defaultDir = pathModule.resolve('.codex-father', 'logs');
-  const outputPath = pathModule.join(defaultDir, `${sessionId}-events.jsonl`);
+  const fileName = kind === 'patches' ? `${sessionId}-patches.jsonl` : `${sessionId}-events.jsonl`;
+  const outputPath = pathModule.join(defaultDir, fileName);
   return { outputPath, isCustom: false };
 }
 
@@ -282,6 +296,100 @@ async function streamFollow(
   });
 }
 
+async function streamFollowWithFormatter(
+  fs: typeof import('node:fs'),
+  fsPromises: typeof import('node:fs/promises'),
+  filePath: string,
+  onLine: (line: string) => void
+): Promise<void> {
+  const initial = await fsPromises.stat(filePath);
+  await new Promise<void>((resolve) => {
+    let position = initial.size;
+    let remainder = '';
+    let running = false;
+    let rerun = false;
+
+    const tick = async (): Promise<void> => {
+      const stats = await fsPromises.stat(filePath);
+      if (stats.size < position) {
+        position = stats.size;
+        remainder = '';
+      }
+      if (stats.size === position) {
+        return;
+      }
+      await new Promise<void>((res, rej) => {
+        const stream = fs.createReadStream(filePath, { encoding: 'utf8', start: position });
+        stream.on('error', rej);
+        stream.on('data', (chunk: unknown) => {
+          remainder += String(chunk);
+          const parts = remainder.split(/\r?\n/);
+          remainder = parts.pop() ?? '';
+          for (const part of parts) {
+            if (part) {
+              onLine(part);
+            }
+          }
+        });
+        stream.on('close', () => {
+          position = stats.size;
+          res();
+        });
+      });
+    };
+
+    const run = (): void => {
+      if (running) {
+        rerun = true;
+        return;
+      }
+      running = true;
+      rerun = false;
+      tick()
+        .catch(() => void 0)
+        .finally(() => {
+          running = false;
+          if (rerun) {
+            run();
+          }
+        });
+    };
+
+    const timer = setInterval(run, 500);
+    const stop = (): void => {
+      clearInterval(timer);
+      resolve();
+    };
+    process.once('SIGINT', stop);
+    process.once('SIGTERM', stop);
+    run();
+  });
+}
+
+function formatPatchLine(line: string): string {
+  try {
+    const e = JSON.parse(line) as Record<string, unknown>;
+    const status = typeof e.status === 'string' ? e.status : '-';
+    const pid = typeof e.patchId === 'string' ? e.patchId : '-';
+    const seq =
+      typeof e.sequence === 'number'
+        ? e.sequence
+        : typeof e.sequence === 'string'
+          ? e.sequence
+          : '-';
+    const tid = typeof e.taskId === 'string' ? e.taskId : '-';
+    const path = typeof e.path === 'string' ? e.path : '-';
+    const sha = typeof e.sha256 === 'string' ? e.sha256.slice(0, 12) : '-';
+    const appliedAt = typeof e.appliedAt === 'string' ? e.appliedAt : '';
+    const createdAt = typeof e.createdAt === 'string' ? e.createdAt : '';
+    const when = appliedAt || createdAt || '';
+    const err = typeof e.error === 'string' ? ` error=${JSON.stringify(e.error)}` : '';
+    return `[${status}] patchId=${pid} seq=${seq} task=${tid} path=${path} sha256=${sha}${when ? ` when=${when}` : ''}${err}`;
+  } catch {
+    return line;
+  }
+}
+
 export function registerLogsCommand(parser: CLIParser): void {
   parser.registerCommand(
     'logs',
@@ -305,20 +413,25 @@ export function registerLogsCommand(parser: CLIParser): void {
       const follow = coerceFollow(options.follow);
       const format = coerceFormat(options.format);
       const limit = coerceLimit(options.limit);
+      const patches = coerceFollow(options.patches);
 
       const pathModule = await import('node:path');
       const fsPromises = await import('node:fs/promises');
       const fs = await import('node:fs');
       const readline = await import('node:readline');
 
-      const eventsPath = resolveEventsPath(pathModule, sessionId);
+      const sourcePath = patches
+        ? resolvePatchesManifestPath(pathModule, sessionId)
+        : resolveEventsPath(pathModule, sessionId);
       try {
-        await validateEventsPath(fsPromises, fs, eventsPath);
+        await validateEventsPath(fsPromises, fs, sourcePath);
       } catch {
         const result: CommandResult = {
           success: false,
-          message: `无法读取日志: 未找到 session "${sessionId}" 的 events.jsonl`,
-          errors: [eventsPath],
+          message: patches
+            ? `无法读取日志: 未找到 session "${sessionId}" 的 patches/manifest.jsonl`
+            : `无法读取日志: 未找到 session "${sessionId}" 的 events.jsonl`,
+          errors: [sourcePath],
           executionTime: Date.now() - startTime,
           exitCode: 1,
         };
@@ -327,9 +440,18 @@ export function registerLogsCommand(parser: CLIParser): void {
 
       let lines: string[] = [];
       try {
-        lines = await readLastLines(fs, readline, eventsPath, limit);
+        lines = await readLastLines(fs, readline, sourcePath, limit);
         if (!context.json) {
-          emitLines(lines, format);
+          if (patches) {
+            for (const l of lines) {
+              if (!l) {
+                continue;
+              }
+              process.stdout.write(`${format === 'json' ? l : formatPatchLine(l)}\n`);
+            }
+          } else {
+            emitLines(lines, format);
+          }
         }
       } catch (error) {
         const result: CommandResult = {
@@ -341,10 +463,15 @@ export function registerLogsCommand(parser: CLIParser): void {
         return result;
       }
 
-      const { outputPath, isCustom } = resolveExportPath(pathModule, sessionId, options.output);
+      const { outputPath, isCustom } = resolveExportPath(
+        pathModule,
+        sessionId,
+        options.output,
+        patches ? 'patches' : 'events'
+      );
 
       const exportLogs = async (): Promise<void> => {
-        await exportLogsToPath(fsPromises, pathModule, eventsPath, outputPath);
+        await exportLogsToPath(fsPromises, pathModule, sourcePath, outputPath);
       };
 
       try {
@@ -369,7 +496,7 @@ export function registerLogsCommand(parser: CLIParser): void {
             format,
             limit,
             follow: false,
-            eventsPath,
+            eventsPath: sourcePath,
             outputPath,
             preview: lines,
           },
@@ -381,7 +508,16 @@ export function registerLogsCommand(parser: CLIParser): void {
         return result;
       }
 
-      await streamFollow(fs, fsPromises, eventsPath, format);
+      if (patches) {
+        await streamFollowWithFormatter(fs, fsPromises, sourcePath, (line) => {
+          if (!line) {
+            return;
+          }
+          process.stdout.write(`${format === 'json' ? line : formatPatchLine(line)}\n`);
+        });
+      } else {
+        await streamFollow(fs, fsPromises, sourcePath, format);
+      }
 
       try {
         await exportLogs();
@@ -404,7 +540,7 @@ export function registerLogsCommand(parser: CLIParser): void {
           format,
           limit,
           follow: true,
-          eventsPath,
+          eventsPath: sourcePath,
           outputPath,
           preview: lines,
         },
@@ -428,6 +564,11 @@ export function registerLogsCommand(parser: CLIParser): void {
         {
           flags: '--follow',
           description: '持续跟随日志输出（tail -f）',
+          defaultValue: false,
+        },
+        {
+          flags: '--patches',
+          description: '查看补丁清单（读取 <session>/patches/manifest.jsonl）',
           defaultValue: false,
         },
         {

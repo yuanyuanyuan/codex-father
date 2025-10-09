@@ -1,6 +1,7 @@
 import type { OrchestratorStateSnapshot } from './types.js';
 import * as fsp from 'node:fs/promises';
 import * as nodePath from 'node:path';
+import * as crypto from 'node:crypto';
 import { createSensitiveRedactor, type SensitiveRedactor } from '../lib/security/redaction.js';
 
 /**
@@ -140,7 +141,114 @@ export class StateManager {
     };
     const sanitizedRecord = this.redactor(record) as Record<string, unknown>;
     await this.eventLogger.logEvent(sanitizedRecord);
+
+    // Side-effect: maintain patches/manifest.jsonl for patch lifecycle events
+    try {
+      await this.appendPatchManifestFromEvent(payload).catch(() => void 0);
+    } catch {
+      // do not block event flow on manifest errors
+    }
   }
+
+  /**
+   * 根据事件写入 patches/manifest.jsonl（若 sessionDir 可用）。
+   */
+  private async appendPatchManifestFromEvent(payload: {
+    event: string;
+    taskId?: string;
+    data?: unknown;
+  }): Promise<void> {
+    const sessionDir = this.sessionDir;
+    if (!sessionDir) {
+      return;
+    }
+    const patchesDir = nodePath.join(sessionDir, 'patches');
+    const manifestFile = nodePath.join(patchesDir, 'manifest.jsonl');
+
+    await fsp.mkdir(patchesDir, { recursive: true, mode: 0o700 }).catch(() => void 0);
+
+    const nowIso = new Date().toISOString();
+    let entry: Record<string, unknown> | null = null;
+    const data = (payload?.data ?? {}) as Record<string, unknown>;
+    const evt = payload?.event ?? '';
+
+    if (evt === 'patch_generated') {
+      const rawPatchPath = (data as any).patchPath;
+      const patchPath = typeof rawPatchPath === 'string' ? (rawPatchPath as string) : undefined;
+      if (!patchPath) {
+        return;
+      }
+      const { stem, seq } = deriveStemAndSeqFromPath(patchPath);
+      const sha256 = await tryComputeSha256(patchPath);
+      const e: Record<string, unknown> = { status: 'generated', createdAt: nowIso };
+      if (stem) {
+        e.patchId = stem;
+      }
+      if (payload.taskId) {
+        e.taskId = payload.taskId;
+      }
+      if (typeof seq === 'number') {
+        e.sequence = seq;
+      }
+      e.path = patchPath;
+      if (sha256) {
+        e.sha256 = sha256;
+      }
+      entry = e;
+    } else if (evt === 'patch_applied' || evt === 'patch_failed') {
+      const rawPatchId = (data as any).patchId;
+      const patchId = typeof rawPatchId === 'string' ? (rawPatchId as string) : undefined;
+      const rawFilePath = (data as any).filePath;
+      const filePath = typeof rawFilePath === 'string' ? (rawFilePath as string) : undefined;
+      const rawWorkDir = (data as any).workDir;
+      const workDir = typeof rawWorkDir === 'string' ? (rawWorkDir as string) : undefined;
+      const sha256 = filePath ? await tryComputeSha256(filePath) : undefined;
+      const { stem, seq } = filePath
+        ? deriveStemAndSeqFromPath(filePath)
+        : { stem: patchId, seq: undefined };
+      const e: Record<string, unknown> = {
+        status: evt === 'patch_applied' ? 'applied' : 'failed',
+      };
+      const pid = patchId ?? stem;
+      if (pid) {
+        e.patchId = pid;
+      }
+      if (payload.taskId) {
+        e.taskId = payload.taskId;
+      }
+      if (typeof seq === 'number') {
+        e.sequence = seq;
+      }
+      if (filePath) {
+        e.path = filePath;
+      }
+      if (sha256) {
+        e.sha256 = sha256;
+      }
+      if (evt === 'patch_applied') {
+        e.appliedAt = nowIso;
+      }
+      if (workDir) {
+        e.workDir = workDir;
+      }
+      const err = (data as any).errorMessage;
+      if (typeof err === 'string' && err) {
+        e.error = err;
+      }
+      entry = e;
+    }
+
+    if (!entry) {
+      return;
+    }
+    const line = JSON.stringify(entry);
+    await fsp
+      .appendFile(manifestFile, line + '\n', { encoding: 'utf-8', mode: 0o600 })
+      .catch(() => void 0);
+    await fsp.chmod(manifestFile, 0o600).catch(() => void 0);
+  }
+
+  // 删除重复方法定义（见上）
   private schedulePersist(): void {
     if (!this.sessionDir) {
       return;
@@ -204,4 +312,52 @@ function createJsonlEventLogger(sessionDir: string): EventLoggerLike {
       await appendLine(JSON.stringify(withTimestamp));
     },
   } satisfies EventLoggerLike;
+}
+
+// ================ Patch manifest helpers (internal) =================
+export interface PatchManifestEntry {
+  readonly patchId?: string;
+  readonly taskId?: string;
+  readonly sequence?: number;
+  readonly path?: string;
+  readonly sha256?: string;
+  readonly createdAt?: string;
+  readonly appliedAt?: string;
+  readonly workDir?: string;
+  readonly status: 'generated' | 'applied' | 'failed';
+  readonly error?: string;
+}
+
+// 下面两个辅助函数在文件末尾定义：deriveStemAndSeqFromPath / tryComputeSha256
+
+function deriveStemAndSeqFromPath(p: string): { stem?: string; seq?: number } {
+  const base = nodePath.basename(p);
+  let s: string;
+  if (base.includes('.') && !base.startsWith('.')) {
+    s = base.slice(0, base.lastIndexOf('.'));
+  } else {
+    s = base;
+  }
+  const m = s.match(/(\d+)/);
+  const seqVal = m ? Number(m[1]) : undefined;
+
+  const out: { stem?: string; seq?: number } = {};
+  if (s) {
+    out.stem = s;
+  }
+  if (Number.isFinite(seqVal)) {
+    out.seq = seqVal as number;
+  }
+  return out;
+}
+
+async function tryComputeSha256(filePath: string): Promise<string | null> {
+  try {
+    const buf = await fsp.readFile(filePath);
+    const h = crypto.createHash('sha256');
+    h.update(buf);
+    return h.digest('hex');
+  } catch {
+    return null;
+  }
 }

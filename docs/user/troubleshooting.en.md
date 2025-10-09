@@ -73,7 +73,38 @@ Fix
 
 Check Codex CLI presence and syntax; test on terminal first. If you see `400 Unsupported model`, switch to a supported model or adjust provider mapping. For reasoning effort use `minimal|low|medium|high`.
 
-Patch mode notes: `--patch-mode` adds a policy note and writes diffs to `<session>/patch.diff`. To avoid conflicts with general “style/explanation” base instructions, patch mode skips injecting the base block and keeps only the task text plus the policy note. Tune visibility with `--patch-preview-lines` or `--no-patch-preview`; disable artifact with `--no-patch-artifact`.
+Patch mode notes: `--patch-mode` adds a policy note and writes diffs to `<session>/patches/patch.diff`. To avoid conflicts with general “style/explanation” base instructions, patch mode skips injecting the base block and keeps only the task text plus the policy note. Tune visibility with `--patch-preview-lines` or `--no-patch-preview`; disable artifact with `--no-patch-artifact`.
+
+### View the patch manifest (logs --patches)
+
+The patch manifest lives under `<session>/patches/manifest.jsonl`. Use the CLI to list/tail:
+
+```bash
+# Show last 50 patch records (text formatted)
+codex-father logs <sessionId> --patches --limit 50
+
+# Follow the patch manifest (tail -f style)
+codex-father logs <sessionId> --patches --follow
+
+# Output raw JSON lines (e.g., for pipelines)
+codex-father logs <sessionId> --patches --format json --limit 200
+```
+
+Common jq snippets (operate on the manifest file directly):
+
+```bash
+# Applied patches only (TSV: sequence, patchId, path, sha256)
+jq -r 'select(.status=="applied") | [.sequence,.patchId,.path,.sha256] | @tsv' \
+  .codex-father/sessions/<sessionId>/patches/manifest.jsonl
+
+# Failed patches with errors
+jq -r 'select(.status=="failed") | {seq:.sequence, id:.patchId, path, error}' \
+  .codex-father/sessions/<sessionId>/patches/manifest.jsonl
+
+# Last 10 entries (tail) and extract key fields
+tail -n 10 .codex-father/sessions/<sessionId>/patches/manifest.jsonl \
+  | jq -r '{ts: (.appliedAt // .createdAt), status, id: .patchId, path, sha: .sha256}'
+```
 
 Network restricted by default: enable via CLI `--codex-config sandbox_workspace_write.network_access=true` or set the MCP tool argument accordingly; verify `<session>/job.meta.json` shows `effective_network_access: enabled`.
 

@@ -294,7 +294,7 @@ npm run rmcp:client -- --help
 - 补丁模式：
   - 仅在需要“只输出补丁”时添加 `--patch-mode`；看到日志 `Patch Mode: on`
     即表示已注入 `policy-note`。
-  - 默认会将补丁写入 `<session>/patch.diff`（或 `--patch-output`
+  - 默认会将补丁写入 `<session>/patches/patch.diff`（或 `--patch-output`
     指定的路径），日志仅保留预览，可用 `--patch-preview-lines`
     调整、`--no-patch-preview` 关闭回显。
   - 如需恢复旧行为（将完整补丁写进日志），传入 `--no-patch-artifact`。

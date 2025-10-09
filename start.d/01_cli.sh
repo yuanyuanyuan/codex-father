@@ -503,9 +503,9 @@ while [[ $# -gt 0 ]]; do
         echo "错误: --patch-preview-lines 只能是非负整数" >&2
         exit 2
       fi
-      PATCH_PREVIEW_LINES="${2}"; shift 2 ;;
+      PATCH_PREVIEW_LINES="${2}"; PATCH_PREVIEW_USER_SET=1; shift 2 ;;
     --no-patch-preview)
-      PATCH_PREVIEW_LINES=0; shift 1 ;;
+      PATCH_PREVIEW_LINES=0; PATCH_PREVIEW_USER_SET=1; shift 1 ;;
     --dry-run)
       DRY_RUN=1; shift 1 ;;
     --json)
@@ -638,7 +638,7 @@ fi
 if (( PATCH_MODE == 1 )) && (( PATCH_CAPTURE_ARTIFACT == 1 )); then
   if [[ -z "${PATCH_ARTIFACT_FILE}" ]]; then
     if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
-      PATCH_ARTIFACT_FILE="${CODEX_SESSION_DIR}/patch.diff"
+      PATCH_ARTIFACT_FILE="${CODEX_SESSION_DIR}/patches/patch.diff"
     else
       PATCH_ARTIFACT_FILE="${CODEX_LOG_FILE%.log}.patch.diff"
     fi

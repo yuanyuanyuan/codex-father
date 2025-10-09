@@ -110,8 +110,11 @@ Full details: [User Quick Start](docs/user/quick-start.en.md).
   `effective_network_access: enabled` in `<session>/job.meta.json`.
 - Approvals & sandbox: prefer `on-failure` for unattended; bypass only if you
   fully trust the environment.
-- Patch mode: `--patch-mode` stores diffs (`patch.diff`), preview lines limited;
-  tune with `--patch-preview-lines`/`--no-patch-preview`/`--no-patch-artifact`.
+- Patch mode: `--patch-mode` stores diffs (`patches/patch.diff` under session),
+  preview lines limited; tune with
+  `--patch-preview-lines`/`--no-patch-preview`/`--no-patch-artifact`.
+- Quick view patches: `codex-father logs <sessionId> --patches` (reads
+  `<session>/patches/manifest.jsonl`; supports `--follow` and `--format json`).
 - Structured instructions: `--instructions path/to/task.json --task T032`; see
   [Structured Instructions](specs/structured-instructions/README.en.md).
 - Input size guard: very large inputs are rejected; split or compress context.

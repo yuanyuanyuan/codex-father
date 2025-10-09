@@ -240,7 +240,7 @@ if ! declare -F codex_compute_patch_artifact_path >/dev/null 2>&1; then
     fi
     if [[ -z "$base" ]]; then
       if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
-        echo "${CODEX_SESSION_DIR}/patch${suffix}.diff"
+        echo "${CODEX_SESSION_DIR}/patches/patch${suffix}.diff"
       else
         echo "${CODEX_LOG_FILE%.log}${suffix}.patch.diff"
       fi
@@ -323,6 +323,36 @@ if ! declare -F codex_publish_output >/dev/null 2>&1; then
           fi
           echo
         } >> "$log_file"
+
+        # Append manifest entry (JSONL) for quick indexing
+        local manifest_dir
+        if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+          manifest_dir="${CODEX_SESSION_DIR}/patches"
+        else
+          manifest_dir="$(dirname -- "$artifact_path")"
+        fi
+        mkdir -p "$manifest_dir"
+        local manifest_file="${manifest_dir}/manifest.jsonl"
+        local now_iso
+        now_iso=$(date +"%Y-%m-%dT%H:%M:%S%:z")
+        local base_name stem
+        base_name=$(basename -- "$artifact_path")
+        if [[ "$base_name" == *.* && "$base_name" != .* ]]; then
+          stem="${base_name%.*}"
+        else
+          stem="$base_name"
+        fi
+        local seq
+        if [[ "$stem" =~ ([0-9]+) ]]; then
+          seq="${BASH_REMATCH[1]}"
+        else
+          seq="$run_idx"
+        fi
+        umask 077
+        printf '{"patchId":"%s","taskId":null,"sequence":%s,"path":"%s","sha256":%s,"createdAt":"%s","appliedAt":null,"workDir":null,"status":"generated"}\n' \
+          "$stem" "$seq" "$(json_escape "$artifact_path")" \
+          "$([[ -n "$hash" ]] && printf '"%s"' "$hash" || echo null)" \
+          "$now_iso" >> "$manifest_file"
         handled=1
       fi
     fi
