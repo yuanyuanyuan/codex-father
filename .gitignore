@@ -32,3 +32,6 @@ assets/runtime/
 
 refer-research/
 .npm-cache/
+
+# Test temp fixtures
+core/cli/tests/fixtures/invalid-*.json

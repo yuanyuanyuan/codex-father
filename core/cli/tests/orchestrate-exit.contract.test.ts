@@ -249,30 +249,34 @@ describe('Orchestrate CLI exit codes and summary (T006)', () => {
       await fs.writeFile(tmpInvalid, '{ invalid json', 'utf-8');
     });
 
-    let thrown: Error | null = null;
     try {
-      await parser.parse([
-        'node',
-        'codex-father',
-        'orchestrate',
-        '无效任务',
-        '--mode',
-        'manual',
-        '--tasks-file',
-        tmpInvalid,
-        '--output-format',
-        'stream-json',
-      ]);
-    } catch (error) {
-      thrown = error as Error;
+      let thrown: Error | null = null;
+      try {
+        await parser.parse([
+          'node',
+          'codex-father',
+          'orchestrate',
+          '无效任务',
+          '--mode',
+          'manual',
+          '--tasks-file',
+          tmpInvalid,
+          '--output-format',
+          'stream-json',
+        ]);
+      } catch (error) {
+        thrown = error as Error;
+      }
+
+      expect(thrown?.message).toBe('process.exit:5');
+      // 不应输出 stream-json 事件
+      const lines = writeSpy.mock.calls.map((call) => String(call[0]).trim()).filter(Boolean);
+      expect(lines).toHaveLength(0);
+    } finally {
+      // 清理临时的无效 JSON 文件与 mock
+      await rm(tmpInvalid, { force: true });
+      exitSpy.mockRestore();
+      writeSpy.mockRestore();
     }
-
-    expect(thrown?.message).toBe('process.exit:5');
-    // 不应输出 stream-json 事件
-    const lines = writeSpy.mock.calls.map((call) => String(call[0]).trim()).filter(Boolean);
-    expect(lines).toHaveLength(0);
-
-    exitSpy.mockRestore();
-    writeSpy.mockRestore();
   });
 });
