@@ -66,19 +66,24 @@ compose_instructions() {
     SOURCE_LINES+=("Prepend text: ${_pv}...")
   fi
 
-  # Base content from the decided base source
-  local base_content=""; local base_desc="${BASE_SOURCE_DESC}"
-  case "${BASE_SOURCE_KIND}" in
-    override-file)   base_content="$(cat "${OVERRIDE_FILE}")" ;;
-    override-stdin)  base_content="${STDIN_CONTENT}" ;;
-    default-file)    if [[ -f "${DEFAULT_INSTRUCTIONS_FILE}" ]]; then base_content="$(cat "${DEFAULT_INSTRUCTIONS_FILE}")"; else base_content="${DEFAULT_INSTRUCTIONS}"; fi ;;
-    env)             base_content="${INSTRUCTIONS}" ;;
-    stdin)           base_content="${STDIN_CONTENT}" ;;
-    default-builtin|*) base_content="${DEFAULT_INSTRUCTIONS}" ;;
-  esac
-  sections+=$'\n'"<instructions-section type=\"base\" source=\"${BASE_SOURCE_KIND}\" desc=\"${base_desc}\" path=\"${DEFAULT_INSTRUCTIONS_FILE}\">"$'\n'
-  sections+="${base_content}"$'\n''</instructions-section>'$'\n'
-  SOURCE_LINES+=("Base: ${base_desc}")
+  # Base instructions: skip when in patch mode to avoid conflicts
+  if (( ${PATCH_MODE:-0} == 1 )); then
+    # 明确记录来源被跳过，便于诊断
+    SOURCE_LINES+=("Base: skipped due to patch-mode")
+  else
+    local base_content=""; local base_desc="${BASE_SOURCE_DESC}"
+    case "${BASE_SOURCE_KIND}" in
+      override-file)   base_content="$(cat "${OVERRIDE_FILE}")" ;;
+      override-stdin)  base_content="${STDIN_CONTENT}" ;;
+      default-file)    if [[ -f "${DEFAULT_INSTRUCTIONS_FILE}" ]]; then base_content="$(cat "${DEFAULT_INSTRUCTIONS_FILE}")"; else base_content="${DEFAULT_INSTRUCTIONS}"; fi ;;
+      env)             base_content="${INSTRUCTIONS}" ;;
+      stdin)           base_content="${STDIN_CONTENT}" ;;
+      default-builtin|*) base_content="${DEFAULT_INSTRUCTIONS}" ;;
+    esac
+    sections+=$'\n'"<instructions-section type=\"base\" source=\"${BASE_SOURCE_KIND}\" desc=\"${base_desc}\" path=\"${DEFAULT_INSTRUCTIONS_FILE}\">"$'\n'
+    sections+="${base_content}"$'\n''</instructions-section>'$'\n'
+    SOURCE_LINES+=("Base: ${base_desc}")
+  fi
 
   # Overlay sources in order
   for i in "${!SRC_TYPES[@]}"; do

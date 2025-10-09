@@ -73,7 +73,7 @@ Fix
 
 Check Codex CLI presence and syntax; test on terminal first. If you see `400 Unsupported model`, switch to a supported model or adjust provider mapping. For reasoning effort use `minimal|low|medium|high`.
 
-Patch mode notes: `--patch-mode` adds a policy note and writes diffs to `<session>/patch.diff`. Tune visibility with `--patch-preview-lines` or `--no-patch-preview`; disable artifact with `--no-patch-artifact`.
+Patch mode notes: `--patch-mode` adds a policy note and writes diffs to `<session>/patch.diff`. To avoid conflicts with general “style/explanation” base instructions, patch mode skips injecting the base block and keeps only the task text plus the policy note. Tune visibility with `--patch-preview-lines` or `--no-patch-preview`; disable artifact with `--no-patch-artifact`.
 
 Network restricted by default: enable via CLI `--codex-config sandbox_workspace_write.network_access=true` or set the MCP tool argument accordingly; verify `<session>/job.meta.json` shows `effective_network_access: enabled`.
 

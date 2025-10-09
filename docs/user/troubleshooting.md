@@ -330,7 +330,8 @@ cat .codex-father/logs/latest.log
 
 **说明**：已启用补丁模式（`--patch-mode`）。系统会追加 policy-note，要求
 仅输出可应用的补丁，并将 diff 自动写入 `<session>/patch.diff`
-（或 `--patch-output` 自定义路径）。日志只保留前若干行预览，以免撑爆上下文。
+（或 `--patch-output` 自定义路径）。为避免与风格/解释类“基础指令”冲突，补丁模式下会跳过 base 指令注入，仅保留任务文本与 policy-note。
+日志只保留前若干行预览，以免撑爆上下文。
 
 **如何调整**：
 
