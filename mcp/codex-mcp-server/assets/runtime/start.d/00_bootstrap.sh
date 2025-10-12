@@ -19,17 +19,22 @@ if [[ -f "${SCRIPT_DIR}/lib/presets.sh" ]]; then
 fi
 
 # 日志相关默认
-# 默认将日志写入脚本所在目录的 .codex-father/sessions，避免受调用时 PWD 影响
-CODEX_LOG_DIR_DEFAULT="${SCRIPT_DIR}/.codex-father/sessions"
+# 默认将日志写入脚本所在目录的托管 sessions 路径，避免受调用时 PWD 影响
+if [[ "$(basename "${SCRIPT_DIR}")" == ".codex-father" ]]; then
+  # 当脚本已位于托管目录时，直接复用该目录下的 sessions，避免重复拼接
+  CODEX_LOG_DIR_DEFAULT="${SCRIPT_DIR}/sessions"
+else
+  CODEX_LOG_DIR_DEFAULT="${SCRIPT_DIR}/.codex-father/sessions"
+fi
 CODEX_LOG_DIR="${CODEX_LOG_DIR:-$CODEX_LOG_DIR_DEFAULT}"
 CODEX_LOG_FILE="${CODEX_LOG_FILE:-}"
 CODEX_LOG_TAG="${CODEX_LOG_TAG:-}"
 CODEX_LOG_SUBDIRS="${CODEX_LOG_SUBDIRS:-1}"
 CODEX_LOG_AGGREGATE="${CODEX_LOG_AGGREGATE:-1}"
 # 是否在日志中回显最终合成的指令与来源（默认开启）
-CODEX_ECHO_INSTRUCTIONS="${CODEX_ECHO_INSTRUCTIONS:-1}"
-# 回显的行数上限（0 表示不限制，全部输出）
-CODEX_ECHO_INSTRUCTIONS_LIMIT="${CODEX_ECHO_INSTRUCTIONS_LIMIT:-0}"
+CODEX_ECHO_INSTRUCTIONS="${CODEX_ECHO_INSTRUCTIONS:-0}"
+# 回显的行数上限（0 表示不限制，全部输出）；当 CODEX_ECHO_INSTRUCTIONS=0 时此值忽略
+CODEX_ECHO_INSTRUCTIONS_LIMIT="${CODEX_ECHO_INSTRUCTIONS_LIMIT:-120}"
 # 聚合默认在会话目录内（若未显式覆盖）
 CODEX_LOG_AGGREGATE_FILE="${CODEX_LOG_AGGREGATE_FILE:-}"
 CODEX_LOG_AGGREGATE_JSONL_FILE="${CODEX_LOG_AGGREGATE_JSONL_FILE:-}"
@@ -56,6 +61,7 @@ RUN_LOGGED=0
 # 兜底：任何非零退出都至少写一条错误日志
 trap 'code=$?; if [[ $code -ne 0 ]]; then \
   ts=$(date +%Y%m%d_%H%M%S); \
+  ts_display=$(date +%Y-%m-%dT%H:%M:%S%:z); \
   # 若尚未确定日志文件，尽力用默认规则生成一个
   if [[ -z "${CODEX_LOG_FILE:-}" ]]; then \
     CODEX_LOG_DIR="${CODEX_LOG_DIR:-${SCRIPT_DIR}/.codex-father/sessions}"; \
@@ -65,13 +71,222 @@ trap 'code=$?; if [[ $code -ne 0 ]]; then \
   mkdir -p "$(dirname "${CODEX_LOG_FILE}")"; \
   if [[ "${RUN_LOGGED:-0}" -eq 0 ]]; then \
     { \
-      echo "===== Codex Run Start: ${ts} ====="; \
+      echo "===== Codex Run Start: ${ts} (${ts_display}) ====="; \
       echo "Script: $(basename "$0")  PWD: $(pwd)"; \
       echo "Log: ${CODEX_LOG_FILE}"; \
       echo "[trap] 非零退出（可能为早期错误或参数问题）。Exit Code: ${code}"; \
     } >> "${CODEX_LOG_FILE}"; \
   fi; \
+  # 始终追加独立的 Exit Code 行，便于状态归纳器识别
+  echo "Exit Code: ${code}" >> "${CODEX_LOG_FILE}"; \
+  codex__emergency_mark_failed "$code" >/dev/null 2>&1 || true; \
 fi' EXIT
+
+# 应急 closeout：在收到终止信号时，立即将会话 state.json 标记为 stopped，避免调用方长时间等待。
+# 仅依赖 job.sh 预写入的初始 state.json 与环境变量 CODEX_SESSION_DIR。
+codex__emergency_mark_stopped() {
+  [[ -n "${CODEX_SESSION_DIR:-}" ]] || return 0
+  local dir="$CODEX_SESSION_DIR"
+  local state_file="${dir}/state.json"
+  # 若缺失 state.json，先创建一个最小骨架，避免竞态导致无法落盘
+  if [[ ! -f "$state_file" ]]; then
+    mkdir -p "$dir" 2>/dev/null || true
+    umask 077
+    printf '{"id":"%s","state":"running"}\n' "$(basename "$dir")" > "$state_file" 2>/dev/null || true
+  fi
+
+  # 轻量 JSON 转义（与 03_finalize.sh 保持一致的最小实现）
+  if ! declare -F json_escape >/dev/null 2>&1; then
+    json_escape() {
+      local s=$1
+      s=${s//\\/\\\\}
+      s=${s//\"/\\\"}
+      s=${s//$'\n'/\\n}
+      s=${s//$'\r'/}
+      s=${s//$'\t'/\\t}
+      printf '%s' "$s"
+    }
+  fi
+
+  # 读取已有字段，保持元数据稳定
+  set +e
+  local id created_at tag cwd log_file meta_glob last_glob title existing_resumed_from existing_args_json
+  id="$(basename "$dir")"
+  created_at=$(grep -E '"created_at"' "$state_file" | sed -E 's/.*"created_at"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  tag=$(grep -E '"tag"' "$state_file" | sed -E 's/.*"tag"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  cwd=$(grep -E '"cwd"' "$state_file" | sed -E 's/.*"cwd"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  log_file=$(grep -E '"log_file"' "$state_file" | sed -E 's/.*"log_file"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  meta_glob=$(grep -E '"meta_glob"' "$state_file" | sed -E 's/.*"meta_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  last_glob=$(grep -E '"last_message_glob"' "$state_file" | sed -E 's/.*"last_message_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  title=$(grep -E '"title"' "$state_file" | sed -E 's/.*"title"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  existing_resumed_from=$(grep -E '"resumed_from"' "$state_file" | sed -E 's/.*"resumed_from"\s*:\s*"?([^",}]*)"?.*/\1/' | head -n1 || true)
+  if [[ "$existing_resumed_from" == "null" ]]; then existing_resumed_from=""; fi
+  existing_args_json="[]"
+  if command -v node >/dev/null 2>&1; then
+    local args_dump
+    if args_dump=$(node - "$state_file" <<'EOF'
+const fs = require('fs');
+const file = process.argv[2] || process.argv[1];
+try {
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (Array.isArray(data.args)) {
+    process.stdout.write(JSON.stringify(data.args));
+  }
+} catch (_) { /* noop */ }
+EOF
+); then
+      if [[ -n "$args_dump" ]]; then existing_args_json="$args_dump"; fi
+    fi
+  fi
+  set -e
+
+  local updated_at; updated_at=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+  [[ -n "$created_at" ]] || created_at="$updated_at"
+  [[ -n "$cwd" ]] || cwd="$(pwd)"
+  [[ -n "$log_file" ]] || log_file="${CODEX_LOG_FILE:-${dir}/job.log}"
+  [[ -n "$meta_glob" ]] || meta_glob="${dir}/*.meta.json"
+  [[ -n "$last_glob" ]] || last_glob="${dir}/*.last.txt"
+
+  local title_json="null"
+  if [[ -n "$title" ]]; then title_json="\"$(json_escape "$title")\""; fi
+  local resume_json="null"
+  if [[ -n "$existing_resumed_from" ]]; then resume_json="\"$(json_escape "$existing_resumed_from")\""; fi
+
+  umask 077
+  cat > "${state_file}.tmp" <<EOF
+{
+  "id": "$(json_escape "$id")",
+  "pid": null,
+  "state": "stopped",
+  "exit_code": null,
+  "classification": "user_cancelled",
+  "tokens_used": null,
+  "effective_sandbox": null,
+  "effective_network_access": null,
+  "effective_approval_policy": null,
+  "sandbox_bypass": null,
+  "cwd": "$(json_escape "$cwd")",
+  "created_at": "$(json_escape "$created_at")",
+  "updated_at": "$(json_escape "$updated_at")",
+  "tag": "$(json_escape "${tag:-}")",
+  "log_file": "$(json_escape "$log_file")",
+  "meta_glob": "$(json_escape "$meta_glob")",
+  "last_message_glob": "$(json_escape "$last_glob")",
+  "args": ${existing_args_json},
+  "title": ${title_json},
+  "resumed_from": ${resume_json}
+}
+EOF
+  mv -f "${state_file}.tmp" "$state_file"
+  rm -f "${dir}/pid" 2>/dev/null || true
+}
+
+# EXIT 非零的应急落盘（失败）
+codex__emergency_mark_failed() {
+  local code="${1:-1}"
+  [[ -n "${CODEX_SESSION_DIR:-}" ]] || return 0
+  local dir="$CODEX_SESSION_DIR"
+  local state_file="${dir}/state.json"
+  # 若缺失 state.json，先创建一个最小骨架，避免竞态导致无法落盘
+  if [[ ! -f "$state_file" ]]; then
+    mkdir -p "$dir" 2>/dev/null || true
+    umask 077
+    printf '{"id":"%s","state":"running"}\n' "$(basename "$dir")" > "$state_file" 2>/dev/null || true
+  fi
+
+
+  if ! declare -F json_escape >/dev/null 2>&1; then
+    json_escape() {
+      local s=$1
+      s=${s//\\/\\\\}
+      s=${s//\"/\\\"}
+      s=${s//$'\n'/\\n}
+      s=${s//$'\r'/}
+      s=${s//$'\t'/\\t}
+      printf '%s' "$s"
+    }
+  fi
+
+  set +e
+  local id created_at tag cwd log_file meta_glob last_glob title existing_resumed_from existing_args_json
+  id="$(basename "$dir")"
+  created_at=$(grep -E '"created_at"' "$state_file" | sed -E 's/.*"created_at"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  tag=$(grep -E '"tag"' "$state_file" | sed -E 's/.*"tag"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  cwd=$(grep -E '"cwd"' "$state_file" | sed -E 's/.*"cwd"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  log_file=$(grep -E '"log_file"' "$state_file" | sed -E 's/.*"log_file"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  meta_glob=$(grep -E '"meta_glob"' "$state_file" | sed -E 's/.*"meta_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  last_glob=$(grep -E '"last_message_glob"' "$state_file" | sed -E 's/.*"last_message_glob"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  title=$(grep -E '"title"' "$state_file" | sed -E 's/.*"title"\s*:\s*"([^"]*)".*/\1/' | head -n1 || true)
+  existing_resumed_from=$(grep -E '"resumed_from"' "$state_file" | sed -E 's/.*"resumed_from"\s*:\s*"?([^",}]*)"?.*/\1/' | head -n1 || true)
+  if [[ "$existing_resumed_from" == "null" ]]; then existing_resumed_from=""; fi
+  existing_args_json="[]"
+  if command -v node >/dev/null 2>&1; then
+    local args_dump
+    if args_dump=$(node - "$state_file" <<'EOF'
+const fs = require('fs');
+const file = process.argv[2] || process.argv[1];
+try {
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (Array.isArray(data.args)) {
+    process.stdout.write(JSON.stringify(data.args));
+  }
+} catch (_) { /* noop */ }
+EOF
+); then
+      if [[ -n "$args_dump" ]]; then existing_args_json="$args_dump"; fi
+    fi
+  fi
+  set -e
+
+  local updated_at; updated_at=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+  [[ -n "$created_at" ]] || created_at="$updated_at"
+  [[ -n "$cwd" ]] || cwd="$(pwd)"
+  [[ -n "$log_file" ]] || log_file="${CODEX_LOG_FILE:-${dir}/job.log}"
+  [[ -n "$meta_glob" ]] || meta_glob="${dir}/*.meta.json"
+  [[ -n "$last_glob" ]] || last_glob="${dir}/*.last.txt"
+
+  # 简易分类：参数/用法错误 → input_error；否则 error
+  local cls="error"
+  if [[ -f "${dir}/bootstrap.err" ]] && grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|用法:|Usage:)' "${dir}/bootstrap.err" 2>/dev/null; then
+    cls="input_error"
+  fi
+
+  local title_json="null"
+  if [[ -n "$title" ]]; then title_json="\"$(json_escape "$title")\""; fi
+  local resume_json="null"
+  if [[ -n "$existing_resumed_from" ]]; then resume_json="\"$(json_escape "$existing_resumed_from")\""; fi
+
+  umask 077
+  cat > "${state_file}.tmp" <<EOF
+{
+  "id": "$(json_escape "$id")",
+  "pid": null,
+  "state": "failed",
+  "exit_code": ${code},
+  "classification": "${cls}",
+  "tokens_used": null,
+  "effective_sandbox": null,
+  "effective_network_access": null,
+  "effective_approval_policy": null,
+  "sandbox_bypass": null,
+  "cwd": "$(json_escape "$cwd")",
+  "created_at": "$(json_escape "$created_at")",
+  "updated_at": "$(json_escape "$updated_at")",
+  "tag": "$(json_escape "${tag:-}")",
+  "log_file": "$(json_escape "$log_file")",
+  "meta_glob": "$(json_escape "$meta_glob")",
+  "last_message_glob": "$(json_escape "$last_glob")",
+  "args": ${existing_args_json},
+  "title": ${title_json},
+  "resumed_from": ${resume_json}
+}
+EOF
+  mv -f "${state_file}.tmp" "$state_file"
+  rm -f "${dir}/pid" 2>/dev/null || true
+}
+
+# 捕获常见终止信号，立即落盘 stopped 状态
+trap 'codex__emergency_mark_stopped' TERM INT HUP QUIT
 
 KNOWN_FLAGS=(
   "-f" "--file" "-F" "--file-override" "-c" "--content" "-l" "--log-file"
@@ -85,6 +300,7 @@ KNOWN_FLAGS=(
   "--codex-arg" "--no-aggregate" "--aggregate-file" "--aggregate-jsonl-file"
   "--redact" "--redact-pattern" "--prepend" "--append" "--prepend-file"
   "--append-file" "--patch-mode" "--dry-run" "--json" "-h" "--help"
+  "--patch-output" "--patch-preview-lines" "--no-patch-preview" "--no-patch-artifact"
 )
 
 # --- Codex 版本检测与参数兼容性校验（严格模式） ---
@@ -216,6 +432,7 @@ print_unknown_arg_help() {
   local scored=()
   local f
   # 定制化高频错参提示（严格失败，不做同义词映射）
+  # 1) 若为 --context，明确不存在该总控开关，并给出两种等价正确写法
   if [[ "$u" == "context" ]]; then
     {
       echo "❌ 未知参数: ${unknown}"
@@ -226,12 +443,14 @@ print_unknown_arg_help() {
       echo "👉 示例：--task \"修复问题\" --context-grep \"(README|CHANGELOG)\""
       echo "📖 运行 --help 查看完整参数列表"
     } >&2
+    # 记录一次 unknown-arg 事件，便于后续统计
     if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
       local _ts; _ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
       printf '{"eventId":"unknown_arg","timestamp":"%s","flag":"%s","suggest":"context-head|context-grep"}\n' "${_ts}" "${unknown}" >> "${CODEX_SESSION_DIR}/events.jsonl" 2>/dev/null || true
     fi
     return
   fi
+  # 2) 若为 --goal，指向 --task
   if [[ "$u" == "goal" ]]; then
     {
       echo "❌ 未知参数: ${unknown}"
@@ -245,6 +464,7 @@ print_unknown_arg_help() {
     fi
     return
   fi
+  # 3) 若为 --notes，指向 --append（不做自动映射）
   if [[ "$u" == "notes" ]]; then
     {
       echo "❌ 未知参数: ${unknown}"
@@ -255,6 +475,22 @@ print_unknown_arg_help() {
     if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
       local _ts; _ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
       printf '{"eventId":"unknown_arg","timestamp":"%s","flag":"%s","suggest":"append"}\n' "${_ts}" "${unknown}" >> "${CODEX_SESSION_DIR}/events.jsonl" 2>/dev/null || true
+    fi
+    return
+  fi
+  # 4) 若为 --config，提示改用 --codex-config（避免与 -c --content 混淆）
+  if [[ "$u" == "config" ]]; then
+    {
+      echo "❌ 未知参数: ${unknown}"
+      echo "💡 请改用 --codex-config key=value 传递底层 Codex 配置（例如模型等）。"
+      echo "👉 示例：--codex-config model=gpt-5-codex-medium"
+      echo "👉 示例：--codex-config sandbox_workspace_write.network_access=true"
+      echo "📌 注意：-c/--content 是添加文本，不是配置项。"
+      echo "📖 运行 --help 查看完整参数列表"
+    } >&2
+    if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+      local _ts; _ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+      printf '{"eventId":"unknown_arg","timestamp":"%s","flag":"%s","suggest":"codex-config"}\n' "${_ts}" "${unknown}" >> "${CODEX_SESSION_DIR}/events.jsonl" 2>/dev/null || true
     fi
     return
   fi
@@ -281,8 +517,10 @@ print_unknown_arg_help() {
     echo "🔎 如果你是直接把一句话当作参数传入，请改为显式写法：--task \"<文本>\"。"
     echo "📖 运行 --help 查看完整参数列表"
   } >&2
+  # 通用未知参数事件
   if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
     local _ts; _ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+    # 仅记录首个候选以控制体积
     local first_suggest="${suggestions[0]:-}"
     printf '{"eventId":"unknown_arg","timestamp":"%s","flag":"%s","suggest":"%s"}\n' "${_ts}" "${unknown}" "${first_suggest}" >> "${CODEX_SESSION_DIR}/events.jsonl" 2>/dev/null || true
   fi
@@ -401,6 +639,7 @@ usage() {
   - 如果未提供 -f/-F/-c/--prepend/--append 等输入且存在环境变量 INSTRUCTIONS，则使用该变量作为基底。
   - 如果仍无输入且通过管道/重定向提供了 STDIN，则使用 STDIN 作为基底。
   - 以上均不满足时，使用脚本内置默认内容。
+  - 容错：若传入了非选项的“位置参数”，将自动视为 --task 的文本内容；为避免歧义，推荐显式书写：--task "<文本>"。
   - 默认将日志保存在 ${CODEX_LOG_DIR_DEFAULT}，并按“日期/标签”分层：logs/YYYYMMDD/<tag|untagged>/codex-YYYYMMDD_HHMMSS-<tag>.log；
     可通过 --flat-logs 改为平铺至 --log-dir。摘要附加到 ${REPO_ROOT}/codex_run_recording.txt。
   - 日志默认回显“最终合成的指令”与“各来源列表”，可用 --no-echo-instructions 关闭；或用 --echo-limit 控制回显的行数。

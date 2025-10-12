@@ -314,7 +314,7 @@ if (( DO_LOOP == 0 )); then
   if (( DO_LOOP == 0 )); then
     # 执行结果摘要（单轮）
     echo "[debug] JSON_OUTPUT=${JSON_OUTPUT} writing summary (single-run)" >> "${CODEX_LOG_FILE}"
-    codex_update_session_state || true
+codex_update_session_state || true
     if [[ "${JSON_OUTPUT}" == "1" ]]; then
       set +e
       # 直接输出 meta JSON；若文件缺失则使用内存中的 META_JSON；再退化为即时拼装
@@ -335,6 +335,27 @@ if (( DO_LOOP == 0 )); then
         echo "汇总记录: ${CODEX_LOG_AGGREGATE_FILE}"
         echo "JSONL 汇总: ${CODEX_LOG_AGGREGATE_JSONL_FILE}"
       fi
+    fi
+    # 在单轮路径退出前，补充一条 orchestration_completed 事件
+    if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+      (
+        set +e
+        ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+        run_dir="${CODEX_SESSION_DIR}"
+        events_file="${run_dir}/events.jsonl"; seq_file="${run_dir}/events.seq"
+        mkdir -p "${run_dir}" 2>/dev/null || true
+        if [[ ! -f "${seq_file}" ]]; then echo 0 >"${seq_file}" 2>/dev/null || true; fi
+        seq=$(cat "${seq_file}" 2>/dev/null || echo 0)
+        [[ "$seq" =~ ^[0-9]+$ ]] || seq=0
+        seq=$((seq+1)); printf '%s' "$seq" >"${seq_file}" 2>/dev/null || true
+        job_id="$(basename "${run_dir}")"
+        status_str=$([[ "${CODEX_EXIT:-1}" -eq 0 ]] && echo succeeded || echo failed)
+        data=$(cat <<JSON
+{"status":"${status_str}","exitCode":${CODEX_EXIT:-1},"classification":"${CLASSIFICATION:-}","logFile":"${CODEX_LOG_FILE}","instructionsFile":"${INSTR_FILE}","aggregateJsonl":"${CODEX_LOG_AGGREGATE_JSONL_FILE:-}","successRate":$([[ "${CODEX_EXIT:-1}" -eq 0 ]] && echo 1 || echo 0),"completedTasks":$([[ "${CODEX_EXIT:-1}" -eq 0 ]] && echo 1 || echo 0),"failedTasks":$([[ "${CODEX_EXIT:-1}" -eq 0 ]] && echo 0 || echo 1)}
+JSON
+        )
+        printf '{"event":"orchestration_completed","timestamp":"%s","orchestrationId":"%s","seq":%s,"data":%s}\n' "$ts" "$job_id" "$seq" "$data" >>"${events_file}"
+      ) || true
     fi
     exit "${CODEX_EXIT}"
   fi
@@ -479,6 +500,59 @@ while (( RUN <= MAX_RUNS )); do
     printf '%s' "${CURRENT_INSTR}" > "${RUN_INSTR_FILE}"
   fi
 
+  # 记录 instructions_updated 事件（路径、sha256、增删行统计），避免在 job.log 重复粘贴全文
+  if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+    (
+      set +e
+      run_dir="${CODEX_SESSION_DIR}"
+      events_file="${run_dir}/events.jsonl"; seq_file="${run_dir}/events.seq"
+      mkdir -p "${run_dir}" 2>/dev/null || true
+      if [[ ! -f "${seq_file}" ]]; then echo 0 >"${seq_file}" 2>/dev/null || true; fi
+      seq=$(cat "${seq_file}" 2>/dev/null || echo 0)
+      [[ "$seq" =~ ^[0-9]+$ ]] || seq=0
+      seq=$((seq+1)); printf '%s' "$seq" >"${seq_file}" 2>/dev/null || true
+      ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+      job_id="$(basename "${run_dir}")"
+      # 计算 sha256
+      sha=""
+      if command -v sha256sum >/dev/null 2>&1; then
+        sha=$(sha256sum "${RUN_INSTR_FILE}" 2>/dev/null | awk '{print $1}')
+      elif command -v shasum >/dev/null 2>&1; then
+        sha=$(shasum -a 256 "${RUN_INSTR_FILE}" 2>/dev/null | awk '{print $1}')
+      elif command -v openssl >/dev/null 2>&1; then
+        sha=$(openssl dgst -sha256 "${RUN_INSTR_FILE}" 2>/dev/null | awk '{print $NF}')
+      fi
+      # 计算增删行：与上一轮指令文件对比
+      prev_instr=""
+      if (( RUN > 1 )); then
+        prev_instr="${CODEX_LOG_FILE%.log}.r$((RUN-1)).instructions.md"
+      else
+        # 首轮可与原始 INSTR_FILE 比较；若不可用则视为全新增
+        if [[ -f "${INSTR_FILE}" ]]; then prev_instr="${INSTR_FILE}"; fi
+      fi
+      added=0; removed=0; lines=0
+      if [[ -f "${RUN_INSTR_FILE}" ]]; then lines=$(wc -l < "${RUN_INSTR_FILE}" | awk '{print $1}'); fi
+      if [[ -n "${prev_instr}" && -f "${prev_instr}" ]]; then
+        if command -v diff >/dev/null 2>&1; then
+          # 忽略 diff 头部，仅统计 + 与 - 行
+          added=$(diff -U 0 --strip-trailing-cr "${prev_instr}" "${RUN_INSTR_FILE}" 2>/dev/null \
+            | sed -n '/^@@/,$p' | grep -E '^\+' | grep -Ev '^\+\+\+' | wc -l | awk '{print $1}')
+          removed=$(diff -U 0 --strip-trailing-cr "${prev_instr}" "${RUN_INSTR_FILE}" 2>/dev/null \
+            | sed -n '/^@@/,$p' | grep -E '^-\b' | grep -Ev '^---' | wc -l | awk '{print $1}')
+        fi
+      else
+        added="$lines"; removed=0
+      fi
+      data=$(cat <<JSON
+{"path":"${RUN_INSTR_FILE}","sha256":"${sha}","lines":${lines},"added":${added},"removed":${removed}}
+JSON
+      )
+      printf '{"event":"instructions_updated","timestamp":"%s","orchestrationId":"%s","seq":%s,"data":%s}\n' "$ts" "$job_id" "$seq" "$data" >>"${events_file}"
+      # 在 job.log 打印简短摘要
+      echo "Instructions sha256: ${sha} (lines=${lines}, +${added}/-${removed})" >> "${CODEX_LOG_FILE}"
+    ) || true
+  fi
+
   # 日志记录
   {
     echo "--- Iteration ${RUN} ---"
@@ -565,7 +639,7 @@ while (( RUN <= MAX_RUNS )); do
   if (( CODEX_EXECUTED == 1 )) && [[ -f "${RUN_OUTPUT_FILE}" ]]; then
     codex_publish_output "${RUN_OUTPUT_FILE}" "${RUN}"
   fi
-  # Normalize last message file: ensure trailing newline
+  # Normalize last message file: ensure trailing newline to avoid parser surprises
   if [[ -f "${RUN_LAST_MSG_FILE}" ]]; then
     if declare -F ensure_trailing_newline >/dev/null 2>&1; then
       ensure_trailing_newline "${RUN_LAST_MSG_FILE}"
@@ -684,5 +758,28 @@ else
     echo "汇总记录: ${CODEX_LOG_AGGREGATE_FILE}"
     echo "JSONL 汇总: ${CODEX_LOG_AGGREGATE_JSONL_FILE}"
   fi
+fi
+
+# 追加标准完成事件到 <session>/events.jsonl（与 orchestrator 对齐的最小子集）
+if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+  (
+    set +e
+    ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+    run_dir="${CODEX_SESSION_DIR}"
+    events_file="${run_dir}/events.jsonl"; seq_file="${run_dir}/events.seq"
+    mkdir -p "${run_dir}" 2>/dev/null || true
+    if [[ ! -f "${seq_file}" ]]; then echo 0 >"${seq_file}" 2>/dev/null || true; fi
+    seq=$(cat "${seq_file}" 2>/dev/null || echo 0)
+    [[ "$seq" =~ ^[0-9]+$ ]] || seq=0
+    seq=$((seq+1)); printf '%s' "$seq" >"${seq_file}" 2>/dev/null || true
+    job_id="$(basename "${run_dir}")"
+    status_str=$([[ "${CODEX_EXIT:-1}" -eq 0 ]] && echo succeeded || echo failed)
+    # 统一字段：status、successRate（单作业恒 0 或 1）、completedTasks/failedTasks（占位）
+    data=$(cat <<JSON
+{"status":"${status_str}","exitCode":${CODEX_EXIT:-1},"classification":"${CLASSIFICATION:-}","logFile":"${CODEX_LOG_FILE}","instructionsFile":"${INSTR_FILE}","aggregateJsonl":"${CODEX_LOG_AGGREGATE_JSONL_FILE:-}","successRate":$([[ "${CODEX_EXIT:-1}" -eq 0 ]] && echo 1 || echo 0),"completedTasks":$([[ "${CODEX_EXIT:-1}" -eq 0 ]] && echo 1 || echo 0),"failedTasks":$([[ "${CODEX_EXIT:-1}" -eq 0 ]] && echo 0 || echo 1)}
+JSON
+    )
+    printf '{"event":"orchestration_completed","timestamp":"%s","orchestrationId":"%s","seq":%s,"data":%s}\n' "$ts" "$job_id" "$seq" "$data" >>"${events_file}"
+  ) || true
 fi
 exit "${CODEX_EXIT}"

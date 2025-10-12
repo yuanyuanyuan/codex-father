@@ -3,7 +3,7 @@
 check_version_param_compatibility
 if [[ -n "${VALIDATION_ERROR}" ]]; then
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Meta: ${META_FILE}"
@@ -14,6 +14,45 @@ if [[ -n "${VALIDATION_ERROR}" ]]; then
 fi
 
 compute_effective_runtime_flags
+
+# 兼容性归一化：将 --config model=gpt-5-codex-<effort> 规范化为
+# --config model=gpt-5-codex + --config model_reasoning_effort=<effort>
+normalize_model_effort_compat() {
+  local -a rebuilt=()
+  local i=0
+  local effort_seen=0
+  while (( i < ${#CODEX_GLOBAL_ARGS[@]} )); do
+    local current="${CODEX_GLOBAL_ARGS[$i]}"
+    if [[ "$current" == "--config" ]] && (( i + 1 < ${#CODEX_GLOBAL_ARGS[@]} )); then
+      local kv="${CODEX_GLOBAL_ARGS[$((i+1))]}"
+      local key="${kv%%=*}"
+      local val="${kv#*=}"
+      if [[ "$key" == "model_reasoning_effort" ]]; then
+        effort_seen=1
+      fi
+      # 仅对 gpt-5-codex-<effort> 进行安全拆分
+      if [[ "$key" == "model" && "$val" =~ ^(gpt-5-codex)-(minimal|low|medium|high)$ ]]; then
+        local base="${BASH_REMATCH[1]}"; local eff="${BASH_REMATCH[2]}"
+        rebuilt+=("--config" "model=${base}")
+        # 若未看到已有的 effort 配置，再追加一条
+        if (( effort_seen == 0 )); then
+          rebuilt+=("--config" "model_reasoning_effort=${eff}")
+          effort_seen=1
+        fi
+        i=$((i+2))
+        continue
+      fi
+      rebuilt+=("--config" "$kv")
+      i=$((i+2))
+      continue
+    fi
+    rebuilt+=("$current")
+    i=$((i+1))
+  done
+  CODEX_GLOBAL_ARGS=("${rebuilt[@]}")
+}
+
+normalize_model_effort_compat
 
 # 组合规则（叠加语义）
 STDIN_USED=0
@@ -170,7 +209,7 @@ ESTIMATED_TOKENS=$(estimate_instruction_tokens "${INSTRUCTIONS}")
 
 if (( ESTIMATED_TOKENS > INPUT_TOKEN_LIMIT )); then
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Meta: ${META_FILE}"
@@ -200,7 +239,7 @@ fi
 # 如果早前检测到参数冲突，则现在写入日志并退出
 if [[ -n "${VALIDATION_ERROR}" ]]; then
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Meta: ${META_FILE}"
@@ -250,7 +289,7 @@ fi
 ## 重新组合指令（如 lib 已提供则不覆盖）
 if ! declare -F compose_instructions >/dev/null 2>&1; then
   compose_instructions() {
-    local ts_iso; ts_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local ts_iso; ts_iso=$(date +"%Y-%m-%dT%H:%M:%S%:z")
     SOURCE_LINES=()
     local sections=""
     if [[ -n "${PREPEND_FILE}" && -f "${PREPEND_FILE}" ]]; then
@@ -264,7 +303,7 @@ if ! declare -F compose_instructions >/dev/null 2>&1; then
       local _pv; _pv=$(printf '%s' "${PREPEND_CONTENT}" | tr '\n' ' ' | cut -c1-80)
       SOURCE_LINES+=("Prepend text: ${_pv}...")
     fi
-    # In patch mode, skip base instructions to avoid conflicts
+    # 当处于补丁模式时，跳过 base 指令以避免与 policy-note 冲突
     if (( ${PATCH_MODE:-0} == 1 )); then
       SOURCE_LINES+=("Base: skipped due to patch-mode")
     else
@@ -277,7 +316,7 @@ if ! declare -F compose_instructions >/dev/null 2>&1; then
         stdin)           base_content="${STDIN_CONTENT}" ;;
         default-builtin|*) base_content="${DEFAULT_INSTRUCTIONS}" ;;
       esac
-      sections+=$'\n'"<instructions-section type=\"base\" source=\"${BASE_SOURCE_KIND}\" desc=\"${base_desc}\" path=\"${DEFAULT_INSTRUCTIONS_FILE}\">"$'\n'
+      sections+=$'\n'"<instructions-section type=\"base\" source=\"${BASE_SOURCE_KIND}\" desc=\"${BASE_SOURCE_DESC}\" path=\"${DEFAULT_INSTRUCTIONS_FILE}\">"$'\n'
       sections+="${base_content}"$'\n''</instructions-section>'$'\n'
       SOURCE_LINES+=("Base: ${base_desc}")
     fi
@@ -351,7 +390,7 @@ fi
 
 # 写入日志头部
   {
-    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} ====="
+    echo "===== Codex Run Start: ${TS}${TAG_SUFFIX} (${TS_DISPLAY:-${TS}}) ====="
     echo "Script: $(basename "$0")  PWD: $(pwd)"
   echo "Log: ${CODEX_LOG_FILE}"
   echo "Instructions: ${INSTR_FILE}"
@@ -359,6 +398,21 @@ fi
   echo "Patch Mode: $([[ ${PATCH_MODE} -eq 1 ]] && echo on || echo off)"
   if [[ -n "${DFA_NOTE:-}" ]]; then echo "[arg-normalize] ${DFA_NOTE}"; fi
   if [[ -n "${APPROVAL_NOTE:-}" ]]; then echo "[arg-normalize] ${APPROVAL_NOTE}"; fi
+  if [[ -n "${MODEL_NOTE:-}" ]]; then echo "[arg-check] ${MODEL_NOTE}"; fi
+  if [[ -n "${FLAT_LOGS_NOTE:-}" ]]; then echo "${FLAT_LOGS_NOTE}"; fi
+  if (( PATCH_MODE == 1 )); then
+    echo "[hint] 已启用补丁模式：如不需要仅输出补丁，请移除 --patch-mode"
+    if (( PATCH_CAPTURE_ARTIFACT == 1 )); then
+      echo "[hint] 补丁输出写入 ${PATCH_ARTIFACT_FILE}，日志仅保留预览（可用 --no-patch-artifact 关闭）。"
+      if [[ "${PATCH_PREVIEW_LINES}" == "0" ]]; then
+        echo "[hint] 已通过 --no-patch-preview 禁用补丁回显。"
+      else
+        echo "[hint] 补丁预览行数: ${PATCH_PREVIEW_LINES}（可用 --patch-preview-lines 调整）。"
+      fi
+    else
+      echo "[hint] 已禁用补丁落盘，日志会完整回显 diff；可用 --patch-output 指定文件。"
+    fi
+  fi
 } >> "${CODEX_LOG_FILE}"
 RUN_LOGGED=1
 
@@ -440,6 +494,8 @@ fi
       echo "----- End Invocation Args -----"
     } >> "${CODEX_LOG_FILE}"
   fi
+  RUN_OUTPUT_FILE="${CODEX_LOG_FILE%.log}.r1.output.txt"
+  CODEX_EXECUTED=0
   if [[ ${DRY_RUN} -eq 1 ]]; then
     if [[ "${JSON_OUTPUT}" == "1" ]]; then
       echo "[DRY-RUN] 跳过 codex 执行，仅生成日志与指令文件" >> "${CODEX_LOG_FILE}"
@@ -448,36 +504,46 @@ fi
     fi
     CODEX_EXIT=0
   else
-  if ! command -v codex >/dev/null 2>&1; then
-    if [[ "${JSON_OUTPUT}" == "1" ]]; then
-      echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" >> "${CODEX_LOG_FILE}"
-    else
-      echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
-    fi
-    CODEX_EXIT=127
-  else
-    if [[ "${REDACT_ENABLE}" == "1" ]]; then
-      # 通过 STDIN 传递指令，避免参数过长问题；仅对输出做脱敏
+    if ! command -v codex >/dev/null 2>&1; then
       if [[ "${JSON_OUTPUT}" == "1" ]]; then
-        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-          | sed -u -E "${REDACT_SED_ARGS[@]}" >> "${CODEX_LOG_FILE}"
-        CODEX_EXIT=${PIPESTATUS[1]}
+        echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" >> "${CODEX_LOG_FILE}"
       else
-        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-          | sed -u -E "${REDACT_SED_ARGS[@]}" | tee -a "${CODEX_LOG_FILE}"
-        CODEX_EXIT=${PIPESTATUS[1]}
+        echo "[ERROR] codex CLI 未找到，请确认已安装并在 PATH 中。" | tee -a "${CODEX_LOG_FILE}"
       fi
+      CODEX_EXIT=127
     else
+      CODEX_EXECUTED=1
       if [[ "${JSON_OUTPUT}" == "1" ]]; then
-        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-          >> "${CODEX_LOG_FILE}"
-        CODEX_EXIT=${PIPESTATUS[1]}
+        if [[ "${REDACT_ENABLE}" == "1" ]]; then
+          printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee "${RUN_OUTPUT_FILE}" >/dev/null
+          CODEX_EXIT=${PIPESTATUS[1]}
+        else
+          printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | tee "${RUN_OUTPUT_FILE}" >/dev/null
+          CODEX_EXIT=${PIPESTATUS[1]}
+        fi
       else
-        printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-          | tee -a "${CODEX_LOG_FILE}"
-
+        if [[ "${REDACT_ENABLE}" == "1" ]]; then
+          printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee "${RUN_OUTPUT_FILE}"
+          CODEX_EXIT=${PIPESTATUS[1]}
+        else
+          printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
+            | tee "${RUN_OUTPUT_FILE}"
+          CODEX_EXIT=${PIPESTATUS[1]}
+        fi
       fi
     fi
   fi
-fi
 set -e
+if (( CODEX_EXECUTED == 1 )) && [[ -f "${RUN_OUTPUT_FILE}" ]]; then
+  codex_publish_output "${RUN_OUTPUT_FILE}" 1
+fi
+# Normalize last message file for the first run as well to avoid
+# "UTF-8 text, with no line terminators" surprises downstream
+if [[ -f "${RUN_LAST_MSG_FILE}" ]]; then
+  if declare -F ensure_trailing_newline >/dev/null 2>&1; then
+    ensure_trailing_newline "${RUN_LAST_MSG_FILE}"
+  fi
+fi

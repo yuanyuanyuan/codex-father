@@ -16,6 +16,17 @@ cmd_start() {
   local base_dir; base_dir=$(resolve_workspace_base "$cwd")
   local sess_root; sess_root=$(sessions_dir "$base_dir")
   mkdir -p "$sess_root"
+  # 兼容旧根目录：创建 .codex-father-sessions -> .codex-father/sessions 的软链接（若不存在）
+  local new_root old_root
+  new_root="$(dirname "$sess_root")/.codex-father/sessions"
+  old_root="$(dirname "$sess_root")/.codex-father-sessions"
+  if [[ "$new_root" != "$old_root" ]]; then
+    : # 非同层路径，不处理
+  else
+    if [[ -d "$new_root" && ! -e "$old_root" ]]; then
+      ln -sfn "$(basename "$new_root")" "$old_root" 2>/dev/null || true
+    fi
+  fi
   local run_dir="${sess_root}/${job_id}"
   mkdir -p "$run_dir"
 
@@ -23,36 +34,20 @@ cmd_start() {
   local agg_txt="${run_dir}/aggregate.txt"
   local agg_jsonl="${run_dir}/aggregate.jsonl"
 
-  # Launch in background
-  (
-    if [[ -n "$cwd" ]]; then cd "$cwd"; fi
-    setsid nohup env \
-      CODEX_SESSION_DIR="$run_dir" \
-      CODEX_LOG_FILE="$log_file" \
-      CODEX_LOG_AGGREGATE=1 \
-      CODEX_LOG_AGGREGATE_FILE="$agg_txt" \
-      CODEX_LOG_AGGREGATE_JSONL_FILE="$agg_jsonl" \
-      CODEX_LOG_SUBDIRS=0 \
-      "$START_SH" --log-file "$log_file" --flat-logs "${pass_args[@]}" \
-      >>"$run_dir/bootstrap.out" 2>>"$run_dir/bootstrap.err" & echo $! > "$run_dir/pid"
-  )
-
-  # Prepare initial state.json
-  local pid; pid=$(cat "$run_dir/pid" 2>/dev/null || echo "")
+  # Prepare initial state.json EARLY to avoid race with start.sh traps
   local created_at; created_at=$(now_iso)
   local updated_at="$created_at"
   local st_tag=""; [[ -n "$tag" ]] && st_tag=$(safe_tag "$tag")
   local args_json; args_json=$(build_args_json_array "${pass_args[@]}")
-
-  local state_json
   local resume_json="null"
   if [[ -n "$resume_source" ]]; then
     resume_json="\"$(json_escape_local "$resume_source")\""
   fi
-  state_json=$(cat <<EOF
+  local state_json_init
+  state_json_init=$(cat <<EOF
 {
   "id": "$(json_escape_local "$job_id")",
-  "pid": ${pid:-null},
+  "pid": null,
   "state": "running",
   "exit_code": null,
   "classification": null,
@@ -74,7 +69,62 @@ cmd_start() {
 }
 EOF
 )
-  write_state "${run_dir}/state.json" "$state_json"
+  write_state "${run_dir}/state.json" "$state_json_init"
+
+  # 初始化事件序列与写入 start 事件
+  : >"${run_dir}/events.seq" 2>/dev/null || true
+  local start_data
+  start_data=$(cat <<EOF
+{"cwd":"$(json_escape_local "${cwd:-$PWD}")","logFile":"$(json_escape_local "$log_file")","tag":"$(json_escape_local "$st_tag")","argsCount":${#pass_args[@]}}
+EOF
+)
+  append_jsonl_event "$run_dir" "start" "$start_data"
+
+  # Launch in background
+  (
+    if [[ -n "$cwd" ]]; then cd "$cwd"; fi
+    setsid nohup env \
+      CODEX_SESSION_DIR="$run_dir" \
+      CODEX_LOG_FILE="$log_file" \
+      CODEX_LOG_AGGREGATE=1 \
+      CODEX_LOG_AGGREGATE_FILE="$agg_txt" \
+      CODEX_LOG_AGGREGATE_JSONL_FILE="$agg_jsonl" \
+      CODEX_LOG_SUBDIRS=0 \
+      "$START_SH" --log-file "$log_file" --flat-logs "${pass_args[@]}" \
+      >>"$run_dir/bootstrap.out" 2>>"$run_dir/bootstrap.err" & echo $! > "$run_dir/pid"
+  )
+
+  # Update state.json with real pid (if available)
+  local pid; pid=$(cat "$run_dir/pid" 2>/dev/null || echo "")
+  if [[ -n "$pid" ]]; then
+    local state_json
+    state_json=$(cat <<EOF
+{
+  "id": "$(json_escape_local "$job_id")",
+  "pid": ${pid},
+  "state": "running",
+  "exit_code": null,
+  "classification": null,
+  "tokens_used": null,
+  "effective_sandbox": null,
+  "effective_network_access": null,
+  "effective_approval_policy": null,
+  "sandbox_bypass": null,
+  "cwd": "$(json_escape_local "${cwd:-$PWD}")",
+  "created_at": "$(json_escape_local "$created_at")",
+  "updated_at": "$(json_escape_local "$updated_at")",
+  "tag": "$(json_escape_local "${st_tag}")",
+  "log_file": "$(json_escape_local "$log_file")",
+  "meta_glob": "$(json_escape_local "${run_dir}/*.meta.json")",
+  "last_message_glob": "$(json_escape_local "${run_dir}/*.last.txt")",
+  "args": ${args_json},
+  "title": null,
+  "resumed_from": ${resume_json}
+}
+EOF
+)
+    write_state "${run_dir}/state.json" "$state_json"
+  fi
 
   if (( json_out == 1 )); then
     cat <<JSON

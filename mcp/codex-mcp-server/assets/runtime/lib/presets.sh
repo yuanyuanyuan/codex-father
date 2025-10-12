@@ -17,6 +17,10 @@ apply_preset() {
     secure)
       # Redact output by default
       REDACT_ENABLE=1
+      # Patch preview: secure preset prefers no preview unless user explicitly set
+      if [[ -z "${PATCH_PREVIEW_USER_SET:-}" ]]; then
+        PATCH_PREVIEW_LINES=0
+      fi
       ;;
     fast)
       CODEX_GLOBAL_ARGS+=("--config" 'execution.timebox_minutes=5')
