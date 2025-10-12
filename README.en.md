@@ -21,6 +21,7 @@ Language: English | [中文](README.md)
 - Async jobs with `jobId`, status/log retrieval
 - Approval modes: `untrusted`, `on-request`, `on-failure`, `never`
 - Event logging (JSONL) and session metadata
+- New: logs summary and env-driven session root
 - Strong typing with TypeScript + Zod
 
 ### MCP Tools
@@ -82,7 +83,7 @@ CLI. See: [Architecture Overview](docs/architecture/overview.en.md) and
 ```bash
 npm install -g @starkdev020/codex-father-mcp-server
 export CODEX_RUNTIME_HOME="$HOME/.codex-father-runtime"
-export CODEX_SESSIONS_HOME="$HOME/.codex-father-sessions"
+export CODEX_SESSIONS_HOME="$HOME/.codex-father-sessions"   # legacy root still supported
 mkdir -p "$CODEX_RUNTIME_HOME" "$CODEX_SESSIONS_HOME"
 CODEX_MCP_PROJECT_ROOT="$CODEX_RUNTIME_HOME" \
 CODEX_SESSIONS_ROOT="$CODEX_SESSIONS_HOME" \
@@ -102,10 +103,44 @@ Full details: [User Quick Start](docs/user/quick-start.en.md).
 - Beginner‑friendly User Guide: [docs/user/manual.en.md](docs/user/manual.en.md)
 - User docs index: [docs/user/README.en.md](docs/user/README.en.md)
 
+### Logs summary (new in v1.7)
+
+- Per‑session summary from events.jsonl:
+
+```bash
+# For start/job sessions
+node dist/core/cli/start.js logs:summary <sessionId> --text
+# Or write summary JSON to <session>/report.summary.json
+node dist/core/cli/start.js logs:summary <sessionId>
+```
+
+- Inline, multi‑session summary via logs:
+
+```bash
+# Single session
+node dist/core/cli/start.js logs <sessionId> --summary
+# Multiple sessions
+node dist/core/cli/start.js logs id1,id2,id3 --summary
+# All sessions under the configured root
+node dist/core/cli/start.js logs all --summary
+```
+
+Session root is configurable via `CODEX_SESSIONS_ROOT` (or
+`CODEX_SESSIONS_HOME`). By default it resolves to `.codex-father/sessions`. The
+legacy `.codex-father-sessions/` can be kept as a symlink for compatibility.
+
 ### First‑time tips
 
-- Models & effort: `--model gpt-5-codex` or `--model "gpt-5-codex high"`; switch
-  if backend rejects.
+- Models & effort (compat for 0.42/0.44 and 0.46):
+  - Model only: `--model gpt-5-codex`
+  - 0.46 recommended: `--model "gpt-5-codex high"` or `--model gpt-5-codex high`
+  - Legacy hyphen form auto‑normalized:
+    `--model gpt-5-codex-minimal|low|medium|high` → `model=gpt-5-codex` +
+    `model_reasoning_effort=<effort>`
+  - The same applies to `--codex-config model=...`.
+  - Only `gpt-5-codex-<effort>` is normalized; explicit `model_reasoning_effort`
+    always wins. If backend rejects with 400, switch to a supported slug or
+    adjust provider mapping.
 - Networking: restricted by default; enable via
   `--codex-config sandbox_workspace_write.network_access=true` and verify
   `effective_network_access: enabled` in `<session>/job.meta.json`.

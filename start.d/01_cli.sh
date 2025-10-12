@@ -433,8 +433,13 @@ while [[ $# -gt 0 ]]; do
       __raw_model_val="${2}"
       __model_name="${__raw_model_val}"
       __effort=""
-      # 情况 A：值本身包含空格（被调用方作为单个参数传入）
-      if [[ "${__raw_model_val}" =~ ^([^[:space:]]+)[[:space:]]+(minimal|low|medium|high)$ ]]; then
+      # 情况 A1：兼容旧写法（连字符后缀），例如 gpt-5-codex-medium
+      # 仅对 gpt-5-codex 前缀进行安全拆分，避免误伤其他合法带 -medium 的模型名
+      if [[ "${__raw_model_val}" =~ ^(gpt-5-codex)-(minimal|low|medium|high)$ ]]; then
+        __model_name="${BASH_REMATCH[1]}"; __effort="${BASH_REMATCH[2]}"
+        shift 2
+      # 情况 A2：值本身包含空格（被调用方作为单个参数传入）
+      elif [[ "${__raw_model_val}" =~ ^([^[:space:]]+)[[:space:]]+(minimal|low|medium|high)$ ]]; then
         __model_name="${BASH_REMATCH[1]}"; __effort="${BASH_REMATCH[2]}"
         shift 2
       else

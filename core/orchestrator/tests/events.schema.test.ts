@@ -28,6 +28,7 @@ describe('Stream event schema contract (T007)', () => {
       'patch_applied',
       'patch_failed',
       'patch_generation_failed',
+      'instructions_updated',
       'task_execution_summary',
       'quick_validate_passed',
       'concurrency_reduced',

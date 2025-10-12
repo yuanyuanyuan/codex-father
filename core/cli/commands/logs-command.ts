@@ -1,5 +1,10 @@
 import type { CLIParser } from '../parser.js';
 import type { CommandResult } from '../../lib/types.js';
+import {
+  resolveEventsPath as resolveEventsById,
+  resolvePatchesManifestPath as resolvePatchesById,
+  getSessionsRoot,
+} from '../../lib/paths.js';
 
 type LogsFormat = 'text' | 'json';
 
@@ -9,6 +14,7 @@ type LogsCommandOptions = {
   limit?: number | string;
   output?: string;
   patches?: boolean | string;
+  summary?: boolean | string;
 };
 
 function toLogsCommandOptions(rawOptions: Record<string, unknown> | undefined): LogsCommandOptions {
@@ -49,6 +55,13 @@ function toLogsCommandOptions(rawOptions: Record<string, unknown> | undefined): 
     const patchesValue = rawOptions['patches'];
     if (typeof patchesValue === 'boolean' || typeof patchesValue === 'string') {
       options.patches = patchesValue;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(rawOptions, 'summary')) {
+    const summaryValue = rawOptions['summary'];
+    if (typeof summaryValue === 'boolean' || typeof summaryValue === 'string') {
+      options.summary = summaryValue;
     }
   }
 
@@ -101,13 +114,7 @@ function coerceFollow(rawFollow: unknown): boolean {
   return Boolean(rawFollow);
 }
 
-function resolveEventsPath(pathModule: typeof import('node:path'), runId: string): string {
-  return pathModule.join('.codex-father', 'sessions', runId, 'events.jsonl');
-}
-
-function resolvePatchesManifestPath(pathModule: typeof import('node:path'), runId: string): string {
-  return pathModule.join('.codex-father', 'sessions', runId, 'patches', 'manifest.jsonl');
-}
+// 注意：路径解析已统一至 core/lib/paths.ts
 
 function resolveExportPath(
   pathModule: typeof import('node:path'),
@@ -222,6 +229,106 @@ function formatExtras(event: Record<string, unknown>): string {
     }
   }
   return Object.keys(extras).length > 0 ? JSON.stringify(extras) : '';
+}
+
+// 读取整个 events.jsonl 并解析为对象数组
+async function readAllEvents(
+  fs: typeof import('node:fs'),
+  readline: typeof import('node:readline'),
+  filePath: string
+): Promise<Record<string, unknown>[]> {
+  return new Promise((resolve, reject) => {
+    const out: Record<string, unknown>[] = [];
+    const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
+    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+    stream.on('error', reject);
+    rl.on('line', (line) => {
+      if (!line) {
+        return;
+      }
+      try {
+        const obj = JSON.parse(line) as Record<string, unknown>;
+        out.push(obj);
+      } catch {
+        // ignore broken line
+      }
+    });
+    rl.on('close', () => resolve(out));
+  });
+}
+
+function asString(v: unknown): string | undefined {
+  return typeof v === 'string' ? v : undefined;
+}
+function asNumber(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) ? (v as number) : undefined;
+}
+
+function buildSummaryFromEvents(
+  sessionId: string,
+  events: ReadonlyArray<Record<string, unknown>>,
+  eventsPath: string
+): Record<string, unknown> {
+  const counts: Record<string, number> = {};
+  let firstTs: string | undefined;
+  let lastTs: string | undefined;
+  let completed: Record<string, unknown> | undefined;
+  let lastInstr: Record<string, unknown> | undefined;
+  for (const e of events) {
+    const type = asString((e as any).event) ?? asString((e as any).type) ?? 'unknown';
+    counts[type] = (counts[type] ?? 0) + 1;
+    const ts = asString((e as any).timestamp);
+    if (ts) {
+      if (!firstTs) {
+        firstTs = ts;
+      }
+      lastTs = ts;
+    }
+    if (type === 'orchestration_completed') {
+      completed = e;
+    }
+    if (type === 'instructions_updated') {
+      lastInstr = e;
+    }
+  }
+  const data = (completed?.data as Record<string, unknown>) ?? {};
+  const status = asString(data.status) ?? 'unknown';
+  const exitCode = asNumber(data.exitCode);
+  const successRate = asNumber(data.successRate);
+  const completedTasks = asNumber(data.completedTasks);
+  const failedTasks = asNumber(data.failedTasks);
+  const classification = asString(data.classification);
+
+  const payload: Record<string, unknown> = {
+    sessionId,
+    eventsFile: eventsPath,
+    status,
+    ...(exitCode !== undefined ? { exitCode } : {}),
+    ...(classification ? { classification } : {}),
+    ...(successRate !== undefined ? { successRate } : {}),
+    ...(completedTasks !== undefined ? { completedTasks } : {}),
+    ...(failedTasks !== undefined ? { failedTasks } : {}),
+    timestamps: {
+      first: firstTs,
+      last: lastTs,
+      totalMs:
+        firstTs && lastTs ? Math.max(0, Date.parse(lastTs) - Date.parse(firstTs)) : undefined,
+    },
+    counts,
+  };
+
+  if (lastInstr && typeof lastInstr === 'object') {
+    const d = (lastInstr as any).data as Record<string, unknown>;
+    payload.lastInstructions = {
+      path: asString(d?.path),
+      sha256: asString(d?.sha256),
+      lines: asNumber(d?.lines),
+      added: asNumber(d?.added),
+      removed: asNumber(d?.removed),
+      timestamp: asString((lastInstr as any).timestamp),
+    };
+  }
+  return payload;
 }
 
 async function streamFollow(
@@ -414,15 +521,81 @@ export function registerLogsCommand(parser: CLIParser): void {
       const format = coerceFormat(options.format);
       const limit = coerceLimit(options.limit);
       const patches = coerceFollow(options.patches);
+      const wantSummary = coerceFollow(options.summary);
 
       const pathModule = await import('node:path');
       const fsPromises = await import('node:fs/promises');
       const fs = await import('node:fs');
       const readline = await import('node:readline');
 
-      const sourcePath = patches
-        ? resolvePatchesManifestPath(pathModule, sessionId)
-        : resolveEventsPath(pathModule, sessionId);
+      if (wantSummary) {
+        // 支持多会话：逗号分隔或关键字 all
+        let ids: string[] = [];
+        if (sessionId === 'all') {
+          try {
+            const root = getSessionsRoot();
+            const entries = await fsPromises.readdir(root, { withFileTypes: true });
+            ids = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+          } catch (error) {
+            const result: CommandResult = {
+              success: false,
+              message: `读取会话目录失败: ${(error as Error).message}`,
+              errors: [(error as Error).message],
+              executionTime: Date.now() - startTime,
+              exitCode: 3,
+            };
+            return result;
+          }
+        } else {
+          ids = sessionId
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+        }
+
+        const summaries: Array<{
+          sessionId: string;
+          summary?: Record<string, unknown>;
+          error?: string;
+        }> = [];
+        for (const id of ids) {
+          const eventsPath = resolveEventsById(id);
+          try {
+            await validateEventsPath(fsPromises, fs, eventsPath);
+            const events = await readAllEvents(fs, readline, eventsPath);
+            const payload = buildSummaryFromEvents(id, events, eventsPath);
+            summaries.push({ sessionId: id, summary: payload });
+          } catch (error) {
+            summaries.push({ sessionId: id, error: (error as Error).message });
+          }
+        }
+
+        if (!context.json) {
+          for (const s of summaries) {
+            if (s.error) {
+              process.stdout.write(`[${s.sessionId}] error: ${s.error}\n`);
+              continue;
+            }
+            const p = s.summary as Record<string, unknown>;
+            const status = String(p.status ?? 'unknown');
+            const exitCode = (p as any).exitCode;
+            const classification = (p as any).classification;
+            const successRate = (p as any).successRate;
+            process.stdout.write(
+              `id: ${s.sessionId} | status: ${status}${exitCode !== undefined ? ` | exit: ${exitCode}` : ''}${classification ? ` | class: ${classification}` : ''}${successRate !== undefined ? ` | successRate: ${successRate}` : ''}\n`
+            );
+          }
+        }
+
+        const result: CommandResult = {
+          success: true,
+          data: { summaries },
+          executionTime: Date.now() - startTime,
+        };
+        return result;
+      }
+
+      const sourcePath = patches ? resolvePatchesById(sessionId) : resolveEventsById(sessionId);
       try {
         await validateEventsPath(fsPromises, fs, sourcePath);
       } catch {
@@ -564,6 +737,11 @@ export function registerLogsCommand(parser: CLIParser): void {
         {
           flags: '--follow',
           description: '持续跟随日志输出（tail -f）',
+          defaultValue: false,
+        },
+        {
+          flags: '--summary',
+          description: '就地生成会话摘要（支持 id1,id2 或 all）',
           defaultValue: false,
         },
         {

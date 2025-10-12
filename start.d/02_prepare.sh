@@ -15,6 +15,45 @@ fi
 
 compute_effective_runtime_flags
 
+# 兼容性归一化：将 --config model=gpt-5-codex-<effort> 规范化为
+# --config model=gpt-5-codex + --config model_reasoning_effort=<effort>
+normalize_model_effort_compat() {
+  local -a rebuilt=()
+  local i=0
+  local effort_seen=0
+  while (( i < ${#CODEX_GLOBAL_ARGS[@]} )); do
+    local current="${CODEX_GLOBAL_ARGS[$i]}"
+    if [[ "$current" == "--config" ]] && (( i + 1 < ${#CODEX_GLOBAL_ARGS[@]} )); then
+      local kv="${CODEX_GLOBAL_ARGS[$((i+1))]}"
+      local key="${kv%%=*}"
+      local val="${kv#*=}"
+      if [[ "$key" == "model_reasoning_effort" ]]; then
+        effort_seen=1
+      fi
+      # 仅对 gpt-5-codex-<effort> 进行安全拆分
+      if [[ "$key" == "model" && "$val" =~ ^(gpt-5-codex)-(minimal|low|medium|high)$ ]]; then
+        local base="${BASH_REMATCH[1]}"; local eff="${BASH_REMATCH[2]}"
+        rebuilt+=("--config" "model=${base}")
+        # 若未看到已有的 effort 配置，再追加一条
+        if (( effort_seen == 0 )); then
+          rebuilt+=("--config" "model_reasoning_effort=${eff}")
+          effort_seen=1
+        fi
+        i=$((i+2))
+        continue
+      fi
+      rebuilt+=("--config" "$kv")
+      i=$((i+2))
+      continue
+    fi
+    rebuilt+=("$current")
+    i=$((i+1))
+  done
+  CODEX_GLOBAL_ARGS=("${rebuilt[@]}")
+}
+
+normalize_model_effort_compat
+
 # 组合规则（叠加语义）
 STDIN_USED=0
 STDIN_CONTENT=""
@@ -500,4 +539,11 @@ fi
 set -e
 if (( CODEX_EXECUTED == 1 )) && [[ -f "${RUN_OUTPUT_FILE}" ]]; then
   codex_publish_output "${RUN_OUTPUT_FILE}" 1
+fi
+# Normalize last message file for the first run as well to avoid
+# "UTF-8 text, with no line terminators" surprises downstream
+if [[ -f "${RUN_LAST_MSG_FILE}" ]]; then
+  if declare -F ensure_trailing_newline >/dev/null 2>&1; then
+    ensure_trailing_newline "${RUN_LAST_MSG_FILE}"
+  fi
 fi

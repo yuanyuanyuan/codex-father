@@ -3,6 +3,7 @@ import type { CommandResult } from '../../lib/types.js';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { getSessionsRoot } from '../../lib/paths.js';
 import { getConfig } from '../config-loader.js';
 import { ProcessOrchestrator } from '../../orchestrator/process-orchestrator.js';
 import { TaskDecomposer } from '../../orchestrator/task-decomposer.js';
@@ -273,7 +274,7 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
 
       // 3) 准备任务并执行编排
       const orchestrationId = `orc_${uuidv4()}`;
-      const sessionDir = path.resolve('.codex-father', 'sessions', orchestrationId);
+      const sessionDir = path.join(getSessionsRoot(), orchestrationId);
       const eventsFile = path.join(sessionDir, 'events.jsonl');
 
       // 使用 StateManager + EventLogger 统一写入 JSONL（0600）并保留脱敏管线
@@ -304,10 +305,12 @@ export function registerOrchestrateCommand(parser: CLIParser): void {
         logEvent: (record: Record<string, unknown>) => unknown | Promise<unknown>;
       };
 
+      // 传入 sessionDir 以便 StateManager 将快照持久化至 <sessionDir>/state.json
       const stateManager = new StateManager({
         orchestrationId,
         eventLogger: bridgeLogger,
         redactionPatterns: Array.from(redactionPatterns),
+        sessionDir, // 确保 schedulePersist() 能落盘 state.json，避免会话状态长期停留在 running
       });
 
       const taskTimeoutMs = taskTimeout * 60_000;

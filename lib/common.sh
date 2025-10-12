@@ -47,6 +47,41 @@ compress_context_file() {
   } > "$out_file"
 }
 
+# Precise detection for real context/token overflow signals
+# Avoid false positives from config names like CODEX_ECHO_INSTRUCTIONS_LIMIT
+detect_context_overflow_in_files() {
+  # Usage: detect_context_overflow_in_files <file1> [file2 ...]
+  # Returns 0 if any line in the given files strongly indicates a real
+  # context/token overflow from the model/runtime; otherwise returns 1.
+  local -a files=()
+  local f
+  for f in "$@"; do
+    [[ -n "$f" && -f "$f" ]] && files+=("$f")
+  done
+  (( ${#files[@]} > 0 )) || return 1
+
+  # Curated positive patterns (case-insensitive, extended regex)
+  # Examples captured:
+  #  - "maximum context length exceeded", "context length exceeded"
+  #  - "token limit exceeded", "over the token limit"
+  #  - "prompt too long/large", "exceeds context window/size"
+  local POS_RE='(maximum[[:space:]]+(context|prompt)([[:space:]]+(length|size|window))?'\
+               '|(context|prompt)[[:space:]]+(length|size|window)[[:space:]]+(exceed(ed)?|exceeding|over(flow)?|too[[:space:]]+(long|large))'\
+               '|token(s)?[[:space:]]+(limit|window|quota)[[:space:]]+(exceed(ed)?|exceeding|over)'\
+               '|(exceed(ed)?|exceeds|over(flow)?)[[:space:]]+(the[[:space:]]+)?(context|token)(s)?([[:space:]]+(limit|window|length|size))?'\
+               '|prompt[[:space:]]+too[[:space:]]+(long|large)'\
+               '|context[[:space:]]+length[[:space:]]+exceed(ed)?)'
+
+  # Known noisy lines to exclude (config, flags, docs text)
+  local EXCL_RE='(CODEX_ECHO_INSTRUCTIONS_LIMIT|INPUT_TOKEN_LIMIT|--no-carry-context|carry-context|no-carry-context|Composed Instructions|instructions|令牌预算|tokens=|≤[0-9]+[[:space:]]*tokens)'
+
+  # Scan files; require match of POS_RE and not EXCL_RE on the same line
+  if grep -Eis "$POS_RE" "${files[@]}" | grep -Eiv "$EXCL_RE" >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
 # Compose final instructions with explicit section wrappers
 compose_instructions() {
   local ts_iso; ts_iso=$(date +"%Y-%m-%dT%H:%M:%S%:z")
@@ -128,14 +163,29 @@ compose_instructions() {
   INSTRUCTIONS=$'<user-instructions>\n['"${ts_iso}"$'] Composed instructions:\n\n'"${sections}"$'\n</user-instructions>\n'
 }
 
+# Ensure the target file ends with a trailing newline (idempotent)
+ensure_trailing_newline() {
+  local f="$1"
+  [[ -n "$f" && -f "$f" ]] || return 0
+  # Read last byte; if not a newline, append one
+  local last
+  last=$(tail -c 1 "$f" 2>/dev/null || true)
+  if [[ -z "$last" || "$last" != $'\n' ]]; then
+    printf '\n' >> "$f"
+  fi
+}
+
 # Detect control flags and classify exit conditions
 classify_exit() {
   local last_msg_file="$1"; local log_file="$2"; local code="$3"
   CLASSIFICATION="normal"; CONTROL_FLAG=""; EXIT_REASON=""; TOKENS_USED=""
   # Control flag
   if [[ -f "$last_msg_file" ]]; then
-    if grep -Eq 'CONTROL:[[:space:]]*DONE' "$last_msg_file"; then CONTROL_FLAG="DONE"; fi
-    if [[ -z "$CONTROL_FLAG" ]] && grep -Eq 'CONTROL:[[:space:]]*CONTINUE' "$last_msg_file"; then CONTROL_FLAG="CONTINUE"; fi
+    # Normalize to avoid false positives when "CONTROL: DONE" appears inside a sentence
+    # Only treat it as a signal when it occupies a whole line (trimmed)
+    # Anchored patterns: ^\s*CONTROL:\s*DONE\s*$ (and CONTINUE)
+    if grep -Eq '^[[:space:]]*CONTROL:[[:space:]]*DONE[[:space:]]*$' "$last_msg_file"; then CONTROL_FLAG="DONE"; fi
+    if [[ -z "$CONTROL_FLAG" ]] && grep -Eq '^[[:space:]]*CONTROL:[[:space:]]*CONTINUE[[:space:]]*$' "$last_msg_file"; then CONTROL_FLAG="CONTINUE"; fi
   fi
   # Tokens used
   if [[ -f "$log_file" ]]; then
@@ -176,7 +226,7 @@ classify_exit() {
     # 显式识别“模型不支持/无效模型”之类的配置错误
     elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='config_error'; EXIT_REASON='Unsupported or invalid model'
-    elif grep -Eqi '(context|token).*(limit|overflow|exceed|max|length|truncat|too (long|large))|maximum context|prompt too large' "$log_file" "$last_msg_file" 2>/dev/null; then
+    elif detect_context_overflow_in_files ${log_file:+"$log_file"} ${last_msg_file:+"$last_msg_file"}; then
       CLASSIFICATION='context_overflow'; EXIT_REASON='Context or token limit exceeded'
     elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='approval_required'; EXIT_REASON='Approval policy blocked a command'

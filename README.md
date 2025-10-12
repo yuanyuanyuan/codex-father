@@ -277,11 +277,17 @@ npm run rmcp:client -- --help
 
 ### 首次使用快速提示（避免常见坑）
 
-- 模型与推理力度：
+- 模型与推理力度（兼容 0.42/0.44 与 0.46）：
   - 仅模型：`--model gpt-5-codex`
-  - 模型+推理力度：`--model "gpt-5-codex high"` 或 `--model gpt-5-codex high`
-  - 若后端报 400 Unsupported model，日志/元数据会显示
-    `classification=config_error`，请改用后端支持的模型或调整 provider 映射。
+  - 0.46 推荐：`--model "gpt-5-codex high"` 或 `--model gpt-5-codex high`
+  - 旧写法自动兼容：`--model gpt-5-codex-minimal|low|medium|high`
+    - 运行时将被拆分为 `model=gpt-5-codex` 与 `model_reasoning_effort=<effort>`
+  - 旧写法同样适用于 `--codex-config` 注入：
+    - `--codex-config model=gpt-5-codex-medium` → `model=gpt-5-codex` +
+      `model_reasoning_effort=medium`
+  - 仅对 `gpt-5-codex-<effort>` 进行安全拆分（不会影响其它包含 `-medium`
+    的模型名）；若已显式提供 `model_reasoning_effort`，以显式值为准。
+  - 若后端报 400 Unsupported model，请改用后端支持的模型或调整 provider 映射。
 - 联网开关：
   - 默认网络为
     `restricted`；需要联网时添加：`--codex-config sandbox_workspace_write.network_access=true`
@@ -665,3 +671,29 @@ Codex Father 可以帮您：
      `npx codex-father start --help`，若可正常输出帮助信息即表示包内脚本可被分发与调用
   4. 可选：设置 `CODEX_START_SH`/`CODEX_JOB_SH`
      指向自定义路径再次运行，验证环境变量覆盖是否生效
+
+### 📊 日志摘要（v1.7 新增）
+
+- 基于 events.jsonl 生成会话摘要：
+
+```bash
+# 适用于 start/job 会话
+node dist/core/cli/start.js logs:summary <sessionId> --text
+# 或写入 <session>/report.summary.json
+node dist/core/cli/start.js logs:summary <sessionId>
+```
+
+- 就地多会话统计：
+
+```bash
+# 单会话
+node dist/core/cli/start.js logs <sessionId> --summary
+# 多会话（逗号分隔）
+node dist/core/cli/start.js logs id1,id2,id3 --summary
+# 全部会话（在当前会话根下）
+node dist/core/cli/start.js logs all --summary
+```
+
+会话根目录可通过环境变量配置：`CODEX_SESSIONS_ROOT`（或
+`CODEX_SESSIONS_HOME`）。默认为 `.codex-father/sessions`；如需兼容历史数据，可将
+`.codex-father-sessions/` 建立为指向新根的软链。

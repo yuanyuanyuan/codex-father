@@ -215,6 +215,49 @@ print_unknown_arg_help() {
   local u_tokens; IFS='-' read -r -a u_tokens <<< "$u"
   local scored=()
   local f
+  # 定制化高频错参提示（严格失败，不做同义词映射）
+  if [[ "$u" == "context" ]]; then
+    {
+      echo "❌ 未知参数: ${unknown}"
+      echo "💡 本 CLI 没有 --context，请按目的选择："
+      echo "   1) 仅保留历史前 N 行：--context-head <N>（如 200）"
+      echo "   2) 只携带匹配片段：--context-grep <正则>（如 \"(README|CHANGELOG)\"）"
+      echo "👉 示例：--task \"修复问题\" --context-head 200"
+      echo "👉 示例：--task \"修复问题\" --context-grep \"(README|CHANGELOG)\""
+      echo "📖 运行 --help 查看完整参数列表"
+    } >&2
+    if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+      local _ts; _ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+      printf '{"eventId":"unknown_arg","timestamp":"%s","flag":"%s","suggest":"context-head|context-grep"}\n' "${_ts}" "${unknown}" >> "${CODEX_SESSION_DIR}/events.jsonl" 2>/dev/null || true
+    fi
+    return
+  fi
+  if [[ "$u" == "goal" ]]; then
+    {
+      echo "❌ 未知参数: ${unknown}"
+      echo "💡 请改用 --task <文本> 传递目标/任务说明"
+      echo "👉 示例：--task \"修复 T003：补齐迁移脚本并通过测试\""
+      echo "📖 运行 --help 查看完整参数列表"
+    } >&2
+    if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+      local _ts; _ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+      printf '{"eventId":"unknown_arg","timestamp":"%s","flag":"%s","suggest":"task"}\n' "${_ts}" "${unknown}" >> "${CODEX_SESSION_DIR}/events.jsonl" 2>/dev/null || true
+    fi
+    return
+  fi
+  if [[ "$u" == "notes" ]]; then
+    {
+      echo "❌ 未知参数: ${unknown}"
+      echo "💡 可将补充说明写入指令尾部：--append <文本>（建议加前缀 Notes:）"
+      echo "👉 示例：--task \"修复 T003\" --append \"Notes: 需关注回滚脚本\""
+      echo "📖 运行 --help 查看完整参数列表"
+    } >&2
+    if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+      local _ts; _ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+      printf '{"eventId":"unknown_arg","timestamp":"%s","flag":"%s","suggest":"append"}\n' "${_ts}" "${unknown}" >> "${CODEX_SESSION_DIR}/events.jsonl" 2>/dev/null || true
+    fi
+    return
+  fi
   for f in "${KNOWN_FLAGS[@]}"; do
     local clean=${f#--}; clean=${clean#-}
     local score=0
@@ -235,8 +278,14 @@ print_unknown_arg_help() {
     echo "❌ 未知参数: ${unknown}"
     echo "💡 是否想使用以下参数？"
     local s; for s in "${suggestions[@]}"; do flag_help_line "$s"; done | sed 's/^/   /'
+    echo "🔎 如果你是直接把一句话当作参数传入，请改为显式写法：--task \"<文本>\"。"
     echo "📖 运行 --help 查看完整参数列表"
   } >&2
+  if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+    local _ts; _ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+    local first_suggest="${suggestions[0]:-}"
+    printf '{"eventId":"unknown_arg","timestamp":"%s","flag":"%s","suggest":"%s"}\n' "${_ts}" "${unknown}" "${first_suggest}" >> "${CODEX_SESSION_DIR}/events.jsonl" 2>/dev/null || true
+  fi
 }
 
 expand_arg_to_files() {

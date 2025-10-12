@@ -211,7 +211,8 @@ safe_classify() {
     # 输入/用法错误优先
     if grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|用法:[[:space:]]*start\.sh|Usage:[[:space:]]*start\.sh|用法:|Usage:)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='input_error'
-    elif grep -Eqi 'context|token|length|too long|exceed|truncat' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
+    elif declare -F detect_context_overflow_in_files >/dev/null 2>&1 \
+         && detect_context_overflow_in_files ${log_file:+"$log_file"} ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"}; then
       SC_CLASSIFICATION='context_overflow'
     elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
       SC_CLASSIFICATION='approval_required'

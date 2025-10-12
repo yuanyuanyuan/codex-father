@@ -17,6 +17,7 @@
 
 import { MCPTool, MCPToolsCallResult } from './protocol/types.js';
 import { v4 as uuidv4 } from 'uuid';
+import { getSessionsRoot, resolveSessionDir } from '../lib/paths.js';
 import {
   ApprovalRequest,
   ApprovalType,
@@ -560,8 +561,10 @@ export async function registerDiagnosticTools(bridge: BridgeLayer): Promise<void
     if (!sessionId || typeof sessionId !== 'string') {
       throw new Error('Invalid tool parameters: sessionId is required and must be a string');
     }
-    const root = typeof baseDir === 'string' && baseDir.trim() ? baseDir.trim() : process.cwd();
-    const sessionDir = path.join(root, '.codex-father', 'sessions', sessionId);
+    const hasBase = typeof baseDir === 'string' && baseDir.trim().length > 0;
+    const sessionDir = hasBase
+      ? path.join(path.resolve(String(baseDir)), '.codex-father', 'sessions', sessionId)
+      : resolveSessionDir(sessionId);
     const report = path.join(sessionDir, 'report.json');
     const events = path.join(sessionDir, 'events.jsonl');
     // Validate existence (do not throw if missing, return existence flags)
@@ -689,11 +692,14 @@ export async function registerDiagnosticTools(bridge: BridgeLayer): Promise<void
       properties: { baseDir: { type: 'string' } },
     },
     async (params) => {
-      const base = (params as { baseDir?: string })?.baseDir || process.cwd();
-      const sessRoot = path.join(base, '.codex-father', 'sessions');
+      const baseDir = (params as { baseDir?: string })?.baseDir;
+      const sessRoot =
+        baseDir && baseDir.trim().length > 0
+          ? path.join(path.resolve(baseDir), '.codex-father', 'sessions')
+          : getSessionsRoot();
       const entries = await fs.readdir(sessRoot).catch(() => [] as string[]);
-      const ids = entries.filter((n) => n.startsWith('orc_'));
-      return { status: 'ok', baseDir: base, sessionRoot: sessRoot, sessionIds: ids };
+      const ids = entries.filter((n) => n && typeof n === 'string');
+      return { status: 'ok', baseDir: baseDir ?? null, sessionRoot: sessRoot, sessionIds: ids };
     }
   );
 
@@ -703,8 +709,11 @@ export async function registerDiagnosticTools(bridge: BridgeLayer): Promise<void
     'Return latest session directory by mtime',
     { type: 'object', properties: { baseDir: { type: 'string' } } },
     async (params) => {
-      const base = (params as { baseDir?: string })?.baseDir || process.cwd();
-      const sessRoot = path.join(base, '.codex-father', 'sessions');
+      const baseDir = (params as { baseDir?: string })?.baseDir;
+      const sessRoot =
+        baseDir && baseDir.trim().length > 0
+          ? path.join(path.resolve(baseDir), '.codex-father', 'sessions')
+          : getSessionsRoot();
       const entries = await fs.readdir(sessRoot).catch(() => [] as string[]);
       let best: { id: string; mtimeMs: number } | null = null;
       for (const id of entries) {
@@ -716,7 +725,7 @@ export async function registerDiagnosticTools(bridge: BridgeLayer): Promise<void
           }
         }
       }
-      return { status: 'ok', sessionId: best?.id ?? null };
+      return { status: 'ok', sessionId: best?.id ?? null, sessionRoot: sessRoot };
     }
   );
 

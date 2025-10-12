@@ -30,6 +30,67 @@ export async function handleStart(
   applyConvenienceOptions(args, params);
   const isStub = !!process.env.CODEX_START_SH;
 
+  // 严格模式：在 MCP 边界提前拦截高频错参（不做同义词映射，仅给出改写建议）
+  const lowerFlags = args.map((a) => a.trim());
+  const badFlags = new Set([
+    '--context',
+    '-context',
+    '--goal',
+    '-goal',
+    '--notes',
+    '-notes',
+    '--config',
+  ]);
+  for (let i = 0; i < lowerFlags.length; i++) {
+    const a = lowerFlags[i];
+    if (badFlags.has(a)) {
+      const flag = a;
+      let message = `检测到不受支持的参数：${flag}`;
+      let hint = '';
+      let examples: Array<string> = [];
+      if (flag.includes('context')) {
+        message += '。本 CLI 不支持 --context 总控。';
+        hint = '请根据目的改用 --context-head 或 --context-grep。';
+        examples = [
+          'args: ["--task","修复问题","--context-head","200"]',
+          'args: ["--task","修复问题","--context-grep","(README|CHANGELOG)"]',
+        ];
+      } else if (flag.includes('goal')) {
+        hint = '请改用 --task <文本> 传递任务说明。';
+        examples = ['args: ["--task","修复 T003：补齐迁移脚本并通过测试"]'];
+      } else if (flag.includes('notes')) {
+        hint = '请改用 --append <文本> 追加备注（建议加前缀 Notes:）。';
+        examples = ['args: ["--task","修复 T003","--append","Notes: 需关注回滚脚本"]'];
+      } else if (flag.includes('config')) {
+        message += '。start.sh 层不接受 --config。';
+        hint = '请改用 --codex-config key=value，或在 MCP 参数 codexConfig 中传对象。';
+        examples = [
+          'args: ["--task","示例","--codex-config","model=gpt-5-codex-medium"]',
+          'codexConfig: {"model":"gpt-5-codex-medium"}',
+        ];
+      }
+      const exampleArgs = flag.includes('context')
+        ? ['--task', '修复问题', '--context-head', '200']
+        : flag.includes('goal')
+          ? ['--task', '修复 T003：补齐迁移脚本并通过测试']
+          : flag.includes('notes')
+            ? ['--task', '修复 T003', '--append', 'Notes: 需关注回滚脚本']
+            : ['--task', '示例', '--codex-config', 'model=gpt-5-codex-medium'];
+      return createErrorResult({
+        code: 'INVALID_ARGUMENTS',
+        message,
+        hint,
+        example: {
+          name: 'codex.start',
+          arguments: flag.includes('config')
+            ? { args: exampleArgs, codexConfig: { model: 'gpt-5-codex-medium' } }
+            : { args: exampleArgs },
+        },
+        details: { flag, suggestions: examples },
+      });
+    }
+  }
+
   if (isStub) {
     let outPath = '';
     for (let i = 0; i < args.length - 1; i++) {

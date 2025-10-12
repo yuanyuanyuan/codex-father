@@ -19,7 +19,41 @@
 
 ---
 
-## [Unreleased] — 2025-10-08
+## v1.7.0 — 2025-10-12
+
+本次版本聚焦“可观测性 + 变量化根路径 + 低噪声日志”。
+
+### ✨ 新增
+
+- logs:summary（按会话生成摘要）：从 `events.jsonl` 生成 `report.summary.json`，并支持 `--text` 预览。
+- logs --summary（就地多会话预览）：支持 `id1,id2` 或 `all` 汇总多会话关键信息。
+- 事件枚举补充：`instructions_updated`（记录指令快照 path/sha256/行数/增删行）。
+- 自检脚本：`scripts/validate-session.sh` 检查 `events.jsonl` 起止事件与 `state.json` 闭合。
+
+### ♻️ 改进
+
+- 变量化会话根目录：新增 `core/lib/paths.ts`，统一解析 `CODEX_SESSIONS_ROOT`（或 `CODEX_SESSIONS_HOME`），默认回退 `.codex-father/sessions`。
+- CLI 与 MCP 工具接入变量：`orchestrate`、`logs`、`logs:summary`、`read-session-artifacts`、`list-sessions`、`get-latest-session`。
+- 异步作业链路写入标准事件：`start` 与 `orchestration_completed`，确保最小可复盘事件闭环。
+- 指令降噪：默认不再把“合成指令全文”贴入 `job.log`；改为 `instructions_updated` 事件 + `sha` 摘要；可通过 `CODEX_ECHO_INSTRUCTIONS=1` 或 `--echo-instructions --echo-limit 0` 恢复全文回显。
+
+### 🐛 修复
+
+- `state.json` 可能停留在 `running` 的情况：编排与作业在结束路径统一落盘最终状态（completed/failed/cancelled）。
+
+### 🔧 升级与兼容性
+
+- 历史 `.codex-father-sessions/` 依然可用：建议将其做为软链指向 `.codex-father/sessions/`；或直接通过 `CODEX_SESSIONS_ROOT` 指向历史根。
+- 若依赖 `job.log` 中的“合成指令全文”，请显式开启回显或改为消费 `instructions_updated` 事件与快照文件。
+
+### 📚 文档
+
+- README（中英）补充 `logs:summary` 与 `logs --summary` 用法、变量根路径说明。
+- `docs/user/manual*.md`、`docs/user/configuration*.md` 均已注明 `CODEX_SESSIONS_ROOT` 为推荐入口，历史变量 `CODEX_SESSIONS_HOME` 仍兼容。
+
+---
+
+## [Unreleased]
 
 本节总结自上次发布以来的新增与改进，重点聚焦“更强可观测、更稳诊断、可读摘要”的交付。
 

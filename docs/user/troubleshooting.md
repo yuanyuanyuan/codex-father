@@ -173,6 +173,13 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 - Codex Father CLI 仅接受 `--task`、`-f/--file`、`--docs`、`--docs-dir` 等白名单参数来注入任务说明。
 - 自定义开关（例如 `--notes`、`--files`）或裸文本会被参数解析器识别为未知参数并立即终止。
 
+**速查卡（错→对）**：
+
+- `--context 200` → `--context-head 200`（保留历史前 200 行）
+- `--context "(README|CHANGELOG)"` → `--context-grep "(README|CHANGELOG)"`
+- `--goal "修复 T003"` → `--task "修复 T003"`
+- `--notes "补充说明..."` → `--append "Notes: 补充说明..."`
+
 **解决**：
 
 1. 始终通过 `--task "..."` 或 `-f/--file`、`--docs` 系列参数提供任务输入，推荐再加 `--tag <批次>`。

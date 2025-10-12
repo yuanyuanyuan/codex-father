@@ -565,6 +565,12 @@ while (( RUN <= MAX_RUNS )); do
   if (( CODEX_EXECUTED == 1 )) && [[ -f "${RUN_OUTPUT_FILE}" ]]; then
     codex_publish_output "${RUN_OUTPUT_FILE}" "${RUN}"
   fi
+  # Normalize last message file: ensure trailing newline
+  if [[ -f "${RUN_LAST_MSG_FILE}" ]]; then
+    if declare -F ensure_trailing_newline >/dev/null 2>&1; then
+      ensure_trailing_newline "${RUN_LAST_MSG_FILE}"
+    fi
+  fi
   {
     echo "----- End Codex Output (iteration ${RUN}) -----"
     echo "Exit Code: ${CODEX_EXIT}"

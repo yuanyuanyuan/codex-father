@@ -77,6 +77,34 @@ sessions_dir() {
   printf '%s' "${candidates[0]}"
 }
 
+# 追加一条 events.jsonl 事件（最小统一格式）
+# Usage: append_jsonl_event <run_dir> <event> [data_json]
+append_jsonl_event() {
+  local run_dir="$1"; shift || true
+  local evt="$1"; shift || true
+  local data_json="${1:-"{}"}"
+  [[ -n "$run_dir" && -n "$evt" ]] || return 0
+  local events_file="${run_dir}/events.jsonl"
+  local seq_file="${run_dir}/events.seq"
+  umask 077
+  mkdir -p "$run_dir" 2>/dev/null || true
+  if [[ ! -f "$seq_file" ]]; then echo 0 >"$seq_file" 2>/dev/null || true; fi
+  # shellcheck disable=SC2155
+  local seq; seq=$(cat "$seq_file" 2>/dev/null || echo 0)
+  if [[ ! "$seq" =~ ^[0-9]+$ ]]; then seq=0; fi
+  seq=$((seq+1))
+  printf '%s' "$seq" >"$seq_file" 2>/dev/null || true
+  local ts; ts=$(now_iso)
+  local job_id; job_id="$(basename "$run_dir")"
+  # data_json 允许调用方传入已是 JSON 对象的字符串
+  local line
+  line=$(cat <<EOF
+{"event":"${evt}","timestamp":"${ts}","orchestrationId":"${job_id}","seq":${seq},"data":${data_json}}
+EOF
+)
+  printf '%s\n' "$line" >> "$events_file"
+}
+
 resolve_workspace_base() {
   # Usage: resolve_workspace_base [cwd_override]
   local explicit="${1:-}"
@@ -210,7 +238,8 @@ safe_classify() {
     # 输入/参数错误优先识别，避免误判为网络/鉴权
     if grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|错误:[[:space:]]+--[A-Za-z0-9_-]+[[:space:]]*需要|用法:[[:space:]]*start\.sh|Usage:[[:space:]]*start\.sh)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='input_error'
-    elif grep -Eqi 'context|token|length|too long|exceed|truncat' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
+    elif declare -F detect_context_overflow_in_files >/dev/null 2>&1 \
+         && detect_context_overflow_in_files ${log_file:+"$log_file"} ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"}; then
       SC_CLASSIFICATION='context_overflow'
     elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" ${last_msg_file:+"$last_msg_file"} ${err_file:+"$err_file"} 2>/dev/null; then
       SC_CLASSIFICATION='approval_required'

@@ -16,6 +16,17 @@ cmd_start() {
   local base_dir; base_dir=$(resolve_workspace_base "$cwd")
   local sess_root; sess_root=$(sessions_dir "$base_dir")
   mkdir -p "$sess_root"
+  # 兼容旧根目录：创建 .codex-father-sessions -> .codex-father/sessions 的软链接（若不存在）
+  local new_root old_root
+  new_root="$(dirname "$sess_root")/.codex-father/sessions"
+  old_root="$(dirname "$sess_root")/.codex-father-sessions"
+  if [[ "$new_root" != "$old_root" ]]; then
+    : # 非同层路径，不处理
+  else
+    if [[ -d "$new_root" && ! -e "$old_root" ]]; then
+      ln -sfn "$(basename "$new_root")" "$old_root" 2>/dev/null || true
+    fi
+  fi
   local run_dir="${sess_root}/${job_id}"
   mkdir -p "$run_dir"
 
@@ -59,6 +70,15 @@ cmd_start() {
 EOF
 )
   write_state "${run_dir}/state.json" "$state_json_init"
+
+  # 初始化事件序列与写入 start 事件
+  : >"${run_dir}/events.seq" 2>/dev/null || true
+  local start_data
+  start_data=$(cat <<EOF
+{"cwd":"$(json_escape_local "${cwd:-$PWD}")","logFile":"$(json_escape_local "$log_file")","tag":"$(json_escape_local "$st_tag")","argsCount":${#pass_args[@]}}
+EOF
+)
+  append_jsonl_event "$run_dir" "start" "$start_data"
 
   # Launch in background
   (

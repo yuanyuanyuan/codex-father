@@ -17,6 +17,7 @@ import {
   registerOrchestrateReportCommand,
 } from './commands/orchestrate-command.js';
 import { registerLogsCommand } from './commands/logs-command.js';
+import { registerLogsSummaryCommand } from './commands/logs-summary-command.js';
 import type { CommandContext, CommandResult } from '../lib/types.js';
 
 /**
@@ -149,6 +150,8 @@ class CodexFatherCLI {
 
     // logs 命令（导出/跟随会话日志）
     registerLogsCommand(parser);
+    // logs:summary 命令（按 events.jsonl 生成摘要）
+    registerLogsSummaryCommand(parser);
 
     // orchestrate 命令（多 Agent 编排脚手架）
     registerOrchestrateCommand(parser);

@@ -7,6 +7,17 @@
 
 ## [Unreleased]
 
+### ✨ 新增 / 兼容性
+
+- CLI 兼容旧模型写法 `gpt-5-codex-<effort>`（0.42/0.44 风格）：
+  - `--model gpt-5-codex-minimal|low|medium|high` 将归一化为
+    `model=gpt-5-codex` + `model_reasoning_effort=<effort>`；
+  - 同样适用于 `--codex-config model=gpt-5-codex-<effort>` 注入。
+
+### 📚 文档
+
+- README（中/英）补充“模型与推理力度（兼容 0.42/0.44 与 0.46）”示例与注意事项。
+
 ## 1.6.2 - 2025-10-12
 
 ### ♻️ 改进 / 文档
