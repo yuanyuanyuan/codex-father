@@ -3,6 +3,23 @@
 暂无变更条目。准备发布前，请将本次改动整理到下方对应版本章节，避免从
 [Unreleased] 自动生成发布说明。
 
+## [3.0.2](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v3.0.1...mcp-v3.0.2) (2025-10-12)
+
+### Fixes
+
+- runtime/common: 忽略“未使用的 MCP 客户端启动超时”（如
+  `MCP client for  \\`context7\\` failed to start: request timed out`），避免误将整次运行判为
+  `network_error`；如需保留旧行为，可设置 `CODEX_IGNORE_MCP_START_FAILURES=0`。
+- runtime/common: 统一在每轮执行后补齐 `last.txt` 末尾换行，减少解析噪音（如
+  `with no line terminators`）。
+- runtime/common: 将 `CONTROL: DONE/CONTINUE`
+  的识别改为“整行匹配”，避免在句子中提及该短语时被误判为控制信号。
+
+### Chore
+
+- assets: 同步更新 `assets/runtime/lib/common.sh`
+  与主库逻辑，保持运行时行为一致。
+
 ## [3.1.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v3.0.1...mcp-v3.1.0) (2025-10-12)
 
 ### Features

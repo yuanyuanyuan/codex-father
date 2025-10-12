@@ -18,6 +18,18 @@
 
 - README（中/英）补充“模型与推理力度（兼容 0.42/0.44 与 0.46）”示例与注意事项。
 
+### mcp/codex-mcp-server 3.0.2
+
+- fix(common): 忽略“未使用的 MCP 客户端启动超时”，避免将整次运行误判为
+  `network_error`；可通过环境变量 `CODEX_IGNORE_MCP_START_FAILURES=0`
+  恢复旧行为。
+- fix(common): 规范输出 last.txt 的换行（末尾自动补齐），减少 “with no line
+  terminators” 的解析噪音。
+- fix(common): `CONTROL: DONE/CONTINUE`
+  仅在“整行匹配”时生效，避免句中提及触发误判。
+- chore(runtime): 同步更新 MCP runtime 的
+  `assets/runtime/lib/common.sh`，与主库行为保持一致。
+
 ## 1.6.2 - 2025-10-12
 
 ### ♻️ 改进 / 文档

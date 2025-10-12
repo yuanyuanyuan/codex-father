@@ -47,8 +47,12 @@ compress_context_file() {
   } > "$out_file"
 }
 
-# Precise detection for real context/token overflow signals (runtime copy)
+# Precise detection for real context/token overflow signals
+# Avoid false positives from config names like CODEX_ECHO_INSTRUCTIONS_LIMIT
 detect_context_overflow_in_files() {
+  # Usage: detect_context_overflow_in_files <file1> [file2 ...]
+  # Returns 0 if any line in the given files strongly indicates a real
+  # context/token overflow from the model/runtime; otherwise returns 1.
   local -a files=()
   local f
   for f in "$@"; do
@@ -56,13 +60,22 @@ detect_context_overflow_in_files() {
   done
   (( ${#files[@]} > 0 )) || return 1
 
+  # Curated positive patterns (case-insensitive, extended regex)
+  # Examples captured:
+  #  - "maximum context length exceeded", "context length exceeded"
+  #  - "token limit exceeded", "over the token limit"
+  #  - "prompt too long/large", "exceeds context window/size"
   local POS_RE='(maximum[[:space:]]+(context|prompt)([[:space:]]+(length|size|window))?'\
                '|(context|prompt)[[:space:]]+(length|size|window)[[:space:]]+(exceed(ed)?|exceeding|over(flow)?|too[[:space:]]+(long|large))'\
                '|token(s)?[[:space:]]+(limit|window|quota)[[:space:]]+(exceed(ed)?|exceeding|over)'\
                '|(exceed(ed)?|exceeds|over(flow)?)[[:space:]]+(the[[:space:]]+)?(context|token)(s)?([[:space:]]+(limit|window|length|size))?'\
                '|prompt[[:space:]]+too[[:space:]]+(long|large)'\
                '|context[[:space:]]+length[[:space:]]+exceed(ed)?)'
+
+  # Known noisy lines to exclude (config, flags, docs text)
   local EXCL_RE='(CODEX_ECHO_INSTRUCTIONS_LIMIT|INPUT_TOKEN_LIMIT|--no-carry-context|carry-context|no-carry-context|Composed Instructions|instructions|令牌预算|tokens=|≤[0-9]+[[:space:]]*tokens)'
+
+  # Scan files; require match of POS_RE and not EXCL_RE on the same line
   if grep -Eis "$POS_RE" "${files[@]}" | grep -Eiv "$EXCL_RE" >/dev/null 2>&1; then
     return 0
   fi
@@ -71,7 +84,7 @@ detect_context_overflow_in_files() {
 
 # Compose final instructions with explicit section wrappers
 compose_instructions() {
-  local ts_iso; ts_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local ts_iso; ts_iso=$(date +"%Y-%m-%dT%H:%M:%S%:z")
   SOURCE_LINES=()
   local sections=""
 
@@ -88,19 +101,24 @@ compose_instructions() {
     SOURCE_LINES+=("Prepend text: ${_pv}...")
   fi
 
-  # Base content from the decided base source
-  local base_content=""; local base_desc="${BASE_SOURCE_DESC}"
-  case "${BASE_SOURCE_KIND}" in
-    override-file)   base_content="$(cat "${OVERRIDE_FILE}")" ;;
-    override-stdin)  base_content="${STDIN_CONTENT}" ;;
-    default-file)    if [[ -f "${DEFAULT_INSTRUCTIONS_FILE}" ]]; then base_content="$(cat "${DEFAULT_INSTRUCTIONS_FILE}")"; else base_content="${DEFAULT_INSTRUCTIONS}"; fi ;;
-    env)             base_content="${INSTRUCTIONS}" ;;
-    stdin)           base_content="${STDIN_CONTENT}" ;;
-    default-builtin|*) base_content="${DEFAULT_INSTRUCTIONS}" ;;
-  esac
-  sections+=$'\n'"<instructions-section type=\"base\" source=\"${BASE_SOURCE_KIND}\" desc=\"${base_desc}\" path=\"${DEFAULT_INSTRUCTIONS_FILE}\">"$'\n'
-  sections+="${base_content}"$'\n''</instructions-section>'$'\n'
-  SOURCE_LINES+=("Base: ${base_desc}")
+  # Base instructions: skip when in patch mode to avoid conflicts
+  if (( ${PATCH_MODE:-0} == 1 )); then
+    # 明确记录来源被跳过，便于诊断
+    SOURCE_LINES+=("Base: skipped due to patch-mode")
+  else
+    local base_content=""; local base_desc="${BASE_SOURCE_DESC}"
+    case "${BASE_SOURCE_KIND}" in
+      override-file)   base_content="$(cat "${OVERRIDE_FILE}")" ;;
+      override-stdin)  base_content="${STDIN_CONTENT}" ;;
+      default-file)    if [[ -f "${DEFAULT_INSTRUCTIONS_FILE}" ]]; then base_content="$(cat "${DEFAULT_INSTRUCTIONS_FILE}")"; else base_content="${DEFAULT_INSTRUCTIONS}"; fi ;;
+      env)             base_content="${INSTRUCTIONS}" ;;
+      stdin)           base_content="${STDIN_CONTENT}" ;;
+      default-builtin|*) base_content="${DEFAULT_INSTRUCTIONS}" ;;
+    esac
+    sections+=$'\n'"<instructions-section type=\"base\" source=\"${BASE_SOURCE_KIND}\" desc=\"${base_desc}\" path=\"${DEFAULT_INSTRUCTIONS_FILE}\">"$'\n'
+    sections+="${base_content}"$'\n''</instructions-section>'$'\n'
+    SOURCE_LINES+=("Base: ${base_desc}")
+  fi
 
   # Overlay sources in order
   for i in "${!SRC_TYPES[@]}"; do
@@ -149,6 +167,7 @@ compose_instructions() {
 ensure_trailing_newline() {
   local f="$1"
   [[ -n "$f" && -f "$f" ]] || return 0
+  # Read last byte; if not a newline, append one
   local last
   last=$(tail -c 1 "$f" 2>/dev/null || true)
   if [[ -z "$last" || "$last" != $'\n' ]]; then
@@ -162,6 +181,9 @@ classify_exit() {
   CLASSIFICATION="normal"; CONTROL_FLAG=""; EXIT_REASON=""; TOKENS_USED=""
   # Control flag
   if [[ -f "$last_msg_file" ]]; then
+    # Normalize to avoid false positives when "CONTROL: DONE" appears inside a sentence
+    # Only treat it as a signal when it occupies a whole line (trimmed)
+    # Anchored patterns: ^\s*CONTROL:\s*DONE\s*$ (and CONTINUE)
     if grep -Eq '^[[:space:]]*CONTROL:[[:space:]]*DONE[[:space:]]*$' "$last_msg_file"; then CONTROL_FLAG="DONE"; fi
     if [[ -z "$CONTROL_FLAG" ]] && grep -Eq '^[[:space:]]*CONTROL:[[:space:]]*CONTINUE[[:space:]]*$' "$last_msg_file"; then CONTROL_FLAG="CONTINUE"; fi
   fi
@@ -191,12 +213,13 @@ classify_exit() {
   fi
   # Classification
   if [[ "$code" -ne 0 ]]; then
-    # 优先识别输入/用法错误（加入 bootstrap.err 扫描）
+    # 参数/用法错误优先判定（例如未知预设/未知参数/无效选项/用法）
+    # 扩大来源：同时扫描 bootstrap.err
     local _err_file
     _err_file="$(dirname "$log_file")/bootstrap.err"
     if grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|用法:|Usage:)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${_err_file:+"$_err_file"} 2>/dev/null; then
       CLASSIFICATION='input_error'; EXIT_REASON='Invalid CLI arguments or usage'
-    # 更精确网络错误判定：避免“裸 timeout”类说明文本误判
+    # 更精确的网络错误判定：避免“裸 timeout”类说明文本误判
     # 且当仅出现“未使用的 MCP 客户端启动超时”时，不将其作为致命网络错误
     # 注意不扫描 last_msg_file（可能是补丁/说明），仅查看日志与 bootstrap.err
     elif { grep -Ei '(ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)|request[[:space:]]+tim(ed|e)[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed)' "$log_file" ${_err_file:+"$_err_file"} 2>/dev/null \
@@ -206,17 +229,20 @@ classify_exit() {
          && grep -Eqi '(ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)|request[[:space:]]+tim(ed|e)[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed)' "$log_file" ${_err_file:+"$_err_file"} 2>/dev/null; then
       # 显式未忽略“仅 MCP 启动超时”场景时，也可按网络错误处理
       CLASSIFICATION='network_error'; EXIT_REASON='Network error or timeout'
+    # 显式识别“模型不支持/无效模型”之类的配置错误
+    elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" "$last_msg_file" 2>/dev/null; then
+      CLASSIFICATION='config_error'; EXIT_REASON='Unsupported or invalid model'
     elif detect_context_overflow_in_files ${log_file:+"$log_file"} ${last_msg_file:+"$last_msg_file"}; then
       CLASSIFICATION='context_overflow'; EXIT_REASON='Context or token limit exceeded'
-    elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='approval_required'; EXIT_REASON='Approval policy blocked a command'
-    elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='sandbox_denied'; EXIT_REASON='Sandbox policy denied operation'
-    elif grep -Eqi 'unauthorized|forbidden|invalid api key|401|403' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'unauthorized|forbidden|invalid api key|401|403' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='auth_error'; EXIT_REASON='Authentication/authorization error'
-    elif grep -Eqi 'too many requests|rate limit|429' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'too many requests|rate limit|429' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='rate_limited'; EXIT_REASON='Rate limit encountered'
-    elif grep -Eqi 'Command failed|non-zero exit|failed to execute' "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null; then
+    elif grep -Eqi 'Command failed|non-zero exit|failed to execute' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='tool_error'; EXIT_REASON='Tool/command execution failed'
     else
       CLASSIFICATION='error'; EXIT_REASON='Unknown error'
@@ -231,3 +257,171 @@ classify_exit() {
     fi
   fi
 }
+
+: "${PATCH_CAPTURE_ARTIFACT:=1}"
+: "${PATCH_PREVIEW_LINES:=40}"
+: "${PATCH_ARTIFACT_FILE:=}"
+: "${PATCH_ARTIFACT_CAPTURED:=0}"
+if ! declare -p PATCH_ARTIFACT_PATHS >/dev/null 2>&1; then
+  declare -gA PATCH_ARTIFACT_PATHS=()
+fi
+if ! declare -p PATCH_ARTIFACT_HASHES >/dev/null 2>&1; then
+  declare -gA PATCH_ARTIFACT_HASHES=()
+fi
+if ! declare -p PATCH_ARTIFACT_LINES >/dev/null 2>&1; then
+  declare -gA PATCH_ARTIFACT_LINES=()
+fi
+if ! declare -p PATCH_ARTIFACT_BYTES >/dev/null 2>&1; then
+  declare -gA PATCH_ARTIFACT_BYTES=()
+fi
+
+if ! declare -F codex_detect_patch_output >/dev/null 2>&1; then
+  codex_detect_patch_output() {
+    local file="$1"
+    [[ -f "$file" ]] || return 1
+    [[ -s "$file" ]] || return 1
+    if grep -Eqs '^(diff --git|Index: |@@ |--- |\+\+\+ |\*\*\* Begin Patch)' "$file"; then
+      return 0
+    fi
+    if grep -Eqs '^(apply_patch <<|```diff)' "$file"; then
+      return 0
+    fi
+    return 1
+  }
+fi
+
+if ! declare -F codex_compute_patch_artifact_path >/dev/null 2>&1; then
+  codex_compute_patch_artifact_path() {
+    local run_idx="${1:-1}"
+    local base="${PATCH_ARTIFACT_FILE:-}"
+    local suffix=""
+    if (( run_idx > 1 )); then
+      suffix=".r${run_idx}"
+    fi
+    if [[ -z "$base" ]]; then
+      if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+        echo "${CODEX_SESSION_DIR}/patches/patch${suffix}.diff"
+      else
+        echo "${CODEX_LOG_FILE%.log}${suffix}.patch.diff"
+      fi
+    else
+      if (( run_idx == 1 )); then
+        echo "$base"
+      else
+        local dir name stem ext
+        dir=$(dirname -- "$base")
+        name=$(basename -- "$base")
+        if [[ "$name" == *.* && "$name" != .* ]]; then
+          stem="${name%.*}"
+          ext=".${name##*.}"
+        else
+          stem="$name"
+          ext=""
+        fi
+        echo "${dir}/${stem}${suffix}${ext}"
+      fi
+    fi
+  }
+fi
+
+if ! declare -F codex_publish_output >/dev/null 2>&1; then
+  codex_publish_output() {
+    local output_file="$1"
+    local run_idx="${2:-1}"
+    local log_file="${CODEX_LOG_FILE:-}"
+    [[ -n "$log_file" ]] || return 0
+    [[ -f "$output_file" ]] || return 0
+
+    local capture="${PATCH_CAPTURE_ARTIFACT:-0}"
+    local preview="${PATCH_PREVIEW_LINES:-0}"
+    local handled=0
+
+    if (( PATCH_MODE == 1 )) && (( capture == 1 )) && codex_detect_patch_output "$output_file"; then
+      local artifact_path
+      artifact_path=$(codex_compute_patch_artifact_path "$run_idx")
+      if [[ -n "$artifact_path" ]]; then
+        mkdir -p "$(dirname -- "$artifact_path")"
+        cp "$output_file" "$artifact_path"
+
+        local hash=""
+        if command -v sha256sum >/dev/null 2>&1; then
+          hash=$(sha256sum "$artifact_path" | awk '{print $1}')
+        elif command -v shasum >/dev/null 2>&1; then
+          hash=$(shasum -a 256 "$artifact_path" | awk '{print $1}')
+        fi
+        local lines bytes
+        lines=$(wc -l <"$output_file" 2>/dev/null | tr -d ' ')
+        bytes=$(wc -c <"$output_file" 2>/dev/null | tr -d ' ')
+
+        PATCH_ARTIFACT_CAPTURED=1
+        PATCH_ARTIFACT_PATHS[$run_idx]="$artifact_path"
+        PATCH_ARTIFACT_HASHES[$run_idx]="$hash"
+        PATCH_ARTIFACT_LINES[$run_idx]="$lines"
+        PATCH_ARTIFACT_BYTES[$run_idx]="$bytes"
+
+        {
+          echo "[patch-artifact] run=${run_idx} saved=${artifact_path}"
+          if [[ -n "$hash" ]]; then
+            echo "[patch-artifact] sha256=${hash} lines=${lines:-0} bytes=${bytes:-0}"
+          else
+            echo "[patch-artifact] lines=${lines:-0} bytes=${bytes:-0}"
+          fi
+          if (( preview > 0 )); then
+            echo "[patch-preview] first ${preview} lines:"
+            sed -n "1,${preview}p" "$output_file"
+            local total_lines=${lines:-0}
+            local tail_lines=5
+            if (( total_lines > preview )); then
+              echo "[patch-preview] ... truncated (total ${total_lines} lines)"
+              if (( tail_lines > 0 )); then
+                echo "[patch-preview] last ${tail_lines} lines:"
+                tail -n "$tail_lines" "$output_file"
+              fi
+            fi
+          else
+            echo "[patch-preview] preview disabled (--no-patch-preview)"
+          fi
+          echo
+        } >> "$log_file"
+
+        # Append manifest entry (JSONL) for quick indexing
+        local manifest_dir
+        if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+          manifest_dir="${CODEX_SESSION_DIR}/patches"
+        else
+          manifest_dir="$(dirname -- "$artifact_path")"
+        fi
+        mkdir -p "$manifest_dir"
+        local manifest_file="${manifest_dir}/manifest.jsonl"
+        local now_iso
+        now_iso=$(date +"%Y-%m-%dT%H:%M:%S%:z")
+        local base_name stem
+        base_name=$(basename -- "$artifact_path")
+        if [[ "$base_name" == *.* && "$base_name" != .* ]]; then
+          stem="${base_name%.*}"
+        else
+          stem="$base_name"
+        fi
+        local seq
+        if [[ "$stem" =~ ([0-9]+) ]]; then
+          seq="${BASH_REMATCH[1]}"
+        else
+          seq="$run_idx"
+        fi
+        umask 077
+        printf '{"patchId":"%s","taskId":null,"sequence":%s,"path":"%s","sha256":%s,"createdAt":"%s","appliedAt":null,"workDir":null,"status":"generated"}\n' \
+          "$stem" "$seq" "$(json_escape "$artifact_path")" \
+          "$([[ -n "$hash" ]] && printf '"%s"' "$hash" || echo null)" \
+          "$now_iso" >> "$manifest_file"
+        handled=1
+      fi
+    fi
+
+    if (( handled == 0 )); then
+      if (( PATCH_MODE == 1 )) && (( capture == 1 )); then
+        echo "[patch-artifact] run=${run_idx} 未检测到补丁内容，已保留完整输出。" >> "$log_file"
+      fi
+      cat "$output_file" >> "$log_file"
+    fi
+  }
+fi
