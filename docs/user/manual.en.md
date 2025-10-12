@@ -174,6 +174,49 @@ node dist/core/cli/start.ts orchestrate "Main Path FR-123" \
 - Where are logs?
   - `.codex-father/sessions/<session-id>/` contains `events.jsonl` and `job.log`.
 
+### Log Summary (added in v1.7)
+
+> Think of it as compressing a long “diary” into a one‑page “health report”. Great for quick status/outcome checks.
+
+- Generate a summary for one session and preview key fields as text:
+
+```bash
+node dist/core/cli/start.js logs:summary <sessionId> --text
+```
+
+- Generate and write to `<session>/report.summary.json`:
+
+```bash
+node dist/core/cli/start.js logs:summary <sessionId>
+```
+
+- Preview multiple or all sessions inline:
+
+```bash
+node dist/core/cli/start.js logs id1,id2 --summary
+node dist/core/cli/start.js logs all --summary
+```
+
+Note: The session root can be overridden via `CODEX_SESSIONS_ROOT` (compatible: `CODEX_SESSIONS_HOME`). The default is `.codex-father/sessions`.
+
+### Echo full composed instructions (noise‑controlled)
+
+> By default we only record an “instruction fingerprint” via `instructions_updated` event. If you need the full composed instructions in `job.log`, enable it explicitly.
+
+- Enable before running (no truncation):
+
+```bash
+export CODEX_ECHO_INSTRUCTIONS=1
+export CODEX_ECHO_INSTRUCTIONS_LIMIT=0  # 0 = no truncation
+```
+
+- Or pass equivalent CLI options: `--echo-instructions --echo-limit 0`
+
+Heads‑up: Since v1.7 the default is to NOT echo the full text. Current defaults in code are:
+
+- `CODEX_ECHO_INSTRUCTIONS=0`
+- `CODEX_ECHO_INSTRUCTIONS_LIMIT=120`
+
 - Full reset
   - Close client and server → remove `~/.codex-father-*` temp folders → redo quick start.
 

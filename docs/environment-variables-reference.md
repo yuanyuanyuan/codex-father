@@ -95,12 +95,12 @@
 
 - `CODEX_ECHO_INSTRUCTIONS`
   - 作用：在日志中回显合成后的指令
-  - 默认：`1`
+  - 默认：`0`（v1.7 起默认关闭全文回显，改以 `instructions_updated` 事件记录指纹）
   - 来源：start.sh:34
 
 - `CODEX_ECHO_INSTRUCTIONS_LIMIT`
   - 作用：回显的最大行数（`0` 表示不限制）
-  - 默认：`0`
+  - 默认：`120`
   - 来源：start.sh:36
 
 - `CODEX_STRUCTURED_INSTRUCTIONS_FILE`

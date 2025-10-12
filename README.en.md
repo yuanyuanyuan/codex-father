@@ -129,6 +129,20 @@ Session root is configurable via `CODEX_SESSIONS_ROOT` (or
 `CODEX_SESSIONS_HOME`). By default it resolves to `.codex-father/sessions`. The
 legacy `.codex-father-sessions/` can be kept as a symlink for compatibility.
 
+### 🧪 Quick Validation (validate-session)
+
+To verify a session is structurally healthy (proper start/end events and a
+closed state):
+
+```bash
+scripts/validate-session.sh /abs/path/to/.codex-father/sessions/<sessionId>
+```
+
+It checks that:
+
+- `events.jsonl` contains both `start` and `orchestration_completed` events;
+- `state.json` ends in a final state (completed/failed/cancelled).
+
 ### First‑time tips
 
 - Models & effort (compat for 0.42/0.44 and 0.46):

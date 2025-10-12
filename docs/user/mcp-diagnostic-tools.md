@@ -9,6 +9,8 @@
 - 报告/事件：`read-report-file`、`read-report-metrics`、`read-events-preview`、`grep-events`
 - 降级/诊断：`call-with-downgrade`（遇到未知方法或通信异常时返回降级结果与原因）
 
+> 提醒：会话相关工具默认遵循会话根目录环境变量：优先 `CODEX_SESSIONS_ROOT`（兼容 `CODEX_SESSIONS_HOME`），否则回退到 `.codex-father/sessions`。
+
 ## 启动服务器
 使用 CLI 启动本仓 MCP 服务器（默认启用诊断工具）：
 
@@ -52,6 +54,13 @@ node scripts/rmcp-client.mjs \
   --server-args mcp \
   call-tool read-session-artifacts \
   --arguments '{"sessionId": "<替换为上面的 orchestrationId>"}'
+```
+
+如需在自定义位置检索会话，先设置根目录变量：
+
+```bash
+export CODEX_SESSIONS_ROOT="/abs/path/to/.codex-father/sessions"
+# 或兼容方式：export CODEX_SESSIONS_HOME="/abs/path/to/.codex-father-sessions"
 ```
 
 3) 使用解析出的 `reportPath` 读取报告内容：

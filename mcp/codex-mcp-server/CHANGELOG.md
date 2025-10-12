@@ -3,6 +3,32 @@
 暂无变更条目。准备发布前，请将本次改动整理到下方对应版本章节，避免从
 [Unreleased] 自动生成发布说明。
 
+## [3.1.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v3.0.1...mcp-v3.1.0) (2025-10-12)
+
+### Features
+
+- diagnostics/bridge-layer:
+  `list-sessions`、`get-latest-session`、`read-session-artifacts`
+  现默认遵循会话根目录环境变量：优先 `CODEX_SESSIONS_ROOT`（兼容
+  `CODEX_SESSIONS_HOME`），未设置时回退至
+  `.codex-father/sessions`。统一路径解析以便与 CLI、Shell 运行器一致。
+
+### Docs
+
+- User Manual（中/英）补充“日志摘要（v1.7 新增）/Log Summary”与多会话统计示例；
+- 解释如何通过 `CODEX_ECHO_INSTRUCTIONS` 与 `CODEX_ECHO_INSTRUCTIONS_LIMIT`
+  控制合成指令全文回显；
+- README（中/英）与 Troubleshooting 文档加入 `scripts/validate-session.sh`
+  的健康检查示例；
+- 明确推荐通过 `CODEX_SESSIONS_ROOT` 配置新根目录，历史
+  `.codex-father-sessions/` 可用软链兼容。
+
+### Notes
+
+- 本次改动不改变 MCP 工具的入参与返回契约，属于可观测性与路径一致性的改进；
+- 建议客户端在“会话浏览”场景下使用 `list-sessions` 与 `get-latest-session`
+  并尊重服务器返回的 `sessionRoot` 字段。
+
 ## [3.0.1](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v3.0.0...mcp-v3.0.1) (2025-10-12)
 
 ### Docs

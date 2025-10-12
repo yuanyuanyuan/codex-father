@@ -2,6 +2,8 @@
 
 This guide shows how to configure Claude Desktop (reference), Claude Code, and Codex CLI (rMCP). Paths use Ubuntu/Linux examples; macOS/Windows paths are noted where relevant.
 
+Note: We recommend `CODEX_SESSIONS_ROOT` as the canonical “session root”. The default resolves to `.codex-father/sessions`. Examples using `/ABS/PATH/TO/.codex-father-sessions` are for illustration and remain compatible (you may also keep a symlink).
+
 ## Contents
 
 - (Reference) Configure Claude Desktop

@@ -697,3 +697,16 @@ node dist/core/cli/start.js logs all --summary
 会话根目录可通过环境变量配置：`CODEX_SESSIONS_ROOT`（或
 `CODEX_SESSIONS_HOME`）。默认为 `.codex-father/sessions`；如需兼容历史数据，可将
 `.codex-father-sessions/` 建立为指向新根的软链。
+
+### 🧪 快速健康检查（validate-session）
+
+当你需要确认某个会话是否“首尾闭合、结构完整”，可运行：
+
+```bash
+scripts/validate-session.sh /abs/path/to/.codex-father/sessions/<sessionId>
+```
+
+它会检查：
+
+- `events.jsonl` 是否包含成对的 `start` 与 `orchestration_completed` 事件；
+- `state.json` 是否处于最终状态（completed/failed/cancelled）。

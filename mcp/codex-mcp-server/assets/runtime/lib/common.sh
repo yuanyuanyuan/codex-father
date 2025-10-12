@@ -196,8 +196,15 @@ classify_exit() {
     _err_file="$(dirname "$log_file")/bootstrap.err"
     if grep -Eqi '(未知参数|未知预设|Unknown[[:space:]]+(argument|option|preset)|invalid[[:space:]]+(option|argument)|用法:|Usage:)' "$log_file" ${last_msg_file:+"$last_msg_file"} ${_err_file:+"$_err_file"} 2>/dev/null; then
       CLASSIFICATION='input_error'; EXIT_REASON='Invalid CLI arguments or usage'
-    # 更精确网络错误匹配：排除裸 "timeout" 等叙述性文本；不扫描 last_msg_file（可能为补丁）
-    elif grep -Eqi '(ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)|request[[:space:]]+tim(ed|e)[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed)' "$log_file" ${_err_file:+"$_err_file"} 2>/dev/null; then
+    # 更精确网络错误判定：避免“裸 timeout”类说明文本误判
+    # 且当仅出现“未使用的 MCP 客户端启动超时”时，不将其作为致命网络错误
+    # 注意不扫描 last_msg_file（可能是补丁/说明），仅查看日志与 bootstrap.err
+    elif { grep -Ei '(ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)|request[[:space:]]+tim(ed|e)[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed)' "$log_file" ${_err_file:+"$_err_file"} 2>/dev/null \
+            | grep -Eiv 'MCP[[:space:]]+client[[:space:]]+for|MCP[[:space:]]+client[[:space:]]+.*failed[[:space:]]+to[[:space:]]+start' >/dev/null 2>&1; } then
+      CLASSIFICATION='network_error'; EXIT_REASON='Network error or timeout'
+    elif [[ "${CODEX_IGNORE_MCP_START_FAILURES:-1}" != "1" ]] \
+         && grep -Eqi '(ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)|request[[:space:]]+tim(ed|e)[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed)' "$log_file" ${_err_file:+"$_err_file"} 2>/dev/null; then
+      # 显式未忽略“仅 MCP 启动超时”场景时，也可按网络错误处理
       CLASSIFICATION='network_error'; EXIT_REASON='Network error or timeout'
     elif detect_context_overflow_in_files ${log_file:+"$log_file"} ${last_msg_file:+"$last_msg_file"}; then
       CLASSIFICATION='context_overflow'; EXIT_REASON='Context or token limit exceeded'

@@ -3,6 +3,10 @@
 > 本指南聚焦 Ubuntu 平台上的 Claude Code CLI 与 Codex CLI 配置；Claude
 > Desktop 配置留作参考，暂不保证本版本兼容性。
 
+> 提醒：推荐使用 `CODEX_SESSIONS_ROOT` 作为“会话根目录”的规范入口，默认值为
+> `.codex-father/sessions`。文档中的 `/ABS/PATH/TO/.codex-father-sessions` 仅作示例，
+> 你可以继续使用该路径（或建立软链）以兼容历史数据。
+
 ## 📋 目录
 
 - [（参考）配置 Claude Desktop](#参考配置-claude-desktop)

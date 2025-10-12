@@ -240,6 +240,19 @@ sleep 0.3 && ./job.sh status <job-id> --json
 
 **提示**：`codex.help` 的 `codex.start`/`codex.exec` 条目已补充该限制，调用前可先查看最新帮助。
 
+### 会话健康检查（validate-session）
+
+当你只想确认“会话是否完整结束”，可使用仓库自带的健康检查脚本：
+
+```bash
+scripts/validate-session.sh /abs/path/to/.codex-father/sessions/<sessionId>
+```
+
+它会验证：
+
+- `events.jsonl` 至少包含首尾事件：`start` 与 `orchestration_completed`；
+- `state.json` 是否闭合（`completed`/`failed`/`cancelled` 其一）。
+
 ### 审批策略被自动改成 on-failure
 
 **症状**：
@@ -284,6 +297,17 @@ sleep 0.3 && ./job.sh status <job-id> --json
 1. 直接读取绝对路径中的原始日志，例如：`cat /data/howlong.live/.codex-father/sessions/<jobId>/job.log`。
 2. 使用 `tail -n 80` 或 `less` 查看 `bootstrap.err` 捕捉早退原因。
 3. 若确需通过 MCP 查看，先升级到最新版本或手动修补 `handleLogs` 的路径拼接。
+
+### 小贴士：显示“合成指令”全文
+
+自 v1.7 起，默认不再在 `job.log` 回显合成指令全文（改以 `instructions_updated` 事件记录 path/sha256/行数/增删行的“指纹”）。如需在诊断时查看全文，可临时开启：
+
+```bash
+export CODEX_ECHO_INSTRUCTIONS=1
+export CODEX_ECHO_INSTRUCTIONS_LIMIT=0  # 0 表示不截断
+```
+
+或使用等价 CLI 选项：`--echo-instructions --echo-limit 0`。
 
 
 ## ❌ 命令执行失败

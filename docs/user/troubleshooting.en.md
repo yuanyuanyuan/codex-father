@@ -138,6 +138,27 @@ Common causes include input size precheck failures (`context_overflow`) and earl
 
 Self‑checks (examples): see Chinese doc for the shell scenarios; semantics are the same.
 
+### Quick session health check (validate-session)
+
+Verify a session has a proper start/end and a closed state:
+
+```bash
+scripts/validate-session.sh /abs/path/to/.codex-father/sessions/<sessionId>
+```
+
+It checks both `start` and `orchestration_completed` exist in `events.jsonl`, and `state.json` ends in `completed/failed/cancelled`.
+
+### Tip: echo full composed instructions
+
+Since v1.7 we no longer echo the full composed instructions into `job.log` by default (we record an `instructions_updated` event with path/sha256/line counts). Enable full echo only when you need it:
+
+```bash
+export CODEX_ECHO_INSTRUCTIONS=1
+export CODEX_ECHO_INSTRUCTIONS_LIMIT=0  # no truncation
+```
+
+Or use CLI flags: `--echo-instructions --echo-limit 0`.
+
 ---
 
 ## Advanced diagnostics

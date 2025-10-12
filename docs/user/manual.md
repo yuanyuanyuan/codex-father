@@ -180,6 +180,49 @@ node dist/core/cli/start.ts orchestrate "演练主路径 FR-123" \
   - 目录：`.codex-father/sessions/<session-id>/`
   - 关键文件：`events.jsonl`（事件流）、`job.log`（执行日志）。
 
+### 日志摘要（v1.7 新增）
+
+> 把厚厚的“流水账”压成一页“体检报告”。适合快速定位状态、耗时与失败计数。
+
+- 生成单会话摘要（并以文本预览关键字段）：
+
+```bash
+node dist/core/cli/start.js logs:summary <sessionId> --text
+```
+
+- 生成单会话摘要（写入 `<session>/report.summary.json`）：
+
+```bash
+node dist/core/cli/start.js logs:summary <sessionId>
+```
+
+- 就地预览多会话/全部会话（按 `status/exit/successRate` 汇总）：
+
+```bash
+node dist/core/cli/start.js logs id1,id2 --summary
+node dist/core/cli/start.js logs all --summary
+```
+
+说明：会话根目录可通过 `CODEX_SESSIONS_ROOT`（或兼容的 `CODEX_SESSIONS_HOME`）覆盖；默认为 `.codex-father/sessions`。
+
+### 恢复“合成指令”全文回显（降噪可控）
+
+> 默认仅记录指令的“指纹”（`instructions_updated` 事件含 path/sha256/行数等）；如需在 `job.log` 中看到合成指令全文，可按需开启。
+
+- 运行前导出变量（示例：完全不截断）：
+
+```bash
+export CODEX_ECHO_INSTRUCTIONS=1
+export CODEX_ECHO_INSTRUCTIONS_LIMIT=0  # 0 表示不截断
+```
+
+- 或在 CLI 透传等价选项：`--echo-instructions --echo-limit 0`
+
+注意：自 v1.7 起，默认不再回显全文（更安静、更安全）。当前默认值以源码为准：
+
+- `CODEX_ECHO_INSTRUCTIONS=0`
+- `CODEX_ECHO_INSTRUCTIONS_LIMIT=120`
+
 - 彻底重置（遇到异常时使用）
   - 关闭客户端与服务器 → 删除 `~/.codex-father-*` 相关临时目录 → 重新“3 步快走”。
 
