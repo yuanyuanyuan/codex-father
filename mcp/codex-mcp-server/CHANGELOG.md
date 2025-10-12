@@ -3,6 +3,19 @@
 暂无变更条目。准备发布前，请将本次改动整理到下方对应版本章节，避免从
 [Unreleased] 自动生成发布说明。
 
+## [3.0.1](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v3.0.0...mcp-v3.0.1) (2025-10-12)
+
+### Docs
+
+- 统一文档配置口径：prod（生产）统一使用
+  `npx @starkdev020/codex-father-mcp-server --transport=ndjson`；preview（本地调试）使用本地源码
+  `node .../dist/index.js --transport=ndjson`。更新了中英文的 README、Installation、Configuration、Manual、Quick
+  Start。
+
+### Notes
+
+- 仅文档与示例更新，不涉及运行时代码行为变更。
+
 ## [3.0.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v2.2.0...mcp-v3.0.0) (2025-10-10)
 
 ### Features
