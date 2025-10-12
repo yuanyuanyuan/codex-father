@@ -123,6 +123,24 @@ env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
 env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
 ```
 
+> 可选：在同一文件中增加对 Codex Father 的全局默认段（服务器与 Bash CLI 均会读取）。
+
+```toml
+[codex_father]
+# 固定到包含 start.sh/job.sh 的仓库根，避免 ENOENT 指向其他项目
+project_root = "/ABS/PATH/TO/codex-father"
+
+# 仅 MCP 启动超时（握手超时）不计为致命错误，降低 network_error 噪音
+ignore_mcp_start_failures = true
+
+# 可选：在所有模式下强制跳过“默认基底指令”（补丁模式已自动开启）
+# force_skip_base = false
+
+# 可选：直接指定脚本路径（通常不需要）
+# job_sh = "/ABS/PATH/TO/codex-father/job.sh"
+# start_sh = "/ABS/PATH/TO/codex-father/start.sh"
+```
+
 然后运行 Codex：
 
 ```bash

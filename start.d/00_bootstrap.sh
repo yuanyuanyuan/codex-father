@@ -18,6 +18,54 @@ if [[ -f "${SCRIPT_DIR}/lib/presets.sh" ]]; then
   . "${SCRIPT_DIR}/lib/presets.sh"
 fi
 
+# 从 ~/.codex/config.toml 读取 codex-father 相关开关（可覆盖为 env，但不覆盖已显式设置的 env）
+# 支持节名：[codex_father]、[codex-father]、[codex_father.mcp]
+codex__maybe_load_user_toml_env() {
+  local toml="${HOME}/.codex/config.toml"
+  [[ -f "$toml" ]] || return 0
+  # awk 解析指定节内的简单 key = value（字符串/布尔），直到下一个 [section]
+  awk -v want1='codex_father' -v want2='codex-father' -v want3='codex_father.mcp' '
+    function trim(s){sub(/^\s+/,"",s);sub(/\s+$/ ,"",s);return s}
+    function dequote(s){gsub(/^"|"$/ ,"",s);gsub(/^\x27|\x27$/ ,"",s);return s}
+    BEGIN{insec=0}
+    /^[[:space:]]*\[/ {
+      sec=$0; gsub(/^[[:space:]]*\[|\][[:space:]]*$/ ,"",sec)
+      insec=(sec==want1||sec==want2||sec==want3)
+      next
+    }
+    insec==1 && /^[[:space:]]*[A-Za-z0-9_\-]+[[:space:]]*=/ {
+      line=$0
+      split(line, kv, /=/)
+      key=trim(kv[1]); val=trim(substr(line, index(line, "=")+1))
+      # 仅支持字符串/布尔/数字的基础解析
+      if (val ~ /^(true|false)$/) { ; }
+      else if (val ~ /^".*"$/ || val ~ /^\x27.*\x27$/) { val=dequote(val) }
+      else { val=val }
+      printf("%s\t%s\n", key, val)
+    }
+  ' "$toml" | while IFS=$'\t' read -r k v; do
+    case "$k" in
+      project_root)
+        [[ -z "${CODEX_MCP_PROJECT_ROOT:-}" ]] && export CODEX_MCP_PROJECT_ROOT="$v" ;;
+      job_sh)
+        [[ -z "${CODEX_JOB_SH:-}" ]] && export CODEX_JOB_SH="$v" ;;
+      start_sh)
+        [[ -z "${CODEX_START_SH:-}" ]] && export CODEX_START_SH="$v" ;;
+      ignore_mcp_start_failures)
+        if [[ -z "${CODEX_IGNORE_MCP_START_FAILURES:-}" ]]; then
+          case "${v,,}" in true|1|yes) export CODEX_IGNORE_MCP_START_FAILURES=1;; *) :;; esac
+        fi ;;
+      force_skip_base)
+        if [[ -z "${FORCE_SKIP_BASE:-}" ]]; then
+          case "${v,,}" in true|1|yes) export FORCE_SKIP_BASE=1;; *) :;; esac
+        fi ;;
+    esac
+  done
+}
+
+# 尽早加载用户配置为 env（保持优先级：CLI/显式 env > config.toml）
+codex__maybe_load_user_toml_env || true
+
 # 日志相关默认
 # 默认将日志写入脚本所在目录的托管 sessions 路径，避免受调用时 PWD 影响
 if [[ "$(basename "${SCRIPT_DIR}")" == ".codex-father" ]]; then

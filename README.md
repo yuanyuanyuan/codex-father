@@ -572,6 +572,7 @@ npm run benchmark
 **按类别浏览**：
 
 - [👤 用户文档](docs/user/README.md) - 使用指南、场景化应用、故障排除
+- [🧩 全局配置（~/.codex/config.toml）](docs/user/config.toml.md) - project_root/忽略 MCP 启动超时/强制跳过基底指令等
 - [🔧 开发文档](docs/developer/README.md) - 开发环境、技术栈、贡献指南
 - [🏗️ 架构文档](docs/architecture/README.md) - 系统架构、MCP 集成、API 参考
 - [🚀 运维文档](docs/operations/README.md) - 部署指南、运维手册

@@ -86,7 +86,30 @@ export function ensureEmbeddedRuntime(projectRoot: string): InstallResult {
   const destStart = path.join(destRoot, 'start.sh');
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const assetsRoot = path.resolve(__dirname, '..', '..', 'assets', 'runtime');
+  // Locate runtime assets robustly for both src (tsx/dev) and dist (tsc build) layouts:
+  //  - dev/src:   <pkg>/src/utils -> <pkg>/src/assets/runtime
+  //  - dist/tsc:  <pkg>/dist/utils -> prefer <pkg>/assets/runtime (published files),
+  //               fall back to <pkg>/dist/assets/runtime if present
+  const require = createRequire(import.meta.url);
+  let assetsRootCandidates: string[] = [];
+  try {
+    const pkgJsonPath = require.resolve('../../package.json');
+    const pkgDir = path.dirname(pkgJsonPath);
+    assetsRootCandidates = [
+      path.resolve(__dirname, '..', '..', 'assets', 'runtime'), // src layout
+      path.resolve(pkgDir, 'assets', 'runtime'),                // package root assets (published)
+      path.resolve(__dirname, '..', '..', '..', 'assets', 'runtime'), // fallback: dist -> pkg root
+      path.resolve(__dirname, '..', '..', 'assets', 'runtime'), // fallback: dist local assets
+    ];
+  } catch {
+    assetsRootCandidates = [
+      path.resolve(__dirname, '..', '..', 'assets', 'runtime'),
+      path.resolve(__dirname, '..', '..', '..', 'assets', 'runtime'),
+    ];
+  }
+  const assetsRoot = assetsRootCandidates.find((p) => {
+    try { return fs.existsSync(p); } catch { return false; }
+  }) || path.resolve(__dirname, '..', '..', 'assets', 'runtime');
   const manifestPath = path.join(destRoot, '.runtime-manifest.json');
   const pkg = require('../../package.json') as { version?: string };
   const runtimeVersion = pkg.version || '0.0.0';

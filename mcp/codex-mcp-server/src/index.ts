@@ -13,6 +13,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { parseCliArgs, parseEnv } from './config/env.js';
+import { applyUserMcpConfigToEnv } from './config/userConfig.js';
 import { CliLogger } from './logger.js';
 import { toolsSpec } from './tools/spec.js';
 import { handleCall } from './handlers/index.js';
@@ -75,6 +76,8 @@ async function main(): Promise<void> {
     return;
   }
 
+  // 在解析环境变量前，先从 ~/.codex/config.toml 注入可能的默认值（不覆盖显式 env）
+  applyUserMcpConfigToEnv();
   const envConfig = parseEnv();
   const logger = new CliLogger(envConfig.logLevel);
 
