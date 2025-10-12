@@ -474,6 +474,10 @@ while (( RUN <= MAX_RUNS )); do
   fi
 
   # 重新组合（读取最新的文件内容）
+  # 补丁模式下强制跳过 Base（双保险）
+  if (( PATCH_MODE == 1 )); then
+    FORCE_SKIP_BASE=1
+  fi
   compose_instructions
   CURRENT_INSTR="${INSTRUCTIONS}"
   if [[ -n "${POLICY_NOTE:-}" ]]; then

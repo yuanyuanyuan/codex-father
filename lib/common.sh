@@ -102,7 +102,8 @@ compose_instructions() {
   fi
 
   # Base instructions: skip when in patch mode to avoid conflicts
-  if (( ${PATCH_MODE:-0} == 1 )); then
+  # Also allow an explicit override via FORCE_SKIP_BASE=1 for extra稳健性
+  if (( ${PATCH_MODE:-0} == 1 )) || (( ${FORCE_SKIP_BASE:-0} == 1 )); then
     # 明确记录来源被跳过，便于诊断
     SOURCE_LINES+=("Base: skipped due to patch-mode")
   else
@@ -226,8 +227,9 @@ classify_exit() {
             | grep -Eiv 'MCP[[:space:]]+client[[:space:]]+for|MCP[[:space:]]+client[[:space:]]+.*failed[[:space:]]+to[[:space:]]+start' >/dev/null 2>&1; } then
       CLASSIFICATION='network_error'; EXIT_REASON='Network error or timeout'
     elif [[ "${CODEX_IGNORE_MCP_START_FAILURES:-1}" != "1" ]] \
-         && grep -Eqi '(ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)|request[[:space:]]+tim(ed|e)[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed)' "$log_file" ${_err_file:+"$_err_file"} 2>/dev/null; then
-      # 显式未忽略“仅 MCP 启动超时”场景时，也可按网络错误处理
+         && { grep -Eqi '(ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONN(REFUSED|RESET|ABORTED)?|ENET(UNREACH|DOWN)|EHOSTUNREACH|getaddrinfo|socket[[:space:]]+hang[[:space:]]+up|TLS[[:space:]]+handshake[[:space:]]+failed|DNS( lookup)? failed|connection[[:space:]]+(reset|refused|timed[[:space:]]+out)|request[[:space:]]+tim(ed|e)[[:space:]]+out|deadline[ _-]?exceeded|fetch[[:space:]]+failed)' "$log_file" ${_err_file:+"$_err_file"} 2>/dev/null \
+              | grep -Eiv 'MCP[[:space:]]+client[[:space:]]+for|MCP[[:space:]]+client[[:space:]]+.*failed[[:space:]]+to[[:space:]]+start' >/dev/null 2>&1; }; then
+      # 显式未忽略“仅 MCP 启动超时”场景时，也可按网络错误处理；但排除仅 MCP 启动失败的超时行
       CLASSIFICATION='network_error'; EXIT_REASON='Network error or timeout'
     # 显式识别“模型不支持/无效模型”之类的配置错误
     elif grep -Eqi 'unsupported[[:space:]]+model|unknown[[:space:]]+model|model[[:space:]]+not[[:space:]]+found' "$log_file" "$last_msg_file" 2>/dev/null; then

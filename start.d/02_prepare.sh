@@ -371,6 +371,10 @@ if [[ "${REDACT_ENABLE}" == "1" ]]; then
 fi
 
 # 重新组合一次（带标准分隔标签）
+# 补丁模式下强制跳过 Base（双保险）：即便外部函数判断失效也不拼接 Base
+if (( PATCH_MODE == 1 )); then
+  FORCE_SKIP_BASE=1
+fi
 compose_instructions
 
 # 如启用补丁模式，在初始轮指令中追加 policy-note
