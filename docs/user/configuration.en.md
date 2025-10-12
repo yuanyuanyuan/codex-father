@@ -43,8 +43,8 @@ Method A: user‑level (recommended)
 {
   "mcpServers": {
     "codex-father-prod": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "NODE_ENV": "production",
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
@@ -105,8 +105,8 @@ Step 2: Add preview and prod entries
       "args": ["./mcp/codex-mcp-server/dist/index.js"]
     },
     "codex-father-prod": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "NODE_ENV": "production",
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
@@ -138,19 +138,20 @@ Edit `~/.codex/config.toml` and add both preview and prod:
 ```toml
 [mcp_servers.codex-father-preview]
 command = "node"
-args = ["/abs/path/to/repo/mcp/codex-mcp-server/dist/index.js"]
+args = ["/abs/path/to/repo/mcp/codex-mcp-server/dist/index.js", "--transport=ndjson"]
 
 [mcp_servers.codex-father-prod]
-command = "codex-mcp-server"
-args = ["--transport=ndjson"]
+command = "npx"
+args = ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"]
 env.NODE_ENV = "production"
 env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
 env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
-startup_timeout_sec = 45
-tool_timeout_sec = 120
+startup_timeout_sec = 60
+tool_timeout_sec = 180
 ```
 
-Start a Codex session and ask: “List files in the project.”
+Start a Codex session and ask: “List files in the project.” If using npx for prod, first run may download the package; consider `startup_timeout_sec >= 60`.
+For prod via npx we suggest slightly higher timeouts (e.g., 60s/180s) to accommodate first‑time package download.
 
 ---
 
@@ -168,8 +169,8 @@ Approval policy example
 {
   "mcpServers": {
     "codex-father-prod": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "APPROVAL_POLICY": "on-failure",
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
@@ -234,8 +235,8 @@ command = "node"
 args = ["/abs/path/to/repo/mcp/codex-mcp-server/dist/index.js"]
 
 [mcp_servers.codex-father-prod]
-command = "codex-mcp-server"
-args = ["--transport=ndjson"]
+command = "npx"
+args = ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"]
 
 [mcp_servers.codex-father-prod.env]
 APPROVAL_POLICY = "on-failure"

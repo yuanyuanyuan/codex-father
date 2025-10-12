@@ -94,8 +94,8 @@ codex-mcp-server --transport=ndjson
 {
   "mcpServers": {
     "codex-father": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
         "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
@@ -114,12 +114,12 @@ codex-mcp-server --transport=ndjson
 
 ```toml
 [mcp_servers.codex-father]
-command = "codex-mcp-server"
-args = ["--transport=ndjson"]
+command = "npx"
+args = ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"]
 env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
 env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
-startup_timeout_sec = 45
-tool_timeout_sec = 120
+startup_timeout_sec = 60
+tool_timeout_sec = 180
 ```
 
 - 运行 `codex`，在对话里说“列出 .md 文件”，看到列表即成功。

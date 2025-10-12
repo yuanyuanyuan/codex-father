@@ -92,7 +92,8 @@ codex-mcp-server --transport=ndjson
 Client integrations:
 
 - Claude Desktop: add a server entry in `claude_desktop_config.json`.
-- Codex CLI (rMCP): add `[mcp_servers.codex-father]` to `~/.codex/config.toml`.
+- Codex CLI (rMCP): add `[mcp_servers.codex-father]` to `~/.codex/config.toml`
+  (prod via npx).
 
 Full details: [User Quick Start](docs/user/quick-start.en.md).
 

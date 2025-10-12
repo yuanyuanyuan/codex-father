@@ -88,8 +88,8 @@ codex-mcp-server --transport=ndjson
 {
   "mcpServers": {
     "codex-father": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "NODE_ENV": "production",
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
@@ -113,19 +113,19 @@ codex-mcp-server --transport=ndjson
 
 ```toml
 [mcp_servers.codex-father]
-command = "codex-mcp-server"
-args = ["--transport=ndjson"]
+command = "npx"
+args = ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"]
 env.NODE_ENV = "production"
 env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
 env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
-startup_timeout_sec = 45
-tool_timeout_sec = 120
+startup_timeout_sec = 60
+tool_timeout_sec = 180
 ```
 
 - `startup_timeout_sec`/`tool_timeout_sec` 对应官方建议的启动与调用超时；如需要
   可使用 `codex config mcp set --startup-timeout` 命令动态更新。
 - 可通过 `codex config mcp add` / `codex config mcp list` 管理条目。
-- 若需临时体验，可将 `command` 改为 `"npx"` 并恢复原始 `args`。
+- 推荐使用 npx 作为 prod 配置；如需全局安装可参考上文，但需自行维护版本一致性。
 
 ---
 

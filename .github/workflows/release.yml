@@ -59,6 +59,13 @@ jobs:
             @semantic-release/git \
             @semantic-release/github
 
+      - name: Changelog gate (dry-run)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 默认严格：不允许从 [Unreleased] 回退生成
+          # ALLOW_UNRELEASED_FALLBACK 未设置时，generateNotes 将在缺失版本条目时失败
+        run: npx semantic-release --dry-run
+
       - name: Debug npm identity
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

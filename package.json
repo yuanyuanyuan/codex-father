@@ -1,6 +1,6 @@
 {
   "name": "codex-father",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "description": "Codex Father - 一个基于三阶段实施方案的CLI工具包装器架构，支持MCP服务器模块",
   "type": "module",
   "license": "MIT",

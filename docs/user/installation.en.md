@@ -79,8 +79,8 @@ Client config example (Claude Desktop/Code style JSON):
 {
   "mcpServers": {
     "codex-father": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "NODE_ENV": "production",
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
@@ -97,8 +97,8 @@ Codex CLI (rMCP) TOML
 
 ```toml
 [mcp_servers.codex-father]
-command = "codex-mcp-server"
-args = ["--transport=ndjson"]
+command = "npx"
+args = ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"]
 env.NODE_ENV = "production"
 env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
 env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
@@ -109,7 +109,7 @@ tool_timeout_sec = 120
 Notes
 
 - Timeouts align to Codex CLI guidance. You can manage entries via `codex config mcp add/list`.
-- For quick trials you can use `command = "npx"` and restore the original args.
+- We recommend npx for prod configurations to minimize drift; global installs remain optional.
 
 ### Method 2: npx (quick trial)
 

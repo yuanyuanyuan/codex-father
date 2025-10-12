@@ -29,21 +29,37 @@ for (let i = 0; i < lines.length; i += 1) {
 }
 
 if (startIndex === -1) {
-  // fallback to Unreleased or minimal notes when entry is missing
-  let unreleasedStart=-1;
-  const unreleasedRe=/^##\s*\[?Unreleased\]?/i;
-  for(let i=0;i<lines.length;i+=1){if(unreleasedRe.test(lines[i])){unreleasedStart=i;break;}}
-  if(unreleasedStart!==-1){
-    let unreleasedEnd=lines.length;
-    for(let i=unreleasedStart+1;i<lines.length;i+=1){if(/^##\s/.test(lines[i])){unreleasedEnd=i;break;}}
-    const unreleasedEntry=lines.slice(unreleasedStart,unreleasedEnd).join('\n').trim();
-    if(unreleasedEntry){
-      const rewritten=unreleasedEntry.replace(unreleasedRe,`## [${version}]`);
+  // Strict mode by default: do NOT allow leaking Unreleased into release notes
+  // Allow explicit override via ALLOW_UNRELEASED_FALLBACK=1|true|yes
+  const allowEnv = String(process.env.ALLOW_UNRELEASED_FALLBACK || '').trim();
+  const allowFallback = /^(1|true|yes)$/i.test(allowEnv);
+  if (!allowFallback) {
+    console.error(`[mcp-extract-changelog] missing explicit changelog entry for ${version}.`);
+    console.error('[mcp-extract-changelog] Refusing to auto-generate from [Unreleased] or minimal template.');
+    console.error('[mcp-extract-changelog] Please add a "## [' + version + ']" section to mcp/codex-mcp-server/CHANGELOG.md');
+    console.error('[mcp-extract-changelog] or set ALLOW_UNRELEASED_FALLBACK=1 to bypass (not recommended).');
+    process.exit(1);
+  }
+
+  // Fallback path (explicitly allowed): use Unreleased when available; otherwise minimal
+  let unreleasedStart = -1;
+  const unreleasedRe = /^##\s*\[?Unreleased\]?/i;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (unreleasedRe.test(lines[i])) { unreleasedStart = i; break; }
+  }
+  if (unreleasedStart !== -1) {
+    let unreleasedEnd = lines.length;
+    for (let i = unreleasedStart + 1; i < lines.length; i += 1) {
+      if (/^##\s/.test(lines[i])) { unreleasedEnd = i; break; }
+    }
+    const unreleasedEntry = lines.slice(unreleasedStart, unreleasedEnd).join('\n').trim();
+    if (unreleasedEntry) {
+      const rewritten = unreleasedEntry.replace(unreleasedRe, `## [${version}]`);
       process.stdout.write(`${rewritten}\n\n> Notes auto-generated from Unreleased due to missing explicit entry for ${version}.\n\nSee also: [CHANGELOG](${href})\n`);
       process.exit(0);
     }
   }
-  process.stdout.write(`## [${version}]\n\n_No curated changelog entry found. This release notes was auto-generated._\n\nSee also: [CHANGELOG](${href})\n`);
+  process.stdout.write(`## [${version}]\n\n_No curated changelog entry found. This release notes was auto-generated (fallback allowed).\n\nSee also: [CHANGELOG](${href})\n`);
   process.exit(0);
 }
 

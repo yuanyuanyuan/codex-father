@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+暂无变更条目。准备发布前，请将本次改动整理到下方对应版本章节，避免从
+[Unreleased] 自动生成发布说明。
+
+## [3.0.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v2.2.0...mcp-v3.0.0) (2025-10-10)
+
 ### Features
 
 - **runtime:** 补丁模式默认将 diff 落盘并在日志中仅输出预览，支持新的
@@ -19,6 +24,16 @@
 - **exec/runtime:** `runId`
   目录名时间戳改为使用系统本地时区（`exec-YYYYMMDDHHmmss-<tag>`），并在 CLI 展示时附带本地偏移而非固定
   `Z`。
+
+## [2.2.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v2.1.0...mcp-v2.2.0) (2025-10-09)
+
+此版本已发布，但未整理专属变更条目。详见 GitHub
+Release 页面或上方 compare 链接以获得差异列表。
+
+## [2.1.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v2.0.0...mcp-v2.1.0) (2025-10-08)
+
+此版本已发布，但未整理专属变更条目。详见 GitHub
+Release 页面或上方 compare 链接以获得差异列表。
 
 ## [2.0.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v1.6.0...mcp-v2.0.0) (2025-10-08)
 

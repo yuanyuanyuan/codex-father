@@ -2,6 +2,8 @@ import type { ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
 
 type ToolDef = ListToolsResult['tools'][number];
 
+const presetEnum = ['sprint', 'analysis', 'secure', 'fast'] as const;
+
 function canonicalTools(): ToolDef[] {
   return [
     {
@@ -39,7 +41,7 @@ function canonicalTools(): ToolDef[] {
           dangerouslyBypass: { type: 'boolean' },
           profile: { type: 'string' },
           codexConfig: { type: 'object', additionalProperties: true },
-          preset: { type: 'string' },
+          preset: { type: 'string', enum: [...presetEnum] },
           carryContext: { type: 'boolean' },
           compressContext: { type: 'boolean' },
           contextHead: { type: 'integer' },
@@ -74,7 +76,7 @@ function canonicalTools(): ToolDef[] {
           dangerouslyBypass: { type: 'boolean' },
           profile: { type: 'string' },
           codexConfig: { type: 'object', additionalProperties: true },
-          preset: { type: 'string' },
+          preset: { type: 'string', enum: [...presetEnum] },
           carryContext: { type: 'boolean' },
           compressContext: { type: 'boolean' },
           contextHead: { type: 'integer' },
@@ -110,7 +112,7 @@ function canonicalTools(): ToolDef[] {
           dangerouslyBypass: { type: 'boolean' },
           profile: { type: 'string' },
           codexConfig: { type: 'object', additionalProperties: true },
-          preset: { type: 'string' },
+          preset: { type: 'string', enum: [...presetEnum] },
           carryContext: { type: 'boolean' },
           compressContext: { type: 'boolean' },
           contextHead: { type: 'integer' },

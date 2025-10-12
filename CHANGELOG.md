@@ -7,6 +7,26 @@
 
 ## [Unreleased]
 
+## 1.6.2 - 2025-10-12
+
+### ♻️ 改进 / 文档
+
+- 统一“prod（生产）”示例为 npx 启动：在 Codex CLI (rMCP) 的
+  `~/.codex/config.toml` 中使用 `command = "npx"` 与
+  `args = ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"]`。
+- 保持 “preview（预览/本地调试）” 使用本地源码构建产物：`command = "node"` + 本地
+  `dist/index.js` 并显式 `--transport=ndjson`。
+- 同步更新中英文文档示例：README、User
+  Configuration、Installation、Manual、Quick Start。
+
+### 说明
+
+- 本次为文档与示例更新，不涉及运行时代码逻辑变更。
+
+### mcp/codex-mcp-server 3.0.1
+
+- 文档示例与说明同步“prod 用 npx”的口径。
+
 ### ✨ 新增
 
 - CLI: `orchestrate:report` 新增 `--duration-precision <0|1|2>`（与

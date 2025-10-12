@@ -124,7 +124,7 @@ let output = '';
 proc.stdout.on('data', (d) => { output += d.toString(); });
 setTimeout(() => {
   proc.kill();
-  if (output.includes('tools') && output.includes('clientHints')) {
+  if (output.includes('"tools"') && output.includes('"quickStart"')) {
     process.exit(0);
   } else {
     process.exit(1);

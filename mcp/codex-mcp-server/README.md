@@ -92,8 +92,12 @@ codex-mcp-server --transport=ndjson
 {
   "mcpServers": {
     "codex-father": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": [
+        "-y",
+        "@starkdev020/codex-father-mcp-server",
+        "--transport=ndjson"
+      ],
       "env": {
         "NODE_ENV": "production",
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
@@ -112,8 +116,8 @@ Codex CLI 支持 MCP 服务器配置，在 `~/.codex/config.toml` 中添加：
 
 ```toml
 [mcp_servers.codex-father]
-command = "codex-mcp-server"
-args = ["--transport=ndjson"]
+command = "npx"
+args = ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"]
 env.NODE_ENV = "production"
 env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
 env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
@@ -134,8 +138,12 @@ codex
 {
   "mcpServers": {
     "codex-father": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": [
+        "-y",
+        "@starkdev020/codex-father-mcp-server",
+        "--transport=ndjson"
+      ],
       "env": {
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
         "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"

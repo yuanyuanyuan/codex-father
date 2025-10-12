@@ -20,15 +20,126 @@ type GuideCard = {
   returnsJsonString: boolean;
 };
 
+type ParamMeta = GuideMeta['params'][number];
+
+const schemaParamHints: Record<string, string> = {
+  approvalPolicy: '字符串，控制审批策略（像选择“人工把关”还是“自动放行”）。',
+  sandbox: '字符串，指定沙箱级别，类似操作系统的权限模式。',
+  network:
+    '布尔值，true 表示临时打开联网开关，会自动注入 sandbox_workspace_write.network_access=true。',
+  fullAuto: '布尔值，true 时相当于开启“自动驾驶” (--full-auto)。',
+  dangerouslyBypass:
+    '布尔值，true 时注入 --dangerously-bypass-approvals-and-sandbox，等同于拆掉安全保险。',
+  profile: '字符串，切换 Codex CLI profile（例如 preview/prod）。',
+  codexConfig: '对象，每个键值对都会转成 --codex-config key=value，好比给命令额外加调味包。',
+  preset: '预设名称（sprint/analysis/secure/fast），像一键切换不同“套餐”。',
+  carryContext: '布尔值，false 会追加 --no-carry-context，等同于“重新开新的对话页”。',
+  compressContext: '布尔值，false 会追加 --no-compress-context，保留完整上下文。',
+  contextHead: '整数，传给 --context-head，用来限制保留的历史 Token 数量。',
+  patchMode: '布尔值，true 跑在“只输出补丁”模式。',
+  requireChangeIn: '字符串数组，对应多次 --require-change-in，像列出必须修改的目录白名单。',
+  requireGitCommit: '布尔值，true 表示强制生成 Git commit。',
+  autoCommitOnDone: '布尔值，true 表示任务成功后自动 git commit。',
+  autoCommitMessage: '字符串，自定义自动提交信息模板。',
+  offset: '整数，按字节模式读取日志时的起始偏移量。',
+  limit: '整数，按字节模式一次读取的最大字节数。',
+  offsetLines: '整数，按行模式读取日志时跳过前多少行。',
+  limitLines: '整数，按行模式读取日志时最多返回多少行。',
+  grep: '字符串，等价于日志里的 grep 过滤器。',
+  view: '字符串视图模式（default/result-only/debug），类似切换“不同镜头角度”。',
+  state: '字符串数组，过滤指定状态（running/completed/failed 等）。',
+  tagContains: '字符串，模糊匹配任务标签，相当于快速搜索货架标签。',
+  olderThanHours: '数字，清理早于该小时数的任务，像定期打扫旧档案。',
+  dryRun: '布尔值，true 时只是演练预览，不实际清理。',
+  states: '字符串数组，限定统计或清理范围；例如只看 completed/failed。',
+  cwd: '字符串，覆盖默认工作目录。',
+  args: '字符串数组，按顺序传递给 start.sh，就像原生 CLI 参数列表。',
+  tag: '字符串，为任务打标签，便于后续查询。',
+  jobId: '字符串，指定要查询或操作的任务 ID。',
+};
+
+function toTypeLabel(schema: Record<string, unknown>): string {
+  const rawType = schema.type;
+  if (Array.isArray(rawType)) {
+    return rawType.join(' | ');
+  }
+  if (rawType === 'array' && typeof schema.items === 'object' && schema.items) {
+    const item = schema.items as Record<string, unknown>;
+    const itemType = toTypeLabel(item) || (typeof item.type === 'string' ? item.type : 'unknown');
+    return `array<${itemType}>`;
+  }
+  if (typeof rawType === 'string') {
+    return rawType;
+  }
+  return '';
+}
+
+function enumValues(schema: Record<string, unknown>): string[] | undefined {
+  if (Array.isArray(schema.enum) && schema.enum.length) {
+    return schema.enum.map((value) => String(value));
+  }
+  if (schema.type === 'array' && typeof schema.items === 'object' && schema.items) {
+    const item = schema.items as Record<string, unknown>;
+    if (Array.isArray(item.enum) && item.enum.length) {
+      return item.enum.map((value) => String(value));
+    }
+  }
+  return undefined;
+}
+
+function schemaParamMeta(
+  name: string,
+  schema: Record<string, unknown>,
+  required: boolean
+): ParamMeta {
+  const hint =
+    schemaParamHints[name] ||
+    (typeof schema.description === 'string' ? schema.description : undefined);
+  const typeLabel = toTypeLabel(schema);
+  let description = hint || (typeLabel ? `类型：${typeLabel}` : '参见 JSON Schema 描述。');
+  if (!hint && typeLabel && !description.includes(typeLabel)) {
+    description = `${description}（类型：${typeLabel}）`;
+  }
+  if (hint && typeLabel && !hint.includes(typeLabel)) {
+    description = `${hint}（类型：${typeLabel}）`;
+  }
+  const values = enumValues(schema);
+  return { name, required, description, ...(values ? { values } : {}) };
+}
+
+function mergeParamMeta(card: GuideCard): ParamMeta[] {
+  const manual = card.meta.params ?? [];
+  const manualMap = new Map<string, ParamMeta>();
+  for (const param of manual) {
+    manualMap.set(param.name, param);
+  }
+
+  const result: ParamMeta[] = [...manual];
+  const schema = card.spec.inputSchema;
+  if (schema && schema.type === 'object' && typeof schema.properties === 'object') {
+    const requiredList = Array.isArray(schema.required)
+      ? new Set(schema.required.map((v) => String(v)))
+      : new Set<string>();
+    for (const [key, value] of Object.entries(schema.properties as Record<string, unknown>)) {
+      if (manualMap.has(key) || typeof value !== 'object' || value === null) {
+        continue;
+      }
+      result.push(schemaParamMeta(key, value as Record<string, unknown>, requiredList.has(key)));
+    }
+  }
+  return result;
+}
+
 function buildToolSection(card: GuideCard, heading: string): string[] {
   const lines: string[] = [];
   lines.push(heading, '');
   lines.push(`- **一句话**：${card.meta.tagline}`);
   lines.push(`- **使用场景**：${card.meta.scenario}`);
-  if (card.meta.params.length) {
+  const params = mergeParamMeta(card);
+  if (params.length) {
     lines.push('| 参数 | 必填 | 说明 |');
     lines.push('| --- | --- | --- |');
-    for (const p of card.meta.params) {
+    for (const p of params) {
       const required = p.required ? '是' : '否';
       const valueNote = p.values?.length ? `<br>可选值：${p.values.join(' / ')}` : '';
       lines.push(`| ${p.name} | ${required} | ${p.description}${valueNote} |`);
@@ -191,7 +302,7 @@ export function handleHelp(params: Record<string, unknown>): ToolResult {
       intro: 'codex_help 用于快速了解 Codex Father 提供的 MCP 工具、使用场景与示例。',
       quickStart: {
         example: quickCall,
-        note: '默认返回 Markdown；将 format 设置为 "json" 可获得此结构。',
+        note: '默认返回 Markdown；将 format 设置为 "json" 可获得此结构。工具在客户端通常显示为 mcp__<server-id>__<tool>，其中 <server-id> 等于 MCP 配置中的键名（例如 codex-father-prod）。',
         scenarios: quickScenarios.map((scenario) => ({
           title: scenario.title,
           description: scenario.description,
@@ -225,6 +336,10 @@ export function handleHelp(params: Record<string, unknown>): ToolResult {
   md.push('codex_help 用来在一个地方了解所有核心工具、适用场景与调用示例。', '');
   md.push('## 快速开始', '', '最简调用：', '```json', JSON.stringify(quickCall, null, 2), '```');
   md.push('返回值包含所有工具与示例，设置 `format: "json"` 可得到结构化结果。', '');
+  md.push(
+    '命名提示：在大多数客户端中，工具名称会呈现为 `mcp__<server-id>__<tool>`；其中 `<server-id>` 就是你在 MCP 配置里填写的键名（例如 `codex-father-prod`）。',
+    ''
+  );
   if (quickScenarios.length) {
     md.push('## 快速上手场景', '');
     for (const scenario of quickScenarios) {

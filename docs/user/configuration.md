@@ -45,8 +45,8 @@ gedit ~/.config/Claude/claude_desktop_config.json
 {
   "mcpServers": {
     "codex-father-prod": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "NODE_ENV": "production",
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
@@ -145,8 +145,8 @@ gedit ~/.config/Claude/claude_desktop_config.json
       "args": ["./mcp/codex-mcp-server/dist/index.js"]
     },
     "codex-father-prod": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "NODE_ENV": "production",
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
@@ -185,7 +185,7 @@ claude-code
 ```
 
 应该看到可用工具（如未配置命名策略，可能同时出现 `codex.exec`/`codex_exec`
-两组；在 Codex 0.44 responses 下建议只保留下划线或带前缀的 `cf_*`）。
+两组；在 Codex 0.44 responses 下建议只保留下划线或带前缀的 `cf_*`）。首次通过 npx 启动时可能会下载包，建议将 `startup_timeout_sec` 设为 ≥60s。
 
 #### 命名策略（工具名导出）
 
@@ -237,16 +237,16 @@ vim ~/.codex/config.toml
 
 [mcp_servers.codex-father-preview]
 command = "node"
-args = ["/abs/path/to/repo/mcp/codex-mcp-server/dist/index.js"]
+args = ["/abs/path/to/repo/mcp/codex-mcp-server/dist/index.js", "--transport=ndjson"]
 
 [mcp_servers.codex-father-prod]
-command = "codex-mcp-server"
-args = ["--transport=ndjson"]
+command = "npx"
+args = ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"]
 env.NODE_ENV = "production"
 env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
 env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
-startup_timeout_sec = 45
-tool_timeout_sec = 120
+startup_timeout_sec = 60
+tool_timeout_sec = 180
 ```
 
 > 将 `/ABS/PATH/TO/...` 替换为绝对路径（如 `~/.codex-father-runtime` 与
@@ -308,8 +308,8 @@ tool_timeout_sec = 120
 {
   "mcpServers": {
     "codex-father-prod": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "APPROVAL_POLICY": "on-failure",
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
@@ -339,8 +339,8 @@ tool_timeout_sec = 120
 {
   "mcpServers": {
     "codex-father-prod": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "APPROVAL_POLICY": "on-failure",
         "LOG_LEVEL": "info",
@@ -381,8 +381,8 @@ tool_timeout_sec = 120
 {
   "mcpServers": {
     "codex-father-prod": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "LOG_FILE": "/path/to/codex-father.log",
         "LOG_LEVEL": "debug",
@@ -402,8 +402,8 @@ tool_timeout_sec = 120
 {
   "mcpServers": {
     "codex-father-prod": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "WHITELIST_COMMANDS": "ls,pwd,git status,npm test",
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
@@ -431,8 +431,8 @@ tool_timeout_sec = 120
       }
     },
     "codex-father-prod": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "APPROVAL_POLICY": "on-failure",
         "LOG_LEVEL": "info",
@@ -461,11 +461,11 @@ tool_timeout_sec = 120
 
 [mcp_servers.codex-father-preview]
 command = "node"
-args = ["/abs/path/to/repo/mcp/codex-mcp-server/dist/index.js"]
+args = ["/abs/path/to/repo/mcp/codex-mcp-server/dist/index.js", "--transport=ndjson"]
 
 [mcp_servers.codex-father-prod]
-command = "codex-mcp-server"
-args = ["--transport=ndjson"]
+command = "npx"
+args = ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"]
 
 [mcp_servers.codex-father-prod.env]
 APPROVAL_POLICY = "on-failure"

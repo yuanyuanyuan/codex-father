@@ -104,6 +104,7 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       '建议使用 tag 参数便于 list/stop 检索。',
       '模型参数：可用 args 形式（例如 ["--model","gpt-5-codex high"] 或 ["--model","gpt-5-codex","high"])，也可用 codexConfig（{"model":"gpt-5-codex","model_reasoning_effort":"high"}）。',
       '联网：入参传 network=true，服务器将注入 --codex-config sandbox_workspace_write.network_access=true；meta 的 effective_network_access 会回填运行时真实状态。',
+      '结构化指令：与 codex.start 一样，可在 args 中追加 "--instructions <file> --task <id>"，CLI 会校验 schema 并通过 CODEX_STRUCTURED_* 环境变量透出给 shell。',
       '补丁模式：patchMode=true 将注入 policy-note，限制仅输出补丁（patch/diff）；如需正常执行请移除该选项。',
       '审批与沙箱：workspace-write + never 会被规范化为 on-failure（日志含 [arg-normalize] 提示）；若需人工审批请显式传 on-request，或设置 ALLOW_NEVER_WITH_WRITABLE_SANDBOX=1 保留 never。',
       '上下文体积预检：默认 INPUT_TOKEN_LIMIT=32000；超过将立即失败 (exit 2)，classification=context_overflow。建议拆分任务或仅传摘要；必要时可临时提高上限。',

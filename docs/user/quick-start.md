@@ -80,8 +80,8 @@ npm start
 {
   "mcpServers": {
     "codex-father": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
         "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"
@@ -117,14 +117,15 @@ npm start
 1. 编辑 `~/.codex/config.toml`：
 
    ```toml
+   # prod：使用 npx 直接运行 npm 包
    [mcp_servers.codex-father]
-   command = "codex-mcp-server"
-   args = ["--transport=ndjson"]
+   command = "npx"
+   args = ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"]
    env.NODE_ENV = "production"
    env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
    env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
-   startup_timeout_sec = 45
-   tool_timeout_sec = 120
+   startup_timeout_sec = 60
+   tool_timeout_sec = 180
    ```
 
 2. 执行 `codex`，在会话中运行「请列出当前项目的文件」验证连通性。
@@ -204,8 +205,8 @@ cat > .claude/mcp_settings.json <<'JSON'
 {
   "mcpServers": {
     "codex-father": {
-      "command": "codex-mcp-server",
-      "args": ["--transport=ndjson"],
+      "command": "npx",
+      "args": ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"],
       "env": {
         "CODEX_MCP_PROJECT_ROOT": "/ABS/PATH/TO/.codex-father-runtime",
         "CODEX_SESSIONS_ROOT": "/ABS/PATH/TO/.codex-father-sessions"

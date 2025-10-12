@@ -189,17 +189,17 @@ cd codex-father && npm install
 }
 ```
 
-**Codex CLI (rMCP)** - 添加到 `~/.codex/config.toml`：
+**Codex CLI (rMCP)** - 添加到 `~/.codex/config.toml`（prod 使用 npx）：
 
 ```toml
 [mcp_servers.codex-father]
-command = "codex-mcp-server"
-args = ["--transport=ndjson"]
+command = "npx"
+args = ["-y", "@starkdev020/codex-father-mcp-server", "--transport=ndjson"]
 env.NODE_ENV = "production"
 env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
 env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
-startup_timeout_sec = 45
-tool_timeout_sec = 120
+startup_timeout_sec = 60
+tool_timeout_sec = 180
 ```
 
 **Claude Code CLI** - 在项目根目录创建 `.claude/mcp_settings.json`
