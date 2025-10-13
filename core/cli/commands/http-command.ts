@@ -1,7 +1,7 @@
 import type { CLIParser } from '../parser.js';
 import { startHttpServer } from '../../http/server.js';
 
-export function registerHttpCommand(parser: CLIParser) {
+export function registerHttpCommand(parser: CLIParser): void {
   parser.registerCommand(
     'http:serve',
     '启动只读 HTTP/SSE 服务（/api/v1）',

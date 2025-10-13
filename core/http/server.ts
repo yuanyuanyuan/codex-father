@@ -16,17 +16,23 @@ type ServerOptions = {
 
 type ErrorBody = { code: string; message: string; hint?: string };
 
-function error(res: Response, status: number, body: ErrorBody) {
+function error(res: Response, status: number, body: ErrorBody): void {
   res.status(status).json(body);
 }
 
 function coalesce<T>(...vals: Array<T | undefined | null>): T | undefined {
-  for (const v of vals) if (v !== undefined && v !== null) return v as T;
+  for (const v of vals) {
+    if (v !== undefined && v !== null) {
+      return v as T;
+    }
+  }
   return undefined;
 }
 
 function resolveSessionsRoot(repoRoot: string, explicit?: string): string {
-  if (explicit && fs.existsSync(explicit)) return explicit;
+  if (explicit && fs.existsSync(explicit)) {
+    return explicit;
+  }
   const candidates = [
     path.join(repoRoot, '.codex-father', 'sessions'),
     path.join(repoRoot, '.codex-father-sessions'),
@@ -34,7 +40,9 @@ function resolveSessionsRoot(repoRoot: string, explicit?: string): string {
     path.join(process.cwd(), '.codex-father', 'sessions'),
   ];
   for (const dir of candidates) {
-    if (fs.existsSync(dir)) return dir;
+    if (fs.existsSync(dir)) {
+      return dir;
+    }
   }
   return path.join(repoRoot, '.codex-father', 'sessions');
 }
@@ -53,7 +61,7 @@ async function readJsonSafe<T = unknown>(file: string): Promise<T | null> {
   }
 }
 
-async function readJsonlArray(file: string): Promise<any[]> {
+async function readJsonlArray(file: string): Promise<unknown[]> {
   try {
     const buf = await fsp.readFile(file, 'utf-8');
     return buf
@@ -66,13 +74,15 @@ async function readJsonlArray(file: string): Promise<any[]> {
           return null;
         }
       })
-      .filter((x) => x != null);
+      .filter((x) => x !== null);
   } catch {
     return [];
   }
 }
 
-export async function startHttpServer(opts: ServerOptions = {}) {
+export async function startHttpServer(
+  opts: ServerOptions = {}
+): Promise<{ close: () => Promise<void> }> {
   const host = opts.host ?? process.env.CODEX_HTTP_HOST ?? '0.0.0.0';
   const port = Number(opts.port ?? process.env.CODEX_HTTP_PORT ?? 7070);
   const repoRoot = opts.repoRoot ?? process.cwd();
@@ -100,16 +110,18 @@ export async function startHttpServer(opts: ServerOptions = {}) {
   app.get('/api/v1/jobs/:id/status', async (req, res) => {
     const jobId = String(req.params.id);
     const dir = findSessionDir(sessionsRoot, jobId);
-    if (!dir)
+    if (!dir) {
       return error(res, 404, {
         code: 'not_found',
         message: `Session not found: ${jobId}`,
         hint: `Check sessions root: ${sessionsRoot}`,
       });
+    }
     const statePath = path.join(dir, 'state.json');
     const state = await readJsonSafe(statePath);
-    if (!state)
-      return error(res, 404, { code: 'not_found', message: `state.json missing`, hint: statePath });
+    if (!state) {
+      return error(res, 404, { code: 'not_found', message: 'state.json missing', hint: statePath });
+    }
     res.json(state);
   });
 
@@ -117,7 +129,9 @@ export async function startHttpServer(opts: ServerOptions = {}) {
   app.get('/api/v1/jobs/:id/checkpoints', async (req, res) => {
     const jobId = String(req.params.id);
     const dir = findSessionDir(sessionsRoot, jobId);
-    if (!dir) return error(res, 404, { code: 'not_found', message: `Session not found: ${jobId}` });
+    if (!dir) {
+      return error(res, 404, { code: 'not_found', message: `Session not found: ${jobId}` });
+    }
     const cps = await readJsonlArray(path.join(dir, 'checkpoints.jsonl'));
     res.json(cps);
   });
@@ -126,7 +140,9 @@ export async function startHttpServer(opts: ServerOptions = {}) {
   app.get('/api/v1/jobs/:id/events', async (req: Request, res: Response) => {
     const jobId = String(req.params.id);
     const dir = findSessionDir(sessionsRoot, jobId);
-    if (!dir) return error(res, 404, { code: 'not_found', message: `Session not found: ${jobId}` });
+    if (!dir) {
+      return error(res, 404, { code: 'not_found', message: `Session not found: ${jobId}` });
+    }
     const eventsFile = path.join(dir, 'events.jsonl');
 
     res.writeHead(200, {
@@ -139,20 +155,24 @@ export async function startHttpServer(opts: ServerOptions = {}) {
     const fromSeq = Number(coalesce(req.query.fromSeq as string | undefined, '0')) || 0;
     let lastSeq = fromSeq > 0 ? fromSeq - 1 : 0;
 
-    const send = (e: any) => {
-      if (!e || typeof e !== 'object') return;
-      const seq = typeof e.seq === 'number' ? e.seq : 0;
-      if (seq <= lastSeq) return; // dedupe
+    const send = (e: any): void => {
+      if (!e || typeof e !== 'object') {
+        return;
+      }
+      const seq = typeof (e as any).seq === 'number' ? (e as any).seq : 0;
+      if (seq <= lastSeq) {
+        return; // dedupe
+      }
       lastSeq = seq;
-      const evt = typeof e.event === 'string' ? e.event : 'message';
+      const evt = typeof (e as any).event === 'string' ? (e as any).event : 'message';
       res.write(`event: ${evt}\n`);
       res.write(`data: ${JSON.stringify(e)}\n\n`);
     };
 
     // Initial replay
     const history = await readJsonlArray(eventsFile);
-    for (const e of history) {
-      if (fromSeq === 0 || (typeof e.seq === 'number' && e.seq >= fromSeq)) {
+    for (const e of history as any[]) {
+      if (fromSeq === 0 || (typeof (e as any).seq === 'number' && (e as any).seq >= fromSeq)) {
         send(e);
       }
     }
@@ -166,18 +186,24 @@ export async function startHttpServer(opts: ServerOptions = {}) {
     // Tail file using fs.watch fallback
     let closed = false;
     let watching: fs.FSWatcher | null = null;
-    const onChange = async () => {
-      if (closed) return;
+    const onChange = async (): Promise<void> => {
+      if (closed) {
+        return;
+      }
       try {
         const arr = await readJsonlArray(eventsFile);
-        for (const e of arr) send(e);
+        for (const e of arr as any[]) {
+          send(e);
+        }
       } catch {
         // ignore
       }
     };
     try {
       watching = fs.watch(dir, (event, filename) => {
-        if (filename === 'events.jsonl' || event === 'change') onChange();
+        if (filename === 'events.jsonl' || event === 'change') {
+          onChange();
+        }
       });
     } catch {
       // fallback: poll
@@ -188,7 +214,9 @@ export async function startHttpServer(opts: ServerOptions = {}) {
     res.on('close', () => {
       closed = true;
       clearInterval(hb);
-      if (watching) watching.close();
+      if (watching) {
+        watching.close();
+      }
     });
   });
 
