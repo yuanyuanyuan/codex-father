@@ -299,7 +299,9 @@ export class CLIParser {
         commandArgs.push(a);
       } else if (Array.isArray(a)) {
         for (const v of a) {
-          if (typeof v === 'string') commandArgs.push(v);
+          if (typeof v === 'string') {
+            commandArgs.push(v);
+          }
         }
       }
     }
