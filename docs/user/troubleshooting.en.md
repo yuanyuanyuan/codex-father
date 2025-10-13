@@ -73,7 +73,16 @@ Fix
 
 Check Codex CLI presence and syntax; test on terminal first. If you see `400 Unsupported model`, switch to a supported model or adjust provider mapping. For reasoning effort use `minimal|low|medium|high`.
 
-Patch mode notes: `--patch-mode` adds a policy note and writes diffs to `<session>/patches/patch.diff`. To avoid conflicts with general “style/explanation” base instructions, patch mode skips injecting the base block and keeps only the task text plus the policy note. Tune visibility with `--patch-preview-lines` or `--no-patch-preview`; disable artifact with `--no-patch-artifact`.
+Patch mode (DRY RUN): `--patch-mode` shows a `[dry-run] Patch Mode: on` banner and will not modify repository files. It adds a policy note and writes diffs to `<session>/patches/patch.diff` (or `--patch-output`). To avoid conflicts with general base instructions, patch mode skips injecting the base block and keeps only the task text plus the policy note. Tune visibility with `--patch-preview-lines` / `--no-patch-preview`; disable artifact with `--no-patch-artifact`.
+
+Safety enforcement:
+
+- You must explicitly acknowledge patch mode; otherwise the CLI exits with code 2. Use one of: `--ack-patch-mode`, `--tag DRYRUN`, or env `CODEX_ACK_PATCH_MODE=1`.
+- The following flags conflict with `--patch-mode` and will hard-fail: `--require-change-in`, `--require-git-commit`, `--auto-commit-on-done`, `--repeat-until`.
+
+Classification:
+
+- When a valid patch is produced under `--patch-mode`, metadata is normalized to `classification=patch_only` (patch-only, repository unchanged).
 
 ### View the patch manifest (logs --patches)
 

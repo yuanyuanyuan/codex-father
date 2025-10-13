@@ -357,25 +357,21 @@ codex exec "ls -la"
 cat .codex-father/logs/latest.log
 ```
 
-### 看到 `<instructions-section type="policy-note">` / `Patch Mode: on`
+### 看到 `<instructions-section type="policy-note">` / `[dry-run] Patch Mode: on`
 
-**说明**：已启用补丁模式（`--patch-mode`）。系统会追加 policy-note，要求
-仅输出可应用的补丁，并将 diff 自动写入 `<session>/patches/patch.diff`
-（或 `--patch-output` 自定义路径）。为避免与风格/解释类“基础指令”冲突，补丁模式下会跳过 base 指令注入，仅保留任务文本与 policy-note。
+**说明**：已启用补丁模式（`--patch-mode`，DRY RUN）。日志会出现 `[dry-run] Patch Mode: on` 横幅，表示不会修改仓库文件；系统会追加 policy-note，要求仅输出可应用的补丁，并将 diff 自动写入 `<session>/patches/patch.diff>`（或 `--patch-output` 自定义路径）。为避免与风格/解释类“基础指令”冲突，补丁模式下会跳过 base 指令注入，仅保留任务文本与 policy-note。
 日志只保留前若干行预览，以免撑爆上下文。
 
 **如何调整**：
 
-- 取消补丁模式：移除 `--patch-mode`，即可恢复为正常执行（允许写盘等）。
+- 取消补丁模式：移除 `--patch-mode`，即可恢复为正常执行（允许写盘等）。如需继续使用补丁模式，必须显式确认：`--ack-patch-mode` / `--tag DRYRUN` / `CODEX_ACK_PATCH_MODE=1`。补丁模式与 `--require-change-in`、`--require-git-commit`、`--auto-commit-on-done`、`--repeat-until` 不可同用（会直接报错退出）。
 - 调整回显：`--patch-preview-lines 80` 控制预览行数，`--no-patch-preview`
   完全关闭日志回显。
 - 恢复旧行为：传入 `--no-patch-artifact`，补丁会完整写入日志而不落盘。
 
 **状态归一化（仅产出补丁的任务）**：
 
-- 当开启 `--patch-mode`，且“最后消息”包含可应用补丁片段（`*** Begin Patch`/`*** End Patch`）并以 `CONTROL: DONE` 收尾时，
-  即便底层日志存在非 0 退出码或审批拦截表象，`job.sh status` 也会将其规范化为：
-  `state=completed, exit_code=0, classification=patch_only`。
+- 当开启 `--patch-mode` 且产生有效补丁时，元数据会统一标记 `classification=patch_only`（“仅产出补丁，仓库未修改”）。
 - 这样可以在无人值守流水线中直接消费 `<session>/job.r*.last.txt` 的补丁产物，而无需处理“审批导致失败”的假阳性。
 - 若需要保留原始失败语义，请关闭 `--patch-mode` 或确保执行路径中不会触发审批门槛。
 

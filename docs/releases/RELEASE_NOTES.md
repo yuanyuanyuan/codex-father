@@ -67,6 +67,13 @@
 - 诊断工具增强：`grep-events` 支持 `ignoreCase`（大小写不敏感）与 `regex`（正则匹配）。
 - rMCP 示例：新增 `diagnose-report` 命令，一步拿到降级 `reason` 并按 Playbook 行动。
 
+### 🔒 行为强化（补丁模式 DRY RUN 强制确认）
+
+- CLI 与 rMCP 运行时新增补丁模式强制确认与冲突校验：
+  - `--patch-mode` 必须显式确认，否则直接失败（退出码 2）。确认方式：`--ack-patch-mode` 或 `--tag DRYRUN` 或环境变量 `CODEX_ACK_PATCH_MODE=1`。
+  - 与落盘/提交相关的开关将报错退出：`--require-change-in`、`--require-git-commit`、`--auto-commit-on-done`、`--repeat-until`。
+  - 日志顶部打印 `[dry-run] Patch Mode: on` 横幅；产生有效补丁时统一标记 `classification=patch_only`（仅产出补丁，仓库未修改）。
+
 ### ♻️ 改进（入参与错误码映射更严格）
 
 - `read-report-file` / `read-events-preview` / `read-report-metrics`：

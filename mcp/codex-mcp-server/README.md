@@ -301,12 +301,20 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
   - 需要人工审批时请显式传
     `approvalPolicy="on-request"`；若确定要全自动运行仍可结合
     `dangerouslyBypass=true`（高风险，仅限隔离环境）。
-- 补丁模式：
-  - 仅在需要“只输出补丁（patch/diff）”时设置 `patchMode=true`；日志会显示
-    `Patch Mode: on` 并注入 `policy-note`。
+- 补丁模式（DRY RUN，强制确认）：
+  - 仅在需要“只输出补丁（patch/diff）”时设置 `patchMode=true`；日志会出现
+    `[dry-run] Patch Mode: on` 横幅，表示不会修改仓库文件。
+  - 为杜绝“执行但不落盘”的误用，补丁模式需要显式确认，否则直接失败（退出码 2）：
+    - CLI: 添加 `--ack-patch-mode`，或使用 `--tag DRYRUN`，或设置
+      `CODEX_ACK_PATCH_MODE=1`；
+    - MCP: 在 `args` 中追加 `"--ack-patch-mode"` 或在 `tags` 中含
+      `DRYRUN`，或设置 `env` 变量。
+  - 与落盘/提交相关的开关不可同用（会报错）：`--require-change-in`、`--require-git-commit`、`--auto-commit-on-done`、`--repeat-until`。
+  - 产生有效补丁时，元数据统一标记
+    `classification=patch_only`，代表“仅产出补丁，仓库未修改”。
   - diff 将自动写入 `<session>/patch.diff`（或 `--patch-output`
-    指定路径），日志只回显前若干行，可搭配 `--patch-preview-lines` 或
-    `--no-patch-preview` 控制体积；传入 `--no-patch-artifact` 可恢复旧行为。
+    指定路径），日志只回显前若干行；可用 `--patch-preview-lines` 或
+    `--no-patch-preview` 调整。
 - 快速自检（MCP 工具调用示例）：
   - 单次执行（联网 + 补丁模式）：
     ```json

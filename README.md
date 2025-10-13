@@ -432,17 +432,20 @@ npm run rmcp:client -- --help
     提示。
   - 如需无人值守，建议使用 `on-failure`，或显式开启 bypass（危险）。
 - 补丁模式：
-  - 仅在需要“只输出补丁”时添加 `--patch-mode`；看到日志 `Patch Mode: on`
-    即表示已注入 `policy-note`。
+  - 仅在需要“只输出补丁”时添加 `--patch-mode`；日志会出现
+    `[dry-run] Patch Mode: on` 横幅。
+  - 强制确认：为杜绝“执行但不落盘”的误用，`--patch-mode`
+    现在需要显式确认，否则直接失败（退出码 2）：
+    - 添加 `--ack-patch-mode`；或
+    - 使用 `--tag DRYRUN`；或
+    - 设置环境变量 `CODEX_ACK_PATCH_MODE=1`。
+  - 冲突开关将报错退出：`--require-change-in`、`--require-git-commit`、`--auto-commit-on-done`、`--repeat-until`
+    不可与 `--patch-mode` 同用（DRY RUN 下无法满足写盘/提交）。
   - 默认会将补丁写入 `<session>/patches/patch.diff`（或 `--patch-output`
-    指定的路径），日志仅保留预览，可用 `--patch-preview-lines`
+    指定的路径），日志仅保留预览；可用 `--patch-preview-lines`
     调整、`--no-patch-preview` 关闭回显。
-  - 如需恢复旧行为（将完整补丁写进日志），传入 `--no-patch-artifact`。
-  - 状态归一化：在 `--patch-mode`
-    下，若最后消息包含可应用补丁（`*** Begin Patch`/`*** End Patch`）且带有
-    `CONTROL: DONE`， `job.sh status`
-    会将该任务视为完成（`state=completed, exit_code=0, classification=patch_only`），方便直接消费
-    `job.r*.last.txt` 的补丁产物。
+  - 状态归一化：在 `--patch-mode` 下，若产生有效补丁，将统一标记
+    `classification=patch_only`，表示“仅产出补丁，仓库未修改”。
 - 结构化 instructions：
   - 准备 JSON/YAML/XML 描述的任务文件后，可执行
     `./start.sh --instructions path/to/task.json --task T032`；CLI 会先校验 schema 再写入

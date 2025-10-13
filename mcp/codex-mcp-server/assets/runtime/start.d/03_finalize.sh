@@ -215,6 +215,25 @@ classify_exit "${RUN_LAST_MSG_FILE}" "${CODEX_LOG_FILE}" "${CODEX_EXIT}"
 INSTR_TITLE=$(awk 'NF {print; exit}' "${INSTR_FILE}" 2>/dev/null || echo "")
 RUN_ID="codex-${TS}${TAG_SUFFIX}"
 
+# Normalize classification for patch-mode runs (MCP runtime)
+if (( ${PATCH_MODE:-0} == 1 )); then
+  _patch_detected=0
+  if [[ "${PATCH_ARTIFACT_CAPTURED:-0}" == "1" ]] && [[ -n "${PATCH_ARTIFACT_PATHS[1]:-}" ]] && [[ -s "${PATCH_ARTIFACT_PATHS[1]}" ]]; then
+    _patch_detected=1
+  elif [[ -f "${RUN_LAST_MSG_FILE}" ]]; then
+    if declare -F codex_detect_patch_output >/dev/null 2>&1; then
+      if codex_detect_patch_output "${RUN_LAST_MSG_FILE}"; then _patch_detected=1; fi
+    else
+      if grep -Eqs '^(diff --git|Index: |@@ |--- |\+\+\+ |\*\*\* Begin Patch|apply_patch <<|```diff)' "${RUN_LAST_MSG_FILE}"; then _patch_detected=1; fi
+    fi
+  fi
+  if (( _patch_detected == 1 )); then
+    CLASSIFICATION='patch_only'
+    EXIT_REASON='Patch mode: output-only (no repository writes)'
+    echo "[classification] patch_only — produced patch under --patch-mode; repository unchanged." >> "${CODEX_LOG_FILE}"
+  fi
+fi
+
 # 根据运行时日志回填网络实际生效状态，避免仅依据入参产生偏差
 if [[ -f "${CODEX_LOG_FILE}" ]]; then
   if grep -Eqi 'network access enabled' "${CODEX_LOG_FILE}" 2>/dev/null; then

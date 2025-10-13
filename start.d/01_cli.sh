@@ -222,6 +222,10 @@ PATCH_PREVIEW_LINES=${PATCH_PREVIEW_LINES:-40}
 
 JSON_OUTPUT=0
 
+# Patch-mode enforcement (strong): require explicit acknowledgement
+PATCH_MODE_REQUIRE_ACK=${PATCH_MODE_REQUIRE_ACK:-1}
+ACK_PATCH_MODE_CLI=0
+
 # 补丁模式提示文案（仅输出可应用补丁，不执行写入）
 PATCH_POLICY_NOTE=$'请仅输出可应用的补丁（patch/diff），不要执行任何写文件、运行命令或直接修改仓库。\n优先使用统一 diff（git apply）或 Codex CLI apply_patch 片段，逐文件展示新增/修改/删除。\n如需迁移脚本或测试，请以新增文件形式包含于补丁中。完成后输出 “CONTROL: DONE”。'
 
@@ -521,6 +525,8 @@ while [[ $# -gt 0 ]]; do
       APPEND_FILE="${2}"; shift 2 ;;
     --patch-mode)
       PATCH_MODE=1; shift 1 ;;
+    --ack-patch-mode)
+      ACK_PATCH_MODE_CLI=1; shift 1 ;;
     --patch-output)
       [[ $# -ge 2 ]] || { echo "错误: --patch-output 需要一个路径参数" >&2; exit 2; }
       PATCH_ARTIFACT_FILE="${2}"; shift 2 ;;
@@ -680,6 +686,49 @@ if (( PATCH_MODE == 1 )) && (( PATCH_CAPTURE_ARTIFACT == 1 )); then
     else
       PATCH_ARTIFACT_FILE="${CODEX_LOG_FILE%.log}.patch.diff"
     fi
+  fi
+fi
+
+# --- DRY RUN banner & guard notes for patch-mode ---
+if (( PATCH_MODE == 1 )); then
+  {
+    echo "[dry-run] Patch Mode: on — no repository files will be modified."
+    if [[ -n "${PATCH_ARTIFACT_FILE:-}" ]]; then
+      echo "[dry-run] Patch artifact will be saved to: ${PATCH_ARTIFACT_FILE}"
+    fi
+    # Arrays are always defined; safe length check
+    if (( ${#REQUIRE_CHANGE_GLOBS[@]} > 0 )) || (( ${REQUIRE_GIT_COMMIT:-0} == 1 )); then
+      echo "[dry-run] Note: --require-change-in / --require-git-commit are ignored under --patch-mode."
+    fi
+  } >> "${CODEX_LOG_FILE}"
+fi
+
+# Hard guard: forbid --patch-mode unless explicitly acknowledged, and error on conflicting flags
+if (( PATCH_MODE == 1 )); then
+  local_ack=0
+  # Acknowledge via flag or env or DRYRUN tag
+  if (( ACK_PATCH_MODE_CLI == 1 )); then local_ack=1; fi
+  case "${CODEX_ACK_PATCH_MODE:-${ACK_PATCH_MODE:-0}}" in
+    1|true|yes|on|ON|TRUE) local_ack=1 ;;
+  esac
+  if [[ -n "${SAFE_TAG:-}" ]]; then
+    case "${SAFE_TAG^^}" in
+      *DRYRUN*|*DRY-RUN*) local_ack=1 ;;
+    esac
+  fi
+  if (( PATCH_MODE_REQUIRE_ACK == 1 )) && (( local_ack == 0 )); then
+    VALIDATION_ERROR+=$'错误: 检测到 --patch-mode（DRY RUN），为杜绝“执行但不落盘”，必须显式确认：\n- 添加 --ack-patch-mode，或\n- 使用 --tag DRYRUN，或\n- 导出环境变量 CODEX_ACK_PATCH_MODE=1\n'
+  fi
+  # Conflicting flags under patch-mode
+  conflict_list=()
+  if (( ${#REQUIRE_CHANGE_GLOBS[@]} > 0 )); then conflict_list+=("--require-change-in"); fi
+  if (( ${REQUIRE_GIT_COMMIT:-0} == 1 )); then conflict_list+=("--require-git-commit"); fi
+  if (( ${AUTO_COMMIT_ON_DONE:-0} == 1 )); then conflict_list+=("--auto-commit-on-done"); fi
+  if [[ -n "${REPEAT_UNTIL:-}" ]]; then conflict_list+=("--repeat-until"); fi
+  if (( ${#conflict_list[@]} > 0 )); then
+    VALIDATION_ERROR+=$'错误: --patch-mode 与以下开关冲突（DRY RUN 下不可能满足写盘/提交条件）：\n- '
+    VALIDATION_ERROR+=$(printf '%s ' "${conflict_list[@]}")
+    VALIDATION_ERROR+=$'\n如需真实落盘，请移除 --patch-mode；若仅演练，请移除上述开关。\n'
   fi
 fi
 
