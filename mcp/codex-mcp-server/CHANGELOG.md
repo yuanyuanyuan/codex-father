@@ -3,6 +3,24 @@
 暂无变更条目。准备发布前，请将本次改动整理到下方对应版本章节，避免从
 [Unreleased] 自动生成发布说明。
 
+## [3.2.0](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v3.1.1...mcp-v3.2.0) (2025-10-13)
+
+### Features
+
+- Add `codex.version` tool that returns both human text and structured fields
+  (`mcpName/mcpVersion/coreName/coreVersion/node/platform/pid`), enabling
+  automated environment inspection by MCP clients.
+
+### Docs
+
+- Update README (en/zh) and user manuals to document version query via
+  CLI/MCP/HTTP; add examples for `GET /api/v1/version` and `GET /healthz`.
+
+### Tests
+
+- Ensure tools spec includes `codex.version`.
+- Basic handler smoke covered by project tests.
+
 ## [3.1.1](https://github.com/yuanyuanyuan/codex-father/compare/mcp-v3.1.0...mcp-v3.1.1) (2025-10-12)
 
 ### Fixes
