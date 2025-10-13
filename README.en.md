@@ -24,6 +24,19 @@ Language: English | [中文](README.md)
 - New: logs summary and env-driven session root
 - Strong typing with TypeScript + Zod
 
+### Phase 1 increments
+
+- Fine‑grained progress in `status --json`:
+  `progress{current,total,percentage,currentTask,eta*}` and `checkpoints[]`
+- Event extensions: `plan_updated`, `progress_updated`, `checkpoint_saved` (see
+  docs/schemas/stream-json-event.schema.json)
+- Read‑only HTTP/SSE server: `http:serve` exposes
+  `/api/v1/jobs/:id/status|checkpoints|events` (SSE supports `fromSeq` resume)
+- Bulk CLI: `bulk:status|stop|resume` (dry‑run by default; add `--execute` to
+  perform)
+  - Programmatic API: `codex_bulk_status|codex_bulk_stop|codex_bulk_resume`
+    (Node SDK, thin wrapper)
+
 ### MCP Tools
 
 `codex.exec`, `codex.start`, `codex.status`, `codex.logs`, `codex.stop`,
@@ -89,6 +102,103 @@ CODEX_MCP_PROJECT_ROOT="$CODEX_RUNTIME_HOME" \
 CODEX_SESSIONS_ROOT="$CODEX_SESSIONS_HOME" \
 codex-mcp-server --transport=ndjson
 ```
+
+### Read‑only HTTP / SSE (live progress)
+
+```bash
+# Start HTTP/SSE server (defaults to 0.0.0.0:7070)
+node bin/codex-father http:serve --port 7070
+
+# Query status
+curl http://127.0.0.1:7070/api/v1/jobs/<jobId>/status | jq
+
+# Subscribe to events (SSE)
+curl -N http://127.0.0.1:7070/api/v1/jobs/<jobId>/events?fromSeq=0
+```
+
+See docs/operations/sse-endpoints.en.md for details.
+
+### Bulk CLI (read‑only)
+
+```bash
+node bin/codex-father bulk:status job-1 job-2 --json
+# or
+node bin/codex-father bulk:status --jobs job-1 --jobs job-2 --json
+```
+
+See docs/operations/bulk-cli.en.md.
+
+### Programmatic Bulk API (Node)
+
+Avoid N separate calls; operate on multiple jobs at once.
+
+Example:
+
+```ts
+import {
+  codex_bulk_status,
+  codex_bulk_stop,
+  codex_bulk_resume,
+} from 'codex-father/dist/core/sdk/bulk.js';
+
+// 1) Bulk status (reads state.json by default; pass refresh: true to call job.sh status first)
+const status = await codex_bulk_status({
+  jobIds: ['job-1', 'job-2'],
+  repoRoot: process.cwd(),
+  // sessions: '/repo/.codex-father-sessions',
+  // refresh: true,
+});
+
+// 2) Bulk stop (dry-run by default; set execute: true to act)
+const stopPreview = await codex_bulk_stop({
+  jobIds: ['job-1', 'job-2'],
+  repoRoot: process.cwd(),
+});
+const stopExec = await codex_bulk_stop({
+  jobIds: ['job-1', 'job-2'],
+  repoRoot: process.cwd(),
+  execute: true,
+});
+
+// 3) Bulk resume (supports resumeFrom/skipCompleted)
+const resumePreview = await codex_bulk_resume({
+  jobIds: ['job-3'],
+  repoRoot: process.cwd(),
+});
+const resumeExec = await codex_bulk_resume({
+  jobIds: ['job-3'],
+  repoRoot: process.cwd(),
+  execute: true,
+  resumeFrom: 7,
+  skipCompleted: true,
+});
+```
+
+Return shapes align with CLI outputs, including `data.dryRun` and
+`advice.retry/rollback` fields.
+
+### Resume strategies (codex.resume)
+
+- MCP tool `codex.resume` supports:
+  - `strategy`: `full-restart` | `from-last-checkpoint` | `from-step` (default
+    `from-last-checkpoint`)
+  - `resumeFrom`/`resumeFromStep`: step index to restart from (required when
+    `from-step`)
+  - `skipCompleted`: incremental resume (skip finished steps)
+  - `reuseArtifacts`: reuse artifacts from completed steps (default true)
+- Shell equivalent:
+  `job.sh resume <jobId> [--strategy ..] [--resume-from N] [--skip-completed] [--reuse-artifacts|--no-reuse-artifacts]`
+- Checkpoint schema now includes `error`, `durationMs`, `context`. See
+  `docs/schemas/checkpoint.schema.json`.
+
+### Resource usage fields (status --json)
+
+- `resource_usage` additions:
+  - `apiCalls`: count of `tool_use` events in `events.jsonl`
+  - `filesModified`: count of `status=applied` entries in
+    `patches/manifest.jsonl`
+- Others: `tokens`/`tokensUsed` are best‑effort (may be null). Schema:
+  `docs/schemas/codex-status-response.schema.json`.
 
 Client integrations:
 

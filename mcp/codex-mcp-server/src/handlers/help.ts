@@ -230,6 +230,28 @@ export function handleHelp(params: Record<string, unknown>): ToolResult {
 
   const quickScenarios: QuickScenario[] = [
     {
+      title: '在现有任务上继续对话（推荐）',
+      description:
+        '用 `codex.reply` 在历史任务基础上追加一条“用户回复”，并复用原参数继续执行；语义等价于 Codex 原生 codex-reply。',
+      calls: [
+        {
+          name: 'codex.reply',
+          arguments: {
+            jobId: '<jobId>',
+            message: '继续，把步骤 3 自动化并补充脚本注释。',
+            role: 'user',
+            position: 'append',
+          },
+          note: '默认 role=user、position=append；若 role=system 且未传 position，将隐式采用 prepend。',
+        },
+        {
+          name: 'codex.status',
+          arguments: { jobId: '<newJobId>' },
+          note: '查询新任务状态；也可用 codex.logs 跟进输出。',
+        },
+      ],
+    },
+    {
       title: '执行一次性任务',
       description:
         '使用 `codex.exec` 同步完成任务并立即获取日志与退出码，适合 lint / 单元测试等快速校验。',

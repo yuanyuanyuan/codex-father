@@ -7,15 +7,15 @@ import type { HandlerContext, ToolResult } from './types.js';
 import { applyConvenienceOptions } from './options.js';
 import { ensureJobSh, ensureStartSh } from './utils.js';
 
-export async function handleResume(
+export async function handleReply(
   params: Record<string, unknown>,
   ctx: HandlerContext
 ): Promise<ToolResult> {
-  const jobMissing = ensureJobSh(ctx, 'codex.resume', { jobId: 'cdx-20250101_000000-demo' });
+  const jobMissing = ensureJobSh(ctx, 'codex.reply', { jobId: 'cdx-20250101_000000-demo' });
   if (jobMissing) {
     return jobMissing;
   }
-  const startMissing = ensureStartSh(ctx, 'codex.resume', {
+  const startMissing = ensureStartSh(ctx, 'codex.reply', {
     jobId: 'cdx-20250101_000000-demo',
   });
   if (startMissing) {
@@ -27,9 +27,48 @@ export async function handleResume(
     return createErrorResult({
       code: 'INVALID_ARGUMENT',
       message: '缺少 jobId 参数',
-      hint: '请提供要复用参数的任务编号，可通过 codex.list 或 codex.status 查询。',
-      example: { name: 'codex.resume', arguments: { jobId: 'cdx-20250101_000000-demo' } },
+      hint: '请提供要回复的任务编号，可通过 codex.list 或 codex.status 查询。',
+      example: {
+        name: 'codex.reply',
+        arguments: { jobId: 'cdx-20250101_000000-demo', message: '继续：请把步骤 3 自动化。' },
+      },
     });
+  }
+
+  const message = typeof params.message === 'string' ? (params.message as string) : '';
+  const messageFile = typeof params.messageFile === 'string' ? (params.messageFile as string) : '';
+  if (!message && !messageFile) {
+    return createErrorResult({
+      code: 'INVALID_ARGUMENT',
+      message: '需要提供 message 或 messageFile（至少其一）',
+      hint: 'message 直接传文本；大体量文本建议使用 messageFile 传入路径。',
+      example: {
+        name: 'codex.reply',
+        arguments: { jobId: 'cdx-20250101_000000-demo', message: '继续执行安全加固。' },
+      },
+    });
+  }
+
+  const roleRaw = typeof params.role === 'string' ? String(params.role).toLowerCase() : '';
+  const role: 'user' | 'system' = roleRaw === 'system' ? 'system' : 'user';
+  // 默认 position=append；若 role=system 且未显式传入，则隐式置为 prepend
+  const positionParam =
+    typeof params.position === 'string' ? String(params.position).toLowerCase() : '';
+  const position =
+    (positionParam || (role === 'system' ? 'prepend' : 'append')) === 'prepend'
+      ? 'prepend'
+      : 'append';
+
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (messageFile) {
+    if (position === 'prepend') env.PREPEND_FILE = messageFile;
+    else env.APPEND_FILE = messageFile;
+  }
+  if (message) {
+    const ts = new Date().toISOString();
+    const wrapped = `<instructions-reply at="${ts}" role="${role}">\n${message}\n</instructions-reply>`;
+    if (position === 'prepend') env.PREPEND_CONTENT = wrapped;
+    else env.APPEND_CONTENT = wrapped;
   }
 
   const pass: string[] = ['resume', sourceJobId, '--json'];
@@ -41,36 +80,15 @@ export async function handleResume(
     pass.push('--cwd', base);
   }
 
-  // Strategy controls
-  const strategy = typeof params.strategy === 'string' ? (params.strategy as string) : '';
-  if (strategy) {
-    pass.push('--strategy', strategy);
-  }
-  const resumeFrom =
-    typeof (params as any).resumeFromStep === 'number'
-      ? ((params as any).resumeFromStep as number)
-      : typeof (params as any).resumeFrom === 'number'
-        ? ((params as any).resumeFrom as number)
-        : undefined;
-  if (resumeFrom !== undefined && Number.isFinite(resumeFrom)) {
-    pass.push('--resume-from', String(resumeFrom));
-  }
-  if (typeof (params as any).skipCompleted === 'boolean' && (params as any).skipCompleted) {
-    pass.push('--skip-completed');
-  }
-  if (typeof (params as any).reuseArtifacts === 'boolean') {
-    pass.push((params as any).reuseArtifacts ? '--reuse-artifacts' : '--no-reuse-artifacts');
-  }
-
   const appended: string[] = Array.isArray(params.args)
     ? (params.args as unknown[]).map((value) => String(value))
     : [];
-  applyConvenienceOptions(appended, params);
+  applyConvenienceOptions(appended, params as Record<string, unknown> as any);
   if (appended.length) {
     pass.push('--', ...appended);
   }
 
-  const result = await run(ctx.jobSh, pass);
+  const result = await run(ctx.jobSh, pass, undefined, { env });
   if (result.code !== 0) {
     return createCliExitError(`${ctx.jobSh} ${pass.join(' ')}`, result);
   }
@@ -98,14 +116,10 @@ export async function handleResume(
       typeof record.metaGlob === 'string' ? (record.metaGlob as string) : null;
     const resolvedLastMessageGlob =
       typeof record.lastMessageGlob === 'string' ? (record.lastMessageGlob as string) : null;
-    const resumedFrom =
-      typeof record.resumedFrom === 'string' && record.resumedFrom
-        ? (record.resumedFrom as string)
-        : sourceJobId;
 
     const payload: Record<string, unknown> = {
       jobId: newJobId,
-      resumedFrom,
+      repliedTo: sourceJobId,
       cwd: resolvedCwd,
       tag: resolvedTag,
       logFile: resolvedLogFile,
@@ -124,7 +138,7 @@ export async function handleResume(
         stop: { name: 'codex.stop', arguments: { jobId: baseExample, force: false } },
         stopForce: { name: 'codex.stop', arguments: { jobId: baseExample, force: true } },
       },
-      hint: '已基于历史任务参数启动新作业，请保存新的 jobId 并使用 codex.status / codex.logs 继续追踪。',
+      hint: '已基于历史任务参数追加回复并启动新作业，请保存新的 jobId 并使用 codex.status / codex.logs 继续追踪。',
       raw: record,
     };
 

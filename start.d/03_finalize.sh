@@ -315,6 +315,19 @@ if (( DO_LOOP == 0 )); then
     # 执行结果摘要（单轮）
     echo "[debug] JSON_OUTPUT=${JSON_OUTPUT} writing summary (single-run)" >> "${CODEX_LOG_FILE}"
 codex_update_session_state || true
+    # 单轮模式：写入 100% 进度
+    if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+      cat >"${CODEX_SESSION_DIR}/progress.json.tmp" <<JSON
+{"current": 1, "total": 1, "percentage": 100, "currentTask": "完成", "etaSeconds": 0, "etaHuman": "0s"}
+JSON
+      mv -f "${CODEX_SESSION_DIR}/progress.json.tmp" "${CODEX_SESSION_DIR}/progress.json"
+      # 同步 progress_updated 事件（单轮完成）
+      if command -v jq >/dev/null 2>&1; then
+        append_jsonl_event "${CODEX_SESSION_DIR}" "progress_updated" "$(jq -c . "${CODEX_SESSION_DIR}/progress.json" 2>/dev/null || echo '{}')"
+      else
+        append_jsonl_event "${CODEX_SESSION_DIR}" "progress_updated" "$(cat "${CODEX_SESSION_DIR}/progress.json" 2>/dev/null || echo '{}')"
+      fi
+    fi
     if [[ "${JSON_OUTPUT}" == "1" ]]; then
       set +e
       # 直接输出 meta JSON；若文件缺失则使用内存中的 META_JSON；再退化为即时拼装
@@ -365,8 +378,30 @@ fi
 PREV_LAST_MSG_FILE="${RUN_LAST_MSG_FILE}"
 PREV_HEAD_BEFORE="${GIT_HEAD_BEFORE}"
 PREV_HEAD_AFTER="${GIT_HEAD_AFTER}"
-RUN=2
+# 按需从步骤号恢复（迭代从 2 开始计数）
+if [[ -n "${RESUME_FROM_STEP:-}" && "${RESUME_FROM_STEP}" =~ ^[0-9]+$ && ${RESUME_FROM_STEP} -ge 2 ]]; then
+  RUN=${RESUME_FROM_STEP}
+else
+  RUN=2
+fi
 while (( RUN <= MAX_RUNS )); do
+  # 写入迭代开始的进度（当前完成步为 RUN-1）
+  if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+    _title_pre=$(awk 'NF {print; exit}' /dev/stdin <<<"${INSTRUCTIONS}" | safe_truncate_utf8 80)
+    # 复用与 02_prepare 相同的 JSON 结构
+    _pct=$(( 100 * (RUN-1) / MAX_RUNS ))
+    if (( _pct > 100 )); then _pct=100; fi
+    cat >"${CODEX_SESSION_DIR}/progress.json.tmp" <<JSON
+{"current": $((RUN-1)), "total": ${MAX_RUNS}, "percentage": ${_pct}, "currentTask": "迭代 ${RUN}: ${_title_pre}", "etaSeconds": null, "etaHuman": null, "estimatedTimeLeft": null}
+JSON
+    mv -f "${CODEX_SESSION_DIR}/progress.json.tmp" "${CODEX_SESSION_DIR}/progress.json"
+    # 同步 progress_updated 事件（每轮开始）
+    if command -v jq >/dev/null 2>&1; then
+      append_jsonl_event "${CODEX_SESSION_DIR}" "progress_updated" "$(jq -c . "${CODEX_SESSION_DIR}/progress.json" 2>/dev/null || echo '{}')"
+    else
+      append_jsonl_event "${CODEX_SESSION_DIR}" "progress_updated" "$(cat "${CODEX_SESSION_DIR}/progress.json" 2>/dev/null || echo '{}')"
+    fi
+  fi
   # 每轮注入补丁模式 policy-note（如启用）
   if (( PATCH_MODE == 1 )); then
     POLICY_NOTE="${PATCH_POLICY_NOTE}"
@@ -464,6 +499,9 @@ while (( RUN <= MAX_RUNS )); do
   RUN_INSTR_FILE="${CODEX_LOG_FILE%.log}.r${RUN}.instructions.md"
   RUN_META_FILE="${CODEX_LOG_FILE%.log}.r${RUN}.meta.json"
   RUN_SUMMARY_FILE="${CODEX_LOG_FILE%.log}.r$((RUN-1)).summary.txt"
+  # 标记 checkpoint：迭代步骤开始（记录 context 概要）
+  _ctx_title=$(awk 'NF {print; exit}' "${RUN_INSTR_FILE}" 2>/dev/null | safe_truncate_utf8 120)
+  checkpoint_add $((1 + RUN)) "in_progress" "${RUN_INSTR_FILE}" "" "" "${_ctx_title}" || true
 
   if (( CARRY_CONTEXT == 1 )); then
     if (( COMPRESS_CONTEXT == 1 )); then
@@ -554,6 +592,16 @@ JSON
       printf '{"event":"instructions_updated","timestamp":"%s","orchestrationId":"%s","seq":%s,"data":%s}\n' "$ts" "$job_id" "$seq" "$data" >>"${events_file}"
       # 在 job.log 打印简短摘要
       echo "Instructions sha256: ${sha} (lines=${lines}, +${added}/-${removed})" >> "${CODEX_LOG_FILE}"
+      # 追加 plan_updated，暴露当前步与总步及标题预览（用于前端计划进度渲染）
+      if type append_jsonl_event >/dev/null 2>&1; then
+      _plan_title=$(awk 'NF {print; exit}' "${RUN_INSTR_FILE}" 2>/dev/null | safe_truncate_utf8 120)
+        _plan_title_esc=$(printf '%s' "${_plan_title}" | sed 's/\\/\\\\/g; s/\"/\\\"/g')
+        _plan_json=$(cat <<JSON
+{"steps": {"current": ${RUN}, "total": ${MAX_RUNS}}, "title": "${_plan_title_esc}"}
+JSON
+        )
+        append_jsonl_event "${run_dir}" "plan_updated" "${_plan_json}"
+      fi
     ) || true
   fi
 
@@ -734,6 +782,37 @@ EOF
   fi
 
   PREV_LAST_MSG_FILE="${RUN_LAST_MSG_FILE}"
+  # 标记 checkpoint：迭代步骤完成（计算 in_progress 到现在的 durationMs）
+  _start_ts="$(tac "${CODEX_SESSION_DIR}/checkpoints.jsonl" 2>/dev/null | grep -m1 '"status":"in_progress"' | sed -n 's/.*"timestamp"\s*:\s*"\([^"]*\)".*/\1/p')"
+  _dur_ms=""
+  if [[ -n "${_start_ts}" ]]; then
+    _start_epoch=$(date -u -d "${_start_ts}" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "${_start_ts}" +%s 2>/dev/null || echo "")
+    _now_epoch=$(date -u +%s)
+    if [[ -n "${_start_epoch}" ]]; then _dur_ms=$(( (_now_epoch - _start_epoch) * 1000 )); fi
+  fi
+  # 根据本轮退出码标记完成/失败，并在失败时记录简要错误
+  _status_cp="completed"
+  _err_msg=""
+  if [[ "${CODEX_EXIT:-0}" != "0" ]]; then
+    _status_cp="failed"
+    _err_msg="exit_code=${CODEX_EXIT}"
+  fi
+  checkpoint_add $((1 + RUN)) "${_status_cp}" "${RUN_LAST_MSG_FILE}" "${_err_msg}" "${_dur_ms}" || true
+  # 迭代完成后更新 progress：已完成 RUN 步
+  if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+    _pct2=$(( 100 * RUN / MAX_RUNS ))
+    if (( _pct2 > 100 )); then _pct2=100; fi
+    cat >"${CODEX_SESSION_DIR}/progress.json.tmp" <<JSON
+{"current": ${RUN}, "total": ${MAX_RUNS}, "percentage": ${_pct2}, "currentTask": "迭代 ${RUN} 完成", "etaSeconds": null, "etaHuman": null, "estimatedTimeLeft": null}
+JSON
+    mv -f "${CODEX_SESSION_DIR}/progress.json.tmp" "${CODEX_SESSION_DIR}/progress.json"
+    # 同步 progress_updated 事件（每轮完成）
+    if command -v jq >/dev/null 2>&1; then
+      append_jsonl_event "${CODEX_SESSION_DIR}" "progress_updated" "$(jq -c . "${CODEX_SESSION_DIR}/progress.json" 2>/dev/null || echo '{}')"
+    else
+      append_jsonl_event "${CODEX_SESSION_DIR}" "progress_updated" "$(cat "${CODEX_SESSION_DIR}/progress.json" 2>/dev/null || echo '{}')"
+    fi
+  fi
   if (( SLEEP_SECONDS > 0 )); then sleep "${SLEEP_SECONDS}"; fi
   (( RUN++ ))
 done

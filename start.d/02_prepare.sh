@@ -194,6 +194,141 @@ fi
 
 ## 注意：上面的“日志路径提前初始化”已完成上述逻辑，以下保留变量用于后续步骤。
 
+# =============== 协作共享上下文：跨 job 继承（可选） ===============
+if [[ -n "${CODEX_SHARED_CONTEXT_INHERIT:-}" && -n "${CODEX_SESSION_DIR:-}" ]]; then
+  IFS=',' read -r -a _ctx_jobs <<< "${CODEX_SHARED_CONTEXT_INHERIT}"
+  for _jid in "${_ctx_jobs[@]}"; do
+    _jid_trimmed="$(echo "${_jid}" | sed 's/^\s\+//;s/\s\+$//')"
+    [[ -n "${_jid_trimmed}" ]] || continue
+    _sess_root="$(dirname "${CODEX_SESSION_DIR}")"
+    _other_dir="${_sess_root}/${_jid_trimmed}"
+    if [[ -d "${_other_dir}" ]]; then
+      _last_file=$(ls -1t "${_other_dir}"/*.last.txt 2>/dev/null | head -n1 || true)
+      if [[ -n "${_last_file}" && -f "${_last_file}" ]]; then
+        header=$'\n\n<!-- imported-context -->\n[context] Imported from '
+        PREPEND_CONTENT+="$header${_jid_trimmed}:\n$(cat "${_last_file}")\n"
+        SOURCE_LINES+=("Import context: ${_jid_trimmed} -> ${_last_file}")
+      fi
+    fi
+  done
+fi
+
+# =============== 进度文件 (progress.json) 写入 ===============
+progress_write() {
+  local current="$1"; local total="$2"; local task="$3"; local eta="$4"
+  [[ -n "${CODEX_SESSION_DIR:-}" ]] || return 0
+  local out="${CODEX_SESSION_DIR}/progress.json"
+  local pct=0
+  if [[ "$total" =~ ^[0-9]+$ && "$total" -gt 0 && "$current" =~ ^[0-9]+$ ]]; then
+    pct=$(( 100 * current / total ))
+    if (( pct > 100 )); then pct=100; fi
+  fi
+  local eta_json="null"
+  local eta_h=""
+  if [[ -n "$eta" && "$eta" =~ ^[0-9]+$ ]]; then
+    eta_json="$eta"
+    if (( eta < 60 )); then eta_h="${eta}s";
+    elif (( eta < 3600 )); then eta_h="$((eta/60))m";
+    else eta_h="$((eta/3600))h"; fi
+  fi
+  local task_json="null"; [[ -n "$task" ]] && task_json="\"$(printf '%s' "$task" | sed 's/\\/\\\\/g; s/\"/\\\"/g')\""
+  umask 077
+  cat >"$out.tmp" <<JSON
+{"current": ${current:-0}, "total": ${total:-1}, "percentage": ${pct}, "currentTask": ${task_json}, "etaSeconds": ${eta_json}, "etaHuman": $( [[ -n "$eta_h" ]] && printf '"%s"' "$eta_h" || printf null ), "estimatedTimeLeft": $( [[ -n "$eta_h" ]] && printf '"%s"' "$eta_h" || printf null )}
+JSON
+  mv -f "$out.tmp" "$out"
+  # 同步写入 progress_updated 事件
+  if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+    local data
+    data=$(cat "$out" 2>/dev/null || echo '{}')
+    append_jsonl_event "${CODEX_SESSION_DIR}" "progress_updated" "${data}"
+  fi
+}
+
+# 初始进度：准备阶段完成（current=0）
+if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+  local_total=${MAX_RUNS:-1}
+  _title_preview=$(awk 'NF {print; exit}' /dev/stdin <<<"${INSTRUCTIONS}" | safe_truncate_utf8 80)
+  progress_write 0 "${local_total}" "准备指令: ${_title_preview}" ""
+fi
+
+# =============== Checkpoint 记录（JSONL） ===============
+checkpoint_add() {
+  [[ -n "${CODEX_SESSION_DIR:-}" ]] || return 0
+  local step="$1"; local status="$2"; local artifact="$3"; local err_msg="${4:-}"; local dur_ms="${5:-}"; local ctx="${6:-}"
+  local out="${CODEX_SESSION_DIR}/checkpoints.jsonl"
+  local ts; ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+  local esc_art="$(printf '%s' "$artifact" | sed 's/\\/\\\\/g; s/\"/\\\"/g')"
+  local esc_err="" esc_ctx=""
+  if [[ -n "$err_msg" ]]; then esc_err=",\"error\":\"$(printf '%s' "$err_msg" | sed 's/\\/\\\\/g; s/\"/\\\"/g')\""; fi
+  if [[ -n "$ctx" ]]; then esc_ctx=",\"context\":\"$(printf '%s' "$ctx" | sed 's/\\/\\\\/g; s/\"/\\\"/g')\""; fi
+  local dur_json=""; if [[ -n "$dur_ms" && "$dur_ms" =~ ^[0-9]+$ ]]; then dur_json=",\"durationMs\":${dur_ms}"; fi
+  umask 077
+  printf '{"step":%s,"status":"%s","artifact":"%s","timestamp":"%s"%s%s%s}\n' \
+    "${step}" "${status}" "${esc_art}" "${ts}" "$esc_err" "$dur_json" "$esc_ctx" >> "$out"
+  # 追加 checkpoint_saved 事件
+  if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+    local data_json
+    data_json=$(cat <<JSON
+{"step": ${step}, "status": "${status}", "artifact": "${esc_art}"}
+JSON
+)
+    append_jsonl_event "${CODEX_SESSION_DIR}" "checkpoint_saved" "${data_json}"
+  fi
+}
+
+# 记录：Step 1 准备完成
+checkpoint_add 1 "completed" "${INSTR_FILE}"
+
+# =============== 审批策略细化：基于规则的动态调整（最小可用） ===============
+apply_approval_rules() {
+  [[ -n "${APPROVAL_POLICY_RULES:-}" ]] || return 0
+  local rules_json="${APPROVAL_POLICY_RULES}"
+  # 仅识别 operation 规则：delete / npm-install
+  local want_delete=0 want_npm=0 policy_delete="on-request" policy_npm="on-request"
+  # 简易提取（避免引入 jq），容忍空白
+  if echo "$rules_json" | grep -Eqi 'operation"\s*:\s*"delete"'; then
+    want_delete=1
+    local p; p=$(echo "$rules_json" | sed -n 's/.*operation"\s*:\s*"delete"[^}]*policy"\s*:\s*"\([^"]*\)".*/\1/p' | head -n1)
+    [[ -n "$p" ]] && policy_delete="$p"
+  fi
+  if echo "$rules_json" | grep -Eqi 'operation"\s*:\s*"npm-install"'; then
+    want_npm=1
+    local p2; p2=$(echo "$rules_json" | sed -n 's/.*operation"\s*:\s*"npm-install"[^}]*policy"\s*:\s*"\([^"]*\)".*/\1/p' | head -n1)
+    [[ -n "$p2" ]] && policy_npm="$p2"
+  fi
+  local need_policy=""
+  if (( want_delete == 1 )); then
+    if printf '%s' "$INSTRUCTIONS" | grep -Eiq '\*\*\* Delete File:|\brm\s+-rf\b|\bgit\s+rm\b'; then
+      need_policy="$policy_delete"
+    fi
+  fi
+  if (( want_npm == 1 )); then
+    if printf '%s' "$INSTRUCTIONS" | grep -Eiq '\bnpm\s+install\b|\bpnpm\s+(add|install)\b|\byarn\s+add\b'; then
+      # 如果已有更严格策略则保持；否则采用 npm 规则
+      if [[ -z "$need_policy" ]]; then need_policy="$policy_npm"; fi
+    fi
+  fi
+  if [[ -n "$need_policy" ]]; then
+    # 将策略注入到 CODEX_GLOBAL_ARGS，若未显式指定 approval 或当前为更宽松策略
+    local has_flag=0 cur_policy=""
+    local i=0
+    while (( i < ${#CODEX_GLOBAL_ARGS[@]} )); do
+      if [[ "${CODEX_GLOBAL_ARGS[$i]}" == "--ask-for-approval" ]] && (( i + 1 < ${#CODEX_GLOBAL_ARGS[@]} )); then
+        has_flag=1; cur_policy="${CODEX_GLOBAL_ARGS[$((i+1))]}"; break
+      fi
+      i=$((i+1))
+    done
+    # 简易比较：never < on-failure < on-request < untrusted （从宽到严）
+    rank() { case "$1" in never) echo 0;; on-failure) echo 1;; on-request) echo 2;; untrusted) echo 3;; *) echo 1;; esac }
+    if (( has_flag == 0 )) || (( $(rank "$cur_policy") < $(rank "$need_policy") )); then
+      CODEX_GLOBAL_ARGS+=("--ask-for-approval" "$need_policy")
+    fi
+  fi
+}
+
+apply_approval_rules || true
+
 # 粗略估算输入上下文体积，提前阻断显著超限的任务
 estimate_instruction_tokens() {
   local content="$1"

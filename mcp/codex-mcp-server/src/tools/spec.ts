@@ -99,6 +99,53 @@ function canonicalTools(): ToolDef[] {
           args: { type: 'array', items: { type: 'string' } },
           tag: { type: 'string' },
           cwd: { type: 'string' },
+          strategy: { type: 'string', enum: ['full-restart', 'from-last-checkpoint', 'from-step'] },
+          resumeFrom: { type: 'integer', minimum: 1 },
+          resumeFromStep: { type: 'integer', minimum: 1 },
+          skipCompleted: { type: 'boolean' },
+          reuseArtifacts: { type: 'boolean' },
+          approvalPolicy: {
+            type: 'string',
+            enum: ['untrusted', 'on-failure', 'on-request', 'never'],
+          },
+          sandbox: {
+            type: 'string',
+            enum: ['read-only', 'workspace-write', 'danger-full-access'],
+          },
+          network: { type: 'boolean' },
+          fullAuto: { type: 'boolean' },
+          dangerouslyBypass: { type: 'boolean' },
+          profile: { type: 'string' },
+          codexConfig: { type: 'object', additionalProperties: true },
+          preset: { type: 'string', enum: [...presetEnum] },
+          carryContext: { type: 'boolean' },
+          compressContext: { type: 'boolean' },
+          contextHead: { type: 'integer' },
+          patchMode: { type: 'boolean' },
+          requireChangeIn: { type: 'array', items: { type: 'string' } },
+          requireGitCommit: { type: 'boolean' },
+          autoCommitOnDone: { type: 'boolean' },
+          autoCommitMessage: { type: 'string' },
+        },
+        required: ['jobId'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'codex.reply',
+      description:
+        'Append or prepend a user reply to an existing job and resume with the same configuration.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          jobId: { type: 'string' },
+          message: { type: 'string' },
+          messageFile: { type: 'string' },
+          role: { type: 'string', enum: ['user', 'system'] },
+          position: { type: 'string', enum: ['append', 'prepend'] },
+          tag: { type: 'string' },
+          cwd: { type: 'string' },
+          args: { type: 'array', items: { type: 'string' } },
           approvalPolicy: {
             type: 'string',
             enum: ['untrusted', 'on-failure', 'on-request', 'never'],
@@ -216,6 +263,22 @@ function canonicalTools(): ToolDef[] {
         additionalProperties: false,
       },
     },
+    {
+      name: 'codex.message',
+      description: 'Send a message to a job mailbox for cross-job collaboration.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          to: { type: 'string' },
+          message: { type: 'string' },
+          from: { type: 'string' },
+          channel: { type: 'string', enum: ['default', 'info', 'note', 'alert'] },
+          cwd: { type: 'string' },
+        },
+        required: ['to', 'message'],
+        additionalProperties: false,
+      },
+    },
   ];
 }
 
@@ -260,6 +323,13 @@ export function toolsSpec(): ListToolsResult {
   for (const tool of canonical) {
     const aliasName = tool.name.replace('.', '_');
     tools.push(createAlias(tool, aliasName));
+  }
+
+  // Additional friendly aliases for message tool
+  const messageBase = canonical.find((t) => t.name === 'codex.message');
+  if (messageBase) {
+    tools.push(createAlias(messageBase, 'codex.send_message'));
+    tools.push(createAlias(messageBase, 'codex_send_message'));
   }
 
   if (prefix) {

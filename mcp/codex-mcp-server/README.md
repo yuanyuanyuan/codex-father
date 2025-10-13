@@ -123,7 +123,8 @@ env.CODEX_MCP_PROJECT_ROOT = "/ABS/PATH/TO/.codex-father-runtime"
 env.CODEX_SESSIONS_ROOT = "/ABS/PATH/TO/.codex-father-sessions"
 ```
 
-> 可选：在同一文件中增加对 Codex Father 的全局默认段（服务器与 Bash CLI 均会读取）。
+> 可选：在同一文件中增加对 Codex Father 的全局默认段（服务器与 Bash
+> CLI 均会读取）。
 
 ```toml
 [codex_father]
@@ -327,10 +328,10 @@ codex.exec --task "分析项目代码质量" --sandbox read-only
 
 > 命名与别名：所有工具提供“点号”和“下划线”两种命名，功能等价。
 >
-> - 点号：`codex.exec`, `codex.start`, `codex.status`, `codex.logs`,
->   `codex.stop`, `codex.list`, `codex.help`
-> - 下划线：`codex_exec`, `codex_start`, `codex_status`, `codex_logs`,
->   `codex_stop`, `codex_list`, `codex_help`
+> - 点号：`codex.exec`, `codex.start`, `codex.resume`, `codex.reply`,
+>   `codex.status`, `codex.logs`, `codex.stop`, `codex.list`, `codex.help`
+> - 下划线：`codex_exec`, `codex_start`, `codex_resume`, `codex_reply`,
+>   `codex_status`, `codex_logs`, `codex_stop`, `codex_list`, `codex_help`
 >
 > 在多数客户端中，完整调用名为 `mcp__<server-id>__<tool>`，其中 `<server-id>`
 > 来自你的 MCP 配置键（如 `codex-father` 或 `codex-father-prod`）。
@@ -457,19 +458,113 @@ CLI 也可运行。
 
 同名下划线别名：`codex_start`
 
+### `codex.resume` - 基于历史参数重启
+
+复用某个历史任务（jobId）的原始参数与上下文，启动一次新的执行；可附加少量新的 start.sh 参数。
+
+示例：
+
+```json
+{
+  "name": "codex.resume",
+  "arguments": { "jobId": "cdx-20251001_120000-demo", "args": ["--dry-run"] }
+}
+```
+
+同名下划线别名：`codex_resume`
+
+### `codex.reply` - 续写对话（对标 Codex 原生 codex-reply）
+
+在既有任务基础上追加一段“用户回复”，并复用原任务参数继续执行；等价于“resume + 注入回复文本”。
+
+参数：
+
+- `jobId` (string, 必填) - 目标历史任务 ID
+- `message` (string) - 回复文本；与 `messageFile` 至少提供一个
+- `messageFile` (string) - 从文件读取大段回复文本
+- `role` (string) - `user` | `system`（默认 `user`）；当为 `system` 且未显式指定
+  `position` 时，默认置为 `prepend`
+- `position` (string) - `append` | `prepend`（默认 `append`）
+- 其余便捷项同 `codex.start`（如
+  `sandbox`、`approvalPolicy`、`network`、`preset` 等）
+
+示例：
+
+```json
+{
+  "name": "codex.reply",
+  "arguments": {
+    "jobId": "cdx-20251001_120000-demo",
+    "message": "继续，把步骤 3 自动化并补充脚本注释。",
+    "role": "user",
+    "position": "append",
+    "tag": "followup"
+  }
+}
+```
+
+大文本文件与“规则置前”的示例：
+
+```json
+{
+  "name": "codex.reply",
+  "arguments": {
+    "jobId": "cdx-20251001_120000-demo",
+    "messageFile": "/repo/notes/followup.txt",
+    "role": "system"
+    // 未传 position 时，将隐式采用 prepend
+  }
+}
+```
+
+同名下划线别名：`codex_reply`
+
+参数小抄（arguments cheatsheet）：
+
+```ts
+{
+  jobId: string;                 // 必填：历史 jobId
+  message?: string;              // 与 messageFile 至少其一
+  messageFile?: string;          // 大段文本用文件更稳妥
+  role?: 'user' | 'system';      // 默认 'user'
+  position?: 'append' | 'prepend'; // 默认 'append'；role=system 且未传时将置为 'prepend'
+  // 便捷控制：
+  tag?: string; cwd?: string; args?: string[];
+  sandbox?: 'read-only' | 'workspace-write' | 'danger-full-access';
+  approvalPolicy?: 'untrusted' | 'on-failure' | 'on-request' | 'never';
+  network?: boolean; preset?: 'sprint' | 'analysis' | 'secure' | 'fast';
+  codexConfig?: Record<string, unknown>; // 透传到底层，等价 --codex-config key=value
+}
+```
+
 ### `codex.status` - 查询状态
 
 **参数**：
 
 - `jobId` (string) - 任务 ID
 
-**返回**：
+**返回（精简示例）**：
 
 ```json
 {
-  "status": "running" | "completed" | "failed",
-  "exitCode": 0,
-  "startTime": "2025-10-03T10:00:00Z"
+  "id": "cdx-20251001_120000-demo",
+  "state": "running",
+  "exit_code": null,
+  "cwd": "/repo",
+  "tag": "followup",
+  "log_file": "/repo/.codex-father/sessions/cdx-20251001_120000-demo/job.log",
+  "progress": {
+    "current": 1,
+    "total": 3,
+    "percentage": 33,
+    "currentTask": "迭代 2: 补全测试覆盖率",
+    "etaSeconds": 120,
+    "etaHuman": "2m"
+  },
+  "dependencies": ["cdx-20250930_090000-setup"],
+  "priority": 2,
+  "estimated_time": "2m",
+  "resource_usage": { "tokens": 45000, "apiCalls": null }
 }
 ```
 

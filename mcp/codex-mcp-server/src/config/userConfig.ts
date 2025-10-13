@@ -43,7 +43,11 @@ export function readUserMcpConfig(): UserMcpConfig | null {
   if (!fs.existsSync(file)) return null;
   try {
     const content = fs.readFileSync(file, 'utf8');
-    const kv = parseMinimalTomlSection(content, ['codex_father', 'codex-father', 'codex_father.mcp']);
+    const kv = parseMinimalTomlSection(content, [
+      'codex_father',
+      'codex-father',
+      'codex_father.mcp',
+    ]);
     const toBool = (s?: string): boolean | undefined => {
       if (!s) return undefined;
       const v = s.toLowerCase();
@@ -82,4 +86,3 @@ export function applyUserMcpConfigToEnv(): void {
     process.env.FORCE_SKIP_BASE = cfg.forceSkipBase ? '1' : '0';
   }
 }
-

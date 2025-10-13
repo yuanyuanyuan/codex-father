@@ -21,8 +21,11 @@ usage() {
 
 命令:
   start [start.sh 同参…] [--tag <t>] [--cwd <dir>] [--json]
+        [--priority <n>] [--depends-on <jobId>]...
         后台启动一次 codex 运行，立刻返回 job-id 与句柄。
-  resume <job-id> [--tag <t>] [--cwd <dir>] [--json] [-- <start 参数…>]
+  resume <job-id> [--tag <t>] [--cwd <dir>] [--json]
+        [--resume-from <step>] [--skip-completed] [--retry-strategy <s>]
+        [-- <start 参数…>]
         复用既有任务的参数重新启动 start.sh，返回新的 job-id。
   status <job-id> [--json]
         查询任务状态，若已结束则补充分类与摘要。
@@ -308,6 +311,7 @@ status_compute_and_update() {
   set +e
   set +u
   local state_file="${run_dir}/state.json"
+  local progress_file="${run_dir}/progress.json"
   local pid_file="${run_dir}/pid"
   local log_file="${run_dir}/job.log"
   local meta_glob="${run_dir}/*.meta.json"
@@ -447,6 +451,138 @@ status_compute_and_update() {
     resumed_json="\"$(json_escape_local "$resumed_from")\""
   fi
 
+  # 解析 progress.json（若存在）
+  local p_current="" p_total="" p_percent="" p_task="" p_eta="" p_eta_human=""
+  if [[ -f "$progress_file" ]]; then
+    p_current=$(sed -n 's/.*"current"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$progress_file" | head -n1 || true)
+    p_total=$(sed -n 's/.*"total"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$progress_file" | head -n1 || true)
+    p_percent=$(sed -n 's/.*"percentage"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$progress_file" | head -n1 || true)
+    p_task=$(sed -n 's/.*"currentTask"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$progress_file" | head -n1 || true)
+    p_eta=$(sed -n 's/.*"etaSeconds"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$progress_file" | head -n1 || true)
+    p_eta_human=$(sed -n 's/.*"etaHuman"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$progress_file" | head -n1 || true)
+  fi
+
+  # 若无 progress.json，进行保守推断
+  if [[ -z "$p_current" || -z "$p_total" ]]; then
+    # 根据 rN.last.txt 的数量推断 current，total 不可知时取 1
+    local count_last; count_last=$(ls -1 "${run_dir}"/*.r*.last.txt 2>/dev/null | wc -l | awk '{print $1}')
+    if [[ -z "$count_last" || "$count_last" == "0" ]]; then
+      p_current="0"; p_total="1"; p_percent="0"
+    else
+      p_current="$count_last"; p_total="$count_last"; p_percent="100"
+    fi
+    p_task=""
+    p_eta=""; p_eta_human=""
+  fi
+
+  # ===== ETA 估算（EWM）=====
+  # 当 progress.json 未提供 etaSeconds 时，基于创建时间与 current/total 估算：
+  # step_avg_inst = elapsed / max(current,1)
+  # EWM(step_avg) = α*inst + (1-α)*prev （α=0.3）
+  # ETA = (total-current) * EWM
+  if [[ -n "$p_current" && -n "$p_total" && "$p_current" =~ ^[0-9]+$ && "$p_total" =~ ^[0-9]+$ ]]; then
+    if [[ -z "$p_eta" || ! "$p_eta" =~ ^[0-9]+$ ]]; then
+      if (( p_current < p_total )); then
+        # parse created_at to epoch (Linux/BSD 兼容)
+        _epoch_now=$(date -u +%s 2>/dev/null || printf '0')
+        _epoch_start=""
+        if date -u -d "$created_at" +%s >/dev/null 2>&1; then
+          _epoch_start=$(date -u -d "$created_at" +%s)
+        elif date -j -f "%Y-%m-%dT%H:%M:%SZ" "$created_at" +%s >/dev/null 2>&1; then
+          _epoch_start=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$created_at" +%s)
+        fi
+        if [[ -z "$_epoch_start" ]]; then _epoch_start=$_epoch_now; fi
+        _elapsed=$(( _epoch_now - _epoch_start ))
+        if (( _elapsed < 0 )); then _elapsed=0; fi
+        _den=$(( p_current > 0 ? p_current : 1 ))
+        _inst=$(( (_elapsed + _den - 1) / _den ))
+        _ewm_file="${run_dir}/eta.ewm"
+        _prev=""
+        if [[ -f "$_ewm_file" ]]; then _prev=$(cat "$_ewm_file" 2>/dev/null || true); fi
+        [[ "$_prev" =~ ^[0-9]+$ ]] || _prev=$_inst
+        # α=0.3 → ewm = (3*inst + 7*prev)/10 近似整数化
+        _ewm=$(( (3*_inst + 7*_prev + 9) / 10 ))
+        echo "${_ewm}" > "$_ewm_file" 2>/dev/null || true
+        _remain=$(( p_total - p_current ))
+        _eta=$(( _remain * _ewm ))
+        p_eta="${_eta}"
+        if (( _eta < 60 )); then p_eta_human="${_eta}s";
+        elif (( _eta < 3600 )); then p_eta_human="$((_eta/60))m";
+        else p_eta_human="$((_eta/3600))h"; fi
+      fi
+    fi
+  fi
+
+  local progress_json="null"
+  if [[ -n "$p_current" && -n "$p_total" ]]; then
+    local pct="$p_percent"
+    if [[ -z "$pct" || ! "$pct" =~ ^[0-9]+$ ]]; then
+      if [[ "$p_total" =~ ^[0-9]+$ && "$p_total" -gt 0 && "$p_current" =~ ^[0-9]+$ ]]; then
+        pct=$(( 100 * p_current / p_total ))
+      else
+        pct=0
+      fi
+    fi
+    local task_json="null"; [[ -n "$p_task" ]] && task_json="\"$(json_escape_local "$p_task")\""
+    local eta_json="null"; [[ -n "$p_eta" && "$p_eta" =~ ^[0-9]+$ ]] && eta_json="$p_eta"
+    local eta_h_json="null"; [[ -n "$p_eta_human" ]] && eta_h_json="\"$(json_escape_local "$p_eta_human")\""
+    progress_json=$(cat <<JSON
+{"current": ${p_current}, "total": ${p_total}, "percentage": ${pct}, "currentTask": ${task_json}, "etaSeconds": ${eta_json}, "etaHuman": ${eta_h_json}, "estimatedTimeLeft": ${eta_h_json}}
+JSON
+)
+  fi
+
+  # 从 state.json 读取 dependencies/priority（若已存在）
+  local st_deps_json="[]" st_pri_json="null"
+  if [[ -f "$state_file" ]]; then
+    local raw_deps
+    raw_deps=$(sed -n 's/.*"dependencies"[[:space:]]*:[[:space:]]*\(\[[^]]*\]\).*/\1/p' "$state_file" | head -n1 || true)
+    [[ -n "$raw_deps" ]] && st_deps_json="$raw_deps"
+    local raw_pri
+    raw_pri=$(sed -n 's/.*"priority"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$state_file" | head -n1 || true)
+    if [[ -n "$raw_pri" ]]; then st_pri_json="$raw_pri"; fi
+  fi
+
+  # 资源使用聚合
+  local files_modified_json="null" api_calls_json="null" tokens_json="null" tokens_alias_json="null"
+  if [[ "$tokens_used" != "null" && -n "$tokens_used" ]]; then
+    tokens_json="$tokens_used"; tokens_alias_json="$tokens_used"
+  fi
+  if [[ -f "${run_dir}/patches/manifest.jsonl" ]]; then
+    local fm
+    fm=$(grep -c '"status"\s*:\s*"applied"' "${run_dir}/patches/manifest.jsonl" 2>/dev/null || echo "")
+    if [[ "$fm" =~ ^[0-9]+$ ]]; then files_modified_json="$fm"; fi
+  fi
+  # 统计工具调用次数（来自 events.jsonl 的 tool_use 事件）
+  if [[ -f "${run_dir}/events.jsonl" ]]; then
+    local ac
+    ac=$(grep -c '"event"\s*:\s*"tool_use"' "${run_dir}/events.jsonl" 2>/dev/null || echo "0")
+    if [[ "$ac" =~ ^[0-9]+$ ]]; then api_calls_json="$ac"; fi
+  fi
+  local resource_json
+  resource_json=$(cat <<JSON
+{"tokens": ${tokens_json:-null}, "tokensUsed": ${tokens_alias_json:-null}, "apiCalls": ${api_calls_json:-null}, "filesModified": ${files_modified_json:-null}}
+JSON
+)
+
+  # 读取 checkpoints.jsonl（若存在）
+  local checkpoints_file="${run_dir}/checkpoints.jsonl"
+  local checkpoints_json='[]'
+  if [[ -f "$checkpoints_file" ]]; then
+    # 将多行 JSON 连接为数组（宽容空行）
+    local lines; lines=$(grep -v '^\s*$' "$checkpoints_file" 2>/dev/null || true)
+    if [[ -n "$lines" ]]; then
+      checkpoints_json='['$(echo "$lines" | paste -sd ',' -)']'
+    fi
+  fi
+  # 计算 resumeFrom（建议值）：已完成 current 步的下一步
+  local resume_from_json="null"
+  if [[ -n "$p_current" && -n "$p_total" && "$p_current" =~ ^[0-9]+$ && "$p_total" =~ ^[0-9]+$ ]]; then
+    if (( p_current < p_total )); then
+      resume_from_json=$((p_current + 1))
+    fi
+  fi
+
   local json
   json=$(cat <<EOF
 {
@@ -469,7 +605,14 @@ status_compute_and_update() {
   "last_message_glob": ${last_glob_json},
   "args": ${args_json},
   "title": ${title_json},
-  "resumed_from": ${resumed_json}
+  "resumed_from": ${resumed_json},
+  "progress": ${progress_json},
+  "dependencies": ${st_deps_json},
+  "priority": ${st_pri_json},
+  "estimated_time": $( [[ -n "$p_eta_human" ]] && printf '"%s"' "$(json_escape_local "$p_eta_human")" || printf null ),
+  "resource_usage": ${resource_json},
+  "checkpoints": ${checkpoints_json},
+  "resume_from": ${resume_from_json}
 }
 EOF
 )

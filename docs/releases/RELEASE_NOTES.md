@@ -59,6 +59,10 @@
 
 ### ✨ 新增
 
+- 细粒度进度：`status --json` 增加 `progress{current,total,percentage,currentTask,eta*}` 与 `checkpoints[]`；ETA 采用指数滑动均值估算（EWM）。
+- 事件扩展：新增 `plan_updated`、`progress_updated`、`checkpoint_saved`（SSE/文件队列均输出，见 `docs/schemas/stream-json-event.schema.json`）。
+- 只读 HTTP/SSE：`http:serve` 提供 `/api/v1/jobs/:id/status|checkpoints|events`；SSE 支持 `fromSeq` 断点续订与心跳；错误体统一 `{ code, message, hint }`。
+- 批量 CLI：`bulk:status` 一次查询多个作业状态（只读，便于脚本化）。
 - CLI 报告摘要：`orchestrate:report` 新增 `--duration-precision <0|1|2>`，与 `--duration-format` 搭配控制人类可读摘要的时长精度（不影响 JSON）。
 - 诊断工具增强：`grep-events` 支持 `ignoreCase`（大小写不敏感）与 `regex`（正则匹配）。
 - rMCP 示例：新增 `diagnose-report` 命令，一步拿到降级 `reason` 并按 Playbook 行动。
@@ -93,7 +97,10 @@
 
 ### 📚 文档
 
-- 新增 `docs/user/mcp-diagnostic-playbook.md`：ASCII 决策树（reason→行动）与命令演示。
+- 新增 `docs/operations/sse-endpoints.md`（中）与 `docs/operations/sse-endpoints.en.md`（英）。
+- 新增 `docs/operations/bulk-cli.md`（中）与 `docs/operations/bulk-cli.en.md`（英）。
+- README（中/英）同步补充 HTTP/SSE 与 Bulk CLI 用法示例。
+- 新增/更新 Schema：`docs/schemas/codex-status-response.schema.json`、`docs/schemas/checkpoint.schema.json`，并附示例与单测。
 - 更新 `docs/user/mcp-diagnostic-tools.md`：补 `not_found`/`permission_denied` 枚举与 `grep-events` 新参数说明。
 - `docs/user/orchestrate-report.md`：补 `--duration-precision` 说明；README 顶部加入“快速开始”直达提醒。
 
@@ -118,6 +125,39 @@ npm run -s test:orchestrator:file -- core/mcp/tests/diagnostic-tools.test.ts
 node scripts/rmcp-client.mjs diagnose-report --path /abs/path/to/report.json
 ```
 若路径不存在：输出 `reason=not_found`；若为相对路径：`reason=invalid_arguments`。
+
+---
+
+## v1.8.0 — 2025-10-13
+
+Phase 1 收尾：SSE / ETA / plan_updated / Bulk 全面可用。
+
+### ✨ 新增
+
+- 细粒度进度：`status --json` 增加 `progress{current,total,percentage,currentTask,eta*}` 与 `checkpoints[]`（详见 schema）。
+- ETA 估算：在未提供 `etaSeconds` 时基于 EWM 输出 `etaHuman`（如 `4m 20s`）。
+- 事件扩展：`plan_updated`、`progress_updated`、`checkpoint_saved`（SSE 与文件队列）。
+- 只读 HTTP/SSE：`http:serve` 暴露 `/api/v1/jobs/:id/status|checkpoints|events`，SSE 支持 `fromSeq` 断点续订与心跳。
+- 批量 CLI：`bulk:status|stop|resume`（默认 dry‑run；`--execute` 执行；`--force` 强制停止）。
+ - 程序化 Bulk API（Node SDK）：`codex_bulk_status|codex_bulk_stop|codex_bulk_resume`，与 CLI 返回结构对齐，便于外部系统集成。
+
+### ♻️ 改进
+
+- Bulk 返回结构补充 `summary` 与 `advice.retry/rollback`（仅文案与结构，无行为改变）。
+
+### 📚 文档
+
+- 新增：
+  - `docs/operations/sse-endpoints.(md|en.md)`
+  - `docs/operations/bulk-cli.(md|en.md)`（含 stop/resume 预演/执行示例）
+  - `docs/schemas/bulk-stop-response.schema.json`、`docs/schemas/bulk-resume-response.schema.json` 与示例
+- 新增：`docs/operations/bulk-sdk.(md|en.md)`（程序化 Bulk API 用法与返回结构）。
+- 更新：README（中/英）与用户手册同步加入 HTTP/SSE、Bulk CLI 与 Programmatic Bulk API 用法。
+
+### ⛳ 契约与兼容
+
+- 严格保持 stdout 两行；多信息通过 HTTP/SSE。
+- 所有新增字段为可选，默认不影响既有集成。
 
 ## ✨ 核心特性
 

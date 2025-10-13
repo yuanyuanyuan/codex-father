@@ -221,6 +221,42 @@ async function main(): Promise<void> {
   server.oninitialized = (): void => {
     initializeSucceeded = true;
     logger.info('已完成 MCP initialize 握手。');
+    // 贴心提示：告诉调用方如何使用关键工具（包括新加的 codex.reply）
+    const serverIdHint = '<server-id>'; // 实际名称由客户端配置键决定
+    const nameStyle = process.env.CODEX_MCP_NAME_STYLE || '';
+    const underscoreOnly = String(nameStyle).toLowerCase() === 'underscore-only';
+    const dotOnly = String(nameStyle).toLowerCase() === 'dot-only';
+    const useUnderscore = underscoreOnly || (!underscoreOnly && !dotOnly); // 默认同时导出，两者都提示；此处突出下划线，兼容性更好
+    const replyName = useUnderscore ? 'codex_reply' : 'codex.reply';
+    const statusName = useUnderscore ? 'codex_status' : 'codex.status';
+    const logsName = useUnderscore ? 'codex_logs' : 'codex.logs';
+    const msgName = useUnderscore ? 'codex_send_message' : 'codex.message';
+
+    logger.info('使用提示：');
+    logger.info(`  - 列出工具：tools/list → 返回包含 codex_exec/start/resume/${replyName}/...`);
+    logger.info(
+      `  - 续写对话：tools/call { name: "${replyName}", arguments: { jobId: "<jobId>", message: "继续...", role: "user" } }`
+    );
+    logger.info(
+      `  - 跨 job 消息：tools/call { name: "${msgName}", arguments: { to: "<jobId>", message: "UserService 重构完成…" } }`
+    );
+    logger.info(
+      `  - 建议接续：tools/call { name: "${statusName}", arguments: { jobId: "<newJobId>" } } 或 { name: "${logsName}", arguments: { jobId: "<newJobId>", mode: "lines", tailLines: 80, view: "result-only" } }`
+    );
+    logger.info(
+      '  - 说明：默认 role=user、position=append；当 role=system 且未传 position 时，将隐式采用 prepend（更适合“全局约束”）。'
+    );
+    logger.info(
+      '  - 状态结构：codex.status 返回 progress/estimated_time/resource_usage 等扩展字段。'
+    );
+    // 参数格式与约束（给“不看文档”的调用方一个即抄即用的说明）
+    logger.info('参数格式（arguments）：');
+    logger.info(
+      '  { jobId: "<jobId>", message?: string, messageFile?: string, role?: "user"|"system", position?: "append"|"prepend", tag?: string, cwd?: string, args?: string[], approvalPolicy?: "untrusted"|"on-failure"|"on-request"|"never", sandbox?: "read-only"|"workspace-write"|"danger-full-access", network?: boolean, profile?: string, preset?: "sprint"|"analysis"|"secure"|"fast", codexConfig?: object, carryContext?: boolean, compressContext?: boolean, contextHead?: number, patchMode?: boolean }'
+    );
+    logger.info(
+      '约束：需提供 jobId；message 与 messageFile 至少一个；role=system 且未传 position → 视为 prepend；默认 role=user，position=append。'
+    );
   };
 
   server.onclose = (): void => {

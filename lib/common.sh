@@ -12,6 +12,21 @@ json_escape() {
   printf '%s' "$s"
 }
 
+# Safe UTF-8 truncate: read stdin, take first non-empty line, slice by code points
+# Usage: echo "文本" | safe_truncate_utf8 120
+safe_truncate_utf8() {
+  local max=${1:-120}
+  node -e '
+    const max = Number(process.argv[1]) || 120;
+    const fs = require("fs");
+    const raw = fs.readFileSync(0, "utf8");
+    const line = (raw.split(/\r?\n/).find(s => s.trim().length>0) || "");
+    const cp = Array.from(line);
+    const out = cp.length > max ? cp.slice(0,max).join("") : line;
+    process.stdout.write(out);
+  ' "$max"
+}
+
 # Build sed -E arguments to redact sensitive patterns
 build_redact_sed_args() {
   local -n _arr=$1
@@ -47,6 +62,28 @@ compress_context_file() {
   } > "$out_file"
 }
 
+# Append one JSON event line to <session>/events.jsonl with auto-increment seq
+# Usage: append_jsonl_event <run_dir> <event> [data_json]
+append_jsonl_event() {
+  local run_dir="$1"; shift || true
+  local evt="$1"; shift || true
+  local data_json="${1:-"{}"}"
+  [[ -n "$run_dir" && -n "$evt" ]] || return 0
+  local events_file="${run_dir}/events.jsonl"
+  local seq_file="${run_dir}/events.seq"
+  umask 077
+  mkdir -p "$run_dir" 2>/dev/null || true
+  if [[ ! -f "$seq_file" ]]; then echo 0 >"$seq_file" 2>/dev/null || true; fi
+  local seq; seq=$(cat "$seq_file" 2>/dev/null || echo 0)
+  if [[ ! "$seq" =~ ^[0-9]+$ ]]; then seq=0; fi
+  seq=$((seq+1))
+  printf '%s' "$seq" >"$seq_file" 2>/dev/null || true
+  local ts; ts=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+  local job_id; job_id="$(basename "$run_dir")"
+  printf '{"event":"%s","timestamp":"%s","orchestrationId":"%s","seq":%s,"data":%s}\n' \
+    "$evt" "$ts" "$job_id" "$seq" "$data_json" >> "$events_file"
+}
+
 # Precise detection for real context/token overflow signals
 # Avoid false positives from config names like CODEX_ECHO_INSTRUCTIONS_LIMIT
 detect_context_overflow_in_files() {
@@ -65,12 +102,14 @@ detect_context_overflow_in_files() {
   #  - "maximum context length exceeded", "context length exceeded"
   #  - "token limit exceeded", "over the token limit"
   #  - "prompt too long/large", "exceeds context window/size"
-  local POS_RE='(maximum[[:space:]]+(context|prompt)([[:space:]]+(length|size|window))?'\
-               '|(context|prompt)[[:space:]]+(length|size|window)[[:space:]]+(exceed(ed)?|exceeding|over(flow)?|too[[:space:]]+(long|large))'\
-               '|token(s)?[[:space:]]+(limit|window|quota)[[:space:]]+(exceed(ed)?|exceeding|over)'\
-               '|(exceed(ed)?|exceeds|over(flow)?)[[:space:]]+(the[[:space:]]+)?(context|token)(s)?([[:space:]]+(limit|window|length|size))?'\
-               '|prompt[[:space:]]+too[[:space:]]+(long|large)'\
-               '|context[[:space:]]+length[[:space:]]+exceed(ed)?)'
+  # Build as concatenated segments (no embedded newlines) to avoid grep ERE issues
+  local POS_RE
+  POS_RE="maximum[[:space:]]+(context|prompt)([[:space:]]+(length|size|window))?|"
+  POS_RE+="(context|prompt)[[:space:]]+(length|size|window)[[:space:]]+(exceed(ed)?|exceeding|over(flow)?|too[[:space:]]+(long|large))|"
+  POS_RE+="token(s)?[[:space:]]+(limit|window|quota)[[:space:]]+(exceed(ed)?|exceeding|over)|"
+  POS_RE+="(exceed(ed)?|exceeds|over(flow)?)[[:space:]]+(the[[:space:]]+)?(context|token)(s)?([[:space:]]+(limit|window|length|size))?|"
+  POS_RE+="prompt[[:space:]]+too[[:space:]]+(long|large)|"
+  POS_RE+="context[[:space:]]+length[[:space:]]+exceed(ed)?"
 
   # Known noisy lines to exclude (config, flags, docs text)
   local EXCL_RE='(CODEX_ECHO_INSTRUCTIONS_LIMIT|INPUT_TOKEN_LIMIT|--no-carry-context|carry-context|no-carry-context|Composed Instructions|instructions|令牌预算|tokens=|≤[0-9]+[[:space:]]*tokens)'
@@ -236,7 +275,9 @@ classify_exit() {
       CLASSIFICATION='config_error'; EXIT_REASON='Unsupported or invalid model'
     elif detect_context_overflow_in_files ${log_file:+"$log_file"} ${last_msg_file:+"$last_msg_file"}; then
       CLASSIFICATION='context_overflow'; EXIT_REASON='Context or token limit exceeded'
-    elif grep -Eqi 'approval|require.*confirm|denied by approval' "$log_file" "$last_msg_file" 2>/dev/null; then
+    elif { grep -Ei '(approval( policy)?[[:space:]]+(required|denied|blocked)|denied[[:space:]]+by[[:space:]]+approval|require(s|d)?[[:space:]]+(manual|explicit)[[:space:]]+(approval|confirm))' \
+                 "$log_file" ${last_msg_file:+"$last_msg_file"} 2>/dev/null \
+             | grep -Eiv 'approval:[[:space:]]*(never|on-failure|on-request|untrusted)' >/dev/null 2>&1; } then
       CLASSIFICATION='approval_required'; EXIT_REASON='Approval policy blocked a command'
     elif grep -Eqi 'sandbox|permission|not allowed|denied by sandbox' "$log_file" "$last_msg_file" 2>/dev/null; then
       CLASSIFICATION='sandbox_denied'; EXIT_REASON='Sandbox policy denied operation'

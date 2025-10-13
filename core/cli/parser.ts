@@ -291,9 +291,18 @@ export class CLIParser {
       options = commandCandidate.opts();
     }
 
-    // 前面的参数是命令参数
+    // 前面的参数是命令参数（支持 variadic：[jobIds...] → 以数组形式传入）
     const rawArgs = args.slice(0, this.isCommanderCommand(commandCandidate) ? -1 : args.length);
-    const commandArgs = rawArgs.filter((arg): arg is string => typeof arg === 'string');
+    const commandArgs: string[] = [];
+    for (const a of rawArgs) {
+      if (typeof a === 'string') {
+        commandArgs.push(a);
+      } else if (Array.isArray(a)) {
+        for (const v of a) {
+          if (typeof v === 'string') commandArgs.push(v);
+        }
+      }
+    }
 
     return {
       args: commandArgs,

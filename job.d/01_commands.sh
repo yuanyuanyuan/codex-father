@@ -1,10 +1,18 @@
 cmd_start() {
   local json_out=0 tag="" cwd=""; local -a pass_args=()
+  local priority=""; local -a depends_on=()
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) json_out=1; shift ;;
       --tag) [[ $# -ge 2 ]] || { err "--tag 需要一个值"; exit 2; }; tag="$2"; shift 2 ;;
       --cwd) [[ $# -ge 2 ]] || { err "--cwd 需要一个路径"; exit 2; }; cwd="$2"; shift 2 ;;
+      --priority)
+        [[ $# -ge 2 ]] || { err "--priority 需要数字"; exit 2; }
+        [[ "$2" =~ ^[0-9]+$ ]] || { err "--priority 必须为非负整数"; exit 2; }
+        priority="$2"; shift 2 ;;
+      --depends-on)
+        [[ $# -ge 2 ]] || { err "--depends-on 需要 jobId"; exit 2; }
+        depends_on+=("$2"); shift 2 ;;
       *) pass_args+=("$1"); shift ;;
     esac
   done
@@ -65,7 +73,18 @@ cmd_start() {
   "last_message_glob": "$(json_escape_local "${run_dir}/*.last.txt")",
   "args": ${args_json},
   "title": null,
-  "resumed_from": ${resume_json}
+  "resumed_from": ${resume_json},
+  "progress": {"current":0,"total":1,"percentage":0,"currentTask":null,"etaSeconds":null,"etaHuman":null},
+  "dependencies": $(
+    if (( ${#depends_on[@]} > 0 )); then
+      printf '['; f=1; for d in "${depends_on[@]}"; do esc=$(json_escape_local "$d"); if (( f==1 )); then printf '"%s"' "$esc"; f=0; else printf ',"%s"' "$esc"; fi; done; printf ']'
+    else
+      printf '[]'
+    fi
+  ),
+  "priority": $( [[ -n "$priority" ]] && printf '%s' "$priority" || printf null ),
+  "estimated_time": null,
+  "resource_usage": null
 }
 EOF
 )
@@ -153,6 +172,8 @@ cmd_resume() {
   local json_out=0 cwd="" tag=""
   local job_id=""
   local -a extra_args=()
+  local resume_from="" skip_completed=0 retry_strategy=""
+  local strategy="" reuse_artifacts=1
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json)
@@ -163,6 +184,22 @@ cmd_resume() {
       --tag)
         [[ $# -ge 2 ]] || { err "--tag 需要一个值"; exit 2; }
         tag="$2"; shift 2 ;;
+      --resume-from)
+        [[ $# -ge 2 ]] || { err "--resume-from 需要步骤号"; exit 2; }
+        [[ "$2" =~ ^[0-9]+$ ]] || { err "--resume-from 必须为数字"; exit 2; }
+        resume_from="$2"; shift 2 ;;
+      --skip-completed)
+        skip_completed=1; shift ;;
+      --strategy)
+        [[ $# -ge 2 ]] || { err "--strategy 需要模式 (full-restart|from-last-checkpoint|from-step)"; exit 2; }
+        strategy="$2"; shift 2 ;;
+      --reuse-artifacts)
+        reuse_artifacts=1; shift ;;
+      --no-reuse-artifacts)
+        reuse_artifacts=0; shift ;;
+      --retry-strategy)
+        [[ $# -ge 2 ]] || { err "--retry-strategy 需要模式 (incremental|full)"; exit 2; }
+        retry_strategy="$2"; shift 2 ;;
       --)
         shift
         extra_args=("$@")
@@ -230,6 +267,24 @@ cmd_resume() {
   if (( json_out == 1 )); then start_args+=("--json"); fi
   if [[ -n "$tag" ]]; then start_args+=("--tag" "$tag"); fi
   if [[ -n "$cwd" ]]; then start_args+=("--cwd" "$cwd"); fi
+  # 策略解析（默认 from-last-checkpoint）
+  if [[ -z "$strategy" ]]; then strategy="from-last-checkpoint"; fi
+  case "$strategy" in
+    full-restart)
+      : ;;
+    from-last-checkpoint)
+      if [[ -z "$resume_from" ]]; then
+        local sugg
+        sugg=$(sed -n 's/.*"resume_from"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$state_file" | head -n1 || true)
+        if [[ -n "$sugg" ]]; then resume_from="$sugg"; fi
+      fi ;;
+    from-step)
+      if [[ -z "$resume_from" ]]; then err "--strategy from-step 需要 --resume-from <n>"; exit 2; fi ;;
+    *) err "无效 strategy: $strategy"; exit 2 ;;
+  esac
+  if [[ "$strategy" != "full-restart" && -n "$resume_from" ]]; then start_args+=("--resume-from" "$resume_from"); fi
+  if (( skip_completed == 1 )); then start_args+=("--skip-completed"); fi
+  if [[ -n "$retry_strategy" ]]; then start_args+=("--retry-strategy" "$retry_strategy"); fi
 
   start_args+=("${saved_args[@]}")
   if (( ${#extra_args[@]} > 0 )); then
@@ -238,7 +293,11 @@ cmd_resume() {
 
   local prev_resume="${RESUME_SOURCE_JOB_ID:-}"
   RESUME_SOURCE_JOB_ID="$job_id"
-  cmd_start "${start_args[@]}"
+  if (( reuse_artifacts == 1 )) && [[ "$strategy" != "full-restart" ]]; then
+    CODEX_SHARED_CONTEXT_INHERIT="$job_id" cmd_start "${start_args[@]}"
+  else
+    cmd_start "${start_args[@]}"
+  fi
   RESUME_SOURCE_JOB_ID="$prev_resume"
 }
 

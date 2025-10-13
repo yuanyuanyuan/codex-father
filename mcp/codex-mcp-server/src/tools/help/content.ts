@@ -32,6 +32,8 @@ export const canonicalOrder = [
   'codex.exec',
   'codex.start',
   'codex.resume',
+  'codex.reply',
+  'codex.message',
   'codex.status',
   'codex.logs',
   'codex.stop',
@@ -58,6 +60,41 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       content: [{ type: 'text', text: '# Codex Father 工具指南\n\n...' }],
     },
     aliases: ['codex_help'],
+  },
+  'codex.message': {
+    tagline: '跨 job 发送协作消息（轻量 mailbox）',
+    scenario: '在多个 Codex 任务之间传递简短提示、交接信息或定位线索。',
+    params: [
+      { name: 'to', required: true, description: '目标 jobId（接收方）。' },
+      { name: 'message', required: true, description: '要发送的文本消息。' },
+      { name: 'from', required: false, description: '发送者标识（可填来源 jobId 或任意标注）。' },
+      {
+        name: 'channel',
+        required: false,
+        description: '消息类别。',
+        values: ['default', 'info', 'note', 'alert'],
+      },
+      { name: 'cwd', required: false, description: '自定义 job.sh 查找目录。' },
+    ],
+    exampleArgs: {
+      to: 'cdx-20251001_120000-demo',
+      message: 'UserService 重构完成，接口在 types/user.ts:45',
+    },
+    sampleReturn: {
+      content: [
+        {
+          type: 'text',
+          text: '{"delivered":true,"to":"cdx-20251001_120000-demo","mailbox":"/repo/.codex-father/sessions/.../mailbox.jsonl"}',
+        },
+      ],
+    },
+    aliases: ['codex_message', 'codex_send_message', 'codex.send_message'],
+    tips: [
+      '消息会追加到目标 job 目录的 mailbox.jsonl，可由人或工具消费。',
+      '搭配 codex.status/codex.logs 可快速定位接收方上下文。',
+      '此机制不做强一致保证，适合轻量提示与人工协作，不适合关键业务流程。',
+    ],
+    returnsJsonString: true,
   },
   'codex.exec': {
     tagline: '同步执行 Codex CLI，任务完成后立即返回结果摘要',
@@ -170,8 +207,31 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       { name: 'args', required: false, description: '附加 start.sh 参数，追加在原参数之后。' },
       { name: 'tag', required: false, description: '覆盖新任务标签；默认沿用原任务记录的 tag。' },
       { name: 'cwd', required: false, description: '覆盖执行目录；默认沿用原任务记录的 cwd。' },
+      {
+        name: 'strategy',
+        required: false,
+        description:
+          '恢复策略：full-restart | from-last-checkpoint | from-step（默认 from-last-checkpoint）。',
+      },
+      {
+        name: 'resumeFrom/resumeFromStep',
+        required: false,
+        description: '从第几步恢复（当 strategy=from-step 时必填）。',
+      },
+      { name: 'skipCompleted', required: false, description: '增量恢复：跳过已完成步骤。' },
+      {
+        name: 'reuseArtifacts',
+        required: false,
+        description: '复用已完成步骤产出物（默认 true）。',
+      },
     ],
-    exampleArgs: { jobId: 'cdx-20251001_120000-demo', tag: 'resume-retry' },
+    exampleArgs: {
+      jobId: 'cdx-20251001_120000-demo',
+      strategy: 'from-last-checkpoint',
+      resumeFrom: 7,
+      skipCompleted: true,
+      tag: 'resume-retry',
+    },
     sampleReturn: {
       content: [
         {
@@ -185,6 +245,55 @@ export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = 
       'resume 会读取 sessions/<jobId>/state.json 的 args；若文件缺失或格式无效会直接报错。',
       '可通过 args 追加新的 flag（如 --dry-run），start.sh 将按最后出现的值生效。',
       '返回体带有 resumedFrom 字段以及 log/meta 路径，便于重新挂载日志跟踪。',
+    ],
+    returnsJsonString: true,
+  },
+  'codex.reply': {
+    tagline: '在既有任务基础上追加一条用户回复并继续执行',
+    scenario: '多轮协作中，想对上一次 Codex 结果“接着说”，兼容 Codex 原生 codex-reply 语义。',
+    params: [
+      { name: 'jobId', required: true, description: '来源任务 ID（sessions/<jobId>）。' },
+      {
+        name: 'message',
+        required: false,
+        description: '回复内容（与 messageFile 至少提供一个）。',
+      },
+      { name: 'messageFile', required: false, description: '从文件读取回复内容的路径。' },
+      {
+        name: 'role',
+        required: false,
+        description: '回复片段的角色标注（默认 user）。',
+        values: ['user', 'system'],
+      },
+      {
+        name: 'position',
+        required: false,
+        description: '将回复放在指令的顶部或底部。',
+        values: ['append', 'prepend'],
+      },
+      { name: 'tag', required: false, description: '新任务标签；默认沿用/追加 -reply 标识。' },
+      { name: 'cwd', required: false, description: '覆盖执行目录；默认沿用 job 记录的 cwd。' },
+      { name: 'args', required: false, description: '追加 start.sh 参数（如 --dry-run）。' },
+    ],
+    exampleArgs: {
+      jobId: 'cdx-20251001_120000-demo',
+      message: '继续，把步骤 3 自动化。',
+      position: 'append',
+      tag: 'followup',
+    },
+    sampleReturn: {
+      content: [
+        {
+          type: 'text',
+          text: '{"jobId":"cdx-20251013_103000-followup","repliedTo":"cdx-20251001_120000-demo"}',
+        },
+      ],
+    },
+    aliases: ['codex_reply'],
+    tips: [
+      '内部通过 job.sh resume 复用历史参数，并以 PREPEND_CONTENT/APPEND_CONTENT 注入回复文本。',
+      '大文本可用 messageFile 传路径（避免环境变量长度限制）；两者并存时会先拼接 file 再拼接 message。',
+      '默认：role=user，position=append。若 role=system 且未显式传 position，将隐式采用 prepend（更像“全局约束”）。',
     ],
     returnsJsonString: true,
   },

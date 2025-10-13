@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "data": {
+    "dryRun": true,
+    "preview": [
+      { "jobId": "job-3", "state": "failed", "resumeFrom": 7, "eligible": true },
+      { "jobId": "job-4", "state": "running", "eligible": false, "reason": "running" }
+    ],
+    "resumeFrom": 7,
+    "skipCompleted": false,
+    "advice": {
+      "retry": { "suggested": "none", "cooldownSeconds": 0 },
+      "rollback": { "supported": false, "mode": "none" }
+    }
+  }
+}
+

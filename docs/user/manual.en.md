@@ -136,6 +136,69 @@ Then run `codex` and ask to list `.md` files.
 
 ---
 
+## Live View & Subscription (Read‑only HTTP/SSE & Bulk)
+
+- With `--output-format stream-json`, stdout strictly prints two events (`start` / `orchestration_completed`).
+- Detailed events are written to `.codex-father/sessions/<id>/events.jsonl`.
+- For a non‑intrusive, real‑time view (progress/ETA/current task), start the read‑only HTTP/SSE server:
+
+```bash
+node bin/codex-father http:serve --port 7070
+
+# Status
+curl http://127.0.0.1:7070/api/v1/jobs/<jobId>/status | jq
+
+# SSE (supports fromSeq resume)
+curl -N http://127.0.0.1:7070/api/v1/jobs/<jobId>/events?fromSeq=0
+```
+
+- New events: `plan_updated` (plan step changes), `progress_updated` (progress changes), `checkpoint_saved` (checkpoints).
+- `status --json` now includes `progress{current,total,percentage,currentTask,eta*}` and `checkpoints[]`.
+
+Bulk query (read‑only):
+
+```bash
+node bin/codex-father bulk:status job-1 job-2 --json
+```
+
+See `docs/operations/sse-endpoints.en.md` and `docs/operations/bulk-cli.en.md`.
+
+Programmatic Bulk API (Node):
+
+Operate on multiple jobs without N separate calls:
+
+```ts
+import {
+  codex_bulk_status,
+  codex_bulk_stop,
+  codex_bulk_resume,
+} from 'codex-father/dist/core/sdk/bulk.js';
+
+// Bulk status (defaults to reading state.json; pass refresh: true to call job.sh status first)
+const status = await codex_bulk_status({ jobIds: ['job-1','job-2'], repoRoot: process.cwd() });
+
+// Bulk stop (dry-run by default; execute: true to act)
+const stopPreview = await codex_bulk_stop({ jobIds: ['job-1','job-2'], repoRoot: process.cwd() });
+const stopExec = await codex_bulk_stop({ jobIds: ['job-1','job-2'], repoRoot: process.cwd(), execute: true });
+
+// Bulk resume (supports resumeFrom/skipCompleted)
+const resumePreview = await codex_bulk_resume({ jobIds: ['job-3'], repoRoot: process.cwd() });
+const resumeExec = await codex_bulk_resume({ jobIds: ['job-3'], repoRoot: process.cwd(), execute: true, resumeFrom: 7 });
+```
+
+More examples: `docs/operations/bulk-sdk.en.md`.
+
+### Resume strategies (codex.resume)
+
+Use checkpoint‑aware resume, optionally from a specific step:
+
+- MCP: `codex.resume` supports `strategy`, `resumeFrom`/`resumeFromStep`, `skipCompleted`, `reuseArtifacts`.
+- CLI: `job.sh resume <jobId> [--strategy full-restart|from-last-checkpoint|from-step] [--resume-from N] [--skip-completed] [--reuse-artifacts|--no-reuse-artifacts]`
+
+Checkpoint entries include `error` when a step fails and `durationMs` with elapsed time in ms.
+
+---
+
 ## Common Tasks (copy & use)
 
 - Show logs for a known job ID

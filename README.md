@@ -34,9 +34,18 @@
 - 单进程管理：Codex CLI 生命周期与健康监控
 - 异步执行：非阻塞执行，返回 `jobId`，配套状态/日志查询
 - 审批机制：`untrusted`、`on-request`、`on-failure`、`never`（白名单支持）
-- 事件通知：进度与消息推送（JSON 通知）
+- 事件通知：进度与消息推送（JSON 通知 / SSE 只读订阅）
 - 会话管理：事件 JSONL 与元数据持久化
 - 类型安全：完整 TypeScript + Zod 校验
+
+### 新增（Phase 1 增量）
+
+- 细粒度进度反馈：`status --json` 返回
+  `progress{current,total,percentage,currentTask,eta*}` 与 `checkpoints[]`
+- 事件扩展：`plan_updated`、`progress_updated`、`checkpoint_saved`（详见 docs/schemas/stream-json-event.schema.json）
+- 只读 HTTP/SSE：`http:serve` 暴露
+  `/api/v1/jobs/:id/status|checkpoints|events`（SSE 支持 fromSeq 断点续订）
+- 批量 CLI：`bulk:status|stop|resume`（默认只读预演；加 `--execute` 才执行）
 
 ### Codex 版本兼容（0.44）
 
@@ -167,6 +176,104 @@ git clone https://github.com/yuanyuanyuan/codex-father.git
 cd codex-father && npm install
 ```
 
+### 只读 HTTP / SSE（实时进度订阅）
+
+```bash
+# 启动只读 HTTP/SSE 服务（默认 0.0.0.0:7070）
+node bin/codex-father http:serve --port 7070
+
+# 获取状态
+curl http://127.0.0.1:7070/api/v1/jobs/<jobId>/status | jq
+
+# 订阅事件（SSE）
+curl -N http://127.0.0.1:7070/api/v1/jobs/<jobId>/events?fromSeq=0
+```
+
+详见：docs/operations/sse-endpoints.md。
+
+### 批量操作 CLI（只读）
+
+```bash
+# 批量查询状态
+node bin/codex-father bulk:status job-1 job-2 --json
+# 或
+node bin/codex-father bulk:status --jobs job-1 --jobs job-2 --json
+```
+
+详见：docs/operations/bulk-cli.md。
+
+### 程序化 Bulk API（Node）
+
+一次性处理多个 Job，避免 N 次逐个查询/控制。
+
+示例：
+
+```ts
+import {
+  codex_bulk_status,
+  codex_bulk_stop,
+  codex_bulk_resume,
+} from 'codex-father/dist/core/sdk/bulk.js';
+
+// 1) 批量查询（默认直接读取 state.json；传 refresh: true 将先调用 job.sh status）
+const status = await codex_bulk_status({
+  jobIds: ['job-1', 'job-2'],
+  repoRoot: process.cwd(),
+  // sessions: '/repo/.codex-father-sessions', // 可选：显式指定会话根目录
+  // refresh: true, // 可选：先刷新
+});
+
+// 2) 批量停止（默认 dry-run，传 execute: true 才执行；可选 force）
+const stopPreview = await codex_bulk_stop({
+  jobIds: ['job-1', 'job-2'],
+  repoRoot: process.cwd(),
+});
+const stopExec = await codex_bulk_stop({
+  jobIds: ['job-1', 'job-2'],
+  repoRoot: process.cwd(),
+  execute: true,
+});
+
+// 3) 批量恢复（支持 resumeFrom/skipCompleted）
+const resumePreview = await codex_bulk_resume({
+  jobIds: ['job-3'],
+  repoRoot: process.cwd(),
+});
+const resumeExec = await codex_bulk_resume({
+  jobIds: ['job-3'],
+  repoRoot: process.cwd(),
+  execute: true,
+  resumeFrom: 7,
+  skipCompleted: true,
+});
+```
+
+返回结构与 CLI 对齐：
+
+- `bulk:stop|resume` 默认返回 `data.dryRun=true` 的预演结果；执行时返回
+  `stopped|resumed`、`failed`、`summary`，并附带 `advice.retry/rollback`
+  提示字段（仅文案与结构，不改变行为）。
+
+### 恢复策略（codex.resume 增强）
+
+- MCP 工具 `codex.resume` 现支持：
+  - `strategy`: `full-restart` | `from-last-checkpoint` | `from-step`（默认
+    `from-last-checkpoint`）
+  - `resumeFrom`/`resumeFromStep`: 指定从第几步恢复（当 `from-step` 时必填）
+  - `skipCompleted`: 跳过已完成步骤（增量恢复）
+  - `reuseArtifacts`: 复用已完成步骤产出物（默认 true）
+- 对应 Shell：`job.sh resume <jobId> [--strategy ..] [--resume-from N] [--skip-completed] [--reuse-artifacts|--no-reuse-artifacts]`
+- Checkpoint 记录扩展：`error`（失败原因简述）、`durationMs`（本轮耗时 ms）、`context`（步上下文摘要）。Schema 见
+  `docs/schemas/checkpoint.schema.json`。
+
+### 资源使用字段（status --json）
+
+- `resource_usage` 新增：
+  - `apiCalls`: 统计本会话 `events.jsonl` 中 `tool_use` 事件次数
+  - `filesModified`: 统计 `patches/manifest.jsonl` 中 `status=applied` 的条目数
+- 其余：`tokens`/`tokensUsed`（尽力填充，可能为 null）；示例与字段定义见
+  `docs/schemas/codex-status-response.schema.json`。
+
 ### 集成到 MCP 客户端
 
 支持多种 MCP 客户端：
@@ -266,6 +373,28 @@ npm run rmcp:client -- --help
 5. **`codex.stop`** - 停止运行中的任务（= `codex_stop`）
 6. **`codex.list`** - 列出所有任务（= `codex_list`）
 7. **`codex.help`** - 工具自发现（= `codex_help`）
+8. **`codex.reply`** - 基于历史 job 续写对话（= `codex_reply`）
+9. **`codex.message`** - 跨 job 发送协作消息（=
+   `codex_message`/`codex_send_message`）
+10. **`codex.metrics`** - 统计任务分布与用量（= `codex_metrics`）
+11. **`codex.clean`** - 条件清理历史任务（= `codex_clean`）
+
+状态结构强化（codex.status 返回）：
+
+```json
+{
+  "progress": {
+    "current": 1,
+    "total": 3,
+    "percentage": 33,
+    "currentTask": "迭代 2…"
+  },
+  "dependencies": ["job-abc"],
+  "priority": 2,
+  "estimated_time": "2m",
+  "resource_usage": { "tokens": 45000, "apiCalls": null }
+}
+```
 
 ### 使用示例
 
@@ -572,7 +701,8 @@ npm run benchmark
 **按类别浏览**：
 
 - [👤 用户文档](docs/user/README.md) - 使用指南、场景化应用、故障排除
-- [🧩 全局配置（~/.codex/config.toml）](docs/user/config.toml.md) - project_root/忽略 MCP 启动超时/强制跳过基底指令等
+- [🧩 全局配置（~/.codex/config.toml）](docs/user/config.toml.md) -
+  project_root/忽略 MCP 启动超时/强制跳过基底指令等
 - [🔧 开发文档](docs/developer/README.md) - 开发环境、技术栈、贡献指南
 - [🏗️ 架构文档](docs/architecture/README.md) - 系统架构、MCP 集成、API 参考
 - [🚀 运维文档](docs/operations/README.md) - 部署指南、运维手册

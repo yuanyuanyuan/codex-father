@@ -97,7 +97,7 @@ export function ensureEmbeddedRuntime(projectRoot: string): InstallResult {
     const pkgDir = path.dirname(pkgJsonPath);
     assetsRootCandidates = [
       path.resolve(__dirname, '..', '..', 'assets', 'runtime'), // src layout
-      path.resolve(pkgDir, 'assets', 'runtime'),                // package root assets (published)
+      path.resolve(pkgDir, 'assets', 'runtime'), // package root assets (published)
       path.resolve(__dirname, '..', '..', '..', 'assets', 'runtime'), // fallback: dist -> pkg root
       path.resolve(__dirname, '..', '..', 'assets', 'runtime'), // fallback: dist local assets
     ];
@@ -107,9 +107,14 @@ export function ensureEmbeddedRuntime(projectRoot: string): InstallResult {
       path.resolve(__dirname, '..', '..', '..', 'assets', 'runtime'),
     ];
   }
-  const assetsRoot = assetsRootCandidates.find((p) => {
-    try { return fs.existsSync(p); } catch { return false; }
-  }) || path.resolve(__dirname, '..', '..', 'assets', 'runtime');
+  const assetsRoot =
+    assetsRootCandidates.find((p) => {
+      try {
+        return fs.existsSync(p);
+      } catch {
+        return false;
+      }
+    }) || path.resolve(__dirname, '..', '..', 'assets', 'runtime');
   const manifestPath = path.join(destRoot, '.runtime-manifest.json');
   const pkg = require('../../package.json') as { version?: string };
   const runtimeVersion = pkg.version || '0.0.0';

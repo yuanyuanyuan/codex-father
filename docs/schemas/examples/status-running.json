@@ -1,0 +1,45 @@
+{
+  "id": "job-abc-123",
+  "pid": 42421,
+  "state": "running",
+  "exit_code": null,
+  "classification": null,
+  "tokens_used": 45000,
+  "effective_sandbox": "workspace-write",
+  "effective_network_access": "enabled",
+  "effective_approval_policy": "never",
+  "sandbox_bypass": false,
+  "cwd": "/data/codex-father",
+  "created_at": "2025-10-13T10:30:00Z",
+  "updated_at": "2025-10-13T10:34:20Z",
+  "tag": "refactor-mvp",
+  "log_file": ".codex-father/sessions/job-abc-123/log.txt",
+  "meta_glob": null,
+  "last_message_glob": null,
+  "args": ["--task", "demo", "--dry-run"],
+  "title": "重构 MVP",
+  "resumed_from": null,
+  "progress": {
+    "current": 3,
+    "total": 10,
+    "percentage": 30,
+    "currentTask": "正在重构 components/mvp/SimulateForm.tsx",
+    "etaSeconds": 260,
+    "etaHuman": "4m 20s"
+  },
+  "dependencies": [],
+  "priority": null,
+  "estimated_time": "~4m",
+  "resource_usage": {
+    "tokens": 45000,
+    "apiCalls": 12,
+    "filesModified": 2
+  },
+  "checkpoints": [
+    { "step": 1, "status": "completed", "artifact": "types.ts", "timestamp": "2025-10-13T10:31:00Z" },
+    { "step": 2, "status": "completed", "artifact": "logic.ts", "timestamp": "2025-10-13T10:32:00Z" },
+    { "step": 3, "status": "in_progress", "artifact": "components/mvp/SimulateForm.tsx", "timestamp": "2025-10-13T10:34:00Z" }
+  ],
+  "resume_from": 4
+}
+

@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Codex-Father Checkpoint (v1)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "step": { "type": "integer", "minimum": 1 },
+    "status": { "type": "string", "enum": ["completed", "failed", "skipped", "in_progress"] },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "artifact": { "type": ["string", "object", "null"] },
+    "error": { "type": ["string", "null"] },
+    "durationMs": { "type": ["integer", "null"], "minimum": 0 },
+    "context": { "type": ["string", "null"] }
+  },
+  "required": ["step", "status", "timestamp"]
+}

@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Bulk Stop Response (v1)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": { "type": "boolean" },
+    "data": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "dryRun": { "type": "boolean" },
+        "force": { "type": ["boolean", "null"] },
+        "preview": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "jobId": { "type": "string" },
+              "state": { "type": ["string", "null"] },
+              "eligible": { "type": "boolean" },
+              "reason": { "type": ["string", "null"] }
+            },
+            "required": ["jobId", "eligible"]
+          }
+        },
+        "stopped": { "type": "array", "items": { "type": "string" } },
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "jobId": { "type": "string" },
+              "error": { "type": "string" }
+            },
+            "required": ["jobId", "error"]
+          }
+        },
+        "summary": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer" },
+            "stopped": { "type": "integer" },
+            "failed": { "type": "integer" }
+          }
+        },
+        "advice": {
+          "type": "object",
+          "properties": {
+            "retry": {
+              "type": "object",
+              "properties": {
+                "suggested": { "type": "string", "enum": ["none", "retry_failed_only"] },
+                "cooldownSeconds": { "type": "integer", "minimum": 0 }
+              },
+              "required": ["suggested", "cooldownSeconds"]
+            },
+            "rollback": {
+              "type": "object",
+              "properties": {
+                "supported": { "type": "boolean" },
+                "mode": { "type": "string", "enum": ["none", "manual"] }
+              },
+              "required": ["supported", "mode"]
+            }
+          },
+          "required": ["retry", "rollback"]
+        }
+      },
+      "required": ["dryRun", "advice"]
+    }
+  },
+  "required": ["success", "data"]
+}
+

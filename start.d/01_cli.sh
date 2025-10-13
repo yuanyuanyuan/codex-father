@@ -132,6 +132,17 @@ compute_effective_runtime_flags() {
               0|false|disabled|deny|no) network="restricted" ;;
               *) network="$val" ;;
             esac
+          elif [[ "$key" == "codex_father.shared_context.id" ]]; then
+            CODEX_SHARED_CONTEXT_ID="$val"
+          elif [[ "$key" == "codex_father.shared_context.export" ]]; then
+            case "${val,,}" in
+              1|true|yes|on) CODEX_SHARED_CONTEXT_EXPORT=1 ;;
+              *) CODEX_SHARED_CONTEXT_EXPORT=0 ;;
+            esac
+          elif [[ "$key" == "codex_father.shared_context.inherit" ]]; then
+            CODEX_SHARED_CONTEXT_INHERIT="$val"
+          elif [[ "$key" == "codex_father.approval.rules" ]]; then
+            APPROVAL_POLICY_RULES="$val"
           fi
         fi
         i=$((i + 2))
@@ -261,6 +272,19 @@ REQUIRE_CHANGE_GLOBS=()   # --require-change-in <glob>（可多次）
 REQUIRE_GIT_COMMIT=0      # --require-git-commit
 AUTO_COMMIT_ON_DONE=0     # --auto-commit-on-done
 AUTO_COMMIT_MESSAGE=${AUTO_COMMIT_MESSAGE:-"docs(progress): auto update"}
+
+# 断点恢复与重试策略（与 job.sh resume 配合）
+RESUME_FROM_STEP=""
+SKIP_COMPLETED=0
+RETRY_STRATEGY=""
+
+# 协作共享上下文（跨 job 导入/导出）
+CODEX_SHARED_CONTEXT_ID="${CODEX_SHARED_CONTEXT_ID:-}"
+CODEX_SHARED_CONTEXT_EXPORT=${CODEX_SHARED_CONTEXT_EXPORT:-0}
+CODEX_SHARED_CONTEXT_INHERIT="${CODEX_SHARED_CONTEXT_INHERIT:-}"
+
+# 审批细粒度规则（JSON 字符串，最小可用）
+APPROVAL_POLICY_RULES="${APPROVAL_POLICY_RULES:-}"
 
 # 日志目录控制：记录是否显式请求/指定
 USER_REQUESTED_FLAT_LOGS=0
@@ -515,6 +539,15 @@ while [[ $# -gt 0 ]]; do
       DRY_RUN=1; shift 1 ;;
     --json)
       JSON_OUTPUT=1; shift 1 ;;
+    --resume-from)
+      [[ $# -ge 2 ]] || { echo "错误: --resume-from 需要步骤号" >&2; exit 2; }
+      [[ "$2" =~ ^[0-9]+$ ]] || { echo "错误: --resume-from 必须是数字" >&2; exit 2; }
+      RESUME_FROM_STEP="$2"; shift 2 ;;
+    --skip-completed)
+      SKIP_COMPLETED=1; shift 1 ;;
+    --retry-strategy)
+      [[ $# -ge 2 ]] || { echo "错误: --retry-strategy 需要模式 (incremental|full)" >&2; exit 2; }
+      RETRY_STRATEGY="$2"; shift 2 ;;
     -h|--help)
       usage; exit 0 ;;
     --)
@@ -542,7 +575,7 @@ while [[ $# -gt 0 ]]; do
         exit 2
       fi ;;
   esac
-done
+  done
 
 # 若使用了位置参数容错，则在解析结束后补记为文本输入源（等价于 --task "..."）
 if [[ ${FALLBACK_TASK_USED} -eq 1 && -n "${FALLBACK_TASK_TEXT}" ]]; then

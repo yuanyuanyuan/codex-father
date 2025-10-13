@@ -13,12 +13,14 @@ import { handleHelp } from './help.js';
 import { handleExec } from './exec.js';
 import { handleStart } from './start.js';
 import { handleResume } from './resume.js';
+import { handleReply } from './reply.js';
 import { handleStatus } from './status.js';
 import { handleStop } from './stop.js';
 import { handleList } from './list.js';
 import { handleLogs } from './logs.js';
 import { handleClean } from './clean.js';
 import { handleMetrics } from './metrics.js';
+import { handleMessage } from './message.js';
 
 export async function handleCall(req: CallToolRequest, ctx: HandlerContext): Promise<ToolResult> {
   const name = req.params.name;
@@ -47,6 +49,8 @@ export async function handleCall(req: CallToolRequest, ctx: HandlerContext): Pro
         return handleStart(params, ctx);
       case 'codex.resume':
         return handleResume(params, ctx);
+      case 'codex.reply':
+        return handleReply(params, ctx);
       case 'codex.status':
         return handleStatus(params, ctx);
       case 'codex.stop':
@@ -59,6 +63,8 @@ export async function handleCall(req: CallToolRequest, ctx: HandlerContext): Pro
         return handleClean(params, ctx);
       case 'codex.metrics':
         return handleMetrics(params, ctx);
+      case 'codex.message':
+        return handleMessage(params, ctx);
       default:
         return createErrorResult({
           code: 'UNKNOWN_TOOL',

@@ -19,6 +19,9 @@
 
 - [场景化使用](use-cases/README.md) - 15+ 实际应用场景
 - [故障排除](troubleshooting.md) - 常见问题解决
+- [实时查看（HTTP/SSE）](../operations/sse-endpoints.md) - 只读接口与事件订阅
+- [批量操作 CLI](../operations/bulk-cli.md) - 一次查询多个作业状态
+- [程序化 Bulk API](../operations/bulk-sdk.md) - Node SDK，批量查询/停止/恢复
 
 ## 🔗 其他文档
 

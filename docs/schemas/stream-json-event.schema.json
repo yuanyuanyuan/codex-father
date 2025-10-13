@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Codex-Father Stream-JSON Event (Minimal)",
+  "title": "Codex-Father Stream-JSON Event (v1, Extended)",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -36,7 +36,10 @@
         "report_written",
         "report_write_failed",
         "orchestration_completed",
-        "orchestration_failed"
+        "orchestration_failed",
+        "plan_updated",
+        "progress_updated",
+        "checkpoint_saved"
       ]
     },
     "timestamp": { "type": "string", "format": "date-time" },

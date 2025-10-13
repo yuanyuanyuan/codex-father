@@ -140,6 +140,73 @@ tool_timeout_sec = 180
 
 ---
 
+## 实时查看与订阅（只读 HTTP/SSE 与批量查询）
+
+- 标准输出（stdout）在 `--output-format stream-json` 下严格两行事件（`start` / `orchestration_completed`）。
+- 详细事件落盘：`.codex-father/sessions/<id>/events.jsonl`。
+- 若需要“实时进度/剩余时间/当前任务”的订阅视图，不破坏两行契约：
+
+```bash
+# 启动只读 HTTP/SSE 服务（默认 0.0.0.0:7070）
+node bin/codex-father http:serve --port 7070
+
+# 查询状态
+curl http://127.0.0.1:7070/api/v1/jobs/<jobId>/status | jq
+
+# 订阅事件（SSE），支持 fromSeq 断点续订
+curl -N http://127.0.0.1:7070/api/v1/jobs/<jobId>/events?fromSeq=0
+```
+
+- 新事件类型：`plan_updated`（计划步数变化）、`progress_updated`（进度变化）、`checkpoint_saved`（检查点记录）。
+- `status --json` 现包含：
+  - `progress{current,total,percentage,currentTask,eta*,estimatedTimeLeft}`
+  - `resource_usage{tokens,tokensUsed,apiCalls,filesModified}`（`apiCalls` 来自 `events.jsonl` 中 `tool_use` 计数，`filesModified` 来自 `patches/manifest.jsonl`）
+  - `checkpoints[]`（含 `error`、`durationMs`、`context` 字段，详见 Schema）
+
+批量查询（只读）：
+
+```bash
+node bin/codex-father bulk:status job-1 job-2 --json
+```
+
+更多细节：`docs/operations/sse-endpoints.md` 与 `docs/operations/bulk-cli.md`。
+
+程序化 Bulk API（Node）：
+
+无需逐个调用 `codex_status`，可用 SDK 一次性处理多个 Job：
+
+```ts
+import {
+  codex_bulk_status,
+  codex_bulk_stop,
+  codex_bulk_resume,
+} from 'codex-father/dist/core/sdk/bulk.js';
+
+// 批量查询（默认直接读取 state.json；传 refresh: true 将先调用 job.sh status）
+const status = await codex_bulk_status({ jobIds: ['job-1','job-2'], repoRoot: process.cwd() });
+
+// 批量停止（默认 dry-run；execute: true 才执行）
+const stopPreview = await codex_bulk_stop({ jobIds: ['job-1','job-2'], repoRoot: process.cwd() });
+const stopExec = await codex_bulk_stop({ jobIds: ['job-1','job-2'], repoRoot: process.cwd(), execute: true });
+
+// 批量恢复（支持 resumeFrom/skipCompleted）
+const resumePreview = await codex_bulk_resume({ jobIds: ['job-3'], repoRoot: process.cwd() });
+const resumeExec = await codex_bulk_resume({ jobIds: ['job-3'], repoRoot: process.cwd(), execute: true, resumeFrom: 7 });
+```
+
+更多示例：`docs/operations/bulk-sdk.md`。
+
+### 恢复策略（codex.resume）
+
+在 MCP/CLI 中使用“按检查点继续”或“从指定步恢复”：
+
+- MCP：`codex.resume` 支持 `strategy`、`resumeFrom`/`resumeFromStep`、`skipCompleted`、`reuseArtifacts`
+- CLI：`job.sh resume <jobId> [--strategy full-restart|from-last-checkpoint|from-step] [--resume-from N] [--skip-completed] [--reuse-artifacts|--no-reuse-artifacts]`
+
+Checkpoint 记录扩展：当本轮失败时将写入 `error` 简要原因，并记录 `durationMs`（ms）。
+
+---
+
 ## 常见任务示例（直接复制即可）
 
 - 查看某个任务的日志（已知 jobId）

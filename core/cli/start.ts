@@ -18,6 +18,8 @@ import {
 } from './commands/orchestrate-command.js';
 import { registerLogsCommand } from './commands/logs-command.js';
 import { registerLogsSummaryCommand } from './commands/logs-summary-command.js';
+import { registerHttpCommand } from './commands/http-command.js';
+import { registerBulkCommands } from './commands/bulk-command.js';
 import type { CommandContext, CommandResult } from '../lib/types.js';
 
 /**
@@ -152,6 +154,10 @@ class CodexFatherCLI {
     registerLogsCommand(parser);
     // logs:summary 命令（按 events.jsonl 生成摘要）
     registerLogsSummaryCommand(parser);
+    // http 服务（只读 SSE）
+    registerHttpCommand(parser);
+    // bulk 命令族（轻量包装）
+    registerBulkCommands(parser);
 
     // orchestrate 命令（多 Agent 编排脚手架）
     registerOrchestrateCommand(parser);

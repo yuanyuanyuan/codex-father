@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "data": {
+    "dryRun": true,
+    "force": false,
+    "preview": [
+      { "jobId": "job-1", "state": "running", "eligible": true },
+      { "jobId": "job-2", "state": "done", "eligible": false, "reason": "not_running" }
+    ],
+    "advice": {
+      "retry": { "suggested": "none", "cooldownSeconds": 0 },
+      "rollback": { "supported": false, "mode": "none" }
+    }
+  }
+}
+
