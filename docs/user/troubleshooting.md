@@ -109,16 +109,13 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 **症状**：CLI 直接退出并打印 `错误: -p 参数已移除` 或
 `错误: --instruction-override 参数已移除`。
 
-**原因**：自 v1.0 起，预设和任务描述仅接受长参数；旧版缩写 `-p` 与
-`--instruction-override` 已被彻底删除。
+**原因**：自 v1.0 起，短参数 `-p` 与 `--instruction-override` 已被彻底删除；并且自 v1.1 起已移除全部预设（不再支持 `--preset`）。
 
 **解决**：
 
-- 使用 `--preset <name>` 指定预设（如 `codex-father-preview`、`sprint`）。
-- 使用 `--task <text>` 传递任务说明；`--tag <name>`
-  可选但强烈推荐，方便按标签检索日志。
-- 对于 MCP 客户端，请更新工具调用参数为
-  `{"args":["--preset","codex-father-preview","--task","……","--tag","your-tag"]}`。
+- 使用 `--task <text>` 传递任务说明；`--tag <name>` 可选但强烈推荐，方便按标签检索日志。
+- 对于 MCP 客户端，请更新工具调用参数为 `{"args":["--task","……","--tag","your-tag"]}`（无需 `--preset`）。
+- 注意：`orchestrate` 是独立子命令（`codex-father orchestrate ...` 或 `node dist/core/cli/start.ts orchestrate ...`）。
 - Codex CLI 会在启动前估算上下文体积：若任务输入超过默认
   `INPUT_TOKEN_LIMIT=32000`（以 tokens 粗略估算），会即时拒绝并提示拆分；可根据需要在调用环境中调整
   `INPUT_TOKEN_LIMIT`/`INPUT_TOKEN_SOFT_LIMIT`。
@@ -206,7 +203,7 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 
 - 日志：`错误: 未知预设: <name>` 或 `Unknown option/argument`；
 - 状态：`state=failed, exit_code=2, classification=input_error`；
-- 解决：修正参数；`--preset` 仅允许 `sprint|analysis|secure|fast`。
+- 解决：已移除 `--preset` 功能；请移除此参数并显式传递所需选项。
 
 3) 旧版本竞态导致 `running` 卡死（已修复）
 
@@ -217,8 +214,8 @@ npx @modelcontextprotocol/inspector npx -y @starkdev020/codex-father-mcp-server
 ### 自检脚本
 
 ```bash
-# 1) 未知预设 → failed + input_error
-./job.sh start --task "demo" --preset default --tag t-unknown --json
+# 1) 未知预设 → failed + input_error（错误示例，用于演示失败场景）
+./job.sh start --task "demo" --tag t-unknown --json
 sleep 0.5 && ./job.sh status <job-id> --json
 
 # 2) 上下文超限 → failed + context_overflow
@@ -227,7 +224,7 @@ yes A | head -c 220000 > .codex-father/testdata/big.md
 sleep 0.8 && ./job.sh status <job-id> --json
 
 # 3) 正常完成（dry-run）→ completed + normal
-./job.sh start --tag t-dry --preset analysis --dry-run --task noop --json
+./job.sh start --tag t-dry --dry-run --task noop --json
 sleep 0.8 && ./job.sh status <job-id> --json
 
 # 4) 停止场景 → stopped + user_cancelled

@@ -251,6 +251,8 @@ JSON
 
 > 目标：用最小手工任务文件走通“提交 → 分解 → 执行 → 写入 → 汇总”的主路径，并生成报告与事件日志。
 
+> 注意：`orchestrate` 是独立子命令。请使用 `codex-father orchestrate ...` 或 `node dist/core/cli/start.ts orchestrate ...` 运行编排。
+
 1) 运行主路径（仅两行 stdout）
 
 ```bash

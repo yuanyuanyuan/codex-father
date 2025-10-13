@@ -38,7 +38,7 @@ usage() {
         输出任务状态分布与基础统计。
 
 示例:
-  ./codex-command/job.sh start --preset sprint --task "检查 README" --tag demo --json
+  ./codex-command/job.sh start --task "检查 README" --tag demo --json
   ./codex-command/job.sh status cdx-20240924_120001-demo --json
   ./codex-command/job.sh logs cdx-20240924_120001-demo --tail 200
   ./codex-command/job.sh stop cdx-20240924_120001-demo

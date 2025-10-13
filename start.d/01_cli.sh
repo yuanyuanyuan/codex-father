@@ -352,6 +352,9 @@ while [[ $# -gt 0 ]]; do
     --echo-limit)
       [[ $# -ge 2 ]] || { echo "错误: --echo-limit 需要一个数字参数" >&2; exit 2; }
       CODEX_ECHO_INSTRUCTIONS_LIMIT="${2}"; shift 2 ;;
+    --preset)
+      echo "错误: --preset 已移除；请改为显式传参（例如 --task/--echo-limit/--codex-config 等）。" >&2
+      exit 2 ;;
     --require-change-in)
       [[ $# -ge 2 ]] || { echo "错误: --require-change-in 需要一个路径通配符参数" >&2; exit 2; }
       REQUIRE_CHANGE_GLOBS+=("${2}"); shift 2 ;;
@@ -368,11 +371,8 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || { echo "错误: --overflow-retries 需要一个数字参数" >&2; exit 2; }
       ON_CONTEXT_OVERFLOW_MAX_RETRIES="${2}"; shift 2 ;;
     -p)
-      echo "错误: -p 参数已移除。请使用 --preset <name>，并搭配 --task <text>（建议加上 --tag <name>）" >&2
+      echo "错误: -p 参数已移除。请使用 --task <text>（建议加上 --tag <name>）" >&2
       exit 2 ;;
-    --preset)
-      [[ $# -ge 2 ]] || { echo "错误: --preset 需要一个名称 (sprint|analysis|secure|fast)" >&2; exit 2; }
-      PRESET_NAME="${2}"; shift 2 ;;
     --docs)
       shift
       [[ $# -ge 1 ]] || { echo "错误: --docs 需要至少一个路径参数" >&2; exit 2; }
@@ -450,7 +450,8 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || { echo "错误: --profile 需要一个配置名" >&2; exit 2; }
       CODEX_GLOBAL_ARGS+=("--profile" "${2}"); shift 2 ;;
     --full-auto)
-      CODEX_GLOBAL_ARGS+=("--full-auto"); shift 1 ;;
+      echo "错误: --full-auto 已移除；请移除此参数（不再支持自动连续执行预设）。" >&2
+      exit 2 ;;
     --dangerously-bypass-approvals-and-sandbox)
       CODEX_GLOBAL_ARGS+=("--dangerously-bypass-approvals-and-sandbox"); shift 1 ;;
     --model)
@@ -600,16 +601,7 @@ if [[ "${CODEX_LOG_SUBDIRS}" == "0" ]]; then
   fi
 fi
 
-# 应用预设（如提供）
-if [[ -n "${PRESET_NAME:-}" ]]; then
-  if declare -F apply_preset >/dev/null 2>&1; then
-    if ! apply_preset "${PRESET_NAME}"; then
-      VALIDATION_ERROR="错误: 未知预设: ${PRESET_NAME}（可选: sprint|analysis|secure|fast）"
-    fi
-  else
-    VALIDATION_ERROR="错误: 预设功能不可用：缺少 lib/presets.sh"
-  fi
-fi
+# 预设功能已移除：不再支持 --preset，且不再注入任何默认的自动执行参数。
 
 # ——— 日志路径提前初始化（确保任何早期错误都有日志） ———
 mkdir -p "${CODEX_LOG_DIR}"
@@ -732,7 +724,7 @@ if (( PATCH_MODE == 1 )); then
   fi
 fi
 
-# 校验 Codex 旗标冲突（预设可能注入 --full-auto）。如有问题，写入日志并退出。
+# 校验 Codex 旗标冲突。如有问题，写入日志并退出。
 validate_conflicting_codex_args
 if [[ -n "${VALIDATION_ERROR}" ]]; then
   {

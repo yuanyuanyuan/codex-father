@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../../.. && pwd)"
 MCP_SH="${ROOT_DIR}/mcp/server.sh"
 TS_SRV_DIR="${ROOT_DIR}/mcp/codex-mcp-server"
 
@@ -20,8 +20,32 @@ tmpdir="$(mktemp -d)"; trap 'rm -rf "$tmpdir"' EXIT
 stub="$tmpdir/start_stub.sh"; cat > "$stub" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
-out="$1"; shift || true
-printf '%s\n' "$@" >> "$out"
+# 优先将第一个非选项参数视为 out（兼容 handleStart 注入 outPath）；否则捕获 --log-file <path>
+out="$1" || out=""
+if [[ -n "$out" && "$out" == -* ]]; then
+  out=""
+fi
+if [[ -z "$out" ]]; then
+  i=1
+  while (( i <= $# )); do
+    arg="${!i}"
+    if [[ "$arg" == "--log-file" ]]; then
+      j=$((i+1))
+      if (( j <= $# )); then
+        out="${!j}"
+        break
+      fi
+    fi
+    i=$((i+1))
+  done
+fi
+out="${out:-.codex-mcp-server-start-stub.log}"
+
+{
+  for a in "$@"; do
+    printf '%s\n' "$a"
+  done
+} >> "$out"
 exit 0
 SH
 chmod +x "$stub"
@@ -31,6 +55,8 @@ captured="$tmpdir/captured.txt"; : > "$captured"
 build_server
 require_exec "$MCP_SH"
 
+export CODEX_VERSION_OVERRIDE="0.44.0"
+
 payload=$(cat <<JSON
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-09-18","capabilities":{},"clientInfo":{"name":"conv","version":"0.0.0"}}}
 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"codex.start","arguments":{
@@ -39,7 +65,6 @@ payload=$(cat <<JSON
   "approvalPolicy":"never",
   "sandbox":"workspace-write",
   "network":true,
-  "fullAuto":true,
   "profile":"dev",
   "codexConfig":{"foo.bar":"baz","a_number":42,"a_bool":true},
   "args":["--log-file","$captured","--task","conv fields test"]
@@ -62,7 +87,7 @@ grep -F -- "sandbox_workspace_write.network_access=true" "$captured" >/dev/null 
 grep -F -- "foo.bar=\"baz\"" "$captured" >/dev/null || fatal "missing string config kv"
 grep -F -- "a_number=42" "$captured" >/dev/null || fatal "missing number config kv"
 grep -F -- "a_bool=true" "$captured" >/dev/null || fatal "missing bool config kv"
-grep -F -- "--full-auto" "$captured" >/dev/null || fatal "missing --full-auto"
+# 不再检查 --full-auto（已移除）
 grep -F -- "--profile" "$captured" >/dev/null || fatal "missing --profile"
 grep -F -- "dev" "$captured" >/dev/null || fatal "missing profile value"
 

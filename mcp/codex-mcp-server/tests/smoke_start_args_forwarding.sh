@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../../.. && pwd)"
 cd "$ROOT_DIR"
 
 tmpdir="$(mktemp -d)"
@@ -29,11 +29,10 @@ export CODEX_VERSION_OVERRIDE="0.44.0"
 log="$tmpdir/job.log"
 
 # Run start.sh without --dry-run so that stubbed codex is invoked
-CODEX_LOG_FILE="$log" ./start.sh \
+CODEX_LOG_FILE="$log" "$ROOT_DIR"/start.sh \
   --task "ArgFwd" \
   --approval-mode never \
   --sandbox workspace-write \
-  --full-auto \
   --model gpt-5-codex \
   --profile dev \
   --codex-config 'sandbox_workspace_write.network_access=true' \
@@ -52,7 +51,7 @@ grep -E -- "ARG: (never|on-request|on-failure|untrusted)" "$log" >/dev/null || {
 grep -F -- "ARG: --config" "$log" >/dev/null || { echo "[smoke-start-args] missing --config entries" >&2; exit 1; }
 grep -F -- "ARG: model=gpt-5-codex" "$log" >/dev/null || { echo "[smoke-start-args] missing model config" >&2; exit 1; }
 grep -F -- "ARG: sandbox_workspace_write.network_access=true" "$log" >/dev/null || { echo "[smoke-start-args] missing network config" >&2; exit 1; }
-grep -F -- "ARG: --full-auto" "$log" >/dev/null || { echo "[smoke-start-args] missing --full-auto" >&2; exit 1; }
+# 不再检查 --full-auto（已移除）
 grep -F -- "ARG: --profile" "$log" >/dev/null || { echo "[smoke-start-args] missing --profile" >&2; exit 1; }
 grep -F -- "ARG: dev" "$log" >/dev/null || { echo "[smoke-start-args] missing profile value" >&2; exit 1; }
 grep -F -- 'ARG: foo.bar="baz"' "$log" >/dev/null || { echo "[smoke-start-args] missing codexConfig string kv" >&2; exit 1; }

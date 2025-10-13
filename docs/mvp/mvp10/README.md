@@ -207,9 +207,10 @@ jid=$(./job.sh start --tag t1 --json --task "<TODO 文本>" \
 - 生成草案（不直接执行，产出 patch）：
 
 ```bash
-./start.sh --preset analysis \
+./start.sh \
   --task "基于当前需求生成可执行的 TODO 列表（checkbox + 完成标准 + 影响文件 glob），优先级从高到低，控制在 12 条内；输出为对 TODO.md 的补丁" \
   -f docs/需求说明.md \
+  --echo-limit 200 \
   --patch-mode
 ```
 

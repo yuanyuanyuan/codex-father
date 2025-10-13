@@ -13,10 +13,7 @@ if [[ -f "${SCRIPT_DIR}/lib/common.sh" ]]; then
   # shellcheck disable=SC1091
   . "${SCRIPT_DIR}/lib/common.sh"
 fi
-if [[ -f "${SCRIPT_DIR}/lib/presets.sh" ]]; then
-  # shellcheck disable=SC1091
-  . "${SCRIPT_DIR}/lib/presets.sh"
-fi
+# 预设模块已移除（lib/presets.sh 不再被加载）
 
 # 从 ~/.codex/config.toml 读取 codex-father 相关开关（可覆盖为 env，但不覆盖已显式设置的 env）
 # 支持节名：[codex_father]、[codex-father]、[codex_father.mcp]
@@ -339,12 +336,12 @@ trap 'codex__emergency_mark_stopped' TERM INT HUP QUIT
 KNOWN_FLAGS=(
   "-f" "--file" "-F" "--file-override" "-c" "--content" "-l" "--log-file"
   "--log-dir" "--tag" "--log-subdirs" "--flat-logs" "--echo-instructions"
-  "--no-echo-instructions" "--echo-limit" "--preset" "--docs" "--docs-dir"
+  "--no-echo-instructions" "--echo-limit" "--docs" "--docs-dir"
   "--task" "--require-change-in" "--require-git-commit" "--auto-commit-on-done"
   "--auto-commit-message" "--no-overflow-retry" "--overflow-retries" "--repeat-until"
   "--max-runs" "--sleep-seconds" "--no-carry-context" "--no-compress-context"
   "--context-head" "--context-grep" "--sandbox" "--ask-for-approval" "--approval-mode" "--approvals" "--profile" "--model"
-  "--full-auto" "--dangerously-bypass-approvals-and-sandbox" "--codex-config"
+  "--dangerously-bypass-approvals-and-sandbox" "--codex-config"
   "--codex-arg" "--no-aggregate" "--aggregate-file" "--aggregate-jsonl-file"
   "--redact" "--redact-pattern" "--prepend" "--append" "--prepend-file"
   "--append-file" "--patch-mode" "--dry-run" "--json" "-h" "--help"
@@ -432,7 +429,6 @@ check_version_param_compatibility() {
       local a="${CODEX_GLOBAL_ARGS[$i]}"
       case "$a" in
         --profile) violations+=("--profile"); i=$((i+2)); continue ;;
-        --full-auto) violations+=("--full-auto"); i=$((i+1)); continue ;;
         --dangerously-bypass-approvals-and-sandbox)
           violations+=("--dangerously-bypass-approvals-and-sandbox"); i=$((i+1)); continue ;;
         --config)
@@ -462,7 +458,7 @@ check_version_param_compatibility() {
 flag_help_line() {
   case "$1" in
     --task) echo "--task <text>         设置任务描述" ;;
-    --preset) echo "--preset <name>       使用预设(sprint|analysis|secure|fast)" ;;
+    # 预设已移除
     --docs) echo "--docs <files...>     指定参考文档（支持通配符与多值/@列表/目录）" ;;
     --docs-dir) echo "--docs-dir <dir>     指定目录内的文档（递归 *.md）" ;;
     -f|--file) echo "-f, --file <path>    叠加文件（支持通配符/多值/@列表/目录）" ;;
@@ -655,7 +651,7 @@ usage() {
       --echo-instructions   在日志中回显最终合成的指令与来源（默认启用）
       --no-echo-instructions 不在日志中回显最终合成的指令与来源
       --echo-limit <n>      限制在日志中回显的指令最大行数（0 表示不限制）
-      --preset <name>       使用预设参数集（sprint|analysis|secure|fast）
+      # 预设已移除：不再支持 --preset
       --docs <glob...>      简化形式，等价于一组 -f（支持通配符、多值、目录、@列表文件）
       --docs-dir <dir>      递归添加目录下的 Markdown 文档（*.md|*.markdown）
       --task <text>         简化形式，等价于一次 -c 文本
@@ -693,11 +689,7 @@ usage() {
   - 日志默认回显“最终合成的指令”与“各来源列表”，可用 --no-echo-instructions 关闭；或用 --echo-limit 控制回显的行数。
   - 审批策略：通过 `--approval-mode <策略>`（untrusted|on-failure|on-request|never）或 `-c approval_policy=<策略>` 配置；兼容别名 `--approvals` 将自动映射为 `-c approval_policy=<策略>`。
   - 透传参数：在选项后使用 `--`，其后的所有参数将原样传递给 codex（例如：`-- --sandbox danger-full-access`).
-  - 为简化常用场景，可使用 --preset：
-    - sprint：单轮低摩擦推进（自动连续执行、合理时限与步数上限）。
-    - analysis：单轮快速分析，回显行数默认限制为 200。
-    - secure：启用输出脱敏。
-    - fast：缩短时间盒与步数限制，快速试探。
+  - 注意：`orchestrate` 是独立子命令（`codex-father orchestrate ...` 或 `node dist/core/cli/start.ts orchestrate ...`）。
   - 上下文溢出自动重试（默认开启）：如检测到 context/token 限制导致退出，将自动读取最新指令并重试；可用 --no-overflow-retry 关闭，或用 --overflow-retries N 调整重试次数（默认2）。
   - 完成前置校验（可选）：
     - 使用 --require-change-in 与 --require-git-commit 可以在结束前强制验证“进度已写回且已提交”。
@@ -708,7 +700,6 @@ EOF
 ## 校验 Codex 透传参数的冲突组合（参照官方 CLI 规则）
 validate_conflicting_codex_args() {
   local has_bypass=0
-  local has_full_auto=0
   local has_ask=0
   local i=0
   while (( i < ${#CODEX_GLOBAL_ARGS[@]} )); do
@@ -716,8 +707,6 @@ validate_conflicting_codex_args() {
     case "$a" in
       --dangerously-bypass-approvals-and-sandbox)
         has_bypass=1 ;;
-      --full-auto)
-        has_full_auto=1 ;;
       --ask-for-approval)
         has_ask=1; i=$((i+1)) ;; # 跳过其值
       # 跳过带值选项的值，避免被当作独立标记参与判断
@@ -727,8 +716,8 @@ validate_conflicting_codex_args() {
     i=$((i+1))
   done
 
-  if (( has_bypass == 1 )) && { (( has_full_auto == 1 )) || (( has_ask == 1 )); }; then
-    VALIDATION_ERROR=$'错误: 参数冲突\n- --dangerously-bypass-approvals-and-sandbox 不可与 --ask-for-approval 或 --full-auto 同时使用\n  请参考 refer-research/openai-codex/docs/sandbox.md 的组合规范'
+  if (( has_bypass == 1 )) && (( has_ask == 1 )); then
+    VALIDATION_ERROR=$'错误: 参数冲突\n- --dangerously-bypass-approvals-and-sandbox 不可与 --ask-for-approval 同时使用\n  请参考 refer-research/openai-codex/docs/sandbox.md 的组合规范'
     return 0
   fi
   # 始终返回 0，避免在 set -e 下因条件为假导致脚本提前退出

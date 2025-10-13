@@ -48,9 +48,11 @@ codex-father auto "该任务更偏研究还是改代码？" --route-dry-run --ro
 - JSONL：写入 `task_started`、`task_execution_summary` 等事件；路由/模板摘要进入 `data` 字段。
 - 报告：如启用报告写入，路径位于 `.codex-father/sessions/<id>/report.json`，可用 `orchestrate:report` 查看。
 
-## 与 orchestrate 的关系
+## 与 orchestrate 的关系（避免混淆）
 
 - 短期：auto 独立封装 `codex exec --experimental-json` 路径，复用 StateManager 写 JSONL。
 - 中期：在 orchestrator 内注入最小 exec runner，提前计算 `{model, instruction}`，补丁仍经 SWW 协调。
+- 注意：`orchestrate` 是独立子命令（`codex-father orchestrate ...` 或
+  `node dist/core/cli/start.ts orchestrate ...`）。
 
 更多设计细节与路线图见：`docs/mvp/mvp12/README.md`。

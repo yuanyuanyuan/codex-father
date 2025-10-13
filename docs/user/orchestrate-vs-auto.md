@@ -34,6 +34,8 @@
 - 复杂需求/多步骤流水（分析→修改→验证→回滚策略）→ `orchestrate`
 - CI 严格输出控制 → 两者均使用 `--output-format stream-json`；若需保留两行事件同时得到 JSON 摘要，使用 `--save-stream <file>`。
 
+> 注意：`orchestrate` 是独立子命令（`codex-father orchestrate ...` 或 `node dist/core/cli/start.ts orchestrate ...`）。
+
 ## 示例
 
 - auto（默认 JSON 摘要）：
@@ -55,4 +57,3 @@
 更多细节：
 - auto：docs/user/auto.md、docs/mvp/mvp12/README.md
 - orchestrate：docs/user/orchestrate-report.md、docs/mvp/MVP11/PRD.md
-

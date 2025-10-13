@@ -40,7 +40,7 @@
 - ✅ `job.sh` - 任务管理脚本保持原位置和功能
 - ✅ `run_tests.sh` - 测试脚本保持原位置和功能
 - ✅ `lib/common.sh` - 公共函数库保持原位置
-- ✅ `lib/presets.sh` - 预设配置保持原位置
+- ❌ `lib/presets.sh` - 预设配置已在 v1.1 移除
 
 ### TypeScript 包装层
 

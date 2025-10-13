@@ -4,6 +4,8 @@ Date: 2025-10-07
 
 本版本聚焦于“被动通知”的可靠性与可观测性改进，修复早期错误/超限场景下状态不落盘或误判的问题，并完善文档与 `codex.help` 提示。
 
+> 重要说明（后续版本变更）：自 v1.1 起，`--preset` 功能已移除（包括 `sprint|analysis|secure|fast`）。本页面中的 `--preset` 相关示例仅作为历史记录保留，实际使用请改为显式参数（例如直接使用 `--task`、`--echo-limit` 等）。
+
 ## ✨ 重点改进
 
 - 稳定会话状态写入：
@@ -15,8 +17,8 @@ Date: 2025-10-07
   - 停止（SIGTERM/SIGKILL）场景强制归类 `classification=user_cancelled`。
   - 参数/用法错误统一归类 `input_error`（优先于网络/工具错误）。
   - 上下文超限统一归类 `context_overflow`（日志包含 `[input-check]` 提示）。
-- 预设严格校验：
-  - `--preset` 仅允许 `sprint|analysis|secure|fast`，未知预设直接失败并提示修正（`input_error`）。
+- 预设严格校验（历史行为，已在 v1.1 移除）：
+  - 当时 `--preset` 仅允许 `sprint|analysis|secure|fast`，未知预设会直接失败并提示修正（`input_error`）。
 - 文档与帮助：
   - README 与故障排除新增“输入体积预检”“预设严格校验”“状态/分类语义（便于被动通知）”。
   - `codex.help` 增加上下文超限与预设校验相关的避坑提示。
@@ -24,15 +26,16 @@ Date: 2025-10-07
 ## 🧪 验证要点（建议脚本）
 
 ```bash
-# 未知预设 → failed + input_error
-./job.sh start --task "demo" --preset default --tag t-unknown --json
+# 未知预设（历史示例，现已移除该功能）
+# ./job.sh start --task "demo" --preset default --tag t-unknown --json
+./job.sh start --task "demo" --tag t-unknown --json
 
 # 上下文超限 → failed + context_overflow
 yes A | head -c 220000 > .codex-father/testdata/big.md
 ./job.sh start --task ctx --docs .codex-father/testdata/big.md --tag t-overflow --json
 
 # 正常完成（dry-run）→ completed + normal
-./job.sh start --tag t-dry --preset analysis --dry-run --task noop --json
+./job.sh start --tag t-dry --dry-run --task noop --json
 
 # 停止场景 → stopped + user_cancelled
 jid=$(./job.sh start --task noop --tag t-stop --json | jq -r .jobId)
@@ -51,4 +54,3 @@ jid=$(./job.sh start --task noop --tag t-stop --json | jq -r .jobId)
 - [RELEASE_NOTES.md](RELEASE_NOTES.md)
 - README 增补（输入体积预检/预设校验/状态语义）
 - docs/user/troubleshooting.md 新增“被动通知未收到”章节
-

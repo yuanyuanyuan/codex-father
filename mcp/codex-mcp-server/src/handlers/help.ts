@@ -27,12 +27,10 @@ const schemaParamHints: Record<string, string> = {
   sandbox: '字符串，指定沙箱级别，类似操作系统的权限模式。',
   network:
     '布尔值，true 表示临时打开联网开关，会自动注入 sandbox_workspace_write.network_access=true。',
-  fullAuto: '布尔值，true 时相当于开启“自动驾驶” (--full-auto)。',
   dangerouslyBypass:
     '布尔值，true 时注入 --dangerously-bypass-approvals-and-sandbox，等同于拆掉安全保险。',
   profile: '字符串，切换 Codex CLI profile（例如 preview/prod）。',
   codexConfig: '对象，每个键值对都会转成 --codex-config key=value，好比给命令额外加调味包。',
-  preset: '预设名称（sprint/analysis/secure/fast），像一键切换不同“套餐”。',
   carryContext: '布尔值，false 会追加 --no-carry-context，等同于“重新开新的对话页”。',
   compressContext: '布尔值，false 会追加 --no-compress-context，保留完整上下文。',
   contextHead: '整数，传给 --context-head，用来限制保留的历史 Token 数量。',

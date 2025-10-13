@@ -4,5 +4,5 @@
 
 ## 文件结构
 
-- `common.sh`: 包含了一系列通用的 shell 函数。
-- `presets.sh`: 包含了用于预设配置的 shell 函数。
+- `common.sh`: 包含了一系列通用的 shell 函数。（自 v1.1 起移除预设功能，`presets.sh`
+  不再存在）

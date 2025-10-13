@@ -2,7 +2,7 @@ import type { ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
 
 type ToolDef = ListToolsResult['tools'][number];
 
-const presetEnum = ['sprint', 'analysis', 'secure', 'fast'] as const;
+// presets removed in v1.1
 
 function canonicalTools(): ToolDef[] {
   return [
@@ -46,11 +46,10 @@ function canonicalTools(): ToolDef[] {
             enum: ['read-only', 'workspace-write', 'danger-full-access'],
           },
           network: { type: 'boolean' },
-          fullAuto: { type: 'boolean' },
           dangerouslyBypass: { type: 'boolean' },
           profile: { type: 'string' },
           codexConfig: { type: 'object', additionalProperties: true },
-          preset: { type: 'string', enum: [...presetEnum] },
+          // preset removed
           carryContext: { type: 'boolean' },
           compressContext: { type: 'boolean' },
           contextHead: { type: 'integer' },
@@ -81,11 +80,10 @@ function canonicalTools(): ToolDef[] {
             enum: ['read-only', 'workspace-write', 'danger-full-access'],
           },
           network: { type: 'boolean' },
-          fullAuto: { type: 'boolean' },
           dangerouslyBypass: { type: 'boolean' },
           profile: { type: 'string' },
           codexConfig: { type: 'object', additionalProperties: true },
-          preset: { type: 'string', enum: [...presetEnum] },
+          // preset removed
           carryContext: { type: 'boolean' },
           compressContext: { type: 'boolean' },
           contextHead: { type: 'integer' },
@@ -122,11 +120,10 @@ function canonicalTools(): ToolDef[] {
             enum: ['read-only', 'workspace-write', 'danger-full-access'],
           },
           network: { type: 'boolean' },
-          fullAuto: { type: 'boolean' },
           dangerouslyBypass: { type: 'boolean' },
           profile: { type: 'string' },
           codexConfig: { type: 'object', additionalProperties: true },
-          preset: { type: 'string', enum: [...presetEnum] },
+          // preset removed
           carryContext: { type: 'boolean' },
           compressContext: { type: 'boolean' },
           contextHead: { type: 'integer' },
@@ -164,11 +161,10 @@ function canonicalTools(): ToolDef[] {
             enum: ['read-only', 'workspace-write', 'danger-full-access'],
           },
           network: { type: 'boolean' },
-          fullAuto: { type: 'boolean' },
           dangerouslyBypass: { type: 'boolean' },
           profile: { type: 'string' },
           codexConfig: { type: 'object', additionalProperties: true },
-          preset: { type: 'string', enum: [...presetEnum] },
+          // preset removed
           carryContext: { type: 'boolean' },
           compressContext: { type: 'boolean' },
           contextHead: { type: 'integer' },

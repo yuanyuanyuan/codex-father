@@ -96,7 +96,6 @@ export const LEGACY_SCRIPTS = {
 
   // 库脚本
   common: resolve(PACKAGE_ROOT, 'lib/common.sh'),
-  presets: resolve(PACKAGE_ROOT, 'lib/presets.sh'),
 
   // 规范管理脚本
   updateAgentContext: resolve(PACKAGE_ROOT, '.specify/scripts/bash/update-agent-context.sh'),
@@ -320,7 +319,7 @@ export const MIGRATION_STATUS = {
   ]),
 
   // 计划迁移的脚本
-  planned: new Set<string>(['start.sh', 'job.sh', 'lib/common.sh', 'lib/presets.sh']),
+  planned: new Set<string>(['start.sh', 'job.sh', 'lib/common.sh']),
 
   // 保持为 Shell 脚本的文件
   keepAsShell: new Set<string>([

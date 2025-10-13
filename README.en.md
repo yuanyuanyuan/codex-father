@@ -290,7 +290,10 @@ It checks that:
 - Structured instructions: `--instructions path/to/task.json --task T032`; see
   [Structured Instructions](specs/structured-instructions/README.en.md).
 - Input size guard: very large inputs are rejected; split or compress context.
-- Preset validation: unknown presets fail fast with clear messages.
+- Presets removed: `--preset` (including `sprint|analysis|secure|fast`) has been
+  removed since v1.1; pass explicit flags instead. Note: `orchestrate` is a
+  separate CLI command (`codex-father orchestrate ...` or
+  `node dist/core/cli/start.ts orchestrate ...`).
 - Status semantics: completed/normal, stopped/user_cancelled,
   failed/input_error, failed/context_overflow, etc.
 

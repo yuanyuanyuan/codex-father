@@ -68,16 +68,12 @@ export function listIncompatibleCliParams(
   const incompatible: string[] = [];
   type AdvancedCliParams = {
     profile?: unknown;
-    fullAuto?: unknown;
     dangerouslyBypass?: unknown;
   };
   const params: AdvancedCliParams = p ?? {};
 
   if (params.profile && cmpSemver(version, '0.44.0') < 0) {
     incompatible.push('profile');
-  }
-  if (params.fullAuto && cmpSemver(version, '0.44.0') < 0) {
-    incompatible.push('fullAuto');
   }
   if (params.dangerouslyBypass && cmpSemver(version, '0.44.0') < 0) {
     incompatible.push('dangerouslyBypass');
@@ -87,9 +83,6 @@ export function listIncompatibleCliParams(
   const hasFlag = (flag: string): boolean => args.includes(flag);
   if (hasFlag('--profile') && cmpSemver(version, '0.44.0') < 0) {
     incompatible.push('cli.--profile');
-  }
-  if (hasFlag('--full-auto') && cmpSemver(version, '0.44.0') < 0) {
-    incompatible.push('cli.--full-auto');
   }
   if (hasFlag('--dangerously-bypass-approvals-and-sandbox') && cmpSemver(version, '0.44.0') < 0) {
     incompatible.push('cli.--dangerously-bypass-approvals-and-sandbox');

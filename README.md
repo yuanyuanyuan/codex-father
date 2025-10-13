@@ -476,11 +476,11 @@ npm run rmcp:client -- --help
     `--context-head/--context-grep` 策略压缩，或临时提高
     `INPUT_TOKEN_LIMIT`（不推荐长期依赖）。
 
-- 预设严格校验（未知值直接失败）
-  - `--preset`
-    仅接受：`sprint|analysis|secure|fast`；未知预设将直接报错并退出码 2。
-  - 日志/状态：`failed`，`classification=input_error`；`bootstrap.err` 与
-    `job.log` 都会给出明确提示。
+- 关于预设
+  - 自 v1.1 起移除 `--preset`（包括
+    `sprint|analysis|secure|fast`）；请显式传递所需参数与配置。
+  - 提醒：`orchestrate` 是独立子命令（`codex-father orchestrate ...` 或
+    `node dist/core/cli/start.ts orchestrate ...`）。
 
 - 状态与分类语义（便于被动通知）
   - 正常完成：`state=completed, exit_code=0, classification=normal`（日志包含

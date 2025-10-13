@@ -13,11 +13,9 @@ type ConvenienceOptions = {
   sandbox?: string;
   dangerouslyBypass?: boolean;
   approvalPolicy?: string;
-  fullAuto?: boolean;
   profile?: string;
   network?: boolean;
   codexConfig?: Record<string, unknown>;
-  preset?: string | number;
   carryContext?: boolean;
   compressContext?: boolean;
   contextHead?: number;
@@ -48,9 +46,6 @@ export function applyConvenienceOptions(args: string[], p: ConvenienceOptions): 
       args.push('--ask-for-approval', p.approvalPolicy);
     }
   }
-  if (p?.fullAuto && !bypassActive) {
-    args.push('--full-auto');
-  }
   if (p?.profile && typeof p.profile === 'string') {
     args.push('--profile', p.profile);
   }
@@ -61,9 +56,6 @@ export function applyConvenienceOptions(args: string[], p: ConvenienceOptions): 
     for (const [k, v] of Object.entries(p.codexConfig)) {
       args.push('--codex-config', `${k}=${toTomlValue(v)}`);
     }
-  }
-  if (p?.preset) {
-    args.push('--preset', String(p.preset));
   }
   if (p?.carryContext === false) {
     args.push('--no-carry-context');

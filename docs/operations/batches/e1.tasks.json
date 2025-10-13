@@ -1,0 +1,63 @@
+{
+  "tasks": [
+    {
+      "id": "E1-SETUP",
+      "title": "W0 预检并标记 T001–T003",
+      "description": "Verify W0 prechecks via scripts/verify-mvp22-w0.mjs; if all pass, tick T001–T003, else write diagnostics.",
+      "role": "developer",
+      "priority": 10,
+      "mutation": true,
+      "timeoutMs": 300000
+    },
+    {
+      "id": "T022",
+      "title": "页面接线：Simulate → Game start/end",
+      "description": "Wire Simulate page with GameView and /api/game start/end flows as per specs/007-data-howlong-live/tasks.md (T022).",
+      "role": "developer",
+      "dependencies": ["E1-SETUP"],
+      "priority": 9,
+      "mutation": true,
+      "timeoutMs": 900000
+    },
+    {
+      "id": "T027",
+      "title": "组件：TombstoneSelector + UI 测试",
+      "description": "Implement TombstoneSelector (3x grid, a11y, zero radius) and its UI tests (React 19 + jsdom).",
+      "role": "developer",
+      "dependencies": ["E1-SETUP"],
+      "priority": 8,
+      "mutation": true,
+      "timeoutMs": 900000
+    },
+    {
+      "id": "T028",
+      "title": "组件：ShareCard + Canvas 生成器",
+      "description": "Implement ShareCard (canvas generator 1200x1600, a11y, perf targets) and UI tests.",
+      "role": "developer",
+      "dependencies": ["T027"],
+      "priority": 7,
+      "mutation": true,
+      "timeoutMs": 1500000
+    },
+    {
+      "id": "T023",
+      "title": "页面整合：Result + Tombstone + ShareCard",
+      "description": "Integrate ResultReveal, TombstoneSelector and ShareCard on result page (MVP22 flow).",
+      "role": "developer",
+      "dependencies": ["T022", "T027", "T028"],
+      "priority": 6,
+      "mutation": true,
+      "timeoutMs": 1200000
+    },
+    {
+      "id": "T045",
+      "title": "库：cache.hashData + 单测",
+      "description": "Add cache.hashData helper (SHA-256 hex, stable JSON stringify) + unit tests.",
+      "role": "developer",
+      "dependencies": ["E1-SETUP"],
+      "priority": 5,
+      "mutation": true,
+      "timeoutMs": 600000
+    }
+  ]
+}

@@ -7,6 +7,16 @@
 
 ## [Unreleased]
 
+### 💥 破坏性变更
+
+- cli: 移除 `--preset`（包括 `sprint|analysis|secure|fast`）与显式 `--full-auto`
+  支持；请改用显式参数与 `--task` 等组合。
+
+### 📚 文档
+
+- 同步更新 README（中/英）、Quick Start、Troubleshooting、MCP
+  help 示例，删除/替换所有预设相关文案。
+
 ### ✨ 新增 / 兼容性
 
 - CLI 兼容旧模型写法 `gpt-5-codex-<effort>`（0.42/0.44 风格）：

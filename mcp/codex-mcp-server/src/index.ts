@@ -252,7 +252,7 @@ async function main(): Promise<void> {
     // 参数格式与约束（给“不看文档”的调用方一个即抄即用的说明）
     logger.info('参数格式（arguments）：');
     logger.info(
-      '  { jobId: "<jobId>", message?: string, messageFile?: string, role?: "user"|"system", position?: "append"|"prepend", tag?: string, cwd?: string, args?: string[], approvalPolicy?: "untrusted"|"on-failure"|"on-request"|"never", sandbox?: "read-only"|"workspace-write"|"danger-full-access", network?: boolean, profile?: string, preset?: "sprint"|"analysis"|"secure"|"fast", codexConfig?: object, carryContext?: boolean, compressContext?: boolean, contextHead?: number, patchMode?: boolean }'
+      '  { jobId: "<jobId>", message?: string, messageFile?: string, role?: "user"|"system", position?: "append"|"prepend", tag?: string, cwd?: string, args?: string[], approvalPolicy?: "untrusted"|"on-failure"|"on-request"|"never", sandbox?: "read-only"|"workspace-write"|"danger-full-access", network?: boolean, profile?: string, codexConfig?: object, carryContext?: boolean, compressContext?: boolean, contextHead?: number, patchMode?: boolean }'
     );
     logger.info(
       '约束：需提供 jobId；message 与 messageFile 至少一个；role=system 且未传 position → 视为 prepend；默认 role=user，position=append。'
