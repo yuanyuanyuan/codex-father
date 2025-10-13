@@ -21,6 +21,7 @@ import { registerLogsSummaryCommand } from './commands/logs-summary-command.js';
 import { registerHttpCommand } from './commands/http-command.js';
 import { registerBulkCommands } from './commands/bulk-command.js';
 import type { CommandContext, CommandResult } from '../lib/types.js';
+import { VersionCommand } from './commands/meta-commands.js';
 
 /**
  * CLI 应用类
@@ -140,6 +141,15 @@ class CodexFatherCLI {
    * 注册现代命令（将来扩展）
    */
   private registerModernCommands(): void {
+    // version 子命令（支持 --json）
+    parser.registerCommand(
+      'version',
+      'Display version information',
+      async (context: CommandContext): Promise<CommandResult> => {
+        return await VersionCommand.handle(context);
+      }
+    );
+
     registerTaskCommand(parser);
 
     registerConfigCommand(parser);

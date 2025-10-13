@@ -8,6 +8,7 @@
 - 仅提供只读/查询接口；写操作仍由 CLI 负责（后续如需可补充）。
 
 接口
+- `GET /api/v1/version` → 返回当前服务版本、Node 版本、平台等。
 - `GET /api/v1/jobs/:id/status` → 返回 `codex-status-response.schema.json` 结构。
 - `GET /api/v1/jobs/:id/events` → SSE 通道，事件结构为 `stream-json-event.schema.json`；支持断点续订：
   - Query: `?fromSeq=<number>`（可选），从指定 `seq` 开始推送（含）。
@@ -36,4 +37,3 @@ data: {"orchestrationId":"orc_1","seq":43,"timestamp":"2025-10-13T10:34:30Z","da
 - 文件队列：从 `.codex-father/sessions/<id>/events.jsonl` 逐行推送；服务端保持文件偏移量。
 - 断线重连：客户端带 `fromSeq` 继续；找不到则从最近 1000 条回放。
 - 资源保护：连接数上限与速率限制见 `express-rate-limit` 默认配置；可在 `config/` 提供模板。
-

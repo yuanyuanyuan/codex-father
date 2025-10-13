@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import { PROJECT_NAME, PROJECT_VERSION } from '../lib/version.js';
 
 type ServerOptions = {
   host?: string;
@@ -104,7 +105,20 @@ export async function startHttpServer(
       legacyHeaders: false,
     })
   );
-  app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/healthz', (_req, res) =>
+    res.json({ status: 'ok', name: PROJECT_NAME, version: PROJECT_VERSION })
+  );
+
+  // GET /api/v1/version
+  app.get('/api/v1/version', (_req, res) => {
+    res.json({
+      name: PROJECT_NAME,
+      version: PROJECT_VERSION,
+      node: process.version,
+      platform: `${process.platform} ${process.arch}`,
+      env: process.env.NODE_ENV ?? 'development',
+    });
+  });
 
   // GET /api/v1/jobs/:id/status
   app.get('/api/v1/jobs/:id/status', async (req, res) => {

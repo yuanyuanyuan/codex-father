@@ -136,14 +136,19 @@ Then run `codex` and ask to list `.md` files.
 
 ---
 
-## Live View & Subscription (Read‑only HTTP/SSE & Bulk)
+## Version, Live View & Subscription (Read‑only HTTP/SSE & Bulk)
 
 - With `--output-format stream-json`, stdout strictly prints two events (`start` / `orchestration_completed`).
 - Detailed events are written to `.codex-father/sessions/<id>/events.jsonl`.
-- For a non‑intrusive, real‑time view (progress/ETA/current task), start the read‑only HTTP/SSE server:
+- For a non‑intrusive, real‑time view (progress/ETA/current task), start the read‑only HTTP/SSE server and query version:
 
 ```bash
 node bin/codex-father http:serve --port 7070
+
+# Version
+curl -s http://127.0.0.1:7070/api/v1/version | jq
+# Health (with version)
+curl -s http://127.0.0.1:7070/healthz | jq
 
 # Status
 curl http://127.0.0.1:7070/api/v1/jobs/<jobId>/status | jq
@@ -162,6 +167,17 @@ node bin/codex-father bulk:status job-1 job-2 --json
 ```
 
 See `docs/operations/sse-endpoints.en.md` and `docs/operations/bulk-cli.en.md`.
+
+### Version via CLI / MCP / HTTP
+
+- CLI:
+  - Text: `node bin/codex-father version`
+  - JSON: `node bin/codex-father version --json`
+- MCP: call `{ "name": "codex.version", "arguments": {} }`
+  - Returns `mcpName/mcpVersion/coreName/coreVersion/node/platform`.
+- HTTP:
+  - `GET /api/v1/version` → `{ name, version, node, platform, env }`
+  - `GET /healthz` also includes `{ name, version }`
 
 Programmatic Bulk API (Node):
 

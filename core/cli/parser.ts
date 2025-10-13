@@ -416,10 +416,16 @@ export class CLIParser {
         return;
       }
 
-      // 尝试处理元命令
+      // 若是已注册的常规命令，交给 commander 解析（以便支持 --json 等全局选项）
+      const registered = this.getRegisteredCommands();
+      if (registered.includes(command)) {
+        await this.command.parseAsync(args);
+        return;
+      }
+
+      // 尝试处理元命令（无子命令注册时的兜底）
       const context = this.buildCommandContext([]);
       const metaResult = await handleMetaCommand(command, context);
-
       if (metaResult) {
         this.outputResult(metaResult);
         return;

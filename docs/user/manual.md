@@ -140,7 +140,7 @@ tool_timeout_sec = 180
 
 ---
 
-## 实时查看与订阅（只读 HTTP/SSE 与批量查询）
+## 版本查询与实时查看（HTTP/SSE 与批量查询）
 
 - 标准输出（stdout）在 `--output-format stream-json` 下严格两行事件（`start` / `orchestration_completed`）。
 - 详细事件落盘：`.codex-father/sessions/<id>/events.jsonl`。
@@ -149,6 +149,11 @@ tool_timeout_sec = 180
 ```bash
 # 启动只读 HTTP/SSE 服务（默认 0.0.0.0:7070）
 node bin/codex-father http:serve --port 7070
+
+# 查询服务版本
+curl -s http://127.0.0.1:7070/api/v1/version | jq
+# 健康检查（附带版本）
+curl -s http://127.0.0.1:7070/healthz | jq
 
 # 查询状态
 curl http://127.0.0.1:7070/api/v1/jobs/<jobId>/status | jq
@@ -195,6 +200,18 @@ const resumeExec = await codex_bulk_resume({ jobIds: ['job-3'], repoRoot: proces
 ```
 
 更多示例：`docs/operations/bulk-sdk.md`。
+
+### 版本查询（CLI / MCP / HTTP）
+
+- CLI：
+  - 文本：`node bin/codex-father version`
+  - JSON：`node bin/codex-father version --json`
+- MCP：
+  - `{"name":"codex.version","arguments":{}}`
+  - 返回包括 `mcpName/mcpVersion/coreName/coreVersion/node/platform`。
+- HTTP：
+  - `GET /api/v1/version` → `{ name, version, node, platform, env }`
+  - `GET /healthz` 也包含 `{ name, version }`
 
 ### 恢复策略（codex.resume）
 

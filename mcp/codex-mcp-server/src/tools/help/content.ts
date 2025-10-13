@@ -28,6 +28,7 @@ export type GuideMeta = {
 };
 
 export const canonicalOrder = [
+  'codex.version',
   'codex.help',
   'codex.exec',
   'codex.start',
@@ -43,6 +44,23 @@ export const canonicalOrder = [
 ] as const;
 
 export const guideContent: Record<(typeof canonicalOrder)[number], GuideMeta> = {
+  'codex.version': {
+    tagline: '查询 Codex Father（核心与 MCP）的版本信息',
+    scenario: '需要快速确认当前运行版本、Node 版本与平台时。',
+    params: [],
+    sampleReturn: {
+      content: [
+        {
+          type: 'text',
+          text: 'codex-father v1.7.0\n@starkdev020/codex-father-mcp-server v3.1.1\nNode v18.x on linux x64',
+        },
+      ],
+    },
+    tips: [
+      '返回的 structuredContent 中包含 mcpName/mcpVersion/coreName/coreVersion/node/platform 等字段，便于程序化消费。',
+      '该工具不依赖本机 codex CLI 是否可用，可在轻量环境中直接调用。',
+    ],
+  },
   'codex.help': {
     tagline: '快速浏览 Codex Father 的 MCP 工具清单与示例',
     scenario: '不确定有哪些工具或需要确认调用/返回格式时。',

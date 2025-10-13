@@ -30,7 +30,7 @@ Language: English | [中文](README.md)
   `progress{current,total,percentage,currentTask,eta*}` and `checkpoints[]`
 - Event extensions: `plan_updated`, `progress_updated`, `checkpoint_saved` (see
   docs/schemas/stream-json-event.schema.json)
-- Read‑only HTTP/SSE server: `http:serve` exposes
+- Read‑only HTTP/SSE server: `http:serve` exposes `/api/v1/version` and
   `/api/v1/jobs/:id/status|checkpoints|events` (SSE supports `fromSeq` resume)
 - Bulk CLI: `bulk:status|stop|resume` (dry‑run by default; add `--execute` to
   perform)
@@ -39,8 +39,8 @@ Language: English | [中文](README.md)
 
 ### MCP Tools
 
-`codex.exec`, `codex.start`, `codex.status`, `codex.logs`, `codex.stop`,
-`codex.list`, `codex.help`.
+`codex.version`, `codex.help`, `codex.exec`, `codex.start`, `codex.status`,
+`codex.logs`, `codex.stop`, `codex.list`.
 
 Naming options via env vars: `CODEX_MCP_NAME_STYLE`, `CODEX_MCP_TOOL_PREFIX`,
 `CODEX_MCP_HIDE_ORIGINAL`.
@@ -103,11 +103,14 @@ CODEX_SESSIONS_ROOT="$CODEX_SESSIONS_HOME" \
 codex-mcp-server --transport=ndjson
 ```
 
-### Read‑only HTTP / SSE (live progress)
+### Read‑only HTTP / SSE (live progress & version)
 
 ```bash
 # Start HTTP/SSE server (defaults to 0.0.0.0:7070)
 node bin/codex-father http:serve --port 7070
+
+# Version
+curl -s http://127.0.0.1:7070/api/v1/version | jq
 
 # Query status
 curl http://127.0.0.1:7070/api/v1/jobs/<jobId>/status | jq
@@ -117,6 +120,15 @@ curl -N http://127.0.0.1:7070/api/v1/jobs/<jobId>/events?fromSeq=0
 ```
 
 See docs/operations/sse-endpoints.en.md for details.
+
+### CLI Version (text/JSON)
+
+```bash
+# Human readable
+node bin/codex-father version
+# JSON
+node bin/codex-father version --json
+```
 
 ### Bulk CLI (read‑only)
 

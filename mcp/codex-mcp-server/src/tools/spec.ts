@@ -7,6 +7,15 @@ const presetEnum = ['sprint', 'analysis', 'secure', 'fast'] as const;
 function canonicalTools(): ToolDef[] {
   return [
     {
+      name: 'codex.version',
+      description: 'Return version information for Codex Father (core + MCP) and runtime.',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+    {
       name: 'codex.help',
       description:
         'Discover available codex.* tools and see usage examples. Optionally provide a specific tool name.',

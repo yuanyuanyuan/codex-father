@@ -8,6 +8,7 @@ Conventions
 - Read‑only only; write operations remain CLI‑driven.
 
 Endpoints
+- `GET /api/v1/version` → returns current service version, Node version and platform.
 - `GET /api/v1/jobs/:id/status` → `codex-status-response.schema.json`.
 - `GET /api/v1/jobs/:id/events` → SSE stream of `stream-json-event.schema.json`; supports resume:
   - Query `?fromSeq=<number>` to replay from a sequence (inclusive).
@@ -34,4 +35,3 @@ Implementation notes
 - File queue: stream from `.codex-father/sessions/<id>/events.jsonl`; server tracks file offset.
 - Resume: client uses `fromSeq`; fallback to replay recent 1000 lines if not found.
 - Protection: rate limiting via `express-rate-limit`; consider reverse proxy in production.
-

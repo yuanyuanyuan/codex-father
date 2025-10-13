@@ -21,6 +21,7 @@ import { handleLogs } from './logs.js';
 import { handleClean } from './clean.js';
 import { handleMetrics } from './metrics.js';
 import { handleMessage } from './message.js';
+import { handleVersion } from './version.js';
 
 export async function handleCall(req: CallToolRequest, ctx: HandlerContext): Promise<ToolResult> {
   const name = req.params.name;
@@ -29,6 +30,11 @@ export async function handleCall(req: CallToolRequest, ctx: HandlerContext): Pro
     const normalized = normalizeToolName(name);
     if (normalized === 'codex.help') {
       return handleHelp(params);
+    }
+
+    // 版本查询无需依赖 Codex CLI 存在，可直接返回
+    if (normalized === 'codex.version') {
+      return handleVersion();
     }
 
     const version = await detectCodexVersion();

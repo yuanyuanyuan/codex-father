@@ -43,7 +43,7 @@
 - 细粒度进度反馈：`status --json` 返回
   `progress{current,total,percentage,currentTask,eta*}` 与 `checkpoints[]`
 - 事件扩展：`plan_updated`、`progress_updated`、`checkpoint_saved`（详见 docs/schemas/stream-json-event.schema.json）
-- 只读 HTTP/SSE：`http:serve` 暴露
+- 只读 HTTP/SSE：`http:serve` 暴露 `/api/v1/version` 与
   `/api/v1/jobs/:id/status|checkpoints|events`（SSE 支持 fromSeq 断点续订）
 - 批量 CLI：`bulk:status|stop|resume`（默认只读预演；加 `--execute` 才执行）
 
@@ -60,16 +60,18 @@
 
 ### MCP 工具（当前实现）
 
-1. `codex.exec` — 同步执行（前台阻塞直到完成）
-2. `codex.start` — 启动异步任务（立即返回 `jobId`）
-3. `codex.status` — 查询任务状态
-4. `codex.logs` — 读取任务日志（字节/行两种模式）
-5. `codex.stop` — 停止任务（可 `--force`）
-6. `codex.list` — 枚举已知任务
-7. `codex.help` — 工具自发现与示例输出
+1. `codex.version` — 查询版本（文本 + 结构化字段）
+2. `codex.help` — 工具自发现与示例输出
+3. `codex.exec` — 同步执行（前台阻塞直到完成）
+4. `codex.start` — 启动异步任务（立即返回 `jobId`）
+5. `codex.status` — 查询任务状态
+6. `codex.logs` — 读取任务日志（字节/行两种模式）
+7. `codex.stop` — 停止任务（可 `--force`）
+8. `codex.list` — 枚举已知任务
 
-> 命名与别名：同时提供下划线等价别名 `codex_exec`, `codex_start`,
-> `codex_status`, `codex_logs`, `codex_stop`, `codex_list`, `codex_help`。
+> 命名与别名：同时提供下划线等价别名 `codex_version`, `codex_help`,
+> `codex_exec`, `codex_start`, `codex_status`, `codex_logs`, `codex_stop`,
+> `codex_list`。
 
 ### 命名策略（0.44 responses 推荐）
 
@@ -79,8 +81,8 @@
   - `CODEX_MCP_NAME_STYLE=underscore-only`（只导出下划线工具名）
   - `CODEX_MCP_TOOL_PREFIX=cf`（为所有工具增加 `cf_` 别名）
   - `CODEX_MCP_HIDE_ORIGINAL=1`（隐藏默认的 `codex_*` 名称，仅保留 `cf_*`）
-- 生效后 tools/list 仅出现：`cf_exec`, `cf_start`, `cf_status`, `cf_logs`,
-  `cf_stop`, `cf_list`, `cf_help`。
+- 生效后 tools/list 仅出现：`cf_version`, `cf_help`, `cf_exec`, `cf_start`,
+  `cf_status`, `cf_logs`, `cf_stop`, `cf_list`。
 
 > 注：早期文档中出现的
 > `codex-chat`/`codex-execute`/`codex-read-file`/`codex-apply-patch`
@@ -181,6 +183,9 @@ cd codex-father && npm install
 ```bash
 # 启动只读 HTTP/SSE 服务（默认 0.0.0.0:7070）
 node bin/codex-father http:serve --port 7070
+
+# 查看服务版本
+curl http://127.0.0.1:7070/api/v1/version | jq
 
 # 获取状态
 curl http://127.0.0.1:7070/api/v1/jobs/<jobId>/status | jq

@@ -30,6 +30,32 @@
 - chore(runtime): 同步更新 MCP runtime 的
   `assets/runtime/lib/common.sh`，与主库行为保持一致。
 
+## 1.8.0 - 2025-10-13
+
+### ✨ 新增
+
+- CLI: 新增 `version` 子命令，支持 `--json` 输出（便于自动化采集环境信息）。
+- HTTP: 新增 `GET /api/v1/version` 返回
+  `{ name, version, node, platform, env }`；`GET /healthz` 同步返回
+  `{ name, version }`。
+- MCP: 新增工具
+  `codex.version`，返回文本与结构化字段（`mcpName/mcpVersion/coreName/coreVersion/node/platform/pid`）。
+
+### 🧪 测试
+
+- 覆盖 `/api/v1/version` 端点的单测（确保与根包版本一致）。
+- 覆盖 MCP tools spec 含 `codex.version` 的单测。
+- 覆盖 CLI 版本命令在 `--json` 模式下的单测。
+
+### 📚 文档
+
+- README（中/英）与用户手册：新增“版本查询（CLI/MCP/HTTP）”章节与示例；HTTP 章节补充
+  `/api/v1/version` 与 `/healthz` 示例。
+
+### 说明
+
+- 本次为向后兼容的功能新增（minor）。MCP 子包版本将由语义化发布自动提升。
+
 ## 1.6.2 - 2025-10-12
 
 ### ♻️ 改进 / 文档
