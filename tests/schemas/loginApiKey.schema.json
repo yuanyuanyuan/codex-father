@@ -1,11 +1,32 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "apiKey": {
-      "type": "string",
-      "description": "API 密钥"
+  "definitions": {
+    "LoginApiKeyRequest": {
+      "type": "object",
+      "properties": {
+        "apiKey": {
+          "type": "string",
+          "description": "API 密钥"
+        }
+      },
+      "required": ["apiKey"],
+      "additionalProperties": false
+    },
+    "LoginApiKeyResponse": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        }
+      },
+      "required": ["success"],
+      "additionalProperties": false
     }
   },
-  "required": ["apiKey"]
+  "request": {
+    "$ref": "#/definitions/LoginApiKeyRequest"
+  },
+  "response": {
+    "$ref": "#/definitions/LoginApiKeyResponse"
+  }
 }

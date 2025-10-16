@@ -1,15 +1,41 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "username": {
-      "type": "string",
-      "description": "用户名"
+  "definitions": {
+    "LoginChatGptRequest": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "邮箱地址"
+        },
+        "password": {
+          "type": "string",
+          "description": "密码"
+        }
+      },
+      "required": ["email", "password"],
+      "additionalProperties": true
     },
-    "password": {
-      "type": "string",
-      "description": "密码"
+    "LoginChatGptResponse": {
+      "type": "object",
+      "properties": {
+        "loginId": {
+          "type": "string",
+          "description": "登录ID"
+        },
+        "authUrl": {
+          "type": "string",
+          "description": "认证URL"
+        }
+      },
+      "required": ["loginId", "authUrl"],
+      "additionalProperties": false
     }
   },
-  "required": ["username", "password"]
+  "request": {
+    "$ref": "#/definitions/LoginChatGptRequest"
+  },
+  "response": {
+    "$ref": "#/definitions/LoginChatGptResponse"
+  }
 }
