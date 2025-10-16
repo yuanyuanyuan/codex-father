@@ -1,5 +1,5 @@
 {
-  "name": "codex-father",
+  "name": "@starkdev020/codex-father",
   "version": "5.0.0",
   "description": "Codex Father - 基于三阶段实施方案的CLI工具架构，支持MCP服务器模块",
   "type": "module",
@@ -17,6 +17,9 @@
     "development-tools"
   ],
   "author": "Codex Father Maintainers",
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "codex-father": "dist/core/cli/start.js",
     "codex-father-start": "start.sh",
