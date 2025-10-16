@@ -1,16 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
 
-import type { CodexConfig } from '../../core/lib/models/configuration';
+import type { CodexConfig } from '../../core/lib/models/configuration.js';
 import {
   createAutoFixProfile,
   writeProfile,
   readProfile,
   type AutoFixProfile,
-} from '../../core/lib/presets';
+} from '../../core/lib/presets.js';
 
 function tmpConfigPath(suffix = ''): string {
   const base = path.join(

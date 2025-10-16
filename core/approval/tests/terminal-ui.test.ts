@@ -15,6 +15,7 @@ import inquirer from 'inquirer';
 import { v4 as uuidv4 } from 'uuid';
 import { TerminalUI, createTerminalUI, promptApproval } from '../terminal-ui.js';
 import type { ApprovalRequest } from '../../lib/types.js';
+import { ApprovalType, ApprovalStatus, FileChangeType } from '../../lib/types.js';
 
 describe('TerminalUI', () => {
   let ui: TerminalUI;
@@ -28,7 +29,7 @@ describe('TerminalUI', () => {
     });
 
     // 监听 console.log (用于验证输出)
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {}) as any;
   });
 
   afterEach(() => {
@@ -71,9 +72,10 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date('2025-01-01T10:00:00Z'),
-        status: 'pending',
+        status: ApprovalStatus.PENDING,
         details: {
           command: 'npm install',
           cwd: '/workspace/project',
@@ -110,11 +112,13 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
+        status: ApprovalStatus.PENDING,
         details: {
           command: 'ls',
+          cwd: '/workspace',
         },
       };
 
@@ -130,9 +134,10 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
+        status: ApprovalStatus.PENDING,
         details: {
           command: 'ls',
           cwd: '/workspace',
@@ -150,11 +155,13 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
+        status: ApprovalStatus.PENDING,
         details: {
           command: 'echo test',
+          cwd: '/workspace',
         },
       };
 
@@ -169,9 +176,10 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
+        status: ApprovalStatus.PENDING,
         details: {
           command: 'ls',
           cwd: '/workspace',
@@ -191,14 +199,15 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'apply-patch',
+        jobId: uuidv4(),
+        type: ApprovalType.APPLY_PATCH,
         createdAt: new Date(),
-        status: 'pending',
+        status: ApprovalStatus.PENDING,
         details: {
           fileChanges: [
-            { type: 'create', path: '/src/new-file.ts' },
-            { type: 'modify', path: '/src/existing.ts' },
-            { type: 'delete', path: '/src/old-file.ts' },
+            { type: FileChangeType.CREATE, path: '/src/new-file.ts' },
+            { type: FileChangeType.MODIFY, path: '/src/existing.ts' },
+            { type: FileChangeType.DELETE, path: '/src/old-file.ts' },
           ],
         },
       };
@@ -224,15 +233,16 @@ describe('TerminalUI', () => {
       vi.spyOn(inquirer, 'prompt').mockResolvedValue({ decision: 'allow' });
 
       const fileChanges = Array.from({ length: 10 }, (_, i) => ({
-        type: 'create' as const,
+        type: FileChangeType.CREATE,
         path: `/src/file${i}.ts`,
       }));
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'apply-patch',
+        jobId: uuidv4(),
+        type: ApprovalType.APPLY_PATCH,
         createdAt: new Date(),
-        status: 'pending',
+        status: ApprovalStatus.PENDING,
         details: { fileChanges },
       };
 
@@ -250,13 +260,14 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'apply-patch',
+        jobId: uuidv4(),
+        type: ApprovalType.APPLY_PATCH,
         createdAt: new Date(),
-        status: 'pending',
+        status: ApprovalStatus.PENDING,
         details: {
           fileChanges: [
-            { type: 'create', path: '/src/file1.ts' },
-            { type: 'modify', path: '/src/file2.ts' },
+            { type: FileChangeType.CREATE, path: '/src/file1.ts' },
+            { type: FileChangeType.MODIFY, path: '/src/file2.ts' },
           ],
         },
       };
@@ -274,10 +285,11 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
-        details: { command: 'ls' },
+        status: ApprovalStatus.PENDING,
+        details: { command: 'ls', cwd: '/workspace' },
       };
 
       const decision = await ui.promptApproval(request);
@@ -293,10 +305,11 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
-        details: { command: 'rm -rf /' },
+        status: ApprovalStatus.PENDING,
+        details: { command: 'rm -rf /', cwd: '/workspace' },
       };
 
       const decision = await ui.promptApproval(request);
@@ -312,10 +325,11 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
-        details: { command: 'git status' },
+        status: ApprovalStatus.PENDING,
+        details: { command: 'git status', cwd: '/workspace' },
       };
 
       const decision = await ui.promptApproval(request);
@@ -331,10 +345,11 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
-        details: { command: 'ls' },
+        status: ApprovalStatus.PENDING,
+        details: { command: 'ls', cwd: '/workspace' },
       };
 
       await ui.promptApproval(request);
@@ -343,7 +358,7 @@ describe('TerminalUI', () => {
       expect(promptSpy).toHaveBeenCalled();
 
       // 获取传递给 inquirer 的选项
-      const promptOptions = promptSpy.mock.calls[0][0];
+      const promptOptions = promptSpy.mock.calls[0]?.[0];
       expect(promptOptions).toEqual([
         {
           type: 'list',
@@ -384,24 +399,27 @@ describe('TerminalUI', () => {
       const requests: ApprovalRequest[] = [
         {
           requestId: uuidv4(),
-          type: 'exec-command',
+          jobId: uuidv4(),
+          type: ApprovalType.EXEC_COMMAND,
           createdAt: new Date(),
-          status: 'pending',
-          details: { command: 'ls' },
+          status: ApprovalStatus.PENDING,
+          details: { command: 'ls', cwd: '/workspace' },
         },
         {
           requestId: uuidv4(),
-          type: 'exec-command',
+          jobId: uuidv4(),
+          type: ApprovalType.EXEC_COMMAND,
           createdAt: new Date(),
-          status: 'pending',
-          details: { command: 'pwd' },
+          status: ApprovalStatus.PENDING,
+          details: { command: 'pwd', cwd: '/workspace' },
         },
         {
           requestId: uuidv4(),
-          type: 'exec-command',
+          jobId: uuidv4(),
+          type: ApprovalType.EXEC_COMMAND,
           createdAt: new Date(),
-          status: 'pending',
-          details: { command: 'rm file.txt' },
+          status: ApprovalStatus.PENDING,
+          details: { command: 'rm file.txt', cwd: '/workspace' },
         },
       ];
 
@@ -421,17 +439,19 @@ describe('TerminalUI', () => {
       const requests: ApprovalRequest[] = [
         {
           requestId: uuidv4(),
-          type: 'exec-command',
+          jobId: uuidv4(),
+          type: ApprovalType.EXEC_COMMAND,
           createdAt: new Date(),
-          status: 'pending',
-          details: { command: 'rm file.txt' },
+          status: ApprovalStatus.PENDING,
+          details: { command: 'rm file.txt', cwd: '/workspace' },
         },
         {
           requestId: uuidv4(),
-          type: 'exec-command',
+          jobId: uuidv4(),
+          type: ApprovalType.EXEC_COMMAND,
           createdAt: new Date(),
-          status: 'pending',
-          details: { command: 'ls' },
+          status: ApprovalStatus.PENDING,
+          details: { command: 'ls', cwd: '/workspace' },
         },
       ];
 
@@ -456,24 +476,27 @@ describe('TerminalUI', () => {
       const requests: ApprovalRequest[] = [
         {
           requestId: uuidv4(),
-          type: 'exec-command',
+          jobId: uuidv4(),
+          type: ApprovalType.EXEC_COMMAND,
           createdAt: new Date(),
-          status: 'pending',
-          details: { command: 'rm file.txt' },
+          status: ApprovalStatus.PENDING,
+          details: { command: 'rm file.txt', cwd: '/workspace' },
         },
         {
           requestId: uuidv4(),
-          type: 'exec-command',
+          jobId: uuidv4(),
+          type: ApprovalType.EXEC_COMMAND,
           createdAt: new Date(),
-          status: 'pending',
-          details: { command: 'ls' },
+          status: ApprovalStatus.PENDING,
+          details: { command: 'ls', cwd: '/workspace' },
         },
         {
           requestId: uuidv4(),
-          type: 'exec-command',
+          jobId: uuidv4(),
+          type: ApprovalType.EXEC_COMMAND,
           createdAt: new Date(),
-          status: 'pending',
-          details: { command: 'pwd' },
+          status: ApprovalStatus.PENDING,
+          details: { command: 'pwd', cwd: '/workspace' },
         },
       ];
 
@@ -493,17 +516,19 @@ describe('TerminalUI', () => {
       const requests: ApprovalRequest[] = [
         {
           requestId: uuidv4(),
-          type: 'exec-command',
+          jobId: uuidv4(),
+          type: ApprovalType.EXEC_COMMAND,
           createdAt: new Date(),
-          status: 'pending',
-          details: { command: 'ls' },
+          status: ApprovalStatus.PENDING,
+          details: { command: 'ls', cwd: '/workspace' },
         },
         {
           requestId: uuidv4(),
-          type: 'exec-command',
+          jobId: uuidv4(),
+          type: ApprovalType.EXEC_COMMAND,
           createdAt: new Date(),
-          status: 'pending',
-          details: { command: 'pwd' },
+          status: ApprovalStatus.PENDING,
+          details: { command: 'pwd', cwd: '/workspace' },
         },
       ];
 
@@ -528,10 +553,11 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
-        details: { command: 'sleep 10' },
+        status: ApprovalStatus.PENDING,
+        details: { command: 'sleep 10', cwd: '/workspace' },
       };
 
       // 验证超时抛出错误
@@ -553,10 +579,11 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
-        details: { command: 'ls' },
+        status: ApprovalStatus.PENDING,
+        details: { command: 'ls', cwd: '/workspace' },
       };
 
       const decision = await timeoutUI.promptApproval(request);
@@ -565,7 +592,7 @@ describe('TerminalUI', () => {
     });
 
     it('应该在没有超时配置时无限等待', async () => {
-      const noTimeoutUI = createTerminalUI({ timeout: undefined });
+      const noTimeoutUI = createTerminalUI();
 
       // Mock inquirer 延迟响应
       vi.spyOn(inquirer, 'prompt').mockImplementation(
@@ -577,10 +604,11 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
-        details: { command: 'ls' },
+        status: ApprovalStatus.PENDING,
+        details: { command: 'ls', cwd: '/workspace' },
       };
 
       // 应该正常等待并返回决策
@@ -648,10 +676,11 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
-        details: { command: 'ls' },
+        status: ApprovalStatus.PENDING,
+        details: { command: 'ls', cwd: '/workspace' },
       };
 
       const decision = await promptApproval(request);
@@ -666,11 +695,13 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
+        status: ApprovalStatus.PENDING,
         details: {
           command: '',
+          cwd: '/workspace',
         },
       };
 
@@ -683,9 +714,10 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'exec-command',
+        jobId: uuidv4(),
+        type: ApprovalType.EXEC_COMMAND,
         createdAt: new Date(),
-        status: 'pending',
+        status: ApprovalStatus.PENDING,
         details: {
           command: 'echo "Hello\nWorld" | grep "World"',
           cwd: '/path/with spaces/项目',
@@ -704,9 +736,10 @@ describe('TerminalUI', () => {
 
       const request: ApprovalRequest = {
         requestId: uuidv4(),
-        type: 'apply-patch',
+        jobId: uuidv4(),
+        type: ApprovalType.APPLY_PATCH,
         createdAt: new Date(),
-        status: 'pending',
+        status: ApprovalStatus.PENDING,
         details: {
           fileChanges: [],
         },

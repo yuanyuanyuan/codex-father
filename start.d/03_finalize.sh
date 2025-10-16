@@ -29,7 +29,7 @@ if [[ "${CODEX_LOG_AGGREGATE}" == "1" ]]; then
     echo "Log: ${CODEX_LOG_FILE}"
     echo "Instructions: ${INSTR_FILE}"
     echo -n "Title: "
-    awk 'NF {print; exit}' "${INSTR_FILE}" | cut -c1-120 || true
+    cat "${INSTR_FILE}" 2>/dev/null | awk 'NF {print; exit}' | cut -c1-120 || true
     echo "Exit: ${CODEX_EXIT}"
     echo
   } >> "${CODEX_LOG_AGGREGATE_FILE}"
@@ -219,7 +219,7 @@ EOF
 }
 
 classify_exit "${RUN_LAST_MSG_FILE}" "${CODEX_LOG_FILE}" "${CODEX_EXIT}"
-INSTR_TITLE=$(awk 'NF {print; exit}' "${INSTR_FILE}" 2>/dev/null || echo "")
+INSTR_TITLE=$(cat "${INSTR_FILE}" 2>/dev/null | awk 'NF {print; exit}' || echo "")
 RUN_ID="codex-${TS}${TAG_SUFFIX}"
 
 # If running in patch-mode and a valid patch was produced, normalize to classification=patch_only
@@ -346,8 +346,10 @@ if (( DO_LOOP == 0 )); then
 codex_update_session_state || true
     # 单轮模式：写入 100% 进度
     if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
+      _single_title=$(printf '%s' "${INSTR_TITLE}" | safe_truncate_utf8 120)
+      _single_title_esc=$(printf '%s' "${_single_title}" | sed 's/\\/\\\\/g; s/\"/\\\"/g')
       cat >"${CODEX_SESSION_DIR}/progress.json.tmp" <<JSON
-{"current": 1, "total": 1, "percentage": 100, "currentTask": "完成", "etaSeconds": 0, "etaHuman": "0s"}
+{"current": 1, "total": 1, "percentage": 100, "currentTask": "完成", "title": "${_single_title_esc}", "etaSeconds": 0, "etaHuman": "0s"}
 JSON
       mv -f "${CODEX_SESSION_DIR}/progress.json.tmp" "${CODEX_SESSION_DIR}/progress.json"
       # 同步 progress_updated 事件（单轮完成）
@@ -416,7 +418,7 @@ fi
 while (( RUN <= MAX_RUNS )); do
   # 写入迭代开始的进度（当前完成步为 RUN-1）
   if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
-    _title_pre=$(awk 'NF {print; exit}' /dev/stdin <<<"${INSTRUCTIONS}" | safe_truncate_utf8 80)
+    _title_pre=$(printf '%s' "${INSTRUCTIONS}" | awk 'NF {print; exit}' | safe_truncate_utf8 80)
     # 复用与 02_prepare 相同的 JSON 结构
     _pct=$(( 100 * (RUN-1) / MAX_RUNS ))
     if (( _pct > 100 )); then _pct=100; fi
@@ -529,7 +531,7 @@ JSON
   RUN_META_FILE="${CODEX_LOG_FILE%.log}.r${RUN}.meta.json"
   RUN_SUMMARY_FILE="${CODEX_LOG_FILE%.log}.r$((RUN-1)).summary.txt"
   # 标记 checkpoint：迭代步骤开始（记录 context 概要）
-  _ctx_title=$(awk 'NF {print; exit}' "${RUN_INSTR_FILE}" 2>/dev/null | safe_truncate_utf8 120)
+  _ctx_title=$(cat "${RUN_INSTR_FILE}" 2>/dev/null | awk 'NF {print; exit}' | safe_truncate_utf8 120)
   checkpoint_add $((1 + RUN)) "in_progress" "${RUN_INSTR_FILE}" "" "" "${_ctx_title}" || true
 
   if (( CARRY_CONTEXT == 1 )); then
@@ -623,7 +625,7 @@ JSON
       echo "Instructions sha256: ${sha} (lines=${lines}, +${added}/-${removed})" >> "${CODEX_LOG_FILE}"
       # 追加 plan_updated，暴露当前步与总步及标题预览（用于前端计划进度渲染）
       if type append_jsonl_event >/dev/null 2>&1; then
-      _plan_title=$(awk 'NF {print; exit}' "${RUN_INSTR_FILE}" 2>/dev/null | safe_truncate_utf8 120)
+      _plan_title=$(cat "${RUN_INSTR_FILE}" 2>/dev/null | awk 'NF {print; exit}' | safe_truncate_utf8 120)
         _plan_title_esc=$(printf '%s' "${_plan_title}" | sed 's/\\/\\\\/g; s/\"/\\\"/g')
         _plan_json=$(cat <<JSON
 {"steps": {"current": ${RUN}, "total": ${MAX_RUNS}}, "title": "${_plan_title_esc}"}
@@ -742,7 +744,7 @@ JSON
   else
     RUN_TS_DISPLAY="$(date +%Y-%m-%dT%H:%M:%S%:z)"
   fi
-  INSTR_TITLE=$(awk 'NF {print; exit}' "${RUN_INSTR_FILE}" 2>/dev/null || echo "")
+  INSTR_TITLE=$(cat "${RUN_INSTR_FILE}" 2>/dev/null | awk 'NF {print; exit}' || echo "")
   RUN_ID="codex-${RUN_TS}${TAG_SUFFIX}-r${RUN}"
   classify_exit "${RUN_LAST_MSG_FILE}" "${CODEX_LOG_FILE}" "${CODEX_EXIT}"
   PATCH_ARTIFACT_JSON="null"
@@ -804,7 +806,7 @@ EOF
       echo "=== [${RUN_TS_DISPLAY}] Codex Run r${RUN} ${TAG_SUFFIX} ==="
       echo "Log: ${CODEX_LOG_FILE}"
       echo "Instructions: ${RUN_INSTR_FILE}"
-      echo -n "Title: "; awk 'NF {print; exit}' "${RUN_INSTR_FILE}" | cut -c1-120 || true
+      echo -n "Title: "; cat "${RUN_INSTR_FILE}" 2>/dev/null | awk 'NF {print; exit}' | cut -c1-120 || true
       echo "Exit: ${CODEX_EXIT}"
       echo
     } >> "${CODEX_LOG_AGGREGATE_FILE}"
@@ -831,8 +833,11 @@ EOF
   if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
     _pct2=$(( 100 * RUN / MAX_RUNS ))
     if (( _pct2 > 100 )); then _pct2=100; fi
+    # 为便于前端或测试读取，progress.json 也携带本轮指令标题预览
+    _final_title=$(printf '%s' "${INSTR_TITLE}" | safe_truncate_utf8 120)
+    _final_title_esc=$(printf '%s' "${_final_title}" | sed 's/\\/\\\\/g; s/\"/\\\"/g')
     cat >"${CODEX_SESSION_DIR}/progress.json.tmp" <<JSON
-{"current": ${RUN}, "total": ${MAX_RUNS}, "percentage": ${_pct2}, "currentTask": "迭代 ${RUN} 完成", "etaSeconds": null, "etaHuman": null, "estimatedTimeLeft": null}
+{"current": ${RUN}, "total": ${MAX_RUNS}, "percentage": ${_pct2}, "currentTask": "迭代 ${RUN} 完成", "title": "${_final_title_esc}", "etaSeconds": null, "etaHuman": null, "estimatedTimeLeft": null}
 JSON
     mv -f "${CODEX_SESSION_DIR}/progress.json.tmp" "${CODEX_SESSION_DIR}/progress.json"
     # 同步 progress_updated 事件（每轮完成）

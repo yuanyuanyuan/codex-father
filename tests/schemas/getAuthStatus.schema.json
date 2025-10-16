@@ -15,7 +15,8 @@
         "type": "boolean"
       }
     },
-    "required": []
+    "required": [],
+    "additionalProperties": false
   },
   "response": {
     "type": "object",
@@ -24,15 +25,18 @@
         "type": "boolean"
       },
       "method": {
-        "type": "string"
+        "type": "string",
+        "enum": ["chatGpt", "apiKey"]
       },
       "token": {
         "type": "string"
       },
       "expiresAt": {
-        "type": "string"
+        "type": "string",
+        "format": "date-time"
       }
     },
-    "required": ["authenticated"]
+    "required": ["authenticated"],
+    "additionalProperties": false
   }
 }

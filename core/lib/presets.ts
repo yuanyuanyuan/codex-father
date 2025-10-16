@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { CodeQualityStandard } from './models/code-quality';
-import { TestArchitectureFramework } from './models/test-architecture';
-import type { CodexConfig } from './models/configuration';
+import { CodeQualityStandard } from './models/code-quality.js';
+import { TestArchitectureFramework } from './models/test-architecture.js';
+import type { CodexConfig } from './models/configuration.js';
 
 export const DEFAULT_TEST_FRAMEWORK: TestArchitectureFramework = {
   id: 'default-tests',
@@ -169,9 +169,9 @@ function extractProfile(content: string, profileName: string): AutoFixProfile | 
   const model = extractString(body, 'model');
   if (model) config.model = model;
   const approval = extractString(body, 'approval_policy');
-  if (approval) config.approval_policy = approval as CodexConfig['approval_policy'];
+  if (approval && approval !== undefined) config.approval_policy = approval as 'untrusted' | 'on-request' | 'on-failure' | 'never';
   const sandbox = extractString(body, 'sandbox');
-  if (sandbox) config.sandbox = sandbox as CodexConfig['sandbox'];
+  if (sandbox && sandbox !== undefined) config.sandbox = sandbox as 'read-only' | 'workspace-write' | 'danger-full-access';
   const cwd = extractString(body, 'cwd');
   if (cwd) config.cwd = cwd;
   const includePlan = extractBoolean(body, 'include_plan_tool');
@@ -228,7 +228,7 @@ function extractString(body: string, key: string): string | undefined {
 
 function extractBoolean(body: string, key: string): boolean | null {
   const match = body.match(new RegExp(`${key}\\s*=\\s*(true|false)`, 'i'));
-  if (!match) return null;
+  if (!match || !match[1]) return null;
   return /^true$/i.test(match[1]);
 }
 

@@ -1,5 +1,5 @@
-import { CodexConfigSchema, type CodexConfig } from '../models/configuration';
-import { getRecommendedWireApi, validateWireApiForModel, type WireApi } from '../queue/api';
+import { CodexConfigSchema, type CodexConfig } from '../models/configuration.js';
+import { getRecommendedWireApi, validateWireApiForModel, type WireApi } from '../queue/api.js';
 
 export interface ValidationError {
   field: string;
@@ -99,7 +99,7 @@ export class DataValidator {
 
 export function validateConfig(
   config: CodexConfig,
-  codexVersion: string
+  _codexVersion: string
 ): Promise<ValidationResult> {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
@@ -235,8 +235,12 @@ export function parseSemver(version: string): [number, number, number] | null {
 
 export function compareSemver(a: [number, number, number], b: [number, number, number]): number {
   for (let i = 0; i < 3; i++) {
-    if (a[i] > b[i]) return 1;
-    if (a[i] < b[i]) return -1;
+    const aVal = a[i];
+    const bVal = b[i];
+    if (aVal !== undefined && bVal !== undefined) {
+      if (aVal > bVal) return 1;
+      if (aVal < bVal) return -1;
+    }
   }
   return 0;
 }

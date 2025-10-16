@@ -255,7 +255,7 @@ JSON
 # 初始进度：准备阶段完成（current=0）
 if [[ -n "${CODEX_SESSION_DIR:-}" ]]; then
   local_total=${MAX_RUNS:-1}
-  _title_preview=$(awk 'NF {print; exit}' /dev/stdin <<<"${INSTRUCTIONS}" | safe_truncate_utf8 80)
+  _title_preview=$(printf '%s' "${INSTRUCTIONS}" | awk 'NF {print; exit}' | safe_truncate_utf8 80)
   progress_write 0 "${local_total}" "准备指令: ${_title_preview}" ""
 fi
 
@@ -617,29 +617,35 @@ else
   EXEC_ARGS=("${CODEX_EXEC_ARGS[@]}")
 fi
   # 记录调用参数（原始 CLI 与传递给 codex 的参数），便于排错
-  if [[ "${REDACT_ENABLE}" == "1" ]]; then
-    {
-      echo "----- Invocation Args -----"
-      echo "start.sh argv (raw):"
-      for a in "${ORIG_ARGV[@]}"; do printf '  %s\n' "$a"; done
-      echo "codex global args:"
-      for a in "${CODEX_GLOBAL_ARGS[@]}"; do printf '  %s\n' "$a"; done
-      echo "codex exec args:"
-      for a in "${EXEC_ARGS[@]}"; do printf '  %s\n' "$a"; done
-      echo "----- End Invocation Args -----"
-    } | sed -E "${REDACT_SED_ARGS[@]}" >> "${CODEX_LOG_FILE}"
-  else
-    {
-      echo "----- Invocation Args -----"
-      echo "start.sh argv (raw):"
-      for a in "${ORIG_ARGV[@]}"; do printf '  %s\n' "$a"; done
-      echo "codex global args:"
-      for a in "${CODEX_GLOBAL_ARGS[@]}"; do printf '  %s\n' "$a"; done
-      echo "codex exec args:"
-      for a in "${EXEC_ARGS[@]}"; do printf '  %s\n' "$a"; done
-      echo "----- End Invocation Args -----"
-    } >> "${CODEX_LOG_FILE}"
-  fi
+  # 添加 SIGPIPE 处理，避免管道断裂导致 141 退出码
+  (
+    # 忽略 SIGPIPE 信号
+    trap '' PIPE
+
+    if [[ "${REDACT_ENABLE}" == "1" ]]; then
+      {
+        echo "----- Invocation Args -----"
+        echo "start.sh argv (raw):"
+        for a in "${ORIG_ARGV[@]}"; do printf '  %s\n' "$a"; done
+        echo "codex global args:"
+        for a in "${CODEX_GLOBAL_ARGS[@]}"; do printf '  %s\n' "$a"; done
+        echo "codex exec args:"
+        for a in "${EXEC_ARGS[@]}"; do printf '  %s\n' "$a"; done
+        echo "----- End Invocation Args -----"
+      } | sed -E "${REDACT_SED_ARGS[@]}" >> "${CODEX_LOG_FILE}" 2>/dev/null || true
+    else
+      {
+        echo "----- Invocation Args -----"
+        echo "start.sh argv (raw):"
+        for a in "${ORIG_ARGV[@]}"; do printf '  %s\n' "$a"; done
+        echo "codex global args:"
+        for a in "${CODEX_GLOBAL_ARGS[@]}"; do printf '  %s\n' "$a"; done
+        echo "codex exec args:"
+        for a in "${EXEC_ARGS[@]}"; do printf '  %s\n' "$a"; done
+        echo "----- End Invocation Args -----"
+      } >> "${CODEX_LOG_FILE}" 2>/dev/null || true
+    fi
+  )
   RUN_OUTPUT_FILE="${CODEX_LOG_FILE%.log}.r1.output.txt"
   CODEX_EXECUTED=0
   if [[ ${DRY_RUN} -eq 1 ]]; then
@@ -659,27 +665,34 @@ fi
       CODEX_EXIT=127
     else
       CODEX_EXECUTED=1
-      if [[ "${JSON_OUTPUT}" == "1" ]]; then
-        if [[ "${REDACT_ENABLE}" == "1" ]]; then
-          printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee "${RUN_OUTPUT_FILE}" >/dev/null
-          CODEX_EXIT=${PIPESTATUS[1]}
-        else
-          printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-            | tee "${RUN_OUTPUT_FILE}" >/dev/null
-          CODEX_EXIT=${PIPESTATUS[1]}
-        fi
+
+      # 使用临时文件避免管道问题
+      tmp_output_file="${RUN_OUTPUT_FILE}.tmp"
+
+      # 先运行 codex 并捕获到临时文件
+      if ! printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" > "${tmp_output_file}" 2>&1; then
+        CODEX_EXIT=${PIPESTATUS[0]}
       else
-        if [[ "${REDACT_ENABLE}" == "1" ]]; then
-          printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-            | sed -u -E "${REDACT_SED_ARGS[@]}" | tee "${RUN_OUTPUT_FILE}"
-          CODEX_EXIT=${PIPESTATUS[1]}
-        else
-          printf '%s' "${INSTRUCTIONS}" | codex "${CODEX_GLOBAL_ARGS[@]}" exec "${EXEC_ARGS[@]}" 2>&1 \
-            | tee "${RUN_OUTPUT_FILE}"
-          CODEX_EXIT=${PIPESTATUS[1]}
-        fi
+        CODEX_EXIT=0
       fi
+
+      # 处理输出（如果需要脱敏）
+      if [[ "${REDACT_ENABLE}" == "1" ]] && [[ -s "${tmp_output_file}" ]]; then
+        sed -u -E "${REDACT_SED_ARGS[@]}" "${tmp_output_file}" > "${RUN_OUTPUT_FILE}" 2>/dev/null || {
+          # 如果 sed 失败，直接复制原文件
+          cp "${tmp_output_file}" "${RUN_OUTPUT_FILE}"
+        }
+      else
+        cp "${tmp_output_file}" "${RUN_OUTPUT_FILE}"
+      fi
+
+      # 显示输出（如果不是 JSON 模式）
+      if [[ "${JSON_OUTPUT}" != "1" ]]; then
+        cat "${RUN_OUTPUT_FILE}"
+      fi
+
+      # 清理临时文件
+      rm -f "${tmp_output_file}"
     fi
   fi
 set -e

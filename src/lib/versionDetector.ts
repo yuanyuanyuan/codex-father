@@ -107,6 +107,14 @@ class VersionDetector {
     this.lastCheck = 0;
   }
 
+  getCachedVersion(): VersionInfo | null {
+    const now = Date.now();
+    if (this.cache.has('codex') && now - this.lastCheck < this.CACHE_TTL) {
+      return this.cache.get('codex')!;
+    }
+    return null;
+  }
+
   // 检查版本是否满足要求
   async meetsMinimumVersion(
     minMajor: number,
@@ -147,4 +155,8 @@ export async function checkCodexVersion(
 
 export function clearVersionCache(): void {
   versionDetector.clearCache();
+}
+
+export function getCachedVersion(): VersionInfo | null {
+  return versionDetector.getCachedVersion();
 }

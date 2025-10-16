@@ -81,7 +81,7 @@ export function formatHttpError(
       method,
       version: version || '0.42.0',
       statusCode,
-      requestId
+      ...(requestId && { requestId })
     },
     suggestions: getDefaultSuggestions(statusCode),
     requestId: requestId || `req-${Date.now()}`
@@ -123,7 +123,7 @@ function getDefaultSuggestions(statusCode: number): Array<{ action: string; mess
       ];
     case 405:
       return [
-        { action: 'check_wire_api', message: 'Review wire_api documentation and configuration', link: 'specs/008-ultrathink-codex-0/research.md#6' },
+        { action: 'check_wire_api', message: 'Review wire_api documentation and configuration' },
         { action: 'verify_model_config', message: 'Verify model configuration compatibility' },
         { action: 'wire_api', message: 'Review wire_api documentation' },
         { action: 'check_method', message: 'Verify HTTP method support' }

@@ -741,6 +741,44 @@ if [[ -n "${VALIDATION_ERROR}" ]]; then
   exit 2
 fi
 
+# 参数预检查机制 - 自动修复常见问题
+if [[ -f "${SCRIPT_DIR}/lib/param_validator.sh" ]]; then
+  # 加载参数验证器
+  # shellcheck disable=SC1091
+  . "${SCRIPT_DIR}/lib/param_validator.sh"
+
+  # 执行参数预检查
+  if command -v validate_args >/dev/null 2>&1; then
+    echo "[param-check] 执行参数预检查..." >> "${CODEX_LOG_FILE}"
+
+    # 构建参数数组用于验证
+    all_args=()
+    i=0
+    while (( i < ${#ORIG_ARGV[@]} )); do
+      all_args+=("${ORIG_ARGV[$i]}")
+      i=$((i + 1))
+    done
+
+    # 验证参数
+    if ! validate_args "$(pwd)" "${all_args[@]}" 2>> "${CODEX_LOG_FILE}"; then
+      echo "[param-check] 参数验证失败，尝试自动修复..." >> "${CODEX_LOG_FILE}"
+
+      # 尝试自动修复参数
+      if auto_fix_args "$(pwd)" "${all_args[@]}" 2>> "${CODEX_LOG_FILE}" > /tmp/fixed_args_$$; then
+        echo "[param-check] 参数自动修复完成" >> "${CODEX_LOG_FILE}"
+        # 这里可以选择更新ORIG_ARGV，但为了保持兼容性暂时只记录日志
+      else
+        echo "[param-check] 参数自动修复失败" >> "${CODEX_LOG_FILE}"
+      fi
+      rm -f /tmp/fixed_args_$$
+    else
+      echo "[param-check] 参数验证通过" >> "${CODEX_LOG_FILE}"
+    fi
+  else
+    echo "[warn] 参数验证器未找到，跳过预检查" >> "${CODEX_LOG_FILE}"
+  fi
+fi
+
 # 规范化 sandbox 与审批策略的组合（可能会自动补充 on-request）
 normalize_sandbox_and_approvals
 if [[ -n "${VALIDATION_ERROR}" ]]; then

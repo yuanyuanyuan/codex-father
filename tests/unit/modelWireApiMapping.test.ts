@@ -7,7 +7,7 @@ import {
   validateWireApiForModel,
   getModelsForWireApi,
   type WireApi,
-} from '../../core/lib/queue/api';
+} from '../../core/lib/queue/api.js';
 
 describe('MODEL_WIRE_API_MAP 映射正确性', () => {
   it('gpt-5-codex → responses', () => {

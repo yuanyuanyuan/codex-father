@@ -1,0 +1,5 @@
+Codex CLI Sanity Test
+purpose: 验证工作区写入权限与文件可见性
+cwd: /data/codex-father
+created_by: assistant
+ok: true

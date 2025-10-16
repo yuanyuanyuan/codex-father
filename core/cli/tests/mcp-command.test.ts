@@ -102,7 +102,7 @@ describe('MCP Command', () => {
       const { createMCPServer } = await import('../../mcp/server.js');
 
       // Start command with debug flag (will block on keepServerAlive)
-      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp', '--debug']);
+      void parser.parse(['node', 'codex-father', '--json', 'mcp', '--debug']);
 
       // Wait a bit for command to start
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -122,7 +122,7 @@ describe('MCP Command', () => {
       const { createMCPServer } = await import('../../mcp/server.js');
 
       // Start command with custom server name/version (will block on keepServerAlive)
-      const promise = parser.parse([
+      void parser.parse([
         'node',
         'codex-father',
         '--json',
@@ -152,7 +152,7 @@ describe('MCP Command', () => {
       const { createMCPServer } = await import('../../mcp/server.js');
 
       // Start command with numeric options (will block on keepServerAlive)
-      const promise = parser.parse([
+      void parser.parse([
         'node',
         'codex-father',
         '--json',
@@ -184,7 +184,7 @@ describe('MCP Command', () => {
       const { createMCPServer } = await import('../../mcp/server.js');
 
       // Start command (will block on keepServerAlive)
-      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
+      void parser.parse(['node', 'codex-father', '--json', 'mcp']);
 
       // Wait a bit for command to start
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -198,7 +198,7 @@ describe('MCP Command', () => {
 
     it('应该调用 server.start()', async () => {
       // Start command (will block on keepServerAlive)
-      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
+      void parser.parse(['node', 'codex-father', '--json', 'mcp']);
 
       // Wait a bit for command to start
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -210,7 +210,7 @@ describe('MCP Command', () => {
 
     it('应该在 JSON 模式下输出服务器信息', async () => {
       // Start command in JSON mode (will block on keepServerAlive)
-      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
+      void parser.parse(['node', 'codex-father', '--json', 'mcp']);
 
       // Wait a bit for command to start
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -246,7 +246,7 @@ describe('MCP Command', () => {
 
     it('应该在非 JSON 模式下输出启动信息', async () => {
       // Start command without JSON flag (will block on keepServerAlive)
-      const promise = parser.parse(['node', 'codex-father', 'mcp']);
+      void parser.parse(['node', 'codex-father', 'mcp']);
 
       // Wait a bit for command to start
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -262,7 +262,7 @@ describe('MCP Command', () => {
   describe('优雅关闭', () => {
     it('应该注册 SIGINT 和 SIGTERM 信号处理器', async () => {
       // Start command (will block on keepServerAlive)
-      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
+      void parser.parse(['node', 'codex-father', '--json', 'mcp']);
 
       // Wait a bit for command to start
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -274,7 +274,7 @@ describe('MCP Command', () => {
 
     it('应该注册 uncaughtException 和 unhandledRejection 处理器', async () => {
       // Start command (will block on keepServerAlive)
-      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
+      void parser.parse(['node', 'codex-father', '--json', 'mcp']);
 
       // Wait a bit for command to start
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -366,7 +366,7 @@ describe('MCP Command', () => {
   describe('调试模式', () => {
     it('应该在调试模式下输出额外的调试信息', async () => {
       // Start command with debug flag (will block on keepServerAlive)
-      const promise = parser.parse(['node', 'codex-father', 'mcp', '--debug']);
+      void parser.parse(['node', 'codex-father', 'mcp', '--debug']);
 
       // Wait a bit for command to start
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -384,7 +384,7 @@ describe('MCP Command', () => {
       expect(getMCPServerInstance()).toBeNull();
 
       // Start command (will block on keepServerAlive)
-      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
+      void parser.parse(['node', 'codex-father', '--json', 'mcp']);
 
       // Wait a bit for command to start
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -397,7 +397,7 @@ describe('MCP Command', () => {
 
     it('应该通过 clearMCPServerInstance 清理服务器实例', async () => {
       // Start command (will block on keepServerAlive)
-      const promise = parser.parse(['node', 'codex-father', '--json', 'mcp']);
+      void parser.parse(['node', 'codex-father', '--json', 'mcp']);
 
       // Wait a bit for command to start
       await new Promise((resolve) => setTimeout(resolve, 50));

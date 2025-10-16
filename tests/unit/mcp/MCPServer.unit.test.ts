@@ -29,7 +29,46 @@ describe('MCP Server Unit Tests', () => {
   let mockWriteStream: any;
 
   beforeEach(() => {
-    // 创建 Mock 实例
+    // 设置 Mock 返回值 - 先设置构造函数Mock
+    (TaskRunner as any).mockImplementation(() => ({
+      run: vi.fn().mockResolvedValue('task-id-123'),
+      getStatus: vi.fn().mockReturnValue({
+        running: 2,
+        maxConcurrency: 10,
+        pending: 1,
+        completed: 5,
+      }),
+      getResult: vi.fn(),
+      cancel: vi.fn().mockResolvedValue(true),
+      // 添加缺失的方法
+      getTaskLogs: vi.fn().mockResolvedValue({
+        entries: [],
+        cursor: null,
+        hasMore: false
+      }),
+      appendToTask: vi.fn().mockResolvedValue(true),
+      listTasks: vi.fn().mockResolvedValue({
+        tasks: [],
+        total: 0,
+        cursor: null,
+        hasMore: false
+      })
+    }));
+
+    (SessionManager as any).mockImplementation(() => ({
+      createSession: vi.fn().mockReturnValue('session-123'),
+      updateSession: vi.fn(),
+      getSession: vi.fn(),
+      cleanupExpiredSessions: vi.fn(),
+    }));
+
+    (SecurityManager as any).mockImplementation(() => ({
+      validateCommand: vi.fn().mockReturnValue(true),
+      validateFilePath: vi.fn().mockReturnValue(true),
+      enforceSecurityPolicy: vi.fn(),
+    }));
+
+    // 创建 Mock 实例（用于测试验证）
     mockTaskRunner = {
       run: vi.fn().mockResolvedValue('task-id-123'),
       getStatus: vi.fn().mockReturnValue({
@@ -40,6 +79,18 @@ describe('MCP Server Unit Tests', () => {
       }),
       getResult: vi.fn(),
       cancel: vi.fn().mockResolvedValue(true),
+      getTaskLogs: vi.fn().mockResolvedValue({
+        entries: [],
+        cursor: null,
+        hasMore: false
+      }),
+      appendToTask: vi.fn().mockResolvedValue(true),
+      listTasks: vi.fn().mockResolvedValue({
+        tasks: [],
+        total: 0,
+        cursor: null,
+        hasMore: false
+      })
     };
 
     mockSessionManager = {
@@ -60,12 +111,18 @@ describe('MCP Server Unit Tests', () => {
       end: vi.fn(),
     };
 
-    // 设置 Mock 返回值
-    (TaskRunner as any).mockImplementation(() => mockTaskRunner);
-    (SessionManager as any).mockImplementation(() => mockSessionManager);
-    (SecurityManager as any).mockImplementation(() => mockSecurityManager);
+    // MCPServer将使用Mock构造函数创建内部实例
+    mcpServer = new MCPServer();
 
-    mcpServer = new MCPServer(mockTaskRunner as any);
+    // 获取MCPServer内部的mock实例以供测试验证
+    const internalTaskRunner = (mcpServer as any).runner;
+    const internalSessionManager = (mcpServer as any).sessionManager;
+    const internalSecurityManager = (mcpServer as any).securityManager;
+
+    // 用测试可控的mock替换内部实例
+    Object.assign(internalTaskRunner, mockTaskRunner);
+    Object.assign(internalSessionManager, mockSessionManager);
+    Object.assign(internalSecurityManager, mockSecurityManager);
   });
 
   afterEach(() => {
@@ -426,7 +483,8 @@ describe('MCP Server Unit Tests', () => {
       };
 
       // Mock 日志获取逻辑
-      vi.spyOn(mcpServer as any, 'getTaskLogs').mockResolvedValue(mockLogs);
+      const mockGetTaskLogs = vi.fn().mockResolvedValue(mockLogs);
+      (mcpServer as any).getTaskLogs = mockGetTaskLogs;
 
       const request = {
         params: {
@@ -457,7 +515,8 @@ describe('MCP Server Unit Tests', () => {
         hasMore: false,
       };
 
-      vi.spyOn(mcpServer as any, 'getTaskLogs').mockResolvedValue(mockLogs);
+      const mockGetTaskLogs2 = vi.fn().mockResolvedValue(mockLogs);
+      (mcpServer as any).getTaskLogs = mockGetTaskLogs2;
 
       const request = {
         params: {
@@ -469,17 +528,18 @@ describe('MCP Server Unit Tests', () => {
         },
       };
 
-      const response = await mcpServer.handleToolCall(request, mockWriteStream);
+      const _response = await mcpServer.handleToolCall(request, mockWriteStream);
 
       expect(mcpServer.getTaskLogs).toHaveBeenCalledWith('logs-test-123', { tailLines: 2 });
     });
 
     it('应该支持分页', async () => {
-      vi.spyOn(mcpServer as any, 'getTaskLogs').mockResolvedValue({
+      const mockGetTaskLogs3 = vi.fn().mockResolvedValue({
         entries: [{ timestamp: '2024-01-01T12:02:00Z', level: 'info', message: 'Next page' }],
         cursor: 'page-2-token',
         hasMore: false,
       });
+      (mcpServer as any).getTaskLogs = mockGetTaskLogs3;
 
       const request = {
         params: {
@@ -501,7 +561,8 @@ describe('MCP Server Unit Tests', () => {
 
   describe('codex_reply 工具处理', () => {
     it('应该成功回复任务', async () => {
-      vi.spyOn(mcpServer as any, 'appendToTask').mockResolvedValue(true);
+      const mockAppendToTask = vi.fn().mockResolvedValue(true);
+      (mcpServer as any).appendToTask = mockAppendToTask;
 
       const request = {
         params: {
@@ -546,7 +607,8 @@ describe('MCP Server Unit Tests', () => {
     });
 
     it('应该处理不存在的任务', async () => {
-      vi.spyOn(mcpServer as any, 'appendToTask').mockResolvedValue(false);
+      const mockAppendToTask2 = vi.fn().mockResolvedValue(false);
+      (mcpServer as any).appendToTask = mockAppendToTask2;
 
       const request = {
         params: {
@@ -573,12 +635,13 @@ describe('MCP Server Unit Tests', () => {
         { taskId: 'task-3', status: 'pending', startTime: new Date() },
       ];
 
-      vi.spyOn(mcpServer as any, 'listTasks').mockResolvedValue({
+      const mockListTasks = vi.fn().mockResolvedValue({
         tasks: mockTasks,
         total: 3,
         cursor: 'next-page',
         hasMore: true,
       });
+      (mcpServer as any).listTasks = mockListTasks;
 
       const request = {
         params: {
@@ -604,12 +667,13 @@ describe('MCP Server Unit Tests', () => {
     });
 
     it('应该支持状态过滤', async () => {
-      vi.spyOn(mcpServer as any, 'listTasks').mockResolvedValue({
+      const mockListTasks2 = vi.fn().mockResolvedValue({
         tasks: [{ taskId: 'running-task', status: 'running' }],
         total: 1,
         cursor: null,
         hasMore: false,
       });
+      (mcpServer as any).listTasks = mockListTasks2;
 
       const request = {
         params: {
@@ -744,7 +808,7 @@ describe('MCP Server Unit Tests', () => {
       const response = await mcpServer.handleToolCall(request, mockWriteStream);
 
       expect(response.error).toBeDefined();
-      expect(response.error.code).toBe(-32603); // Internal error
+      expect(response.error.code).toBe(-32002); // Task execution failed
     });
   });
 

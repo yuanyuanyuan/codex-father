@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import Ajv from 'ajv';
-import schema from '../schemas/applyPatchApproval.schema.json';
+import fs from 'node:fs';
+import path from 'node:path';
+const schema = JSON.parse(fs.readFileSync(path.join(__dirname, '../schemas/applyPatchApproval.schema.json'), 'utf-8'));
 
 const ajv = new Ajv({ strict: false });
 
 describe('MCP Contract: applyPatchApproval', () => {
   describe('Request Validation', () => {
-    const requestSchema = schema.definitions
-      ? { ...schema.request, definitions: schema.definitions }
-      : schema.request;
+    const requestSchema = schema.properties.request;
     const validateRequest = ajv.compile(requestSchema);
 
     it('should validate minimal approval request', () => {
@@ -24,7 +24,11 @@ describe('MCP Contract: applyPatchApproval', () => {
         ],
       };
 
-      expect(validateRequest(request)).toBe(true);
+      const isValid = validateRequest(request);
+      if (!isValid) {
+        console.log('Validation errors:', validateRequest.errors);
+      }
+      expect(isValid).toBe(true);
     });
 
     it('should validate request with optional reason and grantRoot', () => {
@@ -96,7 +100,8 @@ describe('MCP Contract: applyPatchApproval', () => {
   });
 
   describe('Response Validation', () => {
-    const validateResponse = ajv.compile(schema.response);
+    const responseSchema = schema.properties.response;
+    const validateResponse = ajv.compile(responseSchema);
 
     it('should validate allow decision', () => {
       const response = {

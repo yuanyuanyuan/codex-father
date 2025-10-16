@@ -167,9 +167,11 @@ codex__emergency_mark_stopped() {
   existing_resumed_from=$(grep -E '"resumed_from"' "$state_file" | sed -E 's/.*"resumed_from"\s*:\s*"?([^",}]*)"?.*/\1/' | head -n1 || true)
   if [[ "$existing_resumed_from" == "null" ]]; then existing_resumed_from=""; fi
   existing_args_json="[]"
+  # 使用临时文件避免管道问题
+  local args_dump=""
   if command -v node >/dev/null 2>&1; then
-    local args_dump
-    if args_dump=$(node - "$state_file" <<'EOF'
+    local temp_script="/tmp/state_args_$$.js"
+    cat > "$temp_script" <<'EOF'
 const fs = require('fs');
 const file = process.argv[2] || process.argv[1];
 try {
@@ -179,9 +181,9 @@ try {
   }
 } catch (_) { /* noop */ }
 EOF
-); then
-      if [[ -n "$args_dump" ]]; then existing_args_json="$args_dump"; fi
-    fi
+    args_dump=$(node "$temp_script" "$state_file" 2>/dev/null || true)
+    rm -f "$temp_script"
+    if [[ -n "$args_dump" ]]; then existing_args_json="$args_dump"; fi
   fi
   set -e
 
@@ -265,9 +267,11 @@ codex__emergency_mark_failed() {
   existing_resumed_from=$(grep -E '"resumed_from"' "$state_file" | sed -E 's/.*"resumed_from"\s*:\s*"?([^",}]*)"?.*/\1/' | head -n1 || true)
   if [[ "$existing_resumed_from" == "null" ]]; then existing_resumed_from=""; fi
   existing_args_json="[]"
+  # 使用临时文件避免管道问题
+  local args_dump=""
   if command -v node >/dev/null 2>&1; then
-    local args_dump
-    if args_dump=$(node - "$state_file" <<'EOF'
+    local temp_script="/tmp/state_args_$$.js"
+    cat > "$temp_script" <<'EOF'
 const fs = require('fs');
 const file = process.argv[2] || process.argv[1];
 try {
@@ -277,9 +281,9 @@ try {
   }
 } catch (_) { /* noop */ }
 EOF
-); then
-      if [[ -n "$args_dump" ]]; then existing_args_json="$args_dump"; fi
-    fi
+    args_dump=$(node "$temp_script" "$state_file" 2>/dev/null || true)
+    rm -f "$temp_script"
+    if [[ -n "$args_dump" ]]; then existing_args_json="$args_dump"; fi
   fi
   set -e
 

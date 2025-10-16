@@ -142,8 +142,12 @@ function parseSemver(version: string): [number, number, number] | null {
 
 function compareSemver(a: [number, number, number], b: [number, number, number]): number {
   for (let i = 0; i < 3; i++) {
-    if (a[i] > b[i]) return 1;
-    if (a[i] < b[i]) return -1;
+    const aVal = a[i];
+    const bVal = b[i];
+    if (aVal !== undefined && bVal !== undefined) {
+      if (aVal > bVal) return 1;
+      if (aVal < bVal) return -1;
+    }
   }
   return 0;
 }

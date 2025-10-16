@@ -7,7 +7,7 @@ import {
   isParamSupported,
   getIncompatibleParams,
   getAllParamNames,
-} from '../../core/lib/validation/parameter-validator';
+} from '../../core/lib/validation/parameter-validator.js';
 
 describe('参数映射表完整性', () => {
   it('至少包含 34 个参数映射', () => {

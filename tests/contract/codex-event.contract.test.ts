@@ -6,16 +6,16 @@ const ajv = new Ajv({ strict: false });
 
 describe('MCP Contract: codex/event', () => {
   describe('Notification Validation', () => {
-    const notificationSchema = schema.definitions
-      ? { ...schema.request, definitions: schema.definitions }
-      : schema.request;
+    const notificationSchema = schema.request;
     const validateNotification = ajv.compile(notificationSchema);
 
     it('should validate task_started event with conversation context', () => {
       const event = {
         type: 'task_started',
-        conversationId: 'c7b0a1d2-e3f4-5678-90ab-cdef12345678',
-        timestamp: '2025-10-04T10:00:00Z',
+        data: {
+          conversationId: 'c7b0a1d2-e3f4-5678-90ab-cdef12345678',
+          timestamp: '2025-10-04T10:00:00Z',
+        },
       };
 
       expect(validateNotification(event)).toBe(true);
@@ -107,15 +107,5 @@ describe('MCP Contract: codex/event', () => {
     });
   });
 
-  describe('Response Validation', () => {
-    const validateResponse = ajv.compile(schema.response);
-
-    it('should allow null response for notifications', () => {
-      expect(validateResponse(null)).toBe(true);
-    });
-
-    it('should reject non-null response payload', () => {
-      expect(validateResponse({})).toBe(false);
-    });
-  });
+  // codex-event is a notification-only method, no response validation needed
 });

@@ -38,10 +38,45 @@ jobs:
           TAG="${TAG}"
           VER="${VERSION_IN:-}"
           if [ -z "${VER}" ]; then
-            VER="${TAG#mcp-v}"
+            # 自动检测版本号格式
+            if [[ "$TAG" =~ ^mcp-v(.+)$ ]]; then
+              VER="${BASH_REMATCH[1]}"
+            elif [[ "$TAG" =~ ^v(.+)$ ]]; then
+              VER="${BASH_REMATCH[1]}"
+            else
+              VER="$TAG"
+            fi
           fi
           echo "version=${VER}" >> "$GITHUB_OUTPUT"
-          node scripts/mcp-extract-changelog.mjs "${VER}" > .notes.tag
+
+          # 尝试从CHANGELOG生成发布说明
+          if node scripts/mcp-extract-changelog.mjs "${VER}" > .notes.tag 2>/dev/null; then
+            echo "✅ Generated release notes from CHANGELOG"
+          else
+            echo "⚠️ No CHANGELOG entry found, using template"
+            cat > .notes.tag << EOF
+          # Release $TAG
+
+          ## 🎯 Version Information
+          - **Version**: $VER
+          - **Release Date**: $(date +%Y-%m-%d)
+          - **Tag**: $TAG
+
+          ## 📦 Installation
+          \`\`\`bash
+          # Install MCP server
+          npm install -g @starkdev020/codex-father-mcp-server@$VER
+
+          # Or install main project
+          npm install -g codex-father@$VER
+          \`\`\`
+
+          ## 🔗 Links
+          - [GitHub Repository](https://github.com/yuanyuanyuan/codex-father)
+          - [CHANGELOG](https://github.com/yuanyuanyuan/codex-father/blob/main/CHANGELOG.md)
+          EOF
+          fi
+
           echo "notes<<EOF" >> "$GITHUB_OUTPUT"
           cat .notes.tag >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"

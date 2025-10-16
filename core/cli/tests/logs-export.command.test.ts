@@ -124,7 +124,7 @@ describe('logs command export behaviour', () => {
       .filter((item): item is Record<string, unknown> => item !== null && 'data' in item);
 
     expect(payloads.length).toBeGreaterThan(0);
-    const data = payloads[0].data as Record<string, unknown>;
+    const data = payloads[0]?.data as Record<string, unknown>;
     expect(data.outputPath).toBe(customPath);
     expect(await readFile(customPath, 'utf-8')).toBe(await readFile(eventsPath, 'utf-8'));
     await rm(customPath, { force: true });

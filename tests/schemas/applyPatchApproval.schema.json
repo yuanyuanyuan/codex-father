@@ -2,40 +2,71 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
-    "conversationId": {
-      "type": "string",
-      "description": "会话 ID"
-    },
-    "callId": {
-      "type": "string",
-      "description": "调用 ID"
-    },
-    "fileChanges": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "文件路径"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["create", "modify", "delete"],
-            "description": "文件变更类型"
-          },
-          "diff": {
-            "type": "string",
-            "description": "文件变更差异"
+    "request": {
+      "type": "object",
+      "properties": {
+        "conversationId": {
+          "type": "string",
+          "description": "会话 ID"
+        },
+        "callId": {
+          "type": "string",
+          "description": "调用 ID"
+        },
+        "fileChanges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "文件路径"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["create", "modify", "delete"],
+                "description": "文件变更类型"
+              },
+              "diff": {
+                "type": "string",
+                "description": "文件变更差异"
+              },
+              "contentPreview": {
+                "type": "string",
+                "description": "内容预览"
+              }
+            },
+            "required": ["path", "type"]
           }
         },
-        "required": ["path", "type"]
-      }
+        "reason": {
+          "type": "string",
+          "description": "变更原因"
+        },
+        "grantRoot": {
+          "type": "boolean",
+          "description": "是否授予root权限"
+        }
+      },
+      "required": ["conversationId", "callId", "fileChanges"],
+      "additionalProperties": false
     },
-    "reason": {
-      "type": "string",
-      "description": "变更原因"
+    "response": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": ["allow", "deny"],
+          "description": "审批决定"
+        },
+        "note": {
+          "type": "string",
+          "description": "审批备注"
+        }
+      },
+      "required": ["decision"],
+      "additionalProperties": false
     }
   },
-  "required": ["conversationId", "callId", "fileChanges", "reason"]
+  "required": ["request", "response"]
 }

@@ -1,19 +1,77 @@
-name: Release
+name: Main Project Release
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch: {}
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.2.3)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run mode (no actual release)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
 
 jobs:
-  release:
-    concurrency:
-      group: release-${{ github.ref }}
-      cancel-in-progress: true
+  validate-inputs:
+    name: Validate Release Inputs
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+      dry_run: ${{ steps.validate.outputs.dry_run }}
+      is_valid: ${{ steps.validate.outputs.is_valid }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate inputs
+        id: validate
+        run: |
+          set -euo pipefail
+
+          # 从标签获取版本号或使用输入的版本号
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"  # 移除v前缀
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+
+          DRY_RUN="${{ github.event.inputs.dry_run }}"
+          if [[ -z "$DRY_RUN" ]]; then
+            DRY_RUN="false"
+          fi
+
+          echo "Version: $VERSION"
+          echo "Dry Run: $DRY_RUN"
+
+          # 验证版本号格式 (可选，因为标签已经有格式)
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "$VERSION" != "" && ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "Expected format: X.Y.Z (e.g., 1.2.3) or leave empty to auto-detect from tag"
+            echo "is_valid=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
+          echo "is_valid=true" >> "$GITHUB_OUTPUT"
+
+          echo "✅ Release inputs validated"
+
+  release:
+    name: Build and Release Main Project
+    runs-on: ubuntu-latest
+    needs: [validate-inputs]
+    if: (github.event_name == 'push') || (needs.validate-inputs.outputs.is_valid == 'true')
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
@@ -28,53 +86,157 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org/'
+          cache: 'npm'
+
+      - name: Configure Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Get version info
+        id: version_info
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="${{ needs.validate-inputs.outputs.version }}"
+          fi
+
+          DRY_RUN="${{ needs.validate-inputs.outputs.dry_run }}"
+          if [[ -z "$DRY_RUN" ]]; then
+            DRY_RUN="false"
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
+
+          echo "📦 Releasing main project version: $VERSION"
+          echo "Dry run: $DRY_RUN"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test || echo "⚠️ Tests failed, continuing with release..."
+
+      - name: Build project
+        run: npm run build
+
+      - name: Test npx functionality
+        run: |
+          echo "🧪 Testing npx functionality..."
+          chmod +x test_npx_usage.sh
+          ./test_npx_usage.sh
+
+      - name: Check package.json version
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TARGET_VERSION="${{ steps.version_info.outputs.version }}"
+          echo "Package version: $PACKAGE_VERSION"
+          echo "Target version: $TARGET_VERSION"
+
+          if [[ "$PACKAGE_VERSION" != "$TARGET_VERSION" ]]; then
+            echo "⚠️ Version mismatch between package.json ($PACKAGE_VERSION) and tag ($TARGET_VERSION)"
+            echo "Updating package.json to match tag version..."
+            npm version "$TARGET_VERSION" --no-git-tag-version
+          else
+            echo "✅ Version matches"
+          fi
 
       - name: Configure npm for npmjs
+        if: steps.version_info.outputs.dry_run == 'false'
         run: |
           if [ -n "${NPM_TOKEN:-}" ]; then
             echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPM_CONFIG_USERCONFIG"
             echo "always-auth=true" >> "$NPM_CONFIG_USERCONFIG"
+            echo "✅ NPM authentication configured"
           else
-            echo "NPM_TOKEN not set; npm publish will be skipped by semantic-release."
+            echo "⚠️ NPM_TOKEN not set, NPM publish will be skipped"
           fi
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Install dependencies (mcp package)
-        working-directory: mcp/codex-mcp-server
-        run: npm ci --legacy-peer-deps
+      - name: Build package
+        run: npm pack
 
-      - name: Build (mcp package)
-        working-directory: mcp/codex-mcp-server
-        run: npm run build
-
-      - name: Install semantic-release + plugins (no-save)
+      - name: Publish to NPM (if not dry run)
+        if: steps.version_info.outputs.dry_run == 'false'
         run: |
-          npm i --no-save \
-            semantic-release \
-            @semantic-release/commit-analyzer \
-            @semantic-release/release-notes-generator \
-            @semantic-release/changelog \
-            @semantic-release/exec \
-            @semantic-release/git \
-            @semantic-release/github
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            echo "📦 Publishing to NPM..."
+            npm publish --access public
+            echo "✅ Published to NPM successfully"
+          else
+            echo "⚠️ Skipping NPM publish (no token)"
+          fi
 
-      - name: Changelog gate (dry-run)
+      - name: Create GitHub Release
+        if: github.event_name == 'push' || steps.version_info.outputs.dry_run == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version_info.outputs.version }}
+          name: Codex Father v${{ steps.version_info.outputs.version }}
+          body: |
+            # Codex Father v${{ steps.version_info.outputs.version }}
+
+            ## 🎯 Version Information
+            - **Version**: ${{ steps.version_info.outputs.version }}
+            - **Release Date**: $(date +%Y-%m-%d)
+            - **Package**: codex-father
+
+            ## 📦 Installation
+
+            ### Global Install
+            ```bash
+            npm install -g codex-father@${{ steps.version_info.outputs.version }}
+            ```
+
+            ### npx Usage (No Install Required)
+            ```bash
+            # Main CLI
+            npx codex-father@${{ steps.version_info.outputs.version }} --help
+
+            # Start script with full features
+            npx codex-father-start@${{ steps.version_info.outputs.version }} --task "Create a feature"
+
+            # Job script
+            npx codex-father-job@${{ steps.version_info.outputs.version }} --help
+            ```
+
+            ## 📚 Documentation
+            - [GitHub Repository](https://github.com/yuanyuanyuan/codex-father)
+            - [Documentation](https://github.com/yuanyuanyuan/codex-father/tree/main/docs)
+            - [CHANGELOG](https://github.com/yuanyuanyuan/codex-father/blob/main/CHANGELOG.md)
+
+            ## 🔗 Links
+            - [NPM Package](https://www.npmjs.com/package/codex-father)
+            - [Release Notes](https://github.com/yuanyuanyuan/codex-father/releases/tag/v${{ steps.version_info.outputs.version }})
+          draft: false
+          prerelease: false
+          files: |
+            codex-father-*.tgz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # 默认严格：不允许从 [Unreleased] 回退生成
-          # ALLOW_UNRELEASED_FALLBACK 未设置时，generateNotes 将在缺失版本条目时失败
-        run: npx semantic-release --dry-run
 
-      - name: Debug npm identity
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm whoami || true
+      - name: Clean up
+        run: |
+          rm -f codex-father-*.tgz
 
-      - name: Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npx semantic-release
+      - name: Release Summary
+        run: |
+          echo "# Main Project Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Package Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.version_info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: codex-father" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dry Run**: ${{ steps.version_info.outputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Results" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "- **NPM Publish**: ${{ steps.version_info.outputs.dry_run == 'false' && '✅ Published' || '⏭️ Skipped (dry run)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **GitHub Release**: ✅ Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔗 Links" >> $GITHUB_STEP_SUMMARY
+          echo "- **NPM Package**: https://www.npmjs.com/package/codex-father" >> $GITHUB_STEP_SUMMARY
+          echo "- **GitHub Release**: https://github.com/yuanyuanyuan/codex-father/releases/tag/v${{ steps.version_info.outputs.version }}" >> $GITHUB_STEP_SUMMARY

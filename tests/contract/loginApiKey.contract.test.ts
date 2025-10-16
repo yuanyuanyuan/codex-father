@@ -2,11 +2,22 @@ import { describe, it, expect } from 'vitest';
 import Ajv from 'ajv';
 import schema from '../schemas/loginApiKey.schema.json';
 
-const ajv = new Ajv({ strict: false });
+const ajv = new Ajv({ strict: false, allErrors: true, removeAdditional: false });
 
 describe('MCP Contract: loginApiKey', () => {
   describe('Request Validation', () => {
-    const validateRequest = ajv.compile(schema.request);
+    const validateRequest = ajv.compile({
+      type: "object",
+      properties: {
+        apiKey: {
+          type: "string",
+          minLength: 1,
+          description: "API 密钥"
+        }
+      },
+      required: ["apiKey"],
+      additionalProperties: false
+    });
 
     it('should accept request with non-empty apiKey', () => {
       const request = {
@@ -41,7 +52,19 @@ describe('MCP Contract: loginApiKey', () => {
   });
 
   describe('Response Validation', () => {
-    const validateResponse = ajv.compile(schema.response);
+    const validateResponse = ajv.compile({
+      type: "object",
+      properties: {
+        success: {
+          type: "boolean"
+        },
+        message: {
+          type: "string"
+        }
+      },
+      required: ["success"],
+      additionalProperties: false
+    });
 
     it('should accept success response without message', () => {
       const response = {

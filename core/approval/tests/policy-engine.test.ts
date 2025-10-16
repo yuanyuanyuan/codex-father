@@ -344,12 +344,12 @@ describe('PolicyEngine', () => {
       expect(decisions).toHaveLength(4);
 
       // 前两个应该批准
-      expect(decisions[0].needsApproval).toBe(false);
-      expect(decisions[1].needsApproval).toBe(false);
+      expect(decisions[0]?.needsApproval).toBe(false);
+      expect(decisions[1]?.needsApproval).toBe(false);
 
       // 后两个应该拒绝
-      expect(decisions[2].needsApproval).toBe(true);
-      expect(decisions[3].needsApproval).toBe(true);
+      expect(decisions[2]?.needsApproval).toBe(true);
+      expect(decisions[3]?.needsApproval).toBe(true);
     });
 
     it('应该在批量评估时传递选项', () => {
@@ -366,8 +366,8 @@ describe('PolicyEngine', () => {
       });
 
       // 所有命令都应该需要审批(因为 Codex 请求)
-      expect(decisions[0].needsApproval).toBe(true);
-      expect(decisions[1].needsApproval).toBe(true);
+      expect(decisions[0]?.needsApproval).toBe(true);
+      expect(decisions[1]?.needsApproval).toBe(true);
     });
   });
 

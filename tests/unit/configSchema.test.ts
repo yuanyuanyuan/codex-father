@@ -155,33 +155,13 @@ describe('configSchema: 性能测试', () => {
   });
 });
 
-describe('configSchema: 实际案例（research.md 行 77-84）', () => {
-  it('解析 research.md 中的示例配置', () => {
-    const researchPathCandidates = [
-      'specs/__archive/008-ultrathink-codex-0/research.md',
-      'specs/008-ultrathink-codex-0/research.md',
-    ];
-    const researchPath = researchPathCandidates
-      .map((candidate) => path.resolve(process.cwd(), candidate))
-      .find((candidatePath) => fs.existsSync(candidatePath));
-
-    if (!researchPath) {
-      throw new Error('无法定位 research.md 示例配置');
-    }
-
-    const text = fs.readFileSync(researchPath, 'utf-8');
-    // 提取片段中的 model 与 wire_api
-    const modelMatch = text.match(/\n\s*model\s*=\s*"([^"]+)"/);
-    const wireApiMatch = text.match(/\n\s*wire_api\s*=\s*"([^"]+)"/);
-    expect(modelMatch).toBeTruthy();
-    expect(wireApiMatch).toBeTruthy();
-    const model = modelMatch?.[1] ?? 'gpt-5-codex';
-    const wire_api = wireApiMatch?.[1] ?? 'responses';
-
+describe('configSchema: 实际案例配置验证', () => {
+  it('解析典型的配置示例', () => {
+    // 使用典型的配置示例，不依赖外部文件
     const cfg = {
-      model,
+      model: 'gpt-5-codex',
       model_providers: {
-        openai: { wire_api },
+        openai: { wire_api: 'responses' },
       },
     };
 
@@ -189,6 +169,28 @@ describe('configSchema: 实际案例（research.md 行 77-84）', () => {
     expect(res.success).toBe(true);
     if (res.success) {
       expect(res.data).toEqual(cfg);
+    }
+  });
+
+  it('解析完整的配置示例', () => {
+    // 测试完整的配置示例
+    const cfg = {
+      model: 'claude-3.5-sonnet',
+      approval_policy: 'on-request' as const,
+      sandbox: 'workspace-write' as const,
+      base_instructions: 'You are a helpful AI assistant.',
+      model_providers: {
+        anthropic: { wire_api: 'chat' },
+        openai: { wire_api: 'responses' },
+      },
+    };
+
+    const res = CodexConfigSchema.safeParse(cfg);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.model).toBe('claude-3.5-sonnet');
+      expect(res.data.approval_policy).toBe('on-request');
+      expect(res.data.sandbox).toBe('workspace-write');
     }
   });
 });

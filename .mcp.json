@@ -2,7 +2,13 @@
   "mcpServers": {
     "codex-father-preview": {
       "command": "node",
-      "args": ["./mcp/codex-mcp-server/dist/index.js"]
+      "args": ["/data/codex-father/mcp/codex-mcp-server/dist/index.js"],
+      "env": {
+        "LOG_LEVEL": "info",
+        "CODEX_MCP_PROJECT_ROOT": "/data/codex-father",
+        "MAX_CONCURRENT_JOBS": "10",
+        "APPROVAL_POLICY": "on-failure"
+      }
     }
   }
 }

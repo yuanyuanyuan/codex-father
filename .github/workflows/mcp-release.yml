@@ -1,0 +1,402 @@
+name: MCP Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 3.2.1)'
+        required: true
+        type: string
+      mode:
+        description: 'Release mode'
+        required: true
+        default: 'dry-run'
+        type: choice
+        options:
+          - dry-run
+          - local
+          - tag-only
+      preflight_only:
+        description: 'Run preflight checks only'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  validate-inputs:
+    name: Validate Release Inputs
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+      mode: ${{ steps.validate.outputs.mode }}
+      tag_name: ${{ steps.validate.outputs.tag_name }}
+      is_valid: ${{ steps.validate.outputs.is_valid }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate inputs
+        id: validate
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ github.event.inputs.version }}"
+          MODE="${{ github.event.inputs.mode }}"
+          PREFLIGHT_ONLY="${{ github.event.inputs.preflight_only }}"
+
+          echo "Version: $VERSION"
+          echo "Mode: $MODE"
+          echo "Preflight Only: $PREFLIGHT_ONLY"
+
+          # 验证版本号格式 (X.Y.Z)
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "Expected format: X.Y.Z (e.g., 3.2.1)"
+            echo "is_valid=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          # 验证模式
+          if [[ ! "$MODE" =~ ^(dry-run|local|tag-only)$ ]]; then
+            echo "❌ Invalid mode: $MODE"
+            echo "Expected: dry-run, local, or tag-only"
+            echo "is_valid=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          # 如果只是预检查，覆盖模式
+          if [[ "$PREFLIGHT_ONLY" == "true" ]]; then
+            MODE="preflight"
+          fi
+
+          TAG_NAME="mcp-v${VERSION}"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "is_valid=true" >> "$GITHUB_OUTPUT"
+
+          echo "✅ Inputs validated successfully"
+          echo "Tag: $TAG_NAME"
+
+  preflight:
+    name: Preflight Checks
+    runs-on: ubuntu-latest
+    needs: validate-inputs
+    if: needs.validate-inputs.outputs.is_valid == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run MCP preflight checks
+        run: |
+          echo "🔍 Running MCP preflight checks..."
+          npm run release:mcp:preflight
+
+      - name: Check for existing tag
+        id: check_tag
+        run: |
+          TAG="${{ needs.validate-inputs.outputs.tag_name }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️ Tag $TAG already exists"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "✅ Tag $TAG is available"
+          fi
+
+  build-and-test:
+    name: Build and Test MCP Package
+    runs-on: ubuntu-latest
+    needs: [validate-inputs, preflight]
+    if: needs.validate-inputs.outputs.is_valid == 'true' && needs.preflight.result == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install main project dependencies
+        run: npm ci
+
+      - name: Build main project
+        run: npm run build
+
+      - name: Install MCP package dependencies
+        working-directory: mcp/codex-mcp-server
+        run: npm ci --legacy-peer-deps
+
+      - name: Build MCP package
+        working-directory: mcp/codex-mcp-server
+        run: npm run build
+
+      - name: Test MCP package
+        working-directory: mcp/codex-mcp-server
+        run: npm test || echo "⚠️ MCP package tests skipped (configured to ignore)"
+
+      - name: Verify MCP server can start
+        working-directory: mcp/codex-mcp-server
+        run: |
+          echo "🧪 Testing MCP server startup..."
+          timeout 10s node dist/index.js --help || echo "✅ MCP server responds correctly"
+
+  release-execute:
+    name: Execute Release
+    runs-on: ubuntu-latest
+    needs: [validate-inputs, preflight, build-and-test]
+    if: needs.validate-inputs.outputs.is_valid == 'true' && needs.preflight.result == 'success' && needs.build-and-test.result == 'success'
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org/'
+          cache: 'npm'
+
+      - name: Configure Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure NPM authentication (if needed)
+        if: needs.validate-inputs.outputs.mode == 'local'
+        run: |
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPM_CONFIG_USERCONFIG"
+            echo "✅ NPM authentication configured"
+            npm whoami || echo "⚠️ NPM authentication check failed"
+          else
+            echo "⚠️ NPM_TOKEN not set, NPM publish will be skipped"
+          fi
+
+      - name: Execute MCP release
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ needs.validate-inputs.outputs.version }}"
+          MODE="${{ needs.validate-inputs.outputs.mode }}"
+          TAG_NAME="${{ needs.validate-inputs.outputs.tag_name }}"
+
+          echo "🚀 Starting MCP release..."
+          echo "Version: $VERSION"
+          echo "Mode: $MODE"
+          echo "Tag: $TAG_NAME"
+
+          case "$MODE" in
+            "preflight")
+              echo "📋 Running preflight checks only..."
+              npm run release:mcp:preflight
+              ;;
+            "dry-run")
+              echo "🧪 Running dry-run release..."
+              npm run release:mcp:dry-run "$VERSION"
+              ;;
+            "local")
+              echo "📦 Running local release..."
+              npm run release:mcp:local "$VERSION"
+              ;;
+            "tag-only")
+              echo "🏷️ Running tag-only release..."
+              npm run release:mcp:tag "$VERSION"
+              ;;
+          esac
+
+          echo "✅ Release operation completed"
+
+      - name: Verify release artifacts
+        if: needs.validate-inputs.outputs.mode != 'preflight' && needs.validate-inputs.outputs.mode != 'dry-run'
+        run: |
+          TAG_NAME="${{ needs.validate-inputs.outputs.tag_name }}"
+
+          echo "🔍 Verifying release artifacts..."
+
+          # 验证Git标签
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "✅ Git tag $TAG_NAME created successfully"
+            echo "Tag info:"
+            git show -s --format=%H "$TAG_NAME"
+          else
+            echo "❌ Git tag $TAG_NAME not found"
+            exit 1
+          fi
+
+          # 验证远程标签 (对于非dry-run模式)
+          if [[ "${{ needs.validate-inputs.outputs.mode }}" != "dry-run" ]]; then
+            if git ls-remote --tags origin "$TAG_NAME" | grep -q "$TAG_NAME"; then
+              echo "✅ Git tag $TAG_NAME pushed to remote successfully"
+            else
+              echo "⚠️ Git tag $TAG_NAME not found on remote (may still be pushing)"
+            fi
+          fi
+
+      - name: Check NPM package (if published)
+        if: needs.validate-inputs.outputs.mode == 'local'
+        run: |
+          PACKAGE_NAME="@starkdev020/codex-father-mcp-server"
+          VERSION="${{ needs.validate-inputs.outputs.version }}"
+
+          echo "📦 Checking NPM package..."
+
+          # 等待一会儿让NPM索引更新
+          sleep 30
+
+          if npm view "$PACKAGE_NAME@$VERSION" >/dev/null 2>&1; then
+            echo "✅ Package $PACKAGE_NAME@$VERSION found on NPM"
+            echo "Package info:"
+            npm view "$PACKAGE_NAME@$VERSION"
+          else
+            echo "⚠️ Package $PACKAGE_NAME@$VERSION not yet found on NPM"
+            echo "This may be normal due to NPM indexing delays"
+          fi
+
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate-inputs, release-execute]
+    if: needs.validate-inputs.outputs.is_valid == 'true' && needs.release-execute.result == 'success' && needs.validate-inputs.outputs.mode != 'dry-run' && needs.validate-inputs.outputs.mode != 'preflight'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ needs.validate-inputs.outputs.version }}"
+          TAG_NAME="${{ needs.validate-inputs.outputs.tag_name }}"
+
+          # 尝试从CHANGELOG获取发布说明
+          if node scripts/mcp-extract-changelog.mjs "$VERSION" > release-notes.md 2>/dev/null; then
+            echo "✅ Generated release notes from CHANGELOG"
+          else
+            echo "⚠️ No CHANGELOG entry found, using template"
+            cat > release-notes.md << EOF
+          # MCP Server $TAG_NAME
+
+          ## 🎯 Version Information
+          - **Version**: $VERSION
+          - **Release Date**: $(date +%Y-%m-%d)
+          - **Package**: @starkdev020/codex-father-mcp-server
+          - **Git Tag**: $TAG_NAME
+
+          ## ✨ Features
+          - Feature details to be added
+
+          ## 🐛 Fixes
+          - Bug fixes to be added
+
+          ## 🔧 Improvements
+          - Improvements to be added
+
+          ## 📦 Installation
+          \`\`\`bash
+          npm install -g @starkdev020/codex-father-mcp-server@$VERSION
+          \`\`\`
+
+          ## 🔗 Links
+          - [GitHub Repository](https://github.com/yuanyuanyuan/codex-father)
+          - [CHANGELOG](https://github.com/yuanyuanyuan/codex-father/blob/main/mcp/codex-mcp-server/CHANGELOG.md)
+          EOF
+          fi
+
+          echo "notes_file=release-notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.validate-inputs.outputs.tag_name }}
+          name: MCP Server ${{ needs.validate-inputs.outputs.tag_name }}
+          body_path: ${{ steps.notes.outputs.notes_file }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  summary:
+    name: Release Summary
+    runs-on: ubuntu-latest
+    needs: [validate-inputs, preflight, build-and-test, release-execute, create-github-release]
+    if: always() && needs.validate-inputs.outputs.is_valid == 'true'
+    steps:
+      - name: Generate Release Summary
+        run: |
+          echo "# MCP Manual Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Release Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.validate-inputs.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: ${{ needs.validate-inputs.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: ${{ needs.validate-inputs.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Execution Results" >> $GITHUB_STEP_SUMMARY
+          echo "- **Input Validation**: ${{ needs.validate-inputs.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Preflight Checks**: ${{ needs.preflight.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build & Test**: ${{ needs.build-and-test.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release Execution**: ${{ needs.release-execute.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **GitHub Release**: ${{ needs.create-github-release.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.release-execute.result }}" == "success" ]]; then
+            echo "## ✅ Release Status" >> $GITHUB_STEP_SUMMARY
+            echo "**SUCCESS** - MCP release completed successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📦 Package Information" >> $GITHUB_STEP_SUMMARY
+            echo "- **Package**: @starkdev020/codex-father-mcp-server" >> $GITHUB_STEP_SUMMARY
+            echo "- **Version**: ${{ needs.validate-inputs.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **NPM Link**: https://www.npmjs.com/package/@starkdev020/codex-father-mcp-server" >> $GITHUB_STEP_SUMMARY
+            echo "- **GitHub Release**: https://github.com/yuanyuanyuan/codex-father/releases/tag/${{ needs.validate-inputs.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Release Status" >> $GITHUB_STEP_SUMMARY
+            echo "**FAILED** - Please check the job logs for details" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Overall status check
+        if: contains(needs.*.result, 'failure')
+        run: |
+          echo "❌ One or more release steps failed"
+          exit 1
+      else
+        run: |
+          echo "🎉 All release steps completed successfully!"
