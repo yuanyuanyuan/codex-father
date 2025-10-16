@@ -8,6 +8,7 @@
 import { execSync } from 'child_process';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { totalmem } from 'os';
 
 type TestResult = {
   batch: string;
@@ -458,7 +459,7 @@ class BatchTestRunner {
 
   public async run(): Promise<void> {
     console.log('🎯 启动分批测试执行器');
-    console.log(`💾 系统内存: ${Math.round(require('os').totalmem() / 1024 / 1024)}MB`);
+    console.log(`💾 系统内存: ${Math.round(totalmem() / 1024 / 1024)}MB`);
 
     try {
       await this.runBatchesInPriority();

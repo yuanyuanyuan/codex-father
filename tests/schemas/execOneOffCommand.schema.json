@@ -9,6 +9,7 @@
         "items": {
           "type": "string"
         },
+        "minItems": 1,
         "description": "要执行的命令"
       },
       "cwd": {
@@ -22,17 +23,18 @@
       },
       "sandboxPolicy": {
         "type": "string",
-        "enum": ["allow", "deny", "prompt"],
+        "enum": ["read-only", "workspace-write", "danger-full-access"],
         "description": "沙箱策略"
       }
     },
-    "required": ["command"]
+    "required": ["command"],
+    "additionalProperties": false
   },
   "response": {
     "type": "object",
     "properties": {
-      "success": {
-        "type": "boolean"
+      "exitCode": {
+        "type": "number"
       },
       "stdout": {
         "type": "string"
@@ -40,13 +42,10 @@
       "stderr": {
         "type": "string"
       },
-      "exitCode": {
-        "type": "number"
-      },
-      "error": {
+      "output": {
         "type": "string"
       }
     },
-    "required": ["success"]
+    "required": ["exitCode", "stdout", "stderr"]
   }
 }

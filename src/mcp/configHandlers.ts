@@ -3,7 +3,8 @@ import { JSONRPCRequest, JSONRPCResponse } from '../interfaces/json-rpc';
 export interface GetUserSavedConfigParams {}
 
 export interface SetDefaultModelParams {
-  model: string;
+  model: string | null;
+  reasoningEffort?: string;
 }
 
 export interface GetUserAgentParams {}
@@ -37,8 +38,14 @@ export async function handleGetUserSavedConfig(
     throw new Error('Invalid method');
   }
 
-  const params = (request.params as GetUserSavedConfigParams) || {};
-  const result = await handler(params);
+  const params = request.params || {};
+
+  // 验证参数为空对象，不允许额外字段
+  if (typeof params !== 'object' || Array.isArray(params) || Object.keys(params).length > 0) {
+    throw new Error('Invalid getUserSavedConfig request parameters: params must be empty object');
+  }
+
+  const result = await handler(params as GetUserSavedConfigParams);
 
   return {
     jsonrpc: '2.0',
@@ -55,15 +62,45 @@ export async function handleSetDefaultModel(
     throw new Error('Invalid method');
   }
 
-  const params = request.params as SetDefaultModelParams;
+  const params = request.params || {};
 
-  if (!params.model || typeof params.model !== 'string') {
+  // 验证参数类型和必需字段
+  if (typeof params !== 'object' || Array.isArray(params)) {
+    throw new Error('Invalid setDefaultModel request parameters: params must be object');
+  }
+
+  if (!('model' in params)) {
     throw new Error(
-      'Invalid setDefaultModel request parameters: model is required and must be a string'
+      'Invalid setDefaultModel request parameters: model is required'
     );
   }
 
-  const result = await handler(params);
+  if (params.model !== null && typeof params.model !== 'string') {
+    throw new Error(
+      'Invalid setDefaultModel request parameters: model must be string or null'
+    );
+  }
+
+  // 验证reasoningEffort枚举值
+  if ('reasoningEffort' in params) {
+    const validEfforts = ['low', 'medium', 'high'];
+    if (!validEfforts.includes(params.reasoningEffort)) {
+      throw new Error(
+        `Invalid setDefaultModel request parameters: reasoningEffort must be one of ${validEfforts.join(', ')}`
+      );
+    }
+  }
+
+  // 验证没有额外字段
+  const allowedKeys = ['model', 'reasoningEffort'];
+  const extraKeys = Object.keys(params).filter(key => !allowedKeys.includes(key));
+  if (extraKeys.length > 0) {
+    throw new Error(
+      `Invalid setDefaultModel request parameters: extra fields not allowed: ${extraKeys.join(', ')}`
+    );
+  }
+
+  const result = await handler(params as SetDefaultModelParams);
   return {
     jsonrpc: '2.0',
     id: request.id,
@@ -79,8 +116,14 @@ export async function handleGetUserAgent(
     throw new Error('Invalid method');
   }
 
-  const params = (request.params as GetUserAgentParams) || {};
-  const result = await handler(params);
+  const params = request.params || {};
+
+  // 验证参数为空对象，不允许额外字段
+  if (typeof params !== 'object' || Array.isArray(params) || Object.keys(params).length > 0) {
+    throw new Error('Invalid getUserAgent request parameters: params must be empty object');
+  }
+
+  const result = await handler(params as GetUserAgentParams);
 
   return {
     jsonrpc: '2.0',
@@ -97,8 +140,14 @@ export async function handleUserInfo(
     throw new Error('Invalid method');
   }
 
-  const params = (request.params as UserInfoParams) || {};
-  const result = await handler(params);
+  const params = request.params || {};
+
+  // 验证参数为空对象，不允许额外字段
+  if (typeof params !== 'object' || Array.isArray(params) || Object.keys(params).length > 0) {
+    throw new Error('Invalid userInfo request parameters: params must be empty object');
+  }
+
+  const result = await handler(params as UserInfoParams);
 
   return {
     jsonrpc: '2.0',

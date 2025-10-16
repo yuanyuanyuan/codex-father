@@ -24,17 +24,40 @@ async function importModule() {
 
 type ExecFileCb = (err: NodeJS.ErrnoException | null, stdout?: string, stderr?: string) => void;
 
-// 工具：设置 execFile 的模拟实现
+// 工具：设置 spawn 的模拟实现
 function mockExecFile(impl: (file: string, args: string[], cb: ExecFileCb) => void) {
   vi.resetModules();
-  vi.doMock('child_process', () => {
+  vi.doMock('node:child_process', () => {
     return {
-      // 支持两种签名：(file, args, cb) 和 (file, args, options, cb)
-      execFile: (file: string, args: string[], optionsOrCb: any, cb?: ExecFileCb) => {
-        const callback = typeof optionsOrCb === 'function' ? optionsOrCb : cb;
-        if (callback) {
-          impl(file, args, callback);
-        }
+      spawn: (command: string, args: string[], options?: any) => {
+        const childProcess = {
+          stdout: {
+            on: (event: string, callback: (data: Buffer) => void) => {
+              if (event === 'data') {
+                // 调用原始实现获取输出
+                impl(command, args, (err, stdout) => {
+                  if (stdout) {
+                    callback(Buffer.from(stdout));
+                  }
+                });
+              }
+            }
+          },
+          stderr: {
+            on: (event: string, callback: (data: Buffer) => void) => {
+              if (event === 'data') {
+                // 模拟空错误输出
+                callback(Buffer.from(''));
+              }
+            }
+          },
+          on: (event: string, callback: (code: number | null, signal: string | null) => void) => {
+            if (event === 'close') {
+              setTimeout(() => callback(0, null), 20);
+            }
+          }
+        };
+        return childProcess;
       },
     };
   });

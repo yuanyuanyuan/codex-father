@@ -25,6 +25,6 @@
         "type": "object"
       }
     },
-    "required": ["id", "name", "allegedUserEmail"]
+    "required": ["allegedUserEmail"]
   }
 }

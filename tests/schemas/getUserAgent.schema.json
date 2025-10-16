@@ -10,21 +10,7 @@
     "type": "object",
     "properties": {
       "userAgent": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string"
-          },
-          "capabilities": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
+        "type": "string"
       }
     },
     "required": ["userAgent"]

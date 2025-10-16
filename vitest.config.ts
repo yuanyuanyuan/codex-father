@@ -35,15 +35,16 @@ export default defineConfig({
     // Test execution - 内存优化配置
     testTimeout: 30000,
     hookTimeout: 10000,
-    threads: true,
-    maxThreads: 2, // 减少线程数以节省内存
+    threads: false, // 禁用多线程以节省内存
+    maxThreads: 1, // 单线程执行
     minThreads: 1,
 
-    // 内存限制
+    // 内存限制 - 更激进的优化
     poolOptions: {
       threads: {
-        memoryLimit: 512, // 每个线程512MB内存限制
+        memoryLimit: 256, // 每个线程256MB内存限制
         isolate: true,
+        singleThread: true, // 强制单线程
       },
     },
 

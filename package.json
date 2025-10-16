@@ -38,6 +38,7 @@
     "test:e2e": "vitest run tests/e2e",
     "test:coverage": "vitest run --coverage",
     "test:batch": "tsx scripts/run-batch-tests.ts",
+    "test:split-unit": "tsx scripts/run-split-unit-tests.ts",
     "test:quick": "bash scripts/quick-test.sh",
     "test:merge": "tsx scripts/merge-test-results.ts",
     "test:clean": "rm -rf test-results coverage",

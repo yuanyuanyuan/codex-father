@@ -4,6 +4,10 @@
   "request": {
     "type": "object",
     "properties": {
+      "cwd": {
+        "type": "string",
+        "description": "工作目录路径"
+      },
       "repository": {
         "type": "string",
         "description": "仓库路径"
@@ -21,24 +25,19 @@
         "description": "分支"
       }
     },
-    "required": ["repository", "diff"]
+    "required": ["cwd"],
+    "additionalProperties": false
   },
   "response": {
     "type": "object",
     "properties": {
-      "success": {
-        "type": "boolean"
-      },
-      "url": {
-        "type": "string"
-      },
       "sha": {
         "type": "string"
       },
-      "error": {
+      "diff": {
         "type": "string"
       }
     },
-    "required": ["success"]
+    "required": ["sha", "diff"]
   }
 }
