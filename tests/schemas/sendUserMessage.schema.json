@@ -1,0 +1,48 @@
+{
+  "request": {
+    "type": "object",
+    "properties": {
+      "jsonrpc": { "type": "string", "enum": ["2.0"] },
+      "method": { "type": "string", "enum": ["sendUserMessage"] },
+      "params": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "conversationId": { "type": "string" },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": { "type": "string" },
+                "name": { "type": "string" },
+                "content": { "type": "string" },
+                "size": { "type": "number" }
+              },
+              "required": ["type", "name", "content"]
+            }
+          }
+        },
+        "required": ["message", "conversationId"]
+      }
+    },
+    "required": ["jsonrpc", "method", "params"]
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "jsonrpc": { "type": "string", "enum": ["2.0"] },
+      "id": { "type": ["string", "number"] },
+      "result": {
+        "type": "object",
+        "properties": {
+          "messageId": { "type": "string" },
+          "status": { "type": "string", "enum": ["sent", "failed"] },
+          "timestamp": { "type": "string", "format": "date-time" }
+        },
+        "required": ["messageId", "status", "timestamp"]
+      }
+    },
+    "required": ["jsonrpc", "id", "result"]
+  }
+}

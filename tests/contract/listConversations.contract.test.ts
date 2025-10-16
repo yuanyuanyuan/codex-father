@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import Ajv from 'ajv';
-import schema from '../../specs/__archive/008-ultrathink-codex-0/contracts/listConversations.schema.json';
+import schema from '../schemas/listConversations.schema.json';
 
 const ajv = new Ajv({ strict: false });
 

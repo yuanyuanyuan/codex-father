@@ -1,0 +1,60 @@
+{
+  "request": {
+    "type": "object",
+    "properties": {
+      "jsonrpc": { "type": "string", "enum": ["2.0"] },
+      "method": { "type": "string", "enum": ["execCommandApproval"] },
+      "params": {
+        "type": "object",
+        "properties": {
+          "conversationId": { "type": "string" },
+          "callId": { "type": "string" },
+          "fileChanges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string" },
+                "type": { "type": "string", "enum": ["create", "modify", "delete"] },
+                "diff": { "type": "string" },
+                "contentPreview": { "type": "string" }
+              },
+              "required": ["path", "type"]
+            }
+          },
+          "reason": { "type": "string" },
+          "grantRoot": { "type": "boolean" }
+        },
+        "required": ["conversationId", "callId", "fileChanges"]
+      }
+    },
+    "required": ["jsonrpc", "method", "params"]
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "jsonrpc": { "type": "string", "enum": ["2.0"] },
+      "id": { "type": ["string", "number"] },
+      "result": {
+        "type": "object",
+        "properties": {
+          "decision": { "type": "string", "enum": ["allow", "deny"] },
+          "note": { "type": "string" },
+          "approvedChanges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string" },
+                "type": { "type": "string" },
+                "status": { "type": "string", "enum": ["approved", "rejected"] }
+              }
+            }
+          }
+        },
+        "required": ["decision"]
+      }
+    },
+    "required": ["jsonrpc", "id", "result"]
+  }
+}

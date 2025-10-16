@@ -65,7 +65,7 @@ describe('MCP Server Unit Tests', () => {
     (SessionManager as any).mockImplementation(() => mockSessionManager);
     (SecurityManager as any).mockImplementation(() => mockSecurityManager);
 
-    mcpServer = new MCPServer(mockTaskRunner);
+    mcpServer = new MCPServer(mockTaskRunner as any);
   });
 
   afterEach(() => {

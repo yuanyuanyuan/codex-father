@@ -1,0 +1,52 @@
+{
+  "request": {
+    "type": "object",
+    "properties": {
+      "jsonrpc": { "type": "string", "enum": ["2.0"] },
+      "method": { "type": "string", "enum": ["sendUserTurn"] },
+      "params": {
+        "type": "object",
+        "properties": {
+          "conversationId": { "type": "string" },
+          "content": { "type": "string" },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": { "type": "string" },
+                "name": { "type": "string" },
+                "content": { "type": "string" },
+                "size": { "type": "number" }
+              },
+              "required": ["type", "name", "content"]
+            }
+          },
+          "model": { "type": "string" },
+          "temperature": { "type": "number", "minimum": 0, "maximum": 1 },
+          "maxTokens": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["conversationId", "content"]
+      }
+    },
+    "required": ["jsonrpc", "method", "params"]
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "jsonrpc": { "type": "string", "enum": ["2.0"] },
+      "id": { "type": ["string", "number"] },
+      "result": {
+        "type": "object",
+        "properties": {
+          "turnId": { "type": "string" },
+          "status": { "type": "string", "enum": ["started", "completed", "failed"] },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "message": { "type": "string" }
+        },
+        "required": ["turnId", "status", "timestamp"]
+      }
+    },
+    "required": ["jsonrpc", "id", "result"]
+  }
+}

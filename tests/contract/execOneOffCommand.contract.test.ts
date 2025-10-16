@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import Ajv from 'ajv';
-import schema from '../../specs/__archive/008-ultrathink-codex-0/contracts/execOneOffCommand.schema.json';
+import schema from '../schemas/execOneOffCommand.schema.json';
 
 const ajv = new Ajv({ strict: false });
 
