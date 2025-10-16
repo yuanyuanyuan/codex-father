@@ -2,15 +2,21 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createStdioServer } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { TaskRunner } from '../../core/TaskRunner.js';
+import { SessionManager } from './session-manager.js';
+import { SecurityManager } from './security-manager.js';
 import { MCPToolHandlers } from './handlers.js';
 
 export class MCPServer {
   private server: Server;
   private runner: TaskRunner;
+  private sessionManager: SessionManager;
+  private securityManager: SecurityManager;
   private handlers: MCPToolHandlers;
 
-  constructor(runner: TaskRunner) {
+  constructor(runner: TaskRunner = new TaskRunner()) {
     this.runner = runner;
+    this.sessionManager = new SessionManager();
+    this.securityManager = new SecurityManager();
     this.server = new Server(
       {
         name: 'codex-father',
@@ -23,7 +29,7 @@ export class MCPServer {
       }
     );
 
-    this.handlers = new MCPToolHandlers(runner);
+    this.handlers = new MCPToolHandlers(this.runner);
     this.setupHandlers();
   }
 

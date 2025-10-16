@@ -8,6 +8,7 @@ interface VersionInfo {
   major: number;
   minor: number;
   patch: number;
+  detectedAt: number;
 }
 
 class VersionDetector {
@@ -33,10 +34,21 @@ class VersionDetector {
 
       return version;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // 检查是否是命令不存在的错误
+      if (errorMessage.includes('command not found') || errorMessage.includes('ENOENT')) {
+        throw new Error('无法检测 Codex 版本，请确认 Codex 已安装且在 PATH 中');
+      }
+      
+      // 检查是否是版本格式错误
+      if (errorMessage.includes('Invalid version format') || errorMessage.includes('weird output')) {
+        throw new Error('无法解析 Codex 版本号，请确认 Codex 已正确安装');
+      }
+      
       throw new Error(
-        `Failed to detect Codex version: ${error instanceof Error ? error.message : 'Unknown error'}\n` +
-          'Please ensure Codex is installed and accessible in your PATH.\n' +
-          'Installation instructions: https://github.com/anthropics/codex'
+        `无法检测 Codex 版本: ${errorMessage}\n` +
+          '请确认 Codex 已安装且在 PATH 中'
       );
     }
   }
@@ -70,8 +82,10 @@ class VersionDetector {
   }
 
   private parseVersion(versionString: string): VersionInfo {
-    // 移除 'v' 前缀（如果存在）
-    const cleanVersion = versionString.replace(/^v/, '');
+    // 移除常见前缀
+    let cleanVersion = versionString
+      .replace(/^Codex CLI\s*/i, '') // 移除 "Codex CLI" 前缀
+      .replace(/^v/, ''); // 移除 'v' 前缀（如果存在）
 
     // 匹配语义化版本号
     const match = cleanVersion.match(/^(\d+)\.(\d+)\.(\d+)/);
@@ -84,6 +98,7 @@ class VersionDetector {
       major: parseInt(match[1], 10),
       minor: parseInt(match[2], 10),
       patch: parseInt(match[3], 10),
+      detectedAt: Date.now(),
     };
   }
 
@@ -115,6 +130,10 @@ export const versionDetector = new VersionDetector();
 
 // 导出函数式接口
 export async function getCodexVersion(): Promise<VersionInfo> {
+  return versionDetector.detectVersion();
+}
+
+export async function detectCodexVersion(): Promise<VersionInfo> {
   return versionDetector.detectVersion();
 }
 

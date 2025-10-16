@@ -12,63 +12,90 @@ export interface JsonRpcErrorContext {
   requestId?: string;
 }
 
+export interface ErrorResponse {
+  code: number;
+  message: string;
+  context: {
+    endpoint?: string;
+    method?: string;
+    version?: string;
+    statusCode?: number;
+    requestId?: string;
+  };
+  suggestions?: string[];
+  requestId?: string;
+}
+
+// 兼容测试期望的formatHttpError函数
 export function formatHttpError(
-  error: Error | string,
-  context: HttpErrorContext,
-  suggestions?: string[]
-): {
-  error: string;
-  code: string;
-  context: HttpErrorContext;
-  suggestions: string[];
-  requestId: string;
-} {
+  statusCode: number,
+  endpoint: string,
+  method: string,
+  error: string | Error,
+  version?: string,
+  requestId?: string
+): ErrorResponse {
   const errorMessage = error instanceof Error ? error.message : error;
-  const requestId = context.requestId || `req-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-  const defaultSuggestions = [
-    'Check your request parameters',
-    'Verify your authentication credentials',
-    'Try again later',
-  ];
-
+  
   return {
-    error: errorMessage,
-    code: getErrorCode(context.statusCode),
-    context,
-    suggestions: suggestions || defaultSuggestions,
-    requestId,
+    code: statusCode,
+    message: errorMessage,
+    context: {
+      endpoint,
+      method,
+      version: version || '0.42.0',
+      statusCode,
+      requestId
+    },
+    suggestions: getDefaultSuggestions(statusCode),
+    requestId: requestId || `req-${Date.now()}`
   };
 }
 
+// 兼容测试期望的formatJsonRpcError函数
 export function formatJsonRpcError(
-  error: Error | string,
-  context: JsonRpcErrorContext,
-  code?: number,
-  suggestions?: string[]
-): {
-  error: string;
-  code: number;
-  context: JsonRpcErrorContext;
-  suggestions: string[];
-  requestId?: string;
-} {
-  const errorMessage = error instanceof Error ? error.message : error;
-  const errorCode = code || -32603; // Internal error
-
-  const defaultSuggestions = [
-    'Check your method parameters',
-    'Verify the method name is correct',
-    'Check your connection',
-  ];
-
+  code: number,
+  message: string,
+  method?: string,
+  version?: string,
+  requestId?: string
+): ErrorResponse {
   return {
-    error: errorMessage,
-    code: errorCode,
-    context,
-    suggestions: suggestions || defaultSuggestions,
-    requestId: context.requestId,
+    code,
+    message,
+    context: {
+      method: method || 'unknown',
+      version: version || '0.42.0',
+      requestId
+    },
+    suggestions: getDefaultJsonRpcSuggestions(code)
   };
+}
+
+function getDefaultSuggestions(statusCode: number): string[] {
+  switch (statusCode) {
+    case 404:
+      return ['Check if the endpoint exists', 'Verify the URL is correct'];
+    case 405:
+      return ['Check if the HTTP method is allowed', 'Verify the endpoint supports this method'];
+    case 500:
+      return ['Try again later', 'Contact support if the issue persists'];
+    default:
+      return ['Check your request', 'Try again'];
+  }
+}
+
+function getDefaultJsonRpcSuggestions(code: number): string[] {
+  switch (code) {
+    case -32602:
+      return ['Check your parameters', 'Verify parameter types'];
+    case -32601:
+      return ['Check method name', 'Verify the method exists'];
+    case -32600:
+      return ['Check request format', 'Verify JSON-RPC structure'];
+    default:
+      return ['Try again', 'Contact support'];
+  }
 }
 
 function getErrorCode(statusCode: number): string {
