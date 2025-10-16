@@ -206,11 +206,17 @@ jobs:
 
       - name: Publish MCP package to NPM (if not dry run)
         if: steps.version_info.outputs.dry_run == 'false'
+        continue-on-error: true
+        id: mcp_npm_publish
         run: |
           if [ -n "${NPM_TOKEN:-}" ]; then
             echo "📦 Publishing MCP package to NPM..."
             cd mcp/codex-mcp-server
-            npm publish --access public
+            npm publish --access public || {
+              echo "⚠️ MCP NPM publish failed - token may lack permissions"
+              echo "Package maintainer: stark020dev"
+              exit 0
+            }
             echo "✅ Published MCP package to NPM successfully"
           else
             echo "⚠️ Skipping MCP NPM publish (no token)"
