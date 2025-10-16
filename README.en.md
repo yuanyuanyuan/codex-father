@@ -1,19 +1,15 @@
-# Codex Father — TypeScript MCP Server (MVP1)
+# Codex Father 2.0 - Minimal Concurrent Task Management Tool
 
-> A Model Context Protocol (MCP) server that exposes the Codex CLI as standard
-> MCP tools. Includes single‑process orchestration, async jobs, and approval
-> policies.
+[中文](README.md) | [English](README.en.md)
+
+> **A lightweight task execution engine refactored from 5000+ lines to under 550
+> lines**, focused on deep MCP integration, supporting high-concurrency task
+> management and real-time monitoring.
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3%2B-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05-purple)](https://modelcontextprotocol.io/)
-
-Language: English | [中文](README.md)
-
-> 📘 New to this project? Start with the Beginner‑friendly
-> [User Guide](docs/user/manual.en.md). It shows installation, configuration,
-> usage, and troubleshooting with a flowchart.
 
 ## Highlights
 

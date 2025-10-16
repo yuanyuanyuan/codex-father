@@ -1,0 +1,25 @@
+{
+  "tasks": {
+    "running": [],
+    "completed": [],
+    "results": {
+      "timeout-test": {
+        "id": "timeout-test",
+        "success": false,
+        "error": "Timeout",
+        "startTime": "2025-10-16T02:47:50.264Z",
+        "endTime": "2025-10-16T02:47:50.371Z",
+        "duration": 107
+      }
+    }
+  },
+  "sessions": {},
+  "config": {
+    "maxConcurrency": 10,
+    "defaultTimeout": 600000,
+    "security": {
+      "networkDisabled": true,
+      "allowedPaths": ["/data/codex-father"]
+    }
+  }
+}
