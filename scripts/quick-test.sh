@@ -83,17 +83,17 @@ echo -e "${COLOR_BLUE}📝 测试文件数量: ${#TEST_FILES[@]}${NC}"
 echo -e "${COLOR_BLUE}💾 内存限制: ${MEMORY}MB${NC}"
 echo ""
 
-# 构建文件列表
-FILE_LIST=""
+# 构建测试文件数组
+VALID_FILES=()
 for file in "${TEST_FILES[@]}"; do
     if [ -f "$file" ]; then
-        FILE_LIST="$FILE_LIST \"$file\""
+        VALID_FILES+=("$file")
     else
         echo -e "${COLOR_YELLOW}⚠️  跳过不存在的文件: $file${NC}"
     fi
 done
 
-if [ -z "$FILE_LIST" ]; then
+if [ ${#VALID_FILES[@]} -eq 0 ]; then
     echo -e "${COLOR_RED}❌ 没有找到有效的测试文件${NC}"
     exit 1
 fi
@@ -104,7 +104,7 @@ START_TIME=$(date +%s)
 
 export NODE_OPTIONS="--max-old-space-size=$MEMORY"
 
-if npx vitest run $FILE_LIST --reporter=verbose --no-coverage; then
+if npx vitest run "${VALID_FILES[@]}" --reporter=verbose --no-coverage; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
     echo -e "${COLOR_GREEN}✅ 测试完成！耗时: ${DURATION}秒${NC}"
