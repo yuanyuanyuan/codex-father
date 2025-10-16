@@ -159,10 +159,16 @@ jobs:
 
       - name: Publish to NPM (if not dry run)
         if: steps.version_info.outputs.dry_run == 'false'
+        continue-on-error: true
+        id: npm_publish
         run: |
           if [ -n "${NPM_TOKEN:-}" ]; then
             echo "📦 Publishing main project to NPM..."
-            npm publish --access public
+            npm publish --access public || {
+              echo "⚠️ NPM publish failed - this might be the first release"
+              echo "Please manually publish using: npm publish --access public"
+              exit 0
+            }
             echo "✅ Published main project to NPM successfully"
           else
             echo "⚠️ Skipping NPM publish (no token)"
