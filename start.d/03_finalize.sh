@@ -1,5 +1,12 @@
 set -e
 
+# Missing function definition - add fallback
+safe_truncate_utf8() {
+  local input="$1"
+  local max_length="${2:-80}"
+  echo "$input" | cut -c1-"$max_length"
+}
+
 TS_DISPLAY="${TS_DISPLAY:-$(date +%Y-%m-%dT%H:%M:%S%:z)}"
 
 : "${CODEX_EXIT:=1}"

@@ -1,4 +1,59 @@
+import { z } from 'zod';
+
 import { ValidationError, ValidationResult } from '../types.js';
+
+export const APPROVAL_POLICIES = ['untrusted', 'on-request', 'on-failure', 'never'] as const;
+export type ApprovalPolicy = (typeof APPROVAL_POLICIES)[number];
+export const ApprovalPolicySchema = z.enum(APPROVAL_POLICIES);
+
+export const SANDBOX_MODES = ['read-only', 'workspace-write', 'danger-full-access'] as const;
+export type SandboxMode = (typeof SANDBOX_MODES)[number];
+export const SandboxModeSchema = z.enum(SANDBOX_MODES);
+
+export const WIRE_APIS = ['chat', 'responses'] as const;
+export type WireApi = (typeof WIRE_APIS)[number];
+export const WireApiSchema = z.enum(WIRE_APIS);
+
+export interface ProviderConfig {
+  wire_api?: WireApi;
+  api_key?: string;
+  deployment_id?: string;
+  [key: string]: unknown;
+}
+
+export interface CodexConfig {
+  model?: string;
+  approval_policy?: ApprovalPolicy;
+  sandbox?: SandboxMode;
+  cwd?: string;
+  base_instructions?: string;
+  include_plan_tool?: boolean;
+  include_apply_patch_tool?: boolean;
+  model_providers?: Record<string, ProviderConfig | undefined>;
+}
+
+const ProviderSchema = z
+  .object({
+    wire_api: WireApiSchema,
+  })
+  .extend({
+    api_key: z.string().optional(),
+    deployment_id: z.string().optional(),
+  })
+  .catchall(z.union([z.string(), z.number(), z.boolean()]));
+
+export const CodexConfigSchema = z
+  .object({
+    model: z.string().min(1).optional(),
+    approval_policy: ApprovalPolicySchema.optional(),
+    sandbox: SandboxModeSchema.optional(),
+    cwd: z.string().min(1).optional(),
+    base_instructions: z.string().optional(),
+    include_plan_tool: z.boolean().optional(),
+    include_apply_patch_tool: z.boolean().optional(),
+    model_providers: z.record(ProviderSchema).optional(),
+  })
+  .strict();
 
 export interface EnvironmentVariable {
   name: string;

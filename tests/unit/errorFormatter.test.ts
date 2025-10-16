@@ -4,7 +4,7 @@ import {
   formatHttpError,
   formatJsonRpcError,
   type ErrorResponse,
-} from '../../src/lib/errorFormatter';
+} from '../../core/lib/errors/error-manager';
 
 describe('errorFormatter: HTTP 错误格式化', () => {
   it('HTTP 405 + wire_api 建议', () => {

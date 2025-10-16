@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "request": {
+    "type": "object",
+    "properties": {
+      "authenticated": {
+        "type": "boolean",
+        "description": "是否已认证"
+      },
+      "method": {
+        "type": "string",
+        "description": "认证方法"
+      },
+      "timestamp": {
+        "type": "string",
+        "description": "时间戳"
+      }
+    },
+    "required": ["authenticated", "timestamp"]
+  }
+}

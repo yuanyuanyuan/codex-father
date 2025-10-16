@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "request": {
+    "type": "object",
+    "properties": {
+      "type": {
+        "type": "string",
+        "description": "事件类型"
+      },
+      "data": {
+        "type": "object",
+        "description": "事件数据"
+      },
+      "timestamp": {
+        "type": "string",
+        "description": "时间戳"
+      }
+    },
+    "required": ["type", "data"]
+  }
+}

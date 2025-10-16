@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import Ajv from 'ajv';
 
-import loginApiKeySchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/loginApiKey.schema.json';
-import loginChatGptSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/loginChatGpt.schema.json';
-import loginChatGptCompleteSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/loginChatGptComplete.schema.json';
-import cancelLoginChatGptSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/cancelLoginChatGpt.schema.json';
-import logoutChatGptSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/logoutChatGpt.schema.json';
-import getAuthStatusSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/getAuthStatus.schema.json';
-import authStatusChangeSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/authStatusChange.schema.json';
+import loginApiKeySchema from '../../tests/schemas/loginApiKey.schema.json';
+import loginChatGptSchema from '../../tests/schemas/loginChatGpt.schema.json';
+import loginChatGptCompleteSchema from '../../tests/schemas/loginChatGptComplete.schema.json';
+import cancelLoginChatGptSchema from '../../tests/schemas/cancelLoginChatGpt.schema.json';
+import logoutChatGptSchema from '../../tests/schemas/logoutChatGpt.schema.json';
+import getAuthStatusSchema from '../../tests/schemas/getAuthStatus.schema.json';
+import authStatusChangeSchema from '../../tests/schemas/authStatusChange.schema.json';
 
 import {
   handleLoginApiKey,
@@ -378,4 +378,4 @@ describe('authHandlers.authStatusChange (notification)', () => {
 });
 
 // 引入 schema：authStatusChange
-import authStatusChangeSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/authStatusChange.schema.json';
+import authStatusChangeSchema2 from '../../tests/schemas/authStatusChange.schema.json';

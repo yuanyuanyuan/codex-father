@@ -31,11 +31,12 @@ export class JsonStorage {
   }
 
   async saveResult(result: TaskResult): Promise<void> {
-    this.state.tasks.results[result.id] = result;
+    const key = result.taskId;
+    this.state.tasks.results[key] = result;
 
     if (result.success) {
-      if (!this.state.tasks.completed.includes(result.id)) {
-        this.state.tasks.completed.push(result.id);
+      if (!this.state.tasks.completed.includes(key)) {
+        this.state.tasks.completed.push(key);
       }
     }
 
@@ -63,9 +64,11 @@ export class JsonStorage {
   }
 
   private async atomicWrite(filePath: string, data: any): Promise<void> {
-    const tempPath = `${filePath}.tmp`;
+    const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const tempPath = `${filePath}.${uniqueSuffix}.tmp`;
     const jsonStr = JSON.stringify(data, null, 2);
 
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(tempPath, jsonStr, 'utf-8');
     await fs.rename(tempPath, filePath);
   }

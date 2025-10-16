@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "request": {
+    "type": "object",
+    "properties": {
+      "sessionId": {
+        "type": "string",
+        "description": "会话ID"
+      },
+      "includeToken": {
+        "type": "boolean"
+      },
+      "refreshToken": {
+        "type": "boolean"
+      }
+    },
+    "required": []
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "authenticated": {
+        "type": "boolean"
+      },
+      "method": {
+        "type": "string"
+      },
+      "token": {
+        "type": "string"
+      },
+      "expiresAt": {
+        "type": "string"
+      }
+    },
+    "required": ["authenticated"]
+  }
+}

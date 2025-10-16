@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { type CodexConfig } from '../../src/lib/configSchema';
+import { type CodexConfig } from '../../core/lib/models/configuration';
 import {
   checkCliParams,
   filterConfig,

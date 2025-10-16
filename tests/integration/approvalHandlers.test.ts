@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import Ajv from 'ajv';
 
-import schema from '../../specs/__archive/008-ultrathink-codex-0/contracts/applyPatchApproval.schema.json';
+import schema from '../../tests/schemas/applyPatchApproval.schema.json';
 import { handleApplyPatchApproval } from '../../src/mcp/approvalHandlers';
 
 const ajv = new Ajv({ strict: false });

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import Ajv from 'ajv';
 
-import gitDiffToRemoteSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/gitDiffToRemote.schema.json';
-import execOneOffCommandSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/execOneOffCommand.schema.json';
+import gitDiffToRemoteSchema from '../../tests/schemas/gitDiffToRemote.schema.json';
+import execOneOffCommandSchema from '../../tests/schemas/execOneOffCommand.schema.json';
 
 import { handleGitDiffToRemote, handleExecOneOffCommand } from '../../src/mcp/utilHandlers';
 

@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "request": {
+    "type": "object",
+    "properties": {
+      "command": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "要执行的命令"
+      },
+      "cwd": {
+        "type": "string",
+        "description": "工作目录"
+      },
+      "timeoutMs": {
+        "type": "number",
+        "minimum": 1,
+        "description": "超时时间(毫秒)"
+      },
+      "sandboxPolicy": {
+        "type": "string",
+        "enum": ["allow", "deny", "prompt"],
+        "description": "沙箱策略"
+      }
+    },
+    "required": ["command"]
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean"
+      },
+      "stdout": {
+        "type": "string"
+      },
+      "stderr": {
+        "type": "string"
+      },
+      "exitCode": {
+        "type": "number"
+      },
+      "error": {
+        "type": "string"
+      }
+    },
+    "required": ["success"]
+  }
+}

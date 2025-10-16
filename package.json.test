@@ -1,0 +1,42 @@
+{
+  "name": "codex-father-tests",
+  "version": "1.0.0",
+  "description": "Test suite for Codex Father 2.0",
+  "private": true,
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:e2e": "tsx tests/scripts/run-e2e-tests.ts run",
+    "test:e2e:check": "tsx tests/scripts/run-e2e-tests.ts check",
+    "test:e2e:prepare": "tsx tests/scripts/run-e2e-tests.ts prepare",
+    "test:e2e:coverage": "tsx tests/scripts/run-e2e-tests.ts run --coverage --verbose",
+    "test:e2e:watch": "tsx tests/scripts/run-e2e-tests.ts run --watch",
+    "test:integration": "vitest run tests/integration",
+    "test:contract": "vitest run tests/contract",
+    "test:smoke": "vitest run tests/smoke",
+    "test:performance": "vitest bench tests/benchmark",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:unit": "vitest run tests/unit --coverage",
+    "test:coverage:e2e": "tsx tests/scripts/run-e2e-tests.ts run --coverage",
+    "test:watch": "vitest --watch",
+    "test:ui": "vitest --ui",
+    "test:report": "tsx tests/scripts/run-e2e-tests.ts report",
+    "test:clean": "rm -rf test-results coverage /tmp/codex-father-e2e",
+    "check:environment": "tsx tests/scripts/run-e2e-tests.ts check",
+    "prepare:test": "tsx tests/scripts/run-e2e-tests.ts prepare"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/supertest": "^6.0.3",
+    "commander": "^12.1.0",
+    "tsx": "^4.6.0",
+    "supertest": "^7.1.4",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}

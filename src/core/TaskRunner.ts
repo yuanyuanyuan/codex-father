@@ -9,18 +9,24 @@ export class TaskRunner {
   private taskQueue: TaskQueue;
   private storage: JsonStorage;
   private maxConcurrency: number;
+  private activeTasks: Set<string>;
 
   constructor(maxConcurrency: number = 10) {
     this.maxConcurrency = maxConcurrency;
     this.concurrencyManager = new ConcurrencyManager(maxConcurrency);
     this.taskQueue = new TaskQueue();
     this.storage = new JsonStorage();
+    this.activeTasks = new Set();
   }
 
   async run(task: TaskConfig): Promise<string> {
     ErrorHandler.validateTask(task);
 
     await this.checkDependencies(task);
+    if (this.activeTasks.has(task.id)) {
+      throw new Error(`Task ${task.id} is already queued or running`);
+    }
+    this.activeTasks.add(task.id);
     this.taskQueue.enqueue(task);
     void this.processQueue();
 
@@ -61,7 +67,7 @@ export class TaskRunner {
 
       const end = new Date();
       const taskResult: TaskResult = {
-        id: task.id,
+        taskId: task.id,
         success: true,
         result,
         startTime: start,
@@ -73,7 +79,7 @@ export class TaskRunner {
     } catch (e: any) {
       const end = new Date();
       const taskResult: TaskResult = {
-        id: task.id,
+        taskId: task.id,
         success: false,
         error: e?.message ?? String(e),
         startTime: start,
@@ -85,6 +91,7 @@ export class TaskRunner {
       this.storage.saveResult(taskResult);
     } finally {
       this.concurrencyManager.releaseSlot(task.id);
+      this.activeTasks.delete(task.id);
       void this.processQueue();
     }
   }
@@ -103,6 +110,39 @@ export class TaskRunner {
   }
 
   async cancel(taskId: string): Promise<boolean> {
-    return this.concurrencyManager.cancelTask(taskId);
+    const cancelled = this.concurrencyManager.cancelTask(taskId);
+
+    if (cancelled) {
+      // 保存取消结果
+      const cancelResult: TaskResult = {
+        taskId,
+        success: false,
+        error: 'Task was cancelled',
+        startTime: new Date(),
+        endTime: new Date(),
+        duration: 0,
+        cancelled: true,
+      };
+      this.storage.saveResult(cancelResult);
+      this.activeTasks.delete(taskId);
+    }
+
+    return cancelled;
+  }
+
+  async cleanup(): Promise<void> {
+    // 等待所有运行中的任务完成
+    const maxWaitTime = 30000; // 30秒
+    const startTime = Date.now();
+
+    while (this.concurrencyManager.getRunningCount() > 0 && Date.now() - startTime < maxWaitTime) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    // 重置核心组件，确保后续调用仍然安全
+    this.concurrencyManager = new ConcurrencyManager(this.maxConcurrency);
+    this.taskQueue = new TaskQueue();
+    this.storage = new JsonStorage();
+    this.activeTasks.clear();
   }
 }

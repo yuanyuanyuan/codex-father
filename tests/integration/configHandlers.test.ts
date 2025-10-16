@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import Ajv from 'ajv';
 
-import getUserSavedConfigSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/getUserSavedConfig.schema.json';
-import setDefaultModelSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/setDefaultModel.schema.json';
-import getUserAgentSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/getUserAgent.schema.json';
-import userInfoSchema from '../../specs/__archive/008-ultrathink-codex-0/contracts/userInfo.schema.json';
+import getUserSavedConfigSchema from '../../tests/schemas/getUserSavedConfig.schema.json';
+import setDefaultModelSchema from '../../tests/schemas/setDefaultModel.schema.json';
+import getUserAgentSchema from '../../tests/schemas/getUserAgent.schema.json';
+import userInfoSchema from '../../tests/schemas/userInfo.schema.json';
 
 import {
   handleGetUserSavedConfig,

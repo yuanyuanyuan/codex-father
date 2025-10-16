@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "request": {
+    "type": "object",
+    "properties": {
+      "sessionId": {
+        "type": "string",
+        "description": "会话ID"
+      },
+      "conversationId": {
+        "type": "string",
+        "description": "对话ID"
+      }
+    },
+    "required": ["sessionId"]
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean"
+      },
+      "sessionId": {
+        "type": "string"
+      },
+      "conversationId": {
+        "type": "string"
+      }
+    },
+    "required": ["success"]
+  }
+}

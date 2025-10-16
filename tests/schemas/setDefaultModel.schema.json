@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "request": {
+    "type": "object",
+    "properties": {
+      "model": {
+        "type": ["string", "null"],
+        "description": "模型名称"
+      }
+    },
+    "required": ["model"],
+    "additionalProperties": false
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean"
+      }
+    },
+    "required": ["success"]
+  }
+}

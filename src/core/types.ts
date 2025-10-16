@@ -10,7 +10,7 @@ export interface TaskConfig {
 }
 
 export interface TaskResult {
-  id: string;
+  taskId: string;
   success: boolean;
   result?: any;
   error?: string;
@@ -19,6 +19,7 @@ export interface TaskResult {
   duration: number;
   logs?: string[];
   metadata?: Record<string, any>;
+  cancelled?: boolean;
 }
 
 export interface RunnerStatus {

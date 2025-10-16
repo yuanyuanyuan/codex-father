@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { CodexConfigSchema, type CodexConfig, type WireApi } from '../../src/lib/configSchema';
+import {
+  CodexConfigSchema,
+  type CodexConfig,
+  type WireApi,
+} from '../../core/lib/models/configuration';
 import {
   validateConfig,
   checkWireApiCompatibility,
@@ -8,7 +12,7 @@ import {
   type ValidationWarning,
   type ValidationSuggestion,
   validateParametersCompatibility,
-} from '../../src/lib/configValidator';
+} from '../../core/lib/validation/data-validator';
 
 describe('configValidator - Schema 验证', () => {
   it('有效配置应通过验证', async () => {

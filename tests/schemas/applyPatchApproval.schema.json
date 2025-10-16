@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "conversationId": {
+      "type": "string",
+      "description": "会话 ID"
+    },
+    "callId": {
+      "type": "string",
+      "description": "调用 ID"
+    },
+    "fileChanges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "文件路径"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["create", "modify", "delete"],
+            "description": "文件变更类型"
+          },
+          "diff": {
+            "type": "string",
+            "description": "文件变更差异"
+          }
+        },
+        "required": ["path", "type"]
+      }
+    },
+    "reason": {
+      "type": "string",
+      "description": "变更原因"
+    }
+  },
+  "required": ["conversationId", "callId", "fileChanges", "reason"]
+}

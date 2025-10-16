@@ -1,4 +1,11 @@
 
+# Missing function definition - add fallback
+safe_truncate_utf8() {
+  local input="$1"
+  local max_length="${2:-80}"
+  echo "$input" | cut -c1-"$max_length"
+}
+
 # 按版本拦截 0.44-only 参数（严格模式）
 check_version_param_compatibility
 if [[ -n "${VALIDATION_ERROR}" ]]; then

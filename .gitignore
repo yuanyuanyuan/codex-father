@@ -36,3 +36,5 @@ refer-research/
 
 # Test temp fixtures
 core/cli/tests/fixtures/invalid-*.json
+coverage
+.codex-father-state.json

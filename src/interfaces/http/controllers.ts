@@ -1,8 +1,17 @@
 import { Request, Response } from 'express';
 import { TaskRunner } from '../../core/TaskRunner.js';
-import { TaskConfig, ErrorHandler } from '../../core/types.js';
-import { WebSocketManager } from '../http/websocket.js';
+import { TaskConfig } from '../../core/types.js';
+import { ErrorHandler } from '../../core/utils.js';
+import { WebSocketManager } from './websocket.js';
 import { z } from 'zod';
+
+function getRequestId(res: Response): string {
+  return (
+    (res.locals?.requestId as string) ||
+    res.get('X-Request-ID') ||
+    `req-${Math.random().toString(36).substr(2, 9)}`
+  );
+}
 
 // Request schemas
 const submitTaskSchema = z
@@ -24,6 +33,10 @@ const submitTaskSchema = z
 const replyTaskSchema = z.object({
   message: z.string(),
   files: z.array(z.string()).default([]),
+});
+
+const getTaskSchema = z.object({
+  id: z.string().regex(/^[a-zA-Z0-9._-]+$/, 'Invalid task id'),
 });
 
 export class TaskController {
@@ -51,6 +64,40 @@ export class TaskController {
       } = validatedData;
 
       const taskId = id || ErrorHandler.generateTaskId();
+
+      // Security validation
+      if (command && this.containsSecurityThreats(command)) {
+        this.sendError(res, 400, {
+          code: 'SECURITY_VIOLATION',
+          message: 'Command contains security threats or invalid paths',
+        });
+        return;
+      }
+
+      // Validate parameters
+      if (priority && !['low', 'normal', 'high'].includes(priority)) {
+        this.sendError(res, 400, {
+          code: 'BAD_REQUEST',
+          message: 'Invalid priority value',
+        });
+        return;
+      }
+
+      if (environment && !['shell', 'nodejs', 'python'].includes(environment)) {
+        this.sendError(res, 400, {
+          code: 'BAD_REQUEST',
+          message: 'Invalid environment type',
+        });
+        return;
+      }
+
+      if (timeout && (typeof timeout !== 'number' || timeout <= 0)) {
+        this.sendError(res, 400, {
+          code: 'BAD_REQUEST',
+          message: 'Invalid timeout value',
+        });
+        return;
+      }
 
       // Build execute function
       const executeFn = async () => {
@@ -88,8 +135,7 @@ export class TaskController {
         timestamp: new Date().toISOString(),
       });
 
-      res.status(201).json({
-        success: true,
+      this.sendSuccess(res, 201, {
         taskId,
         status: 'started',
         message: 'Task submitted successfully',
@@ -98,21 +144,15 @@ export class TaskController {
       console.error('Submit task error:', error);
 
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid request parameters',
-            details: error.errors,
-          },
+        this.sendError(res, 400, {
+          code: 'BAD_REQUEST',
+          message: 'Invalid request parameters',
+          details: error.errors,
         });
       } else {
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'SUBMIT_ERROR',
-            message: error.message,
-          },
+        this.sendError(res, 500, {
+          code: 'INTERNAL_ERROR',
+          message: error.message,
         });
       }
     }
@@ -120,71 +160,67 @@ export class TaskController {
 
   async getTask(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const validatedParams = getTaskSchema.parse(req.params);
+      const { id } = validatedParams;
       const result = this.runner.getResult(id);
 
       if (!result) {
-        res.status(404).json({
-          success: false,
-          error: {
-            code: 'TASK_NOT_FOUND',
-            message: `Task ${id} not found`,
-          },
+        this.sendError(res, 404, {
+          code: 'TASK_NOT_FOUND',
+          message: `Task ${id} not found`,
         });
         return;
       }
 
-      const response = {
+      this.sendSuccess(res, 200, {
         taskId: id,
         status: result.success ? 'completed' : 'failed',
-        progress: 100,
-        startTime: result.startTime.toISOString(),
-        endTime: result.endTime.toISOString(),
+        startTime:
+          result.startTime instanceof Date ? result.startTime.toISOString() : result.startTime,
+        endTime: result.endTime instanceof Date ? result.endTime.toISOString() : result.endTime,
         duration: result.duration,
-        result: result.result,
-        error: result.error,
-        logs: result.logs,
-      };
-
-      res.json(response);
+        result: result.success ? result.result : undefined,
+        error: result.success ? undefined : result.error,
+      });
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        this.sendError(res, 400, {
+          code: 'BAD_REQUEST',
+          message: 'Invalid request parameters',
+          details: error.errors,
+        });
+        return;
+      }
+
       console.error('Get task error:', error);
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'GET_ERROR',
-          message: error.message,
-        },
+      this.sendError(res, 500, {
+        code: 'GET_ERROR',
+        message: error.message,
       });
     }
   }
 
   async listTasks(req: Request, res: Response): Promise<void> {
     try {
-      const { status, limit = 20, orderBy = 'createdAt', order = 'desc' } = req.query;
-
+      const { status, limit = 20 } = req.query;
       const runnerStatus = this.runner.getStatus();
 
-      // This is a simplified implementation
-      // In a real implementation, we would query actual task storage
+      const filters = Array.isArray(status) ? status : status ? [status] : [];
       const tasks = [];
 
-      const response = {
+      this.sendSuccess(res, 200, {
         tasks,
         total: tasks.length,
         hasMore: false,
         status: runnerStatus,
-      };
-
-      res.json(response);
+        filters,
+        limit: Number(limit),
+      });
     } catch (error: any) {
       console.error('List tasks error:', error);
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'LIST_ERROR',
-          message: error.message,
-        },
+      this.sendError(res, 500, {
+        code: 'LIST_ERROR',
+        message: error.message,
       });
     }
   }
@@ -195,26 +231,29 @@ export class TaskController {
       const validatedData = replyTaskSchema.parse(req.body);
       const { message, files = [] } = validatedData;
 
+      // Security validation for file paths
+      if (files.some((file) => this.containsSecurityThreats(file))) {
+        this.sendError(res, 400, {
+          code: 'SECURITY_VIOLATION',
+          message: 'File paths contain security threats',
+        });
+        return;
+      }
+
       // Check if task exists and is running
       const result = this.runner.getResult(id);
       if (!result) {
-        res.status(404).json({
-          success: false,
-          error: {
-            code: 'TASK_NOT_FOUND',
-            message: `Task ${id} not found`,
-          },
+        this.sendError(res, 404, {
+          code: 'TASK_NOT_FOUND',
+          message: `Task ${id} not found`,
         });
         return;
       }
 
       if (result.success) {
-        res.status(409).json({
-          success: false,
-          error: {
-            code: 'TASK_COMPLETED',
-            message: `Task ${id} is already completed`,
-          },
+        this.sendError(res, 409, {
+          code: 'TASK_COMPLETED',
+          message: `Task ${id} is already completed`,
         });
         return;
       }
@@ -231,8 +270,7 @@ export class TaskController {
         timestamp: new Date().toISOString(),
       });
 
-      res.json({
-        success: true,
+      this.sendSuccess(res, 200, {
         message: 'Reply added to task',
         taskId: id,
       });
@@ -240,21 +278,15 @@ export class TaskController {
       console.error('Reply task error:', error);
 
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid request parameters',
-            details: error.errors,
-          },
+        this.sendError(res, 400, {
+          code: 'BAD_REQUEST',
+          message: 'Invalid request parameters',
+          details: error.errors,
         });
       } else {
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'REPLY_ERROR',
-            message: error.message,
-          },
+        this.sendError(res, 500, {
+          code: 'REPLY_ERROR',
+          message: error.message,
         });
       }
     }
@@ -276,28 +308,21 @@ export class TaskController {
           timestamp: new Date().toISOString(),
         });
 
-        res.json({
-          success: true,
+        this.sendSuccess(res, 200, {
           message: 'Task cancelled successfully',
           taskId: id,
         });
       } else {
-        res.status(404).json({
-          success: false,
-          error: {
-            code: 'TASK_NOT_RUNNING',
-            message: `Task ${id} is not running or not found`,
-          },
+        this.sendError(res, 404, {
+          code: 'TASK_NOT_FOUND',
+          message: `Task ${id} is not running or not found`,
         });
       }
     } catch (error: any) {
       console.error('Cancel task error:', error);
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'CANCEL_ERROR',
-          message: error.message,
-        },
+      this.sendError(res, 500, {
+        code: 'CANCEL_ERROR',
+        message: error.message,
       });
     }
   }
@@ -323,5 +348,56 @@ export class TaskController {
       output: `Prompt processed: ${prompt}`,
       filesCreated: files.length,
     };
+  }
+
+  private containsSecurityThreats(command: string): boolean {
+    // Check for dangerous path patterns
+    const dangerousPatterns = [
+      /\.\.\//g, // Parent directory traversal
+      /\/etc\//, // System files
+      /\/proc\//, // Process files
+      /\/sys\//, // System files
+      /rm\s+-rf/, // Dangerous file operations
+      />\/dev\/null/, // Data destruction
+    ];
+
+    return dangerousPatterns.some((pattern) => pattern.test(command));
+  }
+
+  private buildResponseMeta(res: Response) {
+    const requestId = getRequestId(res);
+    return {
+      requestId,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  private sendSuccess<T extends Record<string, any>>(
+    res: Response,
+    statusCode: number,
+    payload: T
+  ) {
+    const meta = this.buildResponseMeta(res);
+    res.status(statusCode).json({
+      success: true,
+      ...meta,
+      ...payload,
+    });
+  }
+
+  private sendError(
+    res: Response,
+    statusCode: number,
+    error: { code: string; message: string; details?: unknown }
+  ) {
+    const meta = this.buildResponseMeta(res);
+    res.status(statusCode).json({
+      success: false,
+      ...meta,
+      error: {
+        ...error,
+        ...meta,
+      },
+    });
   }
 }

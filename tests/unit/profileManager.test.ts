@@ -4,13 +4,13 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import type { CodexConfig } from '../../src/lib/configSchema';
+import type { CodexConfig } from '../../core/lib/models/configuration';
 import {
   createAutoFixProfile,
   writeProfile,
   readProfile,
   type AutoFixProfile,
-} from '../../src/lib/profileManager';
+} from '../../core/lib/presets';
 
 function tmpConfigPath(suffix = ''): string {
   const base = path.join(

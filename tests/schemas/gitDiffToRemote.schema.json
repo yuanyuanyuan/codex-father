@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "request": {
+    "type": "object",
+    "properties": {
+      "repository": {
+        "type": "string",
+        "description": "仓库路径"
+      },
+      "diff": {
+        "type": "string",
+        "description": "差异内容"
+      },
+      "remote": {
+        "type": "string",
+        "description": "远程仓库"
+      },
+      "branch": {
+        "type": "string",
+        "description": "分支"
+      }
+    },
+    "required": ["repository", "diff"]
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean"
+      },
+      "url": {
+        "type": "string"
+      },
+      "sha": {
+        "type": "string"
+      },
+      "error": {
+        "type": "string"
+      }
+    },
+    "required": ["success"]
+  }
+}

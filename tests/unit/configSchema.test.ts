@@ -5,7 +5,7 @@ import {
   SandboxModeSchema,
   WireApiSchema,
   CodexConfigSchema,
-} from '../../src/lib/configSchema';
+} from '../../core/lib/models/configuration';
 import fs from 'node:fs';
 import path from 'node:path';
 
