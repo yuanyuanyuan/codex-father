@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * CLI 应用启动入口
  * 整合所有组件并启动 Codex Father CLI
