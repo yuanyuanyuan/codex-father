@@ -1,5 +1,5 @@
 {
-  "name": "codex-father",
+  "name": "@starkdev020/codex-father",
   "version": "5.0.0",
   "description": "Codex Father - 基于三阶段实施方案的CLI工具架构，支持MCP服务器模块",
   "type": "module",
