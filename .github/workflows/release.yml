@@ -23,7 +23,7 @@ jobs:
   validate-inputs:
     name: Validate Release Inputs
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
+    if: always()
     outputs:
       version: ${{ steps.validate.outputs.version }}
       dry_run: ${{ steps.validate.outputs.dry_run }}
