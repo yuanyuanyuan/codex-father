@@ -20,21 +20,24 @@ export function setNotificationSink(sink: ((event: JSONRPCResponse) => void) | n
 
 export function parseCodexEvent(rawEvent: any): ParsedCodexEvent {
   if (!rawEvent || typeof rawEvent !== 'object') {
-    throw new Error('Invalid event: must be an object');
+    throw new Error('Invalid codex event: must be an object');
   }
 
   if (!rawEvent.type || typeof rawEvent.type !== 'string') {
-    throw new Error('Invalid event: type is required and must be a string');
+    throw new Error('Invalid codex event: type is required and must be a string');
   }
 
-  if (!rawEvent.data || typeof rawEvent.data !== 'object') {
-    throw new Error('Invalid event: data is required and must be an object');
-  }
+  // Support both flat format {type, ...data} and wrapped format {type, data}
+  const data = rawEvent.data && typeof rawEvent.data === 'object' 
+    ? rawEvent.data 
+    : { ...rawEvent };
+  delete data.type;
+  delete data.timestamp;
 
   return {
     id: generateEventId(),
     type: rawEvent.type,
-    data: rawEvent.data,
+    data: data,
     source: 'codex-father',
     version: '1.0.0',
     timestamp: rawEvent.timestamp || new Date().toISOString(),
@@ -49,7 +52,7 @@ export function emitMcpNotification(event: ParsedCodexEvent): void {
 
   const notification: JSONRPCResponse = {
     jsonrpc: '2.0',
-    method: 'codexEvent',
+    method: 'codex/event',
     params: event,
   };
 

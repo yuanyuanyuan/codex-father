@@ -324,7 +324,7 @@ describe('T050 版本检测与降级集成测试', () => {
       } catch (err: any) {
         expect(err?.code).toBe(-32602);
         expect(String(err?.message)).toMatch(/'profile'/);
-        expect(String(err?.message)).toMatch(/current:\s*0\.42\.5/);
+        expect(String(err?.message)).toMatch(/current.*0\.42\.5/);
         expect(String(err?.message)).toMatch(/>=\s*0\.44/);
         expect(String(err?.message)).toMatch(/in newConversation/);
       }

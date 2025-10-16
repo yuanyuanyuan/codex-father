@@ -13,17 +13,24 @@
         "type": "object",
         "properties": {
           "profiles": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": false
           },
           "defaultModel": {
             "type": "string"
           },
           "preferences": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
-    "required": ["config"]
-  }
+    "required": [
+      "config"
+    ],
+    "additionalProperties": false
+  },
+  "additionalProperties": false
 }

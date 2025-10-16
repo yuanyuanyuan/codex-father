@@ -2,51 +2,146 @@
   "request": {
     "type": "object",
     "properties": {
-      "jsonrpc": { "type": "string", "enum": ["2.0"] },
-      "method": { "type": "string", "enum": ["sendUserTurn"] },
+      "jsonrpc": {
+        "type": "string",
+        "enum": [
+          "2.0"
+        ]
+      },
+      "method": {
+        "type": "string",
+        "enum": [
+          "sendUserTurn"
+        ]
+      },
       "params": {
         "type": "object",
         "properties": {
-          "conversationId": { "type": "string" },
-          "content": { "type": "string" },
+          "conversationId": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
           "attachments": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "type": { "type": "string" },
-                "name": { "type": "string" },
-                "content": { "type": "string" },
-                "size": { "type": "number" }
+                "type": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "number"
+                }
               },
-              "required": ["type", "name", "content"]
+              "required": [
+                "type",
+                "name",
+                "content"
+              ],
+              "additionalProperties": false
             }
           },
-          "model": { "type": "string" },
-          "temperature": { "type": "number", "minimum": 0, "maximum": 1 },
-          "maxTokens": { "type": "integer", "minimum": 1 }
+          "model": {
+            "type": "string"
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "maxTokens": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "effort": {
+            "type": "string",
+            "minVersion": "0.44.0"
+          },
+          "summary": {
+            "type": "string",
+            "minVersion": "0.44.0"
+          }
         },
-        "required": ["conversationId", "content"]
+        "required": [
+          "conversationId",
+          "content"
+        ],
+        "additionalProperties": false
       }
     },
-    "required": ["jsonrpc", "method", "params"]
+    "required": [
+      "jsonrpc",
+      "method",
+      "params"
+    ],
+    "additionalProperties": false
   },
   "response": {
     "type": "object",
     "properties": {
-      "jsonrpc": { "type": "string", "enum": ["2.0"] },
-      "id": { "type": ["string", "number"] },
+      "jsonrpc": {
+        "type": "string",
+        "enum": [
+          "2.0"
+        ]
+      },
+      "id": {
+        "type": [
+          "string",
+          "number"
+        ]
+      },
       "result": {
         "type": "object",
         "properties": {
-          "turnId": { "type": "string" },
-          "status": { "type": "string", "enum": ["started", "completed", "failed"] },
-          "timestamp": { "type": "string", "format": "date-time" },
-          "message": { "type": "string" }
+          "turnId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "started",
+              "completed",
+              "failed"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "message": {
+            "type": "string"
+          }
         },
-        "required": ["turnId", "status", "timestamp"]
+        "required": [
+          "turnId",
+          "status",
+          "timestamp"
+        ],
+        "additionalProperties": false
       }
     },
-    "required": ["jsonrpc", "id", "result"]
+    "required": [
+      "jsonrpc",
+      "id",
+      "result"
+    ],
+    "additionalProperties": false
+  },
+  "versionSpecificParams": {
+    "effort": {
+      "minVersion": "0.44.0"
+    },
+    "summary": {
+      "minVersion": "0.44.0"
+    }
   }
 }

@@ -53,6 +53,7 @@
     "test:batch": "tsx scripts/run-batch-tests.ts",
     "test:split-unit": "tsx scripts/run-split-unit-tests.ts",
     "test:quick": "bash scripts/quick-test.sh",
+    "test:orchestrator": "ORCHESTRATOR_TESTS=1 vitest run --config vitest.orchestrator.config.ts",
     "test:merge": "tsx scripts/merge-test-results.ts",
     "test:clean": "rm -rf test-results coverage",
     "lint": "eslint core scripts --fix",
@@ -67,11 +68,6 @@
     "release:dry-run": "scripts/release.sh --dry-run",
     "release:local": "scripts/release.sh --local",
     "release:main": "scripts/release.sh --main",
-    "release:mcp:preflight": "scripts/release-mcp-manual.sh --preflight",
-    "release:mcp:dry-run": "scripts/release-mcp-manual.sh --dry-run --version",
-    "release:mcp:local": "scripts/release-mcp-manual.sh --local --version",
-    "release:mcp:tag": "scripts/release-mcp-manual.sh --tag-only --version",
-    "release:mcp": "scripts/release-mcp-manual.sh",
     "preview:mcp:test": "./test_preview_mcp.sh"
   },
   "dependencies": {

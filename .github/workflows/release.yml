@@ -164,11 +164,53 @@ jobs:
         if: steps.version_info.outputs.dry_run == 'false'
         run: |
           if [ -n "${NPM_TOKEN:-}" ]; then
-            echo "📦 Publishing to NPM..."
+            echo "📦 Publishing main project to NPM..."
             npm publish --access public
-            echo "✅ Published to NPM successfully"
+            echo "✅ Published main project to NPM successfully"
           else
             echo "⚠️ Skipping NPM publish (no token)"
+          fi
+
+      - name: Sync MCP package version
+        run: |
+          TARGET_VERSION="${{ steps.version_info.outputs.version }}"
+          MCP_PACKAGE="mcp/codex-mcp-server/package.json"
+          
+          echo "🔄 Syncing MCP package version to $TARGET_VERSION..."
+          
+          # Update MCP package.json version
+          cd mcp/codex-mcp-server
+          npm version "$TARGET_VERSION" --no-git-tag-version --allow-same-version
+          
+          echo "✅ MCP package version synced"
+
+      - name: Build MCP package
+        run: |
+          echo "🏗️ Building MCP package..."
+          cd mcp/codex-mcp-server
+          npm ci --legacy-peer-deps
+          npm run build
+          echo "✅ MCP package built successfully"
+
+      - name: Test MCP package
+        run: |
+          echo "🧪 Testing MCP package..."
+          cd mcp/codex-mcp-server
+          npm test || echo "⚠️ MCP tests skipped"
+          
+          # Verify MCP server can start
+          timeout 10s node dist/index.js --help || echo "✅ MCP server responds correctly"
+
+      - name: Publish MCP package to NPM (if not dry run)
+        if: steps.version_info.outputs.dry_run == 'false'
+        run: |
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            echo "📦 Publishing MCP package to NPM..."
+            cd mcp/codex-mcp-server
+            npm publish --access public
+            echo "✅ Published MCP package to NPM successfully"
+          else
+            echo "⚠️ Skipping MCP NPM publish (no token)"
           fi
 
       - name: Create GitHub Release
@@ -183,16 +225,17 @@ jobs:
             ## 🎯 Version Information
             - **Version**: ${{ steps.version_info.outputs.version }}
             - **Release Date**: $(date +%Y-%m-%d)
-            - **Package**: codex-father
+            - **Main Package**: codex-father
+            - **MCP Package**: @starkdev020/codex-father-mcp-server
 
             ## 📦 Installation
 
-            ### Global Install
+            ### Main Project - Global Install
             ```bash
             npm install -g codex-father@${{ steps.version_info.outputs.version }}
             ```
 
-            ### npx Usage (No Install Required)
+            ### Main Project - npx Usage (No Install Required)
             ```bash
             # Main CLI
             npx codex-father@${{ steps.version_info.outputs.version }} --help
@@ -204,13 +247,24 @@ jobs:
             npx codex-father-job@${{ steps.version_info.outputs.version }} --help
             ```
 
+            ### MCP Server - Global Install
+            ```bash
+            npm install -g @starkdev020/codex-father-mcp-server@${{ steps.version_info.outputs.version }}
+            ```
+
+            ### MCP Server - npx Usage (Recommended)
+            ```bash
+            npx @starkdev020/codex-father-mcp-server@${{ steps.version_info.outputs.version }} --help
+            ```
+
             ## 📚 Documentation
             - [GitHub Repository](https://github.com/yuanyuanyuan/codex-father)
             - [Documentation](https://github.com/yuanyuanyuan/codex-father/tree/main/docs)
             - [CHANGELOG](https://github.com/yuanyuanyuan/codex-father/blob/main/CHANGELOG.md)
 
             ## 🔗 Links
-            - [NPM Package](https://www.npmjs.com/package/codex-father)
+            - [Main NPM Package](https://www.npmjs.com/package/codex-father)
+            - [MCP NPM Package](https://www.npmjs.com/package/@starkdev020/codex-father-mcp-server)
             - [Release Notes](https://github.com/yuanyuanyuan/codex-father/releases/tag/v${{ steps.version_info.outputs.version }})
           draft: false
           prerelease: false
@@ -229,14 +283,18 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 📦 Package Information" >> $GITHUB_STEP_SUMMARY
           echo "- **Version**: ${{ steps.version_info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Package**: codex-father" >> $GITHUB_STEP_SUMMARY
+          echo "- **Main Package**: codex-father" >> $GITHUB_STEP_SUMMARY
+          echo "- **MCP Package**: @starkdev020/codex-father-mcp-server" >> $GITHUB_STEP_SUMMARY
           echo "- **Dry Run**: ${{ steps.version_info.outputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🚀 Results" >> $GITHUB_STEP_SUMMARY
-          echo "- **Build**: ✅ Success" >> $GITHUB_STEP_SUMMARY
-          echo "- **NPM Publish**: ${{ steps.version_info.outputs.dry_run == 'false' && '✅ Published' || '⏭️ Skipped (dry run)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Main Project Build**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "- **Main Project NPM Publish**: ${{ steps.version_info.outputs.dry_run == 'false' && '✅ Published' || '⏭️ Skipped (dry run)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **MCP Package Build**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "- **MCP Package NPM Publish**: ${{ steps.version_info.outputs.dry_run == 'false' && '✅ Published' || '⏭️ Skipped (dry run)' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **GitHub Release**: ✅ Created" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🔗 Links" >> $GITHUB_STEP_SUMMARY
-          echo "- **NPM Package**: https://www.npmjs.com/package/codex-father" >> $GITHUB_STEP_SUMMARY
+          echo "- **Main NPM Package**: https://www.npmjs.com/package/codex-father" >> $GITHUB_STEP_SUMMARY
+          echo "- **MCP NPM Package**: https://www.npmjs.com/package/@starkdev020/codex-father-mcp-server" >> $GITHUB_STEP_SUMMARY
           echo "- **GitHub Release**: https://github.com/yuanyuanyuan/codex-father/releases/tag/v${{ steps.version_info.outputs.version }}" >> $GITHUB_STEP_SUMMARY

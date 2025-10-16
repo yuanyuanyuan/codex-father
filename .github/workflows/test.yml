@@ -251,12 +251,14 @@ jobs:
         echo "## Coverage Reports" >> $GITHUB_STEP_SUMMARY
         echo "Coverage reports have been uploaded to Codecov." >> $GITHUB_STEP_SUMMARY
         
-    - name: Overall status
+    - name: Overall status - Failure
       if: contains(needs.*.result, 'failure')
       run: |
         echo "❌ Some tests failed. Check the individual job results for details."
         exit 1
-      else
+    
+    - name: Overall status - Success
+      if: "!contains(needs.*.result, 'failure')"
       run: |
         echo "✅ All tests passed successfully!"
 

@@ -17,6 +17,15 @@
         "description": "时间戳"
       }
     },
-    "required": ["authenticated", "timestamp"]
-  }
+    "required": [
+      "authenticated",
+      "timestamp"
+    ],
+    "additionalProperties": false
+  },
+  "response": {
+    "type": "null",
+    "description": "Notifications have null response"
+  },
+  "additionalProperties": false
 }

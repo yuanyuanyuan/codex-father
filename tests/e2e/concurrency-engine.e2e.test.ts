@@ -409,7 +409,7 @@ describe('Concurrency Engine E2E Tests', () => {
       const result = taskRunner.getResult('timeout-task');
       expect(result).toBeDefined();
       expect(result!.success).toBe(false);
-      expect(result!.error).toContain('timeout');
+      expect(result!.error?.toLowerCase()).toContain('timeout');
     });
 
     it('应该处理任务执行错误', async () => {

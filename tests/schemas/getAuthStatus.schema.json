@@ -26,7 +26,10 @@
       },
       "method": {
         "type": "string",
-        "enum": ["chatGpt", "apiKey"]
+        "enum": [
+          "chatGpt",
+          "apiKey"
+        ]
       },
       "token": {
         "type": "string"
@@ -36,7 +39,10 @@
         "format": "date-time"
       }
     },
-    "required": ["authenticated"],
+    "required": [
+      "authenticated"
+    ],
     "additionalProperties": false
-  }
+  },
+  "additionalProperties": false
 }

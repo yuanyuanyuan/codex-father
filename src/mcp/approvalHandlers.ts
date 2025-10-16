@@ -8,7 +8,8 @@ export interface ApplyPatchApprovalParams {
     type: 'create' | 'modify' | 'delete';
     diff?: string;
   }>;
-  reason: string;
+  reason?: string;
+  grantRoot?: boolean;
 }
 
 export interface ApplyPatchApprovalResult {
@@ -26,9 +27,9 @@ export async function handleApplyPatchApproval(
 
   const params = request.params as ApplyPatchApprovalParams;
 
-  if (!params.conversationId || !params.callId || !params.fileChanges || !params.reason) {
+  if (!params.conversationId || !params.callId || !params.fileChanges) {
     throw new Error(
-      'Invalid applyPatchApproval request parameters: conversationId, callId, fileChanges, and reason are required'
+      'Invalid applyPatchApproval request parameters: conversationId, callId, and fileChanges are required'
     );
   }
 

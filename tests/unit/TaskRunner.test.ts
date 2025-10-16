@@ -11,8 +11,15 @@ describe('TaskRunner Core Unit Tests', () => {
   });
 
   afterEach(async () => {
-    // 清理测试数据
-    await taskRunner.cleanup();
+    // 清理测试数据和资源
+    if (taskRunner && typeof taskRunner.cleanup === 'function') {
+      await taskRunner.cleanup();
+    }
+    taskRunner = null as any;
+    // 强制垃圾回收（如果可用）
+    if (global.gc) {
+      global.gc();
+    }
   });
 
   describe('构造函数和初始化', () => {
@@ -131,6 +138,8 @@ describe('TaskRunner Core Unit Tests', () => {
       expect(results.every((r) => r?.success)).toBe(true);
 
       await concurrentRunner.cleanup();
+      // 清理引用
+      runningTasks.length = 0;
     });
 
     it('应该按优先级处理任务', async () => {
@@ -180,6 +189,8 @@ describe('TaskRunner Core Unit Tests', () => {
       expect(executionOrder.slice(1)).toContain('high'); // 高优先级应该在后面优先执行
 
       await priorityRunner.cleanup();
+      // 清理引用
+      executionOrder.length = 0;
     });
   });
 
@@ -309,6 +320,9 @@ describe('TaskRunner Core Unit Tests', () => {
       const status = taskRunner.getStatus();
       expect(status.running).toBe(0);
       expect(status.pending).toBe(0);
+      
+      // 清理任务数组
+      tasks.length = 0;
     });
   });
 });

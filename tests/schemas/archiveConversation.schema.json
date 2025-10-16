@@ -9,7 +9,10 @@
         "description": "对话ID"
       }
     },
-    "required": ["conversationId"]
+    "required": [
+      "conversationId"
+    ],
+    "additionalProperties": false
   },
   "response": {
     "type": "object",
@@ -35,9 +38,14 @@
           "title": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
-    "required": ["success"]
-  }
+    "required": [
+      "success"
+    ],
+    "additionalProperties": false
+  },
+  "additionalProperties": false
 }

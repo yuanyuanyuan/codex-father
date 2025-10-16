@@ -4,18 +4,27 @@ import { JsonStorage } from './storage.js';
 import { ConcurrencyManager } from './concurrency.js';
 import { TaskQueue } from './queue.js';
 
+export type TaskRunnerDependencies = {
+  storage?: JsonStorage;
+  concurrencyManager?: ConcurrencyManager;
+  taskQueue?: TaskQueue;
+};
+
 export class TaskRunner {
   private concurrencyManager: ConcurrencyManager;
   private taskQueue: TaskQueue;
   private storage: JsonStorage;
   private maxConcurrency: number;
   private activeTasks: Set<string>;
+  private readonly dependencies: TaskRunnerDependencies;
 
-  constructor(maxConcurrency: number = 10) {
+  constructor(maxConcurrency: number = 10, dependencies: TaskRunnerDependencies = {}) {
     this.maxConcurrency = maxConcurrency;
-    this.concurrencyManager = new ConcurrencyManager(maxConcurrency);
-    this.taskQueue = new TaskQueue();
-    this.storage = new JsonStorage();
+    this.dependencies = dependencies;
+    this.concurrencyManager =
+      dependencies.concurrencyManager ?? new ConcurrencyManager(maxConcurrency);
+    this.taskQueue = dependencies.taskQueue ?? new TaskQueue();
+    this.storage = dependencies.storage ?? new JsonStorage();
     this.activeTasks = new Set();
   }
 
@@ -140,9 +149,21 @@ export class TaskRunner {
     }
 
     // 重置核心组件，确保后续调用仍然安全
-    this.concurrencyManager = new ConcurrencyManager(this.maxConcurrency);
-    this.taskQueue = new TaskQueue();
-    this.storage = new JsonStorage();
+    const { concurrencyManager, taskQueue, storage } = this.dependencies;
+
+    this.concurrencyManager = concurrencyManager ?? new ConcurrencyManager(this.maxConcurrency);
+    this.taskQueue = taskQueue ?? new TaskQueue();
+    this.storage = storage ?? new JsonStorage();
+
+    if (concurrencyManager && typeof (concurrencyManager as any).reset === 'function') {
+      (concurrencyManager as any).reset();
+    }
+    if (taskQueue && typeof (taskQueue as any).clear === 'function') {
+      (taskQueue as any).clear();
+    }
+    if (storage && typeof (storage as any).clear === 'function') {
+      (storage as any).clear();
+    }
     this.activeTasks.clear();
   }
 }

@@ -25,8 +25,16 @@ export class ErrorHandler {
     return ErrorType.EXECUTION_ERROR;
   }
 
-  static logError(taskId: string, error: Error): void {
-    console.error(`[${new Date().toISOString()}] Task ${taskId} failed:`, error.message);
+  static logError(taskId: string, error: unknown): void {
+    const message =
+      typeof error === 'object' && error !== null && 'message' in error
+        ? (error as { message?: unknown }).message
+        : undefined;
+
+    console.error(
+      `[${new Date().toISOString()}] Task ${taskId} failed:`,
+      typeof message === 'string' && message.length > 0 ? message : String(error)
+    );
   }
 
   static generateTaskId(): string {

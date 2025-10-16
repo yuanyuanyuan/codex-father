@@ -23,11 +23,17 @@
       },
       "sandboxPolicy": {
         "type": "string",
-        "enum": ["read-only", "workspace-write", "danger-full-access"],
+        "enum": [
+          "read-only",
+          "workspace-write",
+          "danger-full-access"
+        ],
         "description": "沙箱策略"
       }
     },
-    "required": ["command"],
+    "required": [
+      "command"
+    ],
     "additionalProperties": false
   },
   "response": {
@@ -46,6 +52,12 @@
         "type": "string"
       }
     },
-    "required": ["exitCode", "stdout", "stderr"]
-  }
+    "required": [
+      "exitCode",
+      "stdout",
+      "stderr"
+    ],
+    "additionalProperties": false
+  },
+  "additionalProperties": false
 }

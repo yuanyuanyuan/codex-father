@@ -34,18 +34,19 @@ export default defineConfig({
 
     // Test execution - 内存优化配置
     testTimeout: 30000,
-    hookTimeout: 10000,
-    threads: false, // 禁用多线程以节省内存
-    maxThreads: 1, // 单线程执行
-    minThreads: 1,
-
-    // 内存限制 - 更激进的优化
+    hookTimeout: 30000, // 增加hook超时时间
+    pool: 'forks', // 使用forks代替threads以避免内存限制问题
     poolOptions: {
-      threads: {
-        memoryLimit: 256, // 每个线程256MB内存限制
-        isolate: true,
-        singleThread: true, // 强制单线程
+      forks: {
+        singleFork: true, // 强制单进程
+        minForks: 1,
+        maxForks: 1,
+        execArgv: ['--max-old-space-size=8192', '--expose-gc'], // 显式设置子进程的内存限制
       },
+    },
+    maxConcurrency: 1, // 限制并发测试数
+    sequence: {
+      concurrent: false, // 禁用并发测试
     },
 
     // Coverage configuration - 内存优化
@@ -83,6 +84,9 @@ export default defineConfig({
     clearMocks: true,
     mockReset: true,
     restoreMocks: true,
+    
+    // 隔离测试环境 - 禁用以避免内存溢出
+    isolate: false, // 关闭隔离模式以节省内存
   },
 
   // Benchmark configuration

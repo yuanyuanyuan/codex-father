@@ -19,12 +19,18 @@
         "type": "string"
       },
       "allegedUserEmail": {
-        "type": "string"
+        "type": "string",
+        "format": "email"
       },
       "preferences": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false
       }
     },
-    "required": ["allegedUserEmail"]
-  }
+    "required": [
+      "allegedUserEmail"
+    ],
+    "additionalProperties": false
+  },
+  "additionalProperties": false
 }

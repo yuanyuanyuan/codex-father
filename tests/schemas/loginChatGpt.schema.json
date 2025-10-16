@@ -13,7 +13,10 @@
           "description": "密码"
         }
       },
-      "required": ["email", "password"],
+      "required": [
+        "email",
+        "password"
+      ],
       "additionalProperties": true
     },
     "LoginChatGptResponse": {
@@ -28,7 +31,10 @@
           "description": "认证URL"
         }
       },
-      "required": ["loginId", "authUrl"],
+      "required": [
+        "loginId",
+        "authUrl"
+      ],
       "additionalProperties": false
     }
   },

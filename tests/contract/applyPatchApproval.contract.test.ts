@@ -8,7 +8,7 @@ const ajv = new Ajv({ strict: false });
 
 describe('MCP Contract: applyPatchApproval', () => {
   describe('Request Validation', () => {
-    const requestSchema = schema.properties.request;
+    const requestSchema = schema.request;
     const validateRequest = ajv.compile(requestSchema);
 
     it('should validate minimal approval request', () => {
@@ -100,7 +100,7 @@ describe('MCP Contract: applyPatchApproval', () => {
   });
 
   describe('Response Validation', () => {
-    const responseSchema = schema.properties.response;
+    const responseSchema = schema.response;
     const validateResponse = ajv.compile(responseSchema);
 
     it('should validate allow decision', () => {

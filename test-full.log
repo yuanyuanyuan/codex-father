@@ -1,0 +1,1254 @@
+
+> codex-father@5.0.0 test:batch
+> tsx scripts/run-batch-tests.ts
+
+🎯 启动分批测试执行器
+💾 系统内存: 32011MB
+📋 测试计划: 16个批次
+⏰ 预计总耗时: 133分钟
+
+📍 进度: 1/16
+
+🚀 开始执行批次: core-units
+📁 测试文件: 9个
+💾 内存限制: 2048MB
+⏱️  超时时间: 300秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/unit/versionDetector.test.ts" "tests/unit/configValidator.test.ts" "tests/unit/configSchema.test.ts" "tests/unit/errorFormatter.test.ts" "tests/unit/degradationStrategy.test.ts" "tests/unit/profileManager.test.ts" "tests/unit/parameterMapping.test.ts" "tests/unit/modelWireApiMapping.test.ts" "tests/unit/bulk-sdk.test.ts" --reporter=json --reporter=verbose --no-coverage
+✅ 批次 core-units 完成
+📊 结果: 9/9 通过，耗时 2秒
+
+📍 进度: 2/16
+
+🚀 开始执行批次: small-units
+📁 测试文件: 5个
+💾 内存限制: 1536MB
+⏱️  超时时间: 120秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=1536" npx vitest run "tests/unit/schemas/status-example.test.ts" "tests/unit/schemas/events-enum.test.ts" "tests/unit/http-version.test.ts" "tests/unit/version-command.test.ts" "tests/unit/mcp-tools-spec-version.test.ts" --reporter=json --reporter=verbose --no-coverage
+✅ 批次 small-units 完成
+📊 结果: 5/5 通过，耗时 1秒
+
+📍 进度: 3/16
+
+🚀 开始执行批次: http-server
+📁 测试文件: 1个
+💾 内存限制: 3072MB
+⏱️  超时时间: 600秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=3072" npx vitest run "tests/unit/http/HTTPServer.unit.test.ts" --reporter=json --reporter=verbose --no-coverage
+✅ 批次 http-server 完成
+📊 结果: 1/1 通过，耗时 1秒
+
+📍 进度: 4/16
+
+🚀 开始执行批次: contracts
+📁 测试文件: 4个
+💾 内存限制: 2560MB
+⏱️  超时时间: 300秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=2560" npx vitest run "tests/contract/codex-jsonrpc.test.ts" "tests/contract/mcp-tools-list.test.ts" "tests/contract/mcp-tools-call.test.ts" "tests/contract/mcp-initialize.test.ts" --reporter=json --reporter=verbose --no-coverage
+✅ 批次 contracts 完成
+📊 结果: 4/4 通过，耗时 1秒
+
+📍 进度: 5/16
+
+🚀 开始执行批次: small-contracts
+📁 测试文件: 7个
+💾 内存限制: 2048MB
+⏱️  超时时间: 240秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/contract/sendUserTurn.contract.test.ts" "tests/contract/sendUserMessage.contract.test.ts" "tests/contract/applyPatchApproval.contract.test.ts" "tests/contract/execOneOffCommand.contract.test.ts" "tests/contract/codex-event.contract.test.ts" "tests/contract/listConversations.contract.test.ts" "tests/contract/getUserSavedConfig.contract.test.ts" --reporter=json --reporter=verbose --no-coverage
+❌ 批次 small-contracts 失败
+⚠️  错误: Command failed: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/contract/sendUserTurn.contract.test.ts" "tests/contract/sendUserMessage.contract.test.ts" "tests/contract/applyPatchApproval.contract.test.ts" "tests/contract/execOneOffCommand.contract.test.ts" "tests/contract/codex-event.contract.test.ts" "tests/contract/listConversations.contract.test.ts" "tests/contract/getUserSavedConfig.contract.test.ts" --reporter=json --reporter=verbose --no-coverage
+⎯⎯⎯⎯⎯⎯ Failed Tests 20 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/contract/codex-event.contract.test.ts > MCP Contract: codex/event > Notification Validation > should validate task_started event with conversation context
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/codex-event.contract.test.ts:21:43
+     19|       };
+     20| 
+     21|       expect(validateNotification(event)).toBe(true);
+       |                                           ^
+     22|     });
+     23| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/20]⎯
+
+ FAIL  tests/contract/codex-event.contract.test.ts > MCP Contract: codex/event > Notification Validation > should validate agent_message event with streaming role information
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/codex-event.contract.test.ts:32:43
+     30|       };
+     31| 
+     32|       expect(validateNotification(event)).toBe(true);
+       |                                           ^
+     33|     });
+     34| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/20]⎯
+
+ FAIL  tests/contract/codex-event.contract.test.ts > MCP Contract: codex/event > Notification Validation > should validate apply_patch_approval_request event with change map
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/codex-event.contract.test.ts:49:43
+     47|       };
+     48| 
+     49|       expect(validateNotification(event)).toBe(true);
+       |                                           ^
+     50|     });
+     51| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/20]⎯
+
+ FAIL  tests/contract/codex-event.contract.test.ts > MCP Contract: codex/event > Notification Validation > should accept events with _meta.requestId for correlation
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/codex-event.contract.test.ts:61:43
+     59|       };
+     60| 
+     61|       expect(validateNotification(event)).toBe(true);
+       |                                           ^
+     62|     });
+     63| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/20]⎯
+
+ FAIL  tests/contract/codex-event.contract.test.ts > MCP Contract: codex/event > Notification Validation > should validate token_count event with usage snapshot
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/codex-event.contract.test.ts:106:43
+    104|       };
+    105| 
+    106|       expect(validateNotification(event)).toBe(true);
+       |                                           ^
+    107|     });
+    108|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/20]⎯
+
+ FAIL  tests/contract/getUserSavedConfig.contract.test.ts > MCP Contract: getUserSavedConfig > Response Validation > 接受包含完整配置选项的响应
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/getUserSavedConfig.contract.test.ts:80:42
+     78|       };
+     79| 
+     80|       expect(validateResponse(response)).toBe(true);
+       |                                          ^
+     81|     });
+     82| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/20]⎯
+
+ FAIL  tests/contract/listConversations.contract.test.ts > MCP Contract: listConversations > Request Validation > should accept request filtering by model and status
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/listConversations.contract.test.ts:38:40
+     36|       };
+     37| 
+     38|       expect(validateRequest(request)).toBe(true);
+       |                                        ^
+     39|     });
+     40| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/20]⎯
+
+ FAIL  tests/contract/listConversations.contract.test.ts > MCP Contract: listConversations > Request Validation > should reject request with invalid status value
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/contract/listConversations.contract.test.ts:46:40
+     44|       };
+     45| 
+     46|       expect(validateRequest(request)).toBe(false);
+       |                                        ^
+     47|     });
+     48| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/20]⎯
+
+ FAIL  tests/contract/listConversations.contract.test.ts > MCP Contract: listConversations > Response Validation > should validate response with empty conversation list
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/listConversations.contract.test.ts:66:42
+     64|       };
+     65| 
+     66|       expect(validateResponse(response)).toBe(true);
+       |                                          ^
+     67|     });
+     68| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/20]⎯
+
+ FAIL  tests/contract/listConversations.contract.test.ts > MCP Contract: listConversations > Response Validation > should validate response with populated conversations
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/listConversations.contract.test.ts:88:42
+     86|       };
+     87| 
+     88|       expect(validateResponse(response)).toBe(true);
+       |                                          ^
+     89|     });
+     90| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/20]⎯
+
+ FAIL  tests/contract/sendUserMessage.contract.test.ts > MCP Contract: sendUserMessage > Request Validation > 接受文本消息列表
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/sendUserMessage.contract.test.ts:23:9
+     21|           ],
+     22|         })
+     23|       ).toBe(true);
+       |         ^
+     24|     });
+     25| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/20]⎯
+
+ FAIL  tests/contract/sendUserMessage.contract.test.ts > MCP Contract: sendUserMessage > Request Validation > 接受混合文本与图片的消息
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/sendUserMessage.contract.test.ts:41:9
+     39|           ],
+     40|         })
+     41|       ).toBe(true);
+       |         ^
+     42|     });
+     43| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/20]⎯
+
+ FAIL  tests/contract/sendUserMessage.contract.test.ts > MCP Contract: sendUserMessage > Response Validation > 接受 accepted=true 的响应
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/sendUserMessage.contract.test.ts:115:9
+    113|           accepted: true,
+    114|         })
+    115|       ).toBe(true);
+       |         ^
+    116|     });
+    117| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/20]⎯
+
+ FAIL  tests/contract/sendUserMessage.contract.test.ts > MCP Contract: sendUserMessage > Response Validation > 接受 accepted=false 的响应
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/sendUserMessage.contract.test.ts:123:9
+    121|           accepted: false,
+    122|         })
+    123|       ).toBe(true);
+       |         ^
+    124|     });
+    125| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/20]⎯
+
+ FAIL  tests/contract/sendUserTurn.contract.test.ts > MCP Contract: sendUserTurn > Request Validation > 接受最小化的请求
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/sendUserTurn.contract.test.ts:23:9
+     21|           ],
+     22|         })
+     23|       ).toBe(true);
+       |         ^
+     24|     });
+     25| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/20]⎯
+
+ FAIL  tests/contract/sendUserTurn.contract.test.ts > MCP Contract: sendUserTurn > Request Validation > 接受包含可选 effort 与 summary 的请求
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/sendUserTurn.contract.test.ts:39:9
+     37|           summary: 'auto',
+     38|         })
+     39|       ).toBe(true);
+       |         ^
+     40|     });
+     41| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/20]⎯
+
+ FAIL  tests/contract/sendUserTurn.contract.test.ts > MCP Contract: sendUserTurn > Response Validation > 接受 accepted=true 的响应
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/sendUserTurn.contract.test.ts:107:9
+    105|           accepted: true,
+    106|         })
+    107|       ).toBe(true);
+       |         ^
+    108|     });
+    109| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/20]⎯
+
+ FAIL  tests/contract/sendUserTurn.contract.test.ts > MCP Contract: sendUserTurn > Response Validation > 接受 accepted=false 的响应
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/sendUserTurn.contract.test.ts:115:9
+    113|           accepted: false,
+    114|         })
+    115|       ).toBe(true);
+       |         ^
+    116|     });
+    117| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/20]⎯
+
+ FAIL  tests/contract/sendUserTurn.contract.test.ts > MCP Contract: sendUserTurn > 版本兼容性元数据 > effort 属性上携带 minVersion 元数据
+AssertionError: expected undefined to be '0.44.0' // Object.is equality
+
+- Expected: 
+"0.44.0"
+
++ Received: 
+undefined
+
+ ❯ tests/contract/sendUserTurn.contract.test.ts:142:61
+    140| 
+    141|     it('effort 属性上携带 minVersion 元数据', () => {
+    142|       expect(schema.request.properties?.effort?.minVersion).toBe('0.44…
+       |                                                             ^
+    143|     });
+    144| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/20]⎯
+
+ FAIL  tests/contract/sendUserTurn.contract.test.ts > MCP Contract: sendUserTurn > 版本兼容性元数据 > summary 属性上携带 minVersion 元数据
+AssertionError: expected undefined to be '0.44.0' // Object.is equality
+
+- Expected: 
+"0.44.0"
+
++ Received: 
+undefined
+
+ ❯ tests/contract/sendUserTurn.contract.test.ts:146:62
+    144| 
+    145|     it('summary 属性上携带 minVersion 元数据', () => {
+    146|       expect(schema.request.properties?.summary?.minVersion).toBe('0.4…
+       |                                                              ^
+    147|     });
+    148|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/20]⎯
+
+
+
+📍 进度: 6/16
+
+🚀 开始执行批次: auth-contracts
+📁 测试文件: 8个
+💾 内存限制: 2048MB
+⏱️  超时时间: 240秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/contract/getAuthStatus.contract.test.ts" "tests/contract/loginChatGpt.test.ts" "tests/contract/loginApiKey.test.ts" "tests/contract/loginChatGptComplete.test.ts" "tests/contract/cancelLoginChatGpt.contract.test.ts" "tests/contract/logoutChatGpt.test.ts" "tests/contract/authStatusChange.contract.test.ts" "tests/contract/userInfo.contract.test.ts" --reporter=json --reporter=verbose --no-coverage
+❌ 批次 auth-contracts 失败
+⚠️  错误: Command failed: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/contract/getAuthStatus.contract.test.ts" "tests/contract/loginChatGpt.test.ts" "tests/contract/loginApiKey.test.ts" "tests/contract/loginChatGptComplete.test.ts" "tests/contract/cancelLoginChatGpt.contract.test.ts" "tests/contract/logoutChatGpt.test.ts" "tests/contract/authStatusChange.contract.test.ts" "tests/contract/userInfo.contract.test.ts" --reporter=json --reporter=verbose --no-coverage
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/contract/authStatusChange.contract.test.ts > MCP Contract: authStatusChange > Notification Validation > should accept minimal authentication status change
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/authStatusChange.contract.test.ts:16:50
+     14|       };
+     15| 
+     16|       expect(validateNotification(notification)).toBe(true);
+       |                                                  ^
+     17|     });
+     18| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+
+📍 进度: 7/16
+
+🚀 开始执行批次: medium-integration
+📁 测试文件: 5个
+💾 内存限制: 3072MB
+⏱️  超时时间: 400秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=3072" npx vitest run "tests/integration/configHandlers.test.ts" "tests/integration/utilHandlers.test.ts" "tests/integration/bridge-happy-path.test.ts" "tests/integration/eventHandler.test.ts" "tests/integration/approvalHandlers.test.ts" --reporter=json --reporter=verbose --no-coverage
+❌ 批次 medium-integration 失败
+⚠️  错误: Command failed: NODE_OPTIONS="--max-old-space-size=3072" npx vitest run "tests/integration/configHandlers.test.ts" "tests/integration/utilHandlers.test.ts" "tests/integration/bridge-happy-path.test.ts" "tests/integration/eventHandler.test.ts" "tests/integration/approvalHandlers.test.ts" --reporter=json --reporter=verbose --no-coverage
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/approvalHandlers.test.ts > approvalHandlers.applyPatchApproval > 应返回 allow 决策并符合响应契约
+AssertionError: expected 'allow' to deeply equal { decision: 'allow' }
+
+- Expected: 
+Object {
+  "decision": "allow",
+}
+
++ Received: 
+"allow"
+
+ ❯ tests/integration/approvalHandlers.test.ts:28:24
+     26|     expect(res.jsonrpc).toBe('2.0');
+     27|     expect(res.id).toBe('req-1');
+     28|     expect(res.result).toEqual({ decision: 'allow' });
+       |                        ^
+     29| 
+     30|     // 契约校验
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/integration/configHandlers.test.ts > configHandlers.getUserSavedConfig > 应返回用户保存的配置并通过契约校验
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/configHandlers.test.ts:50:37
+     48|     expect(res.jsonrpc).toBe('2.0');
+     49|     expect(res.id).toBe('req-1');
+     50|     expect(validateRes(res.result)).toBe(true);
+       |                                     ^
+     51|   });
+     52| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/integration/configHandlers.test.ts > configHandlers.setDefaultModel > 应接受 model=null（清除默认模型）
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/configHandlers.test.ts:125:37
+    123|       return { success: true, message: 'cleared' };
+    124|     });
+    125|     expect(validateRes(res.result)).toBe(true);
+       |                                     ^
+    126|   });
+    127| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/integration/eventHandler.test.ts > eventHandler > parseCodexEvent() > 应解析 JSON-RPC Notification 形式 (Event)
+Error: Invalid codex event: type is required and must be a string
+ ❯ Module.parseCodexEvent src/mcp/eventHandler.ts:27:11
+     25| 
+     26|   if (!rawEvent.type || typeof rawEvent.type !== 'string') {
+     27|     throw new Error('Invalid codex event: type is required and must be…
+       |           ^
+     28|   }
+     29| 
+ ❯ tests/integration/eventHandler.test.ts:39:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/integration/eventHandler.test.ts > eventHandler > parseCodexEvent() > 应解析事件负载对象形式 (EventMsg)
+AssertionError: expected undefined to be 'c-001' // Object.is equality
+
+- Expected: 
+"c-001"
+
++ Received: 
+undefined
+
+ ❯ tests/integration/eventHandler.test.ts:58:29
+     56|       const parsed = parseCodexEvent(raw);
+     57|       expect(parsed.type).toBe('exec_approval_request');
+     58|       expect(parsed.callId).toBe('c-001');
+       |                             ^
+     59|       expect(parsed.cwd).toBe('/workspace');
+     60|       // 契约校验
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  tests/integration/eventHandler.test.ts > eventHandler > parseCodexEvent() > 应对缺少必需字段的事件抛出错误
+AssertionError: expected [Function] to throw an error
+
+- Expected: 
+null
+
++ Received: 
+undefined
+
+ ❯ tests/integration/eventHandler.test.ts:66:42
+     64|     it('应对缺少必需字段的事件抛出错误', () => {
+     65|       const bad = { type: 'agent_message' } as any; // 缺少 message
+     66|       expect(() => parseCodexEvent(bad)).toThrowError(/invalid codex e…
+       |                                          ^
+     67|     });
+     68|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  tests/integration/eventHandler.test.ts > eventHandler > emitMcpNotification() > 应生成并推送 codex/event 通知，包含 _meta.requestId
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/eventHandler.test.ts:92:51
+     90| 
+     91|       // 契约校验（通知的 params 必须符合 request schema）
+     92|       expect(validateCodexEvent(captured.params)).toBe(true);
+       |                                                   ^
+     93|     });
+     94|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+
+📍 进度: 8/16
+
+🚀 开始执行批次: taskrunner-tests
+📁 测试文件: 1个
+💾 内存限制: 2048MB
+⏱️  超时时间: 300秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/unit/core/TaskRunner.simple.test.ts" --reporter=json --reporter=verbose --no-coverage
+❌ 批次 taskrunner-tests 失败
+⚠️  错误: Command failed: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/unit/core/TaskRunner.simple.test.ts" --reporter=json --reporter=verbose --no-coverage
+filter:  tests/unit/core/TaskRunner.simple.test.ts
+include: core/**/*.{test,spec}.ts, phases/**/*.{test,spec}.ts, tests/**/*.{test,spec}.ts
+exclude:  node_modules/**, dist/**, mcp/codex-mcp-server/**, refer-research/**, core/orchestrator/tests/**, **/*.bench.ts
+watch exclude:  **/node_modules/**, **/dist/**
+
+No test files found, exiting with code 1
+
+
+📍 进度: 9/16
+
+🚀 开始执行批次: mcp-server
+📁 测试文件: 1个
+💾 内存限制: 4096MB
+⏱️  超时时间: 600秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=4096" npx vitest run "tests/unit/mcp/MCPServer.unit.test.ts" --reporter=json --reporter=verbose --no-coverage
+✅ 批次 mcp-server 完成
+📊 结果: 1/1 通过，耗时 1秒
+
+📍 进度: 10/16
+
+🚀 开始执行批次: e2e-http-api
+📁 测试文件: 1个
+💾 内存限制: 6144MB
+⏱️  超时时间: 900秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=6144" npx vitest run "tests/e2e/http-api.e2e.test.ts" --reporter=json --reporter=verbose --no-coverage
+✅ 批次 e2e-http-api 完成
+📊 结果: 1/1 通过，耗时 2秒
+
+📍 进度: 11/16
+
+🚀 开始执行批次: e2e-concurrency
+📁 测试文件: 1个
+💾 内存限制: 6144MB
+⏱️  超时时间: 900秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=6144" npx vitest run "tests/e2e/concurrency-engine.e2e.test.ts" --reporter=json --reporter=verbose --no-coverage
+❌ 批次 e2e-concurrency 失败
+⚠️  错误: Command failed: NODE_OPTIONS="--max-old-space-size=6144" npx vitest run "tests/e2e/concurrency-engine.e2e.test.ts" --reporter=json --reporter=verbose --no-coverage
+stderr | tests/e2e/concurrency-engine.e2e.test.ts > Concurrency Engine E2E Tests > 依赖关系管理 > 应该拒绝依赖失败的任务
+[2025-10-16T21:32:12.171Z] Task failed-dependency failed: Simulated failure
+
+stderr | tests/e2e/concurrency-engine.e2e.test.ts > Concurrency Engine E2E Tests > 超时和错误处理 > 应该处理任务超时
+[2025-10-16T21:32:15.178Z] Task timeout-task failed: Timeout
+
+stderr | tests/e2e/concurrency-engine.e2e.test.ts > Concurrency Engine E2E Tests > 超时和错误处理 > 应该处理任务执行错误
+[2025-10-16T21:32:16.177Z] Task error-task failed: Task execution failed
+
+stderr | tests/e2e/concurrency-engine.e2e.test.ts > Concurrency Engine E2E Tests > 超时和错误处理 > 应该记录详细的错误信息
+[2025-10-16T21:32:17.179Z] Task detailed-error-task failed: Detailed error message with context
+
+stderr | tests/e2e/concurrency-engine.e2e.test.ts > Concurrency Engine E2E Tests > 超时和错误处理 > 应该正确释放槽位即使任务失败
+[2025-10-16T21:32:18.181Z] Task failed-task-for-slot failed: Task failed
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/e2e/concurrency-engine.e2e.test.ts > Concurrency Engine E2E Tests > 任务优先级和队列 > 应该按照优先级调度任务
+AssertionError: expected 1 to be less than 0
+ ❯ tests/e2e/concurrency-engine.e2e.test.ts:199:33
+    197| 
+    198|       expect(highPriorityIndex).toBeLessThan(normalPriorityIndex);
+    199|       expect(highPriorityIndex).toBeLessThan(lowPriorityIndex);
+       |                                 ^
+    200|     });
+    201| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/e2e/concurrency-engine.e2e.test.ts > Concurrency Engine E2E Tests > 依赖关系管理 > 应该正确处理任务依赖关系
+Error: Dependency failed: dependency-task
+ ❯ TaskRunner.checkDependencies src/core/TaskRunner.ts:116:15
+    114|       const depResult = this.storage.getResult(depId);
+    115|       if (!depResult || !depResult.success) {
+    116|         throw new Error(`Dependency failed: ${depId}`);
+       |               ^
+    117|       }
+    118|     }
+ ❯ TaskRunner.run src/core/TaskRunner.ts:34:16
+ ❯ tests/e2e/concurrency-engine.e2e.test.ts:270:69
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/e2e/concurrency-engine.e2e.test.ts > Concurrency Engine E2E Tests > 依赖关系管理 > 应该支持复杂的依赖链
+Error: Dependency failed: task-a
+ ❯ TaskRunner.checkDependencies src/core/TaskRunner.ts:116:15
+    114|       const depResult = this.storage.getResult(depId);
+    115|       if (!depResult || !depResult.success) {
+    116|         throw new Error(`Dependency failed: ${depId}`);
+       |               ^
+    117|       }
+    118|     }
+ ❯ TaskRunner.run src/core/TaskRunner.ts:34:16
+ ❯ tests/e2e/concurrency-engine.e2e.test.ts:371:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/e2e/concurrency-engine.e2e.test.ts > Concurrency Engine E2E Tests > 超时和错误处理 > 应该记录详细的错误信息
+AssertionError: expected 0 to be greater than 0
+ ❯ tests/e2e/concurrency-engine.e2e.test.ts:457:32
+    455|       expect(result!.startTime).toBeDefined();
+    456|       expect(result!.endTime).toBeDefined();
+    457|       expect(result!.duration).toBeGreaterThan(0);
+       |                                ^
+    458|     });
+    459| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+
+📍 进度: 12/16
+
+🚀 开始执行批次: e2e-mcp-toolkit
+📁 测试文件: 1个
+💾 内存限制: 6144MB
+⏱️  超时时间: 900秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=6144" npx vitest run "tests/e2e/mcp-toolkit.e2e.test.ts" --reporter=json --reporter=verbose --no-coverage
+✅ 批次 e2e-mcp-toolkit 完成
+📊 结果: 1/1 通过，耗时 1秒
+
+📍 进度: 13/16
+
+🚀 开始执行批次: acceptance
+📁 测试文件: 2个
+💾 内存限制: 3072MB
+⏱️  超时时间: 600秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=3072" npx vitest run "tests/acceptance/quickstart-acceptance.test.ts" "tests/acceptance/orchestrate-manual-path.contract.test.ts" --reporter=json --reporter=verbose --no-coverage
+✅ 批次 acceptance 完成
+📊 结果: 2/2 通过，耗时 2秒
+
+📍 进度: 14/16
+
+🚀 开始执行批次: remaining-integration
+📁 测试文件: 7个
+💾 内存限制: 4096MB
+⏱️  超时时间: 600秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=4096" npx vitest run "tests/integration/basic-features.test.ts" "tests/integration/new-features.test.ts" "tests/integration/conversationHandlers.test.ts" "tests/integration/error-handling.test.ts" "tests/integration/version-detection.test.ts" "tests/integration/mcp-compatibility.test.ts" "tests/integration/authHandlers.test.ts" --reporter=json --reporter=verbose --no-coverage
+❌ 批次 remaining-integration 失败
+⚠️  错误: Command failed: NODE_OPTIONS="--max-old-space-size=4096" npx vitest run "tests/integration/basic-features.test.ts" "tests/integration/new-features.test.ts" "tests/integration/conversationHandlers.test.ts" "tests/integration/error-handling.test.ts" "tests/integration/version-detection.test.ts" "tests/integration/mcp-compatibility.test.ts" "tests/integration/authHandlers.test.ts" --reporter=json --reporter=verbose --no-coverage
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/authHandlers.test.ts > authHandlers.loginChatGpt > 应返回 loginId 与 authUrl，契约校验通过
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/authHandlers.test.ts:114:37
+    112|     expect(res.jsonrpc).toBe('2.0');
+    113|     expect(res.id).toBe('req-2');
+    114|     expect(validateRes(res.result)).toBe(true);
+       |                                     ^
+    115|   });
+    116| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/11]⎯
+
+ FAIL  tests/integration/authHandlers.test.ts > authHandlers.loginChatGpt > 契约：request 允许任意附加属性
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/authHandlers.test.ts:148:29
+    146|   it('契约：request 允许任意附加属性', () => {
+    147|     const validateReq = ajv.compile(requestSchema);
+    148|     expect(validateReq({})).toBe(true);
+       |                             ^
+    149|     expect(validateReq({ a: 1, b: 'x' })).toBe(true);
+    150|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/11]⎯
+
+ FAIL  tests/integration/authHandlers.test.ts > authHandlers.loginChatGptComplete (notification) > 应创建符合契约的 JSON-RPC 通知
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/authHandlers.test.ts:171:36
+    169|     expect(notif.jsonrpc).toBe('2.0');
+    170|     expect(notif.method).toBe('loginChatGptComplete');
+    171|     expect(validate(notif.params)).toBe(true);
+       |                                    ^
+    172|   });
+    173| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/11]⎯
+
+ FAIL  tests/integration/authHandlers.test.ts > authHandlers.logoutChatGpt > 传入额外参数应被拒绝
+AssertionError: promise resolved "{ jsonrpc: '2.0', id: 5, …(1) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "id": 5,
++   "jsonrpc": "2.0",
++   "result": Object {
++     "success": true,
++   },
++ }
+
+ ❯ tests/integration/authHandlers.test.ts:268:69
+    266|       params: { extra: true },
+    267|     } as any;
+    268|     await expect(handleLogoutChatGpt(bad, () => ({ success: true }))).…
+       |                                                                     ^
+    269|       /invalid logoutchatgpt request parameters/i
+    270|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/11]⎯
+
+ FAIL  tests/integration/authHandlers.test.ts > authHandlers.logoutChatGpt > 契约：request 为空对象且不允许附加属性
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/authHandlers.test.ts:282:29
+    280|   it('契约：request 为空对象且不允许附加属性', () => {
+    281|     const validateReq = ajv.compile(requestSchema);
+    282|     expect(validateReq({})).toBe(true);
+       |                             ^
+    283|     expect(validateReq({ extra: 'x' })).toBe(false);
+    284|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/11]⎯
+
+ FAIL  tests/integration/conversationHandlers.test.ts > conversationHandlers.resumeConversation > 应返回 success=true 且包含 conversationId，并通过契约校验
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/conversationHandlers.test.ts:138:42
+    136|       conversationId: '0cc175b9-c0f1-49e3-9a78-7e52e2c6f861',
+    137|     });
+    138|     expect(validateResponse(res.result)).toBe(true);
+       |                                          ^
+    139|   });
+    140| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/11]⎯
+
+ FAIL  tests/integration/conversationHandlers.test.ts > conversationHandlers.listConversations > 应返回会话列表并符合响应契约
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/conversationHandlers.test.ts:288:42
+    286|     expect(res.id).toBe('req-1');
+    287|     expect(res.result).toEqual(mockResult);
+    288|     expect(validateResponse(res.result)).toBe(true);
+       |                                          ^
+    289|   });
+    290| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/11]⎯
+
+ FAIL  tests/integration/conversationHandlers.test.ts > conversationHandlers.listConversations > 应在无 params 时按空过滤处理
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/conversationHandlers.test.ts:304:42
+    302| 
+    303|     expect(res.result).toEqual({ conversations: [] });
+    304|     expect(validateResponse(res.result)).toBe(true);
+       |                                          ^
+    305|   });
+    306| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/11]⎯
+
+ FAIL  tests/integration/conversationHandlers.test.ts > conversationHandlers.listConversations > 应在参数无效时抛出错误
+AssertionError: promise resolved "{ jsonrpc: '2.0', id: 'req-bad', …(1) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "id": "req-bad",
++   "jsonrpc": "2.0",
++   "result": Object {
++     "conversations": Array [],
++   },
++ }
+
+ ❯ tests/integration/conversationHandlers.test.ts:330:5
+    328|     await expect(
+    329|       handleListConversations(badParams, async () => ({ conversations:…
+    330|     ).rejects.toThrow(/invalid listconversations request parameters/i);
+       |     ^
+    331|   });
+    332| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/11]⎯
+
+ FAIL  tests/integration/version-detection.test.ts > T050 版本检测与降级集成测试 > 场景 B2: 使用 0.44 独有参数（profile）应返回 JSON-RPC -32602 错误
+AssertionError: expected 'Invalid params: \'profile\' requires …' to match /in newConversation/
+
+- Expected: 
+/in newConversation/
+
++ Received: 
+"Invalid params: 'profile' requires Codex >= 0.44, current version is 0.42.5"
+
+ ❯ tests/integration/version-detection.test.ts:329:38
+    327|         expect(String(err?.message)).toMatch(/current.*0\.42\.5/);
+    328|         expect(String(err?.message)).toMatch(/>=\s*0\.44/);
+    329|         expect(String(err?.message)).toMatch(/in newConversation/);
+       |                                      ^
+    330|       }
+    331|     } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/11]⎯
+
+ FAIL  tests/integration/version-detection.test.ts > T050 版本检测与降级集成测试 > 场景 B3: 检测 0.44 独有配置，显示警告但继续启动
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/integration/version-detection.test.ts:392:83
+    390|       expect(lastParams).toBeDefined();
+    391|       const cfg = (lastParams && (lastParams as any).config) || {};
+    392|       expect(Object.prototype.hasOwnProperty.call(cfg, 'model_reasonin…
+       |                                                                                   ^
+    393|       expect(Object.prototype.hasOwnProperty.call(cfg, 'profile')).toB…
+    394| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/11]⎯
+
+
+
+📍 进度: 15/16
+
+🚀 开始执行批次: complex-integration
+📁 测试文件: 3个
+💾 内存限制: 5120MB
+⏱️  超时时间: 700秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=5120" npx vitest run "tests/integration/mvp1-single-process.test.ts" "tests/integration/approval-flow.test.ts" "tests/integration/config-validation.test.ts" --reporter=json --reporter=verbose --no-coverage
+❌ 批次 complex-integration 失败
+⚠️  错误: Command failed: NODE_OPTIONS="--max-old-space-size=5120" npx vitest run "tests/integration/mvp1-single-process.test.ts" "tests/integration/approval-flow.test.ts" "tests/integration/config-validation.test.ts" --reporter=json --reporter=verbose --no-coverage
+stderr | tests/integration/config-validation.test.ts > T051 配置验证与修正集成测试 > 场景 C1: 检测 gpt-5-codex + wire_api="chat" 风险配置并显示交互提示
+[BridgeLayer] Background task failed: Cannot access 'config2' before initialization
+
+stderr | tests/integration/config-validation.test.ts > T051 配置验证与修正集成测试 > 场景 C2: 用户确认 Y 后创建修正 Profile 并使用 --profile 启动
+[BridgeLayer] Background task failed: Cannot access 'config2' before initialization
+
+stderr | tests/integration/config-validation.test.ts > T051 配置验证与修正集成测试 > 场景 C3: 用户确认 N 后保留原配置启动（不创建 Profile）
+[BridgeLayer] Background task failed: Cannot access 'config2' before initialization
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/config-validation.test.ts > T051 配置验证与修正集成测试 > 场景 C1: 检测 gpt-5-codex + wire_api="chat" 风险配置并显示交互提示
+Error: Condition not met within timeout
+ ❯ waitForCondition tests/integration/config-validation.test.ts:49:9
+     47|     await new Promise((r) => setTimeout(r, intervalMs));
+     48|   }
+     49|   throw new Error('Condition not met within timeout');
+       |         ^
+     50| }
+     51| 
+ ❯ tests/integration/config-validation.test.ts:306:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/integration/config-validation.test.ts > T051 配置验证与修正集成测试 > 场景 C2: 用户确认 Y 后创建修正 Profile 并使用 --profile 启动
+Error: Condition not met within timeout
+ ❯ waitForCondition tests/integration/config-validation.test.ts:49:9
+     47|     await new Promise((r) => setTimeout(r, intervalMs));
+     48|   }
+     49|   throw new Error('Condition not met within timeout');
+       |         ^
+     50| }
+     51| 
+ ❯ tests/integration/config-validation.test.ts:350:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/integration/config-validation.test.ts > T051 配置验证与修正集成测试 > 场景 C3: 用户确认 N 后保留原配置启动（不创建 Profile）
+Error: Condition not met within timeout
+ ❯ waitForCondition tests/integration/config-validation.test.ts:49:9
+     47|     await new Promise((r) => setTimeout(r, intervalMs));
+     48|   }
+     49|   throw new Error('Condition not met within timeout');
+       |         ^
+     50| }
+     51| 
+ ❯ tests/integration/config-validation.test.ts:415:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+
+📍 进度: 16/16
+
+🚀 开始执行批次: remaining-contracts
+📁 测试文件: 7个
+💾 内存限制: 2048MB
+⏱️  超时时间: 300秒
+🔧 执行命令: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/contract/execCommandApproval.contract.test.ts" "tests/contract/resumeConversation.contract.test.ts" "tests/contract/gitDiffToRemote.contract.test.ts" "tests/contract/setDefaultModel.contract.test.ts" "tests/contract/interruptConversation.contract.test.ts" "tests/contract/archiveConversation.contract.test.ts" "tests/contract/getUserAgent.contract.test.ts" --reporter=json --reporter=verbose --no-coverage
+❌ 批次 remaining-contracts 失败
+⚠️  错误: Command failed: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/contract/execCommandApproval.contract.test.ts" "tests/contract/resumeConversation.contract.test.ts" "tests/contract/gitDiffToRemote.contract.test.ts" "tests/contract/setDefaultModel.contract.test.ts" "tests/contract/interruptConversation.contract.test.ts" "tests/contract/archiveConversation.contract.test.ts" "tests/contract/getUserAgent.contract.test.ts" --reporter=json --reporter=verbose --no-coverage
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/contract/execCommandApproval.contract.test.ts > MCP Contract: execCommandApproval > Request Validation > should validate minimal command approval request
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/execCommandApproval.contract.test.ts:19:40
+     17|       };
+     18| 
+     19|       expect(validateRequest(request)).toBe(true);
+       |                                        ^
+     20|     });
+     21| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tests/contract/execCommandApproval.contract.test.ts > MCP Contract: execCommandApproval > Request Validation > should validate request including optional reason
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/execCommandApproval.contract.test.ts:31:40
+     29|       };
+     30| 
+     31|       expect(validateRequest(request)).toBe(true);
+       |                                        ^
+     32|     });
+     33| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  tests/contract/execCommandApproval.contract.test.ts > MCP Contract: execCommandApproval > Response Validation > should validate allow decision
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/execCommandApproval.contract.test.ts:76:42
+     74|       };
+     75| 
+     76|       expect(validateResponse(response)).toBe(true);
+       |                                          ^
+     77|     });
+     78| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  tests/contract/execCommandApproval.contract.test.ts > MCP Contract: execCommandApproval > Response Validation > should validate deny decision with note
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/execCommandApproval.contract.test.ts:85:42
+     83|       };
+     84| 
+     85|       expect(validateResponse(response)).toBe(true);
+       |                                          ^
+     86|     });
+     87| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  tests/contract/interruptConversation.contract.test.ts > MCP Contract: interruptConversation > Response Validation > should validate response with optional message
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/interruptConversation.contract.test.ts:60:42
+     58|       };
+     59| 
+     60|       expect(validateResponse(response)).toBe(true);
+       |                                          ^
+     61|     });
+     62| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  tests/contract/resumeConversation.contract.test.ts > MCP Contract: resumeConversation > Response Validation > should validate success response including conversationId
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/resumeConversation.contract.test.ts:52:42
+     50|       };
+     51| 
+     52|       expect(validateResponse(response)).toBe(true);
+       |                                          ^
+     53|     });
+     54| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  tests/contract/setDefaultModel.contract.test.ts > MCP Contract: setDefaultModel > Request Validation > 接受同时设置推理强度的请求
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/setDefaultModel.contract.test.ts:37:9
+     35|           reasoningEffort: 'high',
+     36|         })
+     37|       ).toBe(true);
+       |         ^
+     38|     });
+     39| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  tests/contract/setDefaultModel.contract.test.ts > MCP Contract: setDefaultModel > Response Validation > 接受包含 message 的响应
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/contract/setDefaultModel.contract.test.ts:78:9
+     76|           message: '默认模型未找到',
+     77|         })
+     78|       ).toBe(true);
+       |         ^
+     79|     });
+     80| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+
+================================================================================
+📊 测试执行完成 - 分批测试报告
+================================================================================
+
+📈 总体统计:
+   测试总数: 32
+   通过数量: 24
+   失败数量: 8
+   成功率: 75.0%
+   总耗时: 77s
+   批次数: 16
+   成功批次: 8
+   失败批次: 8
+
+📋 批次详情:
+   ✅ core-units: 9/9 (100%) - 2s
+   ✅ small-units: 5/5 (100%) - 1s
+   ✅ http-server: 1/1 (100%) - 1s
+   ✅ contracts: 4/4 (100%) - 1s
+   ❌ small-contracts: 0/1 (0%) - 1s
+      错误: Command failed: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/contract/sendUserTurn...
+   ❌ auth-contracts: 0/1 (0%) - 1s
+      错误: Command failed: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/contract/getAuthStatu...
+   ❌ medium-integration: 0/1 (0%) - 2s
+      错误: Command failed: NODE_OPTIONS="--max-old-space-size=3072" npx vitest run "tests/integration/configHan...
+   ❌ taskrunner-tests: 0/1 (0%) - 1s
+      错误: Command failed: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/unit/core/TaskRunner....
+   ✅ mcp-server: 1/1 (100%) - 1s
+   ✅ e2e-http-api: 1/1 (100%) - 2s
+   ❌ e2e-concurrency: 0/1 (0%) - 50s
+      错误: Command failed: NODE_OPTIONS="--max-old-space-size=6144" npx vitest run "tests/e2e/concurrency-engin...
+   ✅ e2e-mcp-toolkit: 1/1 (100%) - 1s
+   ✅ acceptance: 2/2 (100%) - 2s
+   ❌ remaining-integration: 0/1 (0%) - 2s
+      错误: Command failed: NODE_OPTIONS="--max-old-space-size=4096" npx vitest run "tests/integration/basic-fea...
+   ❌ complex-integration: 0/1 (0%) - 8s
+      错误: Command failed: NODE_OPTIONS="--max-old-space-size=5120" npx vitest run "tests/integration/mvp1-sing...
+   ❌ remaining-contracts: 0/1 (0%) - 1s
+      错误: Command failed: NODE_OPTIONS="--max-old-space-size=2048" npx vitest run "tests/contract/execCommandA...
+
+📄 详细报告已保存至: test-results/batch-test-report.json

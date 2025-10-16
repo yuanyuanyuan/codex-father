@@ -1,7 +1,10 @@
-name: MCP Manual Release
+# 已禁用：MCP子包现在随主项目一起发布
+# 请使用主项目发布流程（git tag v*.*.*）来同时发布主项目和MCP子包
+
+name: MCP Manual Release (Disabled)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch_disabled:
     inputs:
       version:
         description: 'Version to release (e.g., 3.2.1)'
@@ -392,11 +395,13 @@ jobs:
             echo "**FAILED** - Please check the job logs for details" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Overall status check
+      - name: Overall status check - Failure
         if: contains(needs.*.result, 'failure')
         run: |
           echo "❌ One or more release steps failed"
           exit 1
-      else
+      
+      - name: Overall status check - Success
+        if: "!contains(needs.*.result, 'failure')"
         run: |
           echo "🎉 All release steps completed successfully!"

@@ -17,7 +17,8 @@
         "description": "状态过滤"
       }
     },
-    "required": []
+    "required": [],
+    "additionalProperties": false
   },
   "response": {
     "type": "object",
@@ -42,7 +43,8 @@
             "title": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         }
       },
       "total": {
@@ -52,6 +54,12 @@
         "type": "boolean"
       }
     },
-    "required": ["conversations", "total", "hasMore"]
-  }
+    "required": [
+      "conversations",
+      "total",
+      "hasMore"
+    ],
+    "additionalProperties": false
+  },
+  "additionalProperties": false
 }

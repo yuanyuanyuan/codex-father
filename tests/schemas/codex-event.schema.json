@@ -10,13 +10,19 @@
       },
       "data": {
         "type": "object",
-        "description": "事件数据"
+        "description": "事件数据",
+        "additionalProperties": false
       },
       "timestamp": {
         "type": "string",
         "description": "时间戳"
       }
     },
-    "required": ["type", "data"]
-  }
+    "required": [
+      "type",
+      "data"
+    ],
+    "additionalProperties": false
+  },
+  "additionalProperties": false
 }

@@ -154,12 +154,12 @@ class BatchTestRunner {
         priority: 7,
       },
 
-      // 第八批：TaskRunner相关测试（高压力）
+      // 第八批：TaskRunner测试（简化版，避免内存泄漏）
       {
         name: 'taskrunner-tests',
-        files: ['tests/unit/core/TaskRunner.unit.test.ts', 'tests/unit/TaskRunner.test.ts'],
-        memoryLimit: '4096',
-        timeout: 500000,
+        files: ['tests/unit/core/TaskRunner.simple.test.ts'],
+        memoryLimit: '2048',
+        timeout: 300000,
         priority: 8,
       },
 

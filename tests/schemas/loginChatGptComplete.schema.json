@@ -13,7 +13,10 @@
         "description": "对话ID"
       }
     },
-    "required": ["sessionId"]
+    "required": [
+      "sessionId"
+    ],
+    "additionalProperties": false
   },
   "response": {
     "type": "object",
@@ -28,6 +31,10 @@
         "type": "string"
       }
     },
-    "required": ["success"]
-  }
+    "required": [
+      "success"
+    ],
+    "additionalProperties": false
+  },
+  "additionalProperties": false
 }

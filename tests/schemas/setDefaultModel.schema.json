@@ -5,11 +5,16 @@
     "type": "object",
     "properties": {
       "model": {
-        "type": ["string", "null"],
+        "type": [
+          "string",
+          "null"
+        ],
         "description": "模型名称"
       }
     },
-    "required": ["model"],
+    "required": [
+      "model"
+    ],
     "additionalProperties": false
   },
   "response": {
@@ -19,6 +24,10 @@
         "type": "boolean"
       }
     },
-    "required": ["success"]
-  }
+    "required": [
+      "success"
+    ],
+    "additionalProperties": false
+  },
+  "additionalProperties": false
 }

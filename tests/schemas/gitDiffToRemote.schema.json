@@ -6,7 +6,8 @@
     "properties": {
       "cwd": {
         "type": "string",
-        "description": "工作目录路径"
+        "description": "工作目录路径",
+        "minLength": 1
       },
       "repository": {
         "type": "string",
@@ -25,19 +26,27 @@
         "description": "分支"
       }
     },
-    "required": ["cwd"],
+    "required": [
+      "cwd"
+    ],
     "additionalProperties": false
   },
   "response": {
     "type": "object",
     "properties": {
       "sha": {
-        "type": "string"
+        "type": "string",
+        "pattern": "^[0-9a-f]{40}$"
       },
       "diff": {
         "type": "string"
       }
     },
-    "required": ["sha", "diff"]
-  }
+    "required": [
+      "sha",
+      "diff"
+    ],
+    "additionalProperties": false
+  },
+  "additionalProperties": false
 }

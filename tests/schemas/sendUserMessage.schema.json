@@ -2,47 +2,114 @@
   "request": {
     "type": "object",
     "properties": {
-      "jsonrpc": { "type": "string", "enum": ["2.0"] },
-      "method": { "type": "string", "enum": ["sendUserMessage"] },
+      "jsonrpc": {
+        "type": "string",
+        "enum": [
+          "2.0"
+        ]
+      },
+      "method": {
+        "type": "string",
+        "enum": [
+          "sendUserMessage"
+        ]
+      },
       "params": {
         "type": "object",
         "properties": {
-          "message": { "type": "string" },
-          "conversationId": { "type": "string" },
+          "message": {
+            "type": "string"
+          },
+          "conversationId": {
+            "type": "string"
+          },
           "attachments": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "type": { "type": "string" },
-                "name": { "type": "string" },
-                "content": { "type": "string" },
-                "size": { "type": "number" }
+                "type": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "number"
+                }
               },
-              "required": ["type", "name", "content"]
+              "required": [
+                "type",
+                "name",
+                "content"
+              ],
+              "additionalProperties": false
             }
           }
         },
-        "required": ["message", "conversationId"]
+        "required": [
+          "message",
+          "conversationId"
+        ],
+        "additionalProperties": false
       }
     },
-    "required": ["jsonrpc", "method", "params"]
+    "required": [
+      "jsonrpc",
+      "method",
+      "params"
+    ],
+    "additionalProperties": false
   },
   "response": {
     "type": "object",
     "properties": {
-      "jsonrpc": { "type": "string", "enum": ["2.0"] },
-      "id": { "type": ["string", "number"] },
+      "jsonrpc": {
+        "type": "string",
+        "enum": [
+          "2.0"
+        ]
+      },
+      "id": {
+        "type": [
+          "string",
+          "number"
+        ]
+      },
       "result": {
         "type": "object",
         "properties": {
-          "messageId": { "type": "string" },
-          "status": { "type": "string", "enum": ["sent", "failed"] },
-          "timestamp": { "type": "string", "format": "date-time" }
+          "messageId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "failed"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
         },
-        "required": ["messageId", "status", "timestamp"]
+        "required": [
+          "messageId",
+          "status",
+          "timestamp"
+        ],
+        "additionalProperties": false
       }
     },
-    "required": ["jsonrpc", "id", "result"]
+    "required": [
+      "jsonrpc",
+      "id",
+      "result"
+    ],
+    "additionalProperties": false
   }
 }
