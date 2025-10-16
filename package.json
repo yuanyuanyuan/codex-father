@@ -62,7 +62,7 @@
     "lint": "eslint core scripts --fix",
     "lint:check": "eslint core scripts",
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "start": "node dist/core/cli/start.ts",
     "mcp:start": "node dist/core/cli/start.ts mcp",
     "check:all": "npm run lint",

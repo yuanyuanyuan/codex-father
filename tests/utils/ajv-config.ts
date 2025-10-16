@@ -9,7 +9,6 @@ import Ajv from 'ajv';
  * Create a properly configured AJV instance for schema validation
  * 
  * Configuration:
- * - strict: false - Allows some JSON Schema features not in strict mode
  * - allErrors: true - Collects all validation errors instead of stopping at first
  * - removeAdditional: false - Don't modify the validated object
  * - useDefaults: false - Don't apply default values from schema
@@ -18,7 +17,6 @@ import Ajv from 'ajv';
  */
 export function createAjvValidator(): Ajv {
   return new Ajv({
-    strict: false,
     allErrors: true,
     removeAdditional: false,
     useDefaults: false,
